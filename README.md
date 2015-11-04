@@ -1,1 +1,1 @@
-# Aliyun OSS Python SDK
+# Python SDK for Aliyun OSS

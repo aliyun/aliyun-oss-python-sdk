@@ -1,21 +1,8 @@
 import unittest
 import oss
-import os
 import logging
-import random
-import string
 
-
-OSS_ID = os.getenv("OSS_TEST_ACCESS_KEY_ID")
-OSS_SECRET = os.getenv("OSS_TEST_ACCESS_KEY_SECRET")
-OSS_ENDPOINT = os.getenv("OSS_TEST_ENDPOINT")
-OSS_BUCKET = os.getenv("OSS_TEST_BUCKET")
-
-logging.basicConfig(level=logging.DEBUG)
-
-
-def random_string(n):
-    return ''.join(random.choice(string.letters) for i in xrange(n))
+from .common import *
 
 
 class TestBucket(unittest.TestCase):
@@ -40,4 +27,5 @@ class TestBucket(unittest.TestCase):
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG)
     unittest.main()

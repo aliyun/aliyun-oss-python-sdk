@@ -1,8 +1,10 @@
 import xml.etree.ElementTree as ElementTree
 import urllib
+import io
 
-from .result import (SimplifiedObjectInfo,
-                     SimplifiedBucketInfo)
+from .models import (SimplifiedObjectInfo,
+                     SimplifiedBucketInfo,
+                     PartInfo)
 
 
 def _find_tag(parent, path):
@@ -20,6 +22,10 @@ def _find_bool(parent, path):
         return False
     else:
         raise ValueError("parse xml: value of " + path + " is not a boolean under " + parent.tag)
+
+
+def _find_int(parent, path):
+    return int(_find_tag(parent, path))
 
 
 def _find_object(parent, path, url_encoded):
@@ -88,3 +94,43 @@ def parse_list_buckets(result, body):
             _find_tag(bucket_node, 'Location'),
             _find_tag(bucket_node, 'CreationDate')
         ))
+
+
+def parse_init_multipart_upload(result, body):
+    root = ElementTree.fromstring(body)
+    result.upload_id = _find_tag(root, 'UploadId')
+
+    return result
+
+
+def parse_list_parts(result, body):
+    root = ElementTree.fromstring(body)
+
+    result.is_truncated = _find_bool(root, 'IsTruncated')
+    result.next_marker = _find_tag(root, 'NextPartNumberMarker')
+    for part_node in root.findall('Part'):
+        result.parts.append(PartInfo(
+            _find_int(part_node, 'PartNumber'),
+            _find_tag(part_node, 'ETag').strip('"'),
+            _find_int(part_node, 'Size')
+        ))
+
+    return result
+
+
+def to_complete_upload_request(parts):
+    root = ElementTree.Element('CompleteMultipartUpload')
+    for p in parts:
+        part_node = ElementTree.SubElement(root, "Part")
+        ElementTree.SubElement(part_node, 'PartNumber').text = str(p.part_number)
+        ElementTree.SubElement(part_node, 'ETag').text = '"{}"'.format(p.etag)
+
+    tree = ElementTree.ElementTree(root)
+
+    xml = None
+    with io.BytesIO(xml) as f:
+        tree.write(f, xml_declaration=True)
+        xml = f.getvalue()
+
+    return xml
+

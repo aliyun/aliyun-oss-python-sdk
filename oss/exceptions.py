@@ -1,4 +1,4 @@
-from .result import ErrorResult
+from .models import ErrorResult
 
 _OSS_ERROR_TO_EXCEPTION = {} # populated at end of module
 
@@ -20,6 +20,11 @@ class NoSuchBucket(OssError):
 class NoSuchKey(OssError):
     status = 404
     code = 'NoSuchKey'
+
+
+class NoSuchUpload(OssError):
+    status = 404
+    code = 'NoSuchUpload'
 
 
 def make_exception(resp):

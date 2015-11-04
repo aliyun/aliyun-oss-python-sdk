@@ -3,12 +3,14 @@ from . import http
 
 from .exceptions import make_exception
 
-from .result import (RequestResult,
+from .models import (RequestResult,
                      ListObjectsResult,
                      GetObjectResult,
                      PutObjectResult,
                      BucketResult,
-                     ListBucketsResult)
+                     ListBucketsResult,
+                     InitMultipartUploadResult,
+                     ListPartsResult)
 
 import urlparse
 
@@ -67,6 +69,36 @@ class Bucket(_Base):
     def delete_object(self, object_name):
         resp = self.__do_object('DELETE', object_name)
         return RequestResult(resp)
+
+    def init_multipart_upload(self, object_name):
+        resp = self.__do_object('POST', object_name, params={'uploads': ''})
+        result = InitMultipartUploadResult(resp)
+        return xml_utils.parse_init_multipart_upload(result, resp.read())
+
+    def upload_part(self, object_name, upload_id, part_number, data):
+        resp = self.__do_object('PUT', object_name,
+                                params={'uploadId': upload_id, 'partNumber': str(part_number)},
+                                data=data)
+        return PutObjectResult(resp)
+
+    def complete_multipart_upload(self, object_name, upload_id, parts):
+        data = xml_utils.to_complete_upload_request(parts)
+        resp = self.__do_object('POST', object_name,
+                                params={'uploadId': upload_id},
+                                data=data)
+        return PutObjectResult(resp)
+
+    def abort_multipart_upload(self, object_name, upload_id):
+        resp = self.__do_object('DELETE', object_name,
+                                params={'uploadId': upload_id})
+        return RequestResult(resp)
+
+    def list_parts(self, object_name, upload_id,
+                   next_marker=''):
+        resp = self.__do_object('GET', object_name,
+                                params={'uploadId': upload_id, 'part-number-marker': next_marker})
+        result = ListPartsResult(resp)
+        return xml_utils.parse_list_parts(result, resp.read())
 
     def create_bucket(self, permission):
         resp = self.__do_bucket('PUT', headers={'x-oss-acl': permission})

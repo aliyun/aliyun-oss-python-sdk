@@ -1,22 +1,10 @@
 import unittest
-import string
-import random
 import oss
-import os
 import logging
 
 from oss.exceptions import NoSuchKey
 
-OSS_ID = os.getenv("OSS_TEST_ACCESS_KEY_ID")
-OSS_SECRET = os.getenv("OSS_TEST_ACCESS_KEY_SECRET")
-OSS_ENDPOINT = os.getenv("OSS_TEST_ENDPOINT")
-OSS_BUCKET = os.getenv("OSS_TEST_BUCKET")
-
-logging.basicConfig(level=logging.DEBUG)
-
-
-def random_string(n):
-    return ''.join(random.choice(string.letters) for i in xrange(n))
+from common import *
 
 
 class TestObject(unittest.TestCase):
@@ -44,4 +32,5 @@ class TestObject(unittest.TestCase):
         self.assertEqual(result.status, 200)
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG)
     unittest.main()

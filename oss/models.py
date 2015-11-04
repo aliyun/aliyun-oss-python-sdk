@@ -1,6 +1,13 @@
 import xml_utils
 
 
+class PartInfo(object):
+    def __init__(self, part_number, etag, size=None):
+        self.part_number = part_number
+        self.etag = etag
+        self.size = size
+
+
 class RequestResult(object):
     def __init__(self, resp):
         self.resp = resp
@@ -30,6 +37,13 @@ class GetObjectResult(RequestResult):
 class PutObjectResult(RequestResult):
     def __init__(self, resp):
         super(PutObjectResult, self).__init__(resp)
+        self.etag = resp.headers['etag'].strip('"')
+
+
+class InitMultipartUploadResult(RequestResult):
+    def __init__(self, resp):
+        super(InitMultipartUploadResult, self).__init__(resp)
+        self.upload_id = None
 
 
 class ListObjectsResult(RequestResult):
@@ -69,3 +83,11 @@ class ListBucketsResult(RequestResult):
         self.is_truncated = False
         self.next_marker = ''
         self.buckets = []
+
+
+class ListPartsResult(RequestResult):
+    def __init__(self, resp):
+        super(ListPartsResult, self).__init__(resp)
+        self.is_truncated = False
+        self.next_marker = ''
+        self.parts = []
