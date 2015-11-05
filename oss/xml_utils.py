@@ -4,7 +4,8 @@ import io
 
 from .models import (SimplifiedObjectInfo,
                      SimplifiedBucketInfo,
-                     PartInfo)
+                     PartInfo,
+                     MultipartUploadInfo)
 
 
 def _find_tag(parent, path):
@@ -36,6 +37,13 @@ def _find_object(parent, path, url_encoded):
         return name
 
 
+def _is_url_encoding(root):
+    node = root.find('EncodingType')
+    if node is not None and node.text == 'url':
+        return True
+    else:
+        return False
+
 #TODO: generalize xml to list k-v interfaces
 def parse_error_body(body):
     try:
@@ -53,10 +61,7 @@ def parse_error_body(body):
 
 def parse_list_objects(result, body):
     root = ElementTree.fromstring(body)
-    if root.find('EncodingType') and root.find('EncodingType').text == 'url':
-        url_encoded = True
-    else:
-        url_encoded = False
+    url_encoded = _is_url_encoding(root)
 
     result.is_truncated = _find_bool(root, 'IsTruncated')
     if result.is_truncated:
@@ -83,10 +88,10 @@ def parse_list_buckets(result, body):
     if not root.find('IsTruncated'):
         result.is_truncated = False
     else:
-        result.is_truncated = _find_bool('IsTruncated')
+        result.is_truncated = _find_bool(root, 'IsTruncated')
 
     if result.is_truncated:
-        result.next_marker = _find_tag('NextMarker')
+        result.next_marker = _find_tag(root, 'NextMarker')
 
     for bucket_node in root.find('Buckets').findall('Bucket'):
         result.buckets.append(SimplifiedBucketInfo(
@@ -99,6 +104,28 @@ def parse_list_buckets(result, body):
 def parse_init_multipart_upload(result, body):
     root = ElementTree.fromstring(body)
     result.upload_id = _find_tag(root, 'UploadId')
+
+    return result
+
+
+def parse_list_multipart_uploads(result, body):
+    root = ElementTree.fromstring(body)
+
+    url_encoded = _is_url_encoding(root)
+
+    result.is_truncated = _find_bool(root, 'IsTruncated')
+    result.next_key_marker = _find_tag(root, 'NextKeyMarker')
+    result.next_upload_id_marker = _find_tag('NextUploadIdMarker')
+
+    for upload_node in root.findall('Upload'):
+        result.upload_list.append(MultipartUploadInfo(
+            _find_object(upload_node, 'Key', url_encoded),
+            _find_tag(upload_node, 'UploadId'),
+            _find_tag(upload_node, 'Initiated')
+        ))
+
+    for prefix_node in root.findall('CommonPrefixes'):
+        result.prefix_list.append(_find_object(prefix_node, 'Prefix'))
 
     return result
 

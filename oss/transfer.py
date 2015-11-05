@@ -1,35 +1,99 @@
-from . models import PartInfo
+from . models import PartInfo, MultipartUploadInfo
 from .exceptions import NoSuchUpload
 
 
-class PartsIterator(object):
-    def __init__(self, bucket, object_name, upload_id):
-        self.bucket = bucket
-        self.object_name = object_name
-        self.upload_id = upload_id
-        self.parts = []
-
-        self.next_marker = ''
+class _BaseIterator(object):
+    def __init__(self, marker):
         self.is_truncated = True
+        self.next_marker = marker
+
+        self.entries = []
+
+    def _fetch(self):
+        raise NotImplemented
 
     def __iter__(self):
         return self
 
     def __next__(self):
         while True:
-            if self.parts:
-                return self.parts.pop(0)
+            if self.entries:
+                return self.entries.pop(0)
 
             if not self.is_truncated:
                 raise StopIteration
 
-            result = self.bucket.list_parts(self.object_name, self.upload_id, next_marker=self.next_marker)
-            self.parts = result.parts
-            self.next_marker = result.next_marker
-            self.is_truncated = result.is_truncated
+            self.is_truncated, self.next_marker= self._fetch()
 
     def next(self):
         return self.__next__()
+
+
+class BucketIterator(_BaseIterator):
+    def __init__(self, service, prefix='', marker=''):
+        super(BucketIterator, self).__init__(marker)
+        self.service = service
+        self.prefix = prefix
+
+    def _fetch(self):
+        result = self.service.list_buckets(prefix=self.prefix, marker=self.next_marker)
+        self.entries = result.buckets
+
+        return result.is_truncated, result.next_marker
+
+
+class ObjectIterator(_BaseIterator):
+    def __init__(self, bucket, prefix='', delimiter='', marker=''):
+        super(ObjectIterator, self).__init__(marker)
+
+        self.bucket = bucket
+        self.prefix = prefix
+        self.delimiter = delimiter
+
+    def _fetch(self):
+        result = self.bucket.list_objects(prefix=self.prefix,
+                                          delimiter=self.delimiter,
+                                          marker=self.next_marker)
+        self.entries = result.object_list + result.prefix_list
+        self.entries.sort()
+
+        return result.is_truncated, result.next_marker
+
+
+class MultipartUploadIterator(_BaseIterator):
+    def __init__(self, bucket, prefix='', delimiter='', key_marker='', upload_id_marker=''):
+        super(MultipartUploadIterator,self).__init__(key_marker)
+
+        self.bucket = bucket
+        self.prefix = prefix
+        self.delimiter = delimiter
+        self.next_upload_id_marker = upload_id_marker
+
+    def _fetch(self):
+        result = self.bucket.list_multipart_uploads(prefix=self.prefix,
+                                                    delimiter=self.delimiter,
+                                                    key_marker=self.next_marker,
+                                                    upload_id_marker=self.next_upload_id_marker)
+        self.entries = result.upload_list + [MultipartUploadInfo(prefix) for prefix in result.prefix_list]
+        self.entries.sort(key=lambda u: u.object_name)
+
+        self.next_upload_id_marker = result.next_upload_id_marker
+        return result.is_truncated, result.next_key_marker
+
+
+class PartIterator(_BaseIterator):
+    def __init__(self, bucket, object_name, upload_id, marker='0'):
+        super(PartIterator, self).__init__(marker)
+
+        self.bucket = bucket
+        self.object_name = object_name
+        self.upload_id = upload_id
+
+    def _fetch(self):
+        result = self.bucket.list_parts(self.object_name, self.upload_id, marker=self.next_marker)
+        self.entries = result.parts
+
+        return result.is_truncated, result.next_marker
 
 
 class _SizedStreamReader(object):
@@ -92,7 +156,7 @@ class ResumableUploader(object):
 
         if self.upload_id:
             try:
-                uploaded_parts = list(PartsIterator(self.bucket, self.object_name, self.upload_id))
+                uploaded_parts = list(PartIterator(self.bucket, self.object_name, self.upload_id))
             except NoSuchUpload:
                 self.upload_id = ''
 

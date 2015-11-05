@@ -39,8 +39,11 @@ class Service(_Base):
                  session=None):
         super(Service, self).__init__(auth, endpoint, False, session)
 
-    def list_buckets(self):
-        resp = self._do('GET', '', '')
+    def list_buckets(self, prefix='', marker='', max_keys=100):
+        resp = self._do('GET', '', '',
+                        params={'prefix': prefix,
+                                'marker': marker,
+                                'max-keys': max_keys})
         result = ListBucketsResult(resp)
         xml_utils.parse_list_buckets(result, resp.read())
         return result
@@ -53,8 +56,13 @@ class Bucket(_Base):
         super(Bucket, self).__init__(auth, endpoint, is_cname, session)
         self.bucket_name = bucket_name
 
-    def list_objects(self):
-        resp = self.__do_object('GET', '')
+    def list_objects(self, prefix='', delimiter='', marker='', max_keys=100):
+        resp = self.__do_object('GET', '',
+                                params={'prefix': prefix,
+                                        'delimiter': delimiter,
+                                        'marker': marker,
+                                        'max-keys': max_keys,
+                                        'encoding-type': 'url'})
         result = ListObjectsResult(resp)
         return xml_utils.parse_list_objects(result, resp.read())
 
@@ -93,10 +101,27 @@ class Bucket(_Base):
                                 params={'uploadId': upload_id})
         return RequestResult(resp)
 
+    def list_multipart_uploads(self,
+                               prefix='',
+                               delimiter='',
+                               key_marker='',
+                               upload_id_marker='',
+                               max_uploads=1000):
+        resp = self.__do_object('GET',
+                                params={'uploads': '',
+                                        'prefix': prefix,
+                                        'delimiter': delimiter,
+                                        'key-marker': key_marker,
+                                        'upload-id-marker': upload_id_marker,
+                                        'max-uploads': max_uploads,
+                                        'encoding-type': 'url'})
+        result = ListMultipartUploadsResult(resp)
+        return xml_utils.parse_list_multipart_uploads(result, resp.read())
+
     def list_parts(self, object_name, upload_id,
-                   next_marker=''):
+                   marker=''):
         resp = self.__do_object('GET', object_name,
-                                params={'uploadId': upload_id, 'part-number-marker': next_marker})
+                                params={'uploadId': upload_id, 'part-number-marker': marker})
         result = ListPartsResult(resp)
         return xml_utils.parse_list_parts(result, resp.read())
 

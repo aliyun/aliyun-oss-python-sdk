@@ -85,6 +85,23 @@ class ListBucketsResult(RequestResult):
         self.buckets = []
 
 
+class MultipartUploadInfo(object):
+    def __init__(self, object_name, upload_id, creation_time):
+        self.object_name = object_name
+        self.upload_id = upload_id
+        self.creation_time = creation_time
+
+
+class ListMultipartUploadsResult(RequestResult):
+    def __init__(self, resp):
+        super(ListMultipartUploadsResult, self).__init__(resp)
+        self.is_truncated = False
+        self.next_key_marker = ''
+        self.next_upload_id_marker = ''
+        self.upload_list = []
+        self.prefix_list = []
+
+
 class ListPartsResult(RequestResult):
     def __init__(self, resp):
         super(ListPartsResult, self).__init__(resp)

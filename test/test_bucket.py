@@ -2,7 +2,7 @@ import unittest
 import oss
 import logging
 
-from .common import *
+from common import *
 
 
 class TestBucket(unittest.TestCase):
@@ -12,6 +12,10 @@ class TestBucket(unittest.TestCase):
 
     def setUp(self):
         self.bucket = oss.Bucket(oss.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
+
+    def test_bucket_iterator(self):
+        service = oss.Service(oss.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT)
+        self.assertTrue(OSS_BUCKET in (b.name for b in oss.BucketIterator(service)))
 
     def test_bucket(self):
         auth = oss.Auth(OSS_ID, OSS_SECRET)
