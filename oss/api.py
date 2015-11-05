@@ -69,7 +69,7 @@ class Bucket(_Base):
         return xml_utils.parse_list_objects(result, resp.read())
 
     def put_object(self, object_name, data, headers=None):
-        headers = utils.set_content_type(headers, object_name)
+        headers = utils.set_content_type(http.CaseInsensitiveDict(headers), object_name)
 
         resp = self.__do_object('PUT', object_name, data=data, headers=headers)
         return PutObjectResult(resp)
@@ -83,7 +83,7 @@ class Bucket(_Base):
         return RequestResult(resp)
 
     def init_multipart_upload(self, object_name, headers=None):
-        headers = utils.set_content_type(headers, object_name)
+        headers = utils.set_content_type(http.CaseInsensitiveDict(headers), object_name)
 
         resp = self.__do_object('POST', object_name, params={'uploads': ''}, headers=headers)
         result = InitMultipartUploadResult(resp)

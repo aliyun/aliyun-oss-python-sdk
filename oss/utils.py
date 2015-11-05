@@ -25,23 +25,14 @@ def content_type_by_name(name):
     return mimetypes.guess_type(name)[0]
 
 
-def case_find(d, key):
-    for k, v in d.items():
-        if key.lower() == k.lower():
-            return k
-
-    return None
-
-
 def set_content_type(headers, name):
     headers = headers or {}
 
-    key = case_find(headers, 'content-type')
-    if key:
+    if 'Content-Type' in headers:
         return headers
 
     content_type = content_type_by_name(name)
     if content_type:
-        headers['content-type'] = content_type
+        headers['Content-Type'] = content_type
 
     return headers

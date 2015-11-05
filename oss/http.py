@@ -1,4 +1,5 @@
 import requests
+from requests.structures import CaseInsensitiveDict
 
 
 class Session(object):
@@ -23,10 +24,10 @@ class Request(object):
         self.data = data
         self.params = params or {}
 
-        if headers is None:
-            self.headers = {}
+        if not isinstance(headers, CaseInsensitiveDict):
+            self.headers = CaseInsensitiveDict(headers)
         else:
-            self.headers = dict((k.lower(), v) for k, v in headers.items())
+            self.headers = headers
 
 
 class Response(object):
