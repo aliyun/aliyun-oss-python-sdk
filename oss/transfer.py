@@ -57,38 +57,83 @@ class _SizedStreamReader(object):
 _MAX_PART_COUNT = 10000
 _MIN_PART_SIZE = 100 * 1024
 
+_PREFERRED_PART_SIZE = 100 * 1024 * 1024
+_PREFERRED_PART_COUNT = 100
+
 
 def how_many(m, n):
     return (m + n - 1)/n
 
 
+def determine_part_size(total_size,
+                        preferred_size=_PREFERRED_PART_SIZE):
+    if total_size < preferred_size:
+        return total_size
+
+    if preferred_size * _MAX_PART_COUNT < total_size:
+        return total_size/_MAX_PART_COUNT + 1
+    else:
+        return preferred_size
+
+
 class ResumableUploader(object):
-    def __init__(self, stream, size, part_size, bucket, object_name, upload_id):
+    def __init__(self, stream, size, bucket, object_name, upload_id,
+                 part_size=None):
         self.stream = stream
         self.size = size
-        self.part_size = part_size
         self.bucket = bucket
         self.object_name = object_name
         self.upload_id = upload_id
 
+        self.part_size = part_size
+
     def upload(self):
+        uploaded_parts = []
+
         if self.upload_id:
-            self.__resume_upload()
+            try:
+                uploaded_parts = list(PartsIterator(self.bucket, self.object_name, self.upload_id))
+            except NoSuchUpload:
+                self.upload_id = ''
+
+        if not self.part_size:
+            if uploaded_parts:
+                self.part_size = max(p.size for p in uploaded_parts)
+            else:
+                self.part_size = determine_part_size(self.size)
+
+        if self.upload_id:
+            self.__resume_upload(uploaded_parts)
         else:
             self.__new_upload()
 
-    def __upload_and_complete(self, uploaded_parts):
-        if uploaded_parts:
-            self.part_size = uploaded_parts[0].size
+    def __new_upload(self):
+        assert not self.upload_id
 
+        self.upload_id = self.bucket.init_multipart_upload(self.object_name).upload_id
+        self.__upload_and_complete([])
+
+    def __resume_upload(self, uploaded_parts):
+        self.__upload_and_complete(uploaded_parts)
+
+    def __upload_and_complete(self, uploaded_parts):
+        assert self.part_size
+        assert self.upload_id
+
+        if uploaded_parts:
             uploaded_size = sum(p.size for p in uploaded_parts)
             remaining = self.size - uploaded_size
+
+            start_part = uploaded_parts[-1].part_number+1
             num_parts = len(uploaded_parts) + how_many(self.size - uploaded_size, self.part_size)
+
+            self.stream.seek(uploaded_size)
         else:
             remaining = self.size
-            num_parts = (self.size + self.part_size - 1)/self.part_size
+            num_parts = how_many(self.size, self.part_size)
+            start_part = 1
 
-        for i in xrange(uploaded_parts[-1].part_number+1, num_parts+1):
+        for i in xrange(start_part, num_parts+1):
             if i == num_parts:
                 bytes_to_upload = remaining % self.part_size
             else:
@@ -99,20 +144,3 @@ class ResumableUploader(object):
             uploaded_parts.append(PartInfo(i, result.etag))
 
         self.bucket.complete_multipart_upload(self.object_name, self.upload_id, uploaded_parts)
-
-    def __new_upload(self):
-        self.upload_id = self.bucket.init_multipart_upload(self.object_name).upload_id
-        self.__upload_and_complete([])
-
-    def __resume_upload(self):
-        assert self.upload_id
-
-        try:
-            uploaded_parts = list(PartsIterator(self.bucket, self.object_name, self.upload_id))
-        except NoSuchUpload:
-            self.upload_id = ''
-            self.__new_upload()
-            return
-
-        #TODO: mingzai.ym verify uploaded_parts is expected
-        self.__upload_and_complete(uploaded_parts)

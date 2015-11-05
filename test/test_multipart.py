@@ -34,7 +34,8 @@ class TestMultipart(unittest.TestCase):
         content = random_string(400 * 1024)
 
         with io.BytesIO(content) as f:
-            uploader = oss.ResumableUploader(f, len(content), 100*1024, self.bucket, object_name, None)
+            uploader = oss.ResumableUploader(f, len(content), self.bucket, object_name, None,
+                                             part_size=100*1024)
             uploader.upload()
 
     def test_resume(self):
@@ -45,8 +46,9 @@ class TestMultipart(unittest.TestCase):
         self.bucket.upload_part(object_name, upload_id, 1, content[0:100*1024])
         self.bucket.upload_part(object_name, upload_id, 2, content[100*1024:2*100*1024])
 
-        with io.BytesIO(content[2*100*1024:]) as f:
-            uploader = oss.ResumableUploader(f, len(content), 100*1024, self.bucket, object_name, upload_id)
+        with io.BytesIO(content) as f:
+            uploader = oss.ResumableUploader(f, len(content), self.bucket, object_name, upload_id,
+                                             part_size=100*1024)
             uploader.upload()
 
 if __name__ == '__main__':
