@@ -22,7 +22,11 @@ class Request(object):
         self.url = url
         self.data = data
         self.params = params or {}
-        self.headers = headers or {}
+
+        if headers is None:
+            self.headers = {}
+        else:
+            self.headers = dict((k.lower(), v) for k, v in headers.items())
 
 
 class Response(object):

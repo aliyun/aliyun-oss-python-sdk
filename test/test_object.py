@@ -16,12 +16,14 @@ class TestObject(unittest.TestCase):
         self.bucket = oss.Bucket(oss.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
 
     def test_object(self):
-        object_name = random_string(12)
+        object_name = random_string(12) + '.js'
         content = random_string(1024)
 
         result = self.bucket.put_object(object_name, content)
+
         result = self.bucket.get_object(object_name)
         self.assertEqual(result.read(), content)
+        self.assertEqual(result.headers['content-type'], 'application/javascript')
 
         self.bucket.delete_object(object_name)
 

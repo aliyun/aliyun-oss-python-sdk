@@ -1,5 +1,6 @@
 from . import xml_utils
 from . import http
+from . import utils
 
 from .exceptions import make_exception
 
@@ -10,7 +11,8 @@ from .models import (RequestResult,
                      BucketResult,
                      ListBucketsResult,
                      InitMultipartUploadResult,
-                     ListPartsResult)
+                     ListPartsResult,
+                     ListMultipartUploadsResult)
 
 import urlparse
 
@@ -66,39 +68,46 @@ class Bucket(_Base):
         result = ListObjectsResult(resp)
         return xml_utils.parse_list_objects(result, resp.read())
 
-    def put_object(self, object_name, data):
-        resp = self.__do_object('PUT', object_name, data=data)
+    def put_object(self, object_name, data, headers=None):
+        headers = utils.set_content_type(headers, object_name)
+
+        resp = self.__do_object('PUT', object_name, data=data, headers=headers)
         return PutObjectResult(resp)
 
-    def get_object(self, object_name):
-        resp = self.__do_object('GET', object_name)
+    def get_object(self, object_name, headers=None):
+        resp = self.__do_object('GET', object_name, headers=headers)
         return GetObjectResult(resp)
 
-    def delete_object(self, object_name):
-        resp = self.__do_object('DELETE', object_name)
+    def delete_object(self, object_name, headers=None):
+        resp = self.__do_object('DELETE', object_name, headers=headers)
         return RequestResult(resp)
 
-    def init_multipart_upload(self, object_name):
-        resp = self.__do_object('POST', object_name, params={'uploads': ''})
+    def init_multipart_upload(self, object_name, headers=None):
+        headers = utils.set_content_type(headers, object_name)
+
+        resp = self.__do_object('POST', object_name, params={'uploads': ''}, headers=headers)
         result = InitMultipartUploadResult(resp)
         return xml_utils.parse_init_multipart_upload(result, resp.read())
 
-    def upload_part(self, object_name, upload_id, part_number, data):
+    def upload_part(self, object_name, upload_id, part_number, data, headers=None):
         resp = self.__do_object('PUT', object_name,
                                 params={'uploadId': upload_id, 'partNumber': str(part_number)},
-                                data=data)
+                                data=data,
+                                headers=headers)
         return PutObjectResult(resp)
 
-    def complete_multipart_upload(self, object_name, upload_id, parts):
+    def complete_multipart_upload(self, object_name, upload_id, parts, headers=None):
         data = xml_utils.to_complete_upload_request(parts)
         resp = self.__do_object('POST', object_name,
                                 params={'uploadId': upload_id},
-                                data=data)
+                                data=data,
+                                headers=headers)
         return PutObjectResult(resp)
 
-    def abort_multipart_upload(self, object_name, upload_id):
+    def abort_multipart_upload(self, object_name, upload_id, headers=None):
         resp = self.__do_object('DELETE', object_name,
-                                params={'uploadId': upload_id})
+                                params={'uploadId': upload_id},
+                                headers=headers)
         return RequestResult(resp)
 
     def list_multipart_uploads(self,

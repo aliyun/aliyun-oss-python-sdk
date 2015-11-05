@@ -20,12 +20,12 @@ class Auth(object):
         self.secret = access_key_secret
 
     def sign_request(self, req, bucket_name, object_name):
-        req.headers['Date'] = time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime())
+        req.headers['date'] = time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime())
 
         string_to_sign = self.get_string_to_sign(req, bucket_name, object_name)
         h = hmac.new(self.secret, string_to_sign, hashlib.sha1)
         signature = base64.b64encode(h.digest())
-        req.headers['Authorization'] = "OSS {}:{}".format(self.id, signature)
+        req.headers['authorization'] = "OSS {}:{}".format(self.id, signature)
 
         logging.debug("string_to_sign={}".format(repr(string_to_sign)))
 
@@ -33,9 +33,9 @@ class Auth(object):
         resource_string = self.get_resource_string(req, bucket_name, object_name)
         headers_string = self.get_headers_string(req)
 
-        content_md5 = req.headers.get('Content-MD5', '')
-        content_type = req.headers.get('Content-Type', '')
-        date = req.headers.get('Date', '')
+        content_md5 = req.headers.get('content-md5', '')
+        content_type = req.headers.get('content-type', '')
+        date = req.headers.get('date', '')
         return '\n'.join([req.method,
                           content_md5,
                           content_type,

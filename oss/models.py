@@ -12,6 +12,7 @@ class RequestResult(object):
     def __init__(self, resp):
         self.resp = resp
         self.status = resp.status
+        self.headers = resp.headers
         self.request_id = resp.headers['x-oss-request-id']
 
 
