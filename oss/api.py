@@ -168,28 +168,13 @@ def _normalize_endpoint(endpoint):
         return endpoint
 
 
-#TODO: mingzai.ym make it better?
-def _is_ip(s):
-    tmp_list = s.split(':')
-    s = tmp_list[0]
-    if s == 'localhost':
-        return True
-    tmp_list = s.split('.')
-    if len(tmp_list) != 4:
-        return False
-    else:
-        for i in tmp_list:
-            if int(i) < 0 or int(i) > 255:
-                return False
-    return True
-
 _ENDPOINT_TYPE_ALIYUN = 0
 _ENDPOINT_TYPE_CNAME = 1
 _ENDPOINT_TYPE_IP = 2
 
 
 def _determine_endpoint_type(netloc, is_cname):
-    if _is_ip(netloc):
+    if utils.is_ip_or_localhost(netloc):
         return _ENDPOINT_TYPE_IP
 
     if is_cname:

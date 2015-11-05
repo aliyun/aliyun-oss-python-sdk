@@ -1,5 +1,6 @@
 import os.path
 import mimetypes
+import socket
 
 _EXTRA_TYPES_MAP = {
     "js": "application/javascript",
@@ -36,3 +37,16 @@ def set_content_type(headers, name):
         headers['Content-Type'] = content_type
 
     return headers
+
+
+def is_ip_or_localhost(netloc):
+    loc = netloc.split(':')[0]
+    if loc == 'localhost':
+        return True
+
+    try:
+        socket.inet_aton(loc)
+    except socket.error:
+        return False
+
+    return True
