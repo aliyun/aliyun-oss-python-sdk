@@ -1,5 +1,12 @@
 import requests
+import platform
+
+from . import __version__
 from requests.structures import CaseInsensitiveDict
+
+
+_USER_AGENT = 'aliyun-sdk-python/{} ({}/{}/{};{})'.format(
+    __version__, platform.system(), platform.release(), platform.machine(), platform.python_version())
 
 
 class Session(object):
@@ -32,6 +39,9 @@ class Request(object):
         # tell requests not to add 'Accept-Encoding: gzip, deflate' by default
         if 'Accept-Encoding' not in self.headers:
             self.headers['Accept-Encoding'] = None
+
+        if 'User-Agent' not in self.headers:
+            self.headers['User-Agent'] = _USER_AGENT
 
 
 class Response(object):
