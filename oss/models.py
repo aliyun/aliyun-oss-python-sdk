@@ -41,6 +41,14 @@ class PutObjectResult(RequestResult):
         self.etag = resp.headers['etag'].strip('"')
 
 
+class AppendObjectResult(RequestResult):
+    def __init__(self, resp):
+        super(AppendObjectResult, self).__init__(resp)
+        self.etag = resp.headers['etag'].strip('"')
+        self.crc = int(resp.headers['x-oss-hash-crc64ecma'])
+        self.next_position = int(resp.headers['x-oss-next-append-position'])
+
+
 class BatchDeleteObjectsResult(RequestResult):
     def __init__(self, resp):
         super(BatchDeleteObjectsResult, self).__init__(resp)

@@ -8,6 +8,7 @@ from .models import (RequestResult,
                      ListObjectsResult,
                      GetObjectResult,
                      PutObjectResult,
+                     AppendObjectResult,
                      BatchDeleteObjectsResult,
                      BucketResult,
                      ListBucketsResult,
@@ -74,6 +75,15 @@ class Bucket(_Base):
 
         resp = self.__do_object('PUT', object_name, data=data, headers=headers)
         return PutObjectResult(resp)
+
+    def append_object(self, object_name, position, data, headers=None):
+        headers = utils.set_content_type(http.CaseInsensitiveDict(headers), object_name)
+
+        resp = self.__do_object('POST', object_name,
+                                data=data,
+                                headers=headers,
+                                params={'append': '', 'position': str(position)})
+        return AppendObjectResult(resp)
 
     def get_object(self, object_name, headers=None):
         resp = self.__do_object('GET', object_name, headers=headers)

@@ -67,13 +67,15 @@ class Auth(object):
         if not params:
             return ''
 
-        subresource_params = {}
+        subresource_params = []
         for key, value in params.items():
             if key in self.subresource_key_set:
-                subresource_params[key] = value
+                subresource_params.append((key, value))
+
+        subresource_params.sort(key=lambda e: e[0])
 
         if subresource_params:
-            return '?' + '&'.join(self.__param_to_query(k, v) for k, v in subresource_params.items())
+            return '?' + '&'.join(self.__param_to_query(k, v) for k, v in subresource_params)
         else:
             return ''
 

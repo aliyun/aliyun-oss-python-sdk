@@ -27,6 +27,15 @@ class NoSuchUpload(OssError):
     code = 'NoSuchUpload'
 
 
+class PositionNotEqualToLength(OssError):
+    status = 409
+    code = 'PositionNotEqualToLength'
+
+    def __init__(self, result):
+        super(PositionNotEqualToLength, self).__init__(result)
+        self.next_position = int(self.result.headers['x-oss-next-append-position'])
+
+
 def make_exception(resp):
     assert resp.status / 100 != 2
 
