@@ -100,6 +100,13 @@ class Bucket(_Base):
         resp = self.__do_object('HEAD', object_name)
         return RequestResult(resp)
 
+    def copy_object(self, source_bucket_name, source_object_name, target_object_name, headers=None):
+        headers = http.CaseInsensitiveDict(headers)
+        headers['x-oss-copy-source'] = '/' + source_bucket_name + '/' + source_object_name
+
+        resp = self.__do_object('PUT', target_object_name, headers=headers)
+        return PutObjectResult(resp)
+
     def delete_object(self, object_name):
         resp = self.__do_object('DELETE', object_name)
         return RequestResult(resp)

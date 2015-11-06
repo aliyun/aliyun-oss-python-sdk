@@ -83,5 +83,16 @@ class TestObject(unittest.TestCase):
             resp = urllib.urlopen(url)
             self.assertEqual(content, resp.read())
 
+    def test_copy_object(self):
+        source_object_name = random_string(12)
+        target_object_name = random_string(13)
+        content = random_string(36)
+
+        self.bucket.put_object(source_object_name, content)
+        self.bucket.copy_object(self.bucket.bucket_name, source_object_name, target_object_name)
+
+        result = self.bucket.get_object(target_object_name)
+        self.assertEqual(content, result.read())
+
 if __name__ == '__main__':
     unittest.main()
