@@ -8,6 +8,7 @@ from .models import (RequestResult,
                      ListObjectsResult,
                      GetObjectResult,
                      PutObjectResult,
+                     BatchDeleteObjectsResult,
                      BucketResult,
                      ListBucketsResult,
                      InitMultipartUploadResult,
@@ -78,9 +79,19 @@ class Bucket(_Base):
         resp = self.__do_object('GET', object_name, headers=headers)
         return GetObjectResult(resp)
 
-    def delete_object(self, object_name, headers=None):
-        resp = self.__do_object('DELETE', object_name, headers=headers)
+    def delete_object(self, object_name):
+        resp = self.__do_object('DELETE', object_name)
         return RequestResult(resp)
+
+    def batch_delete_objects(self, objects, quiet=False):
+        data = xml_utils.to_batch_delete_objects_request(objects, quiet, 'url')
+        resp = self.__do_object('POST', '',
+                                data=data,
+                                params={'delete': ''},
+                                headers={'Content-MD5': utils.content_md5(data)})
+
+        result = BatchDeleteObjectsResult(resp)
+        return xml_utils.parse_batch_delete_objects(result, resp.read())
 
     def init_multipart_upload(self, object_name, headers=None):
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), object_name)

@@ -1,6 +1,8 @@
 import os.path
 import mimetypes
 import socket
+import hashlib
+import base64
 
 _EXTRA_TYPES_MAP = {
     "js": "application/javascript",
@@ -16,6 +18,12 @@ _EXTRA_TYPES_MAP = {
     "xlsb": "application/vnd.ms-excel.sheet.binary.macroEnabled.12",
     "apk": "application/vnd.android.package-archive"
 }
+
+
+def content_md5(data):
+    m = hashlib.md5()
+    m.update(data)
+    return base64.b64encode(m.digest())
 
 
 def content_type_by_name(name):

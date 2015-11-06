@@ -41,6 +41,12 @@ class PutObjectResult(RequestResult):
         self.etag = resp.headers['etag'].strip('"')
 
 
+class BatchDeleteObjectsResult(RequestResult):
+    def __init__(self, resp):
+        super(BatchDeleteObjectsResult, self).__init__(resp)
+        self.object_list = []
+
+
 class InitMultipartUploadResult(RequestResult):
     def __init__(self, resp):
         super(InitMultipartUploadResult, self).__init__(resp)

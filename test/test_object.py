@@ -33,6 +33,17 @@ class TestObject(unittest.TestCase):
         result = self.bucket.list_objects()
         self.assertEqual(result.status, 200)
 
+    def test_batch_delete_objects(self):
+        object_list = []
+        for i in xrange(0, 5):
+            object_name = random_string(12)
+            object_list.append(object_name)
+
+            self.bucket.put_object(object_name, random_string(64))
+
+        result = self.bucket.batch_delete_objects(object_list)
+        self.assertEqual(sorted(object_list), sorted(result.object_list))
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     unittest.main()

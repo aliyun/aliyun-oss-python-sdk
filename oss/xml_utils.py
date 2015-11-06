@@ -125,7 +125,7 @@ def parse_list_multipart_uploads(result, body):
         ))
 
     for prefix_node in root.findall('CommonPrefixes'):
-        result.prefix_list.append(_find_object(prefix_node, 'Prefix'))
+        result.prefix_list.append(_find_object(prefix_node, 'Prefix', url_encoded))
 
     return result
 
@@ -145,6 +145,35 @@ def parse_list_parts(result, body):
     return result
 
 
+def parse_batch_delete_objects(result, body):
+    if not body:
+        return result
+
+    root = ElementTree.fromstring(body)
+    url_encoded = _is_url_encoding(root)
+
+    for deleted_node in root.findall('Deleted'):
+        result.object_list.append(_find_object(deleted_node, 'Key', url_encoded))
+
+    return result
+
+
+def _tree_to_string(tree):
+    xml = None
+    with io.BytesIO(xml) as f:
+        tree.write(f, xml_declaration=True)
+        xml = f.getvalue()
+
+    return xml
+
+
+def _make_encoder(encoding_type):
+    if encoding_type == 'url':
+        return urllib.quote
+    else:
+        return lambda x: x
+
+
 def to_complete_upload_request(parts):
     root = ElementTree.Element('CompleteMultipartUpload')
     for p in parts:
@@ -153,11 +182,22 @@ def to_complete_upload_request(parts):
         ElementTree.SubElement(part_node, 'ETag').text = '"{}"'.format(p.etag)
 
     tree = ElementTree.ElementTree(root)
+    return _tree_to_string(tree)
 
-    xml = None
-    with io.BytesIO(xml) as f:
-        tree.write(f, xml_declaration=True)
-        xml = f.getvalue()
 
-    return xml
+def to_batch_delete_objects_request(objects, quiet, encoding_type):
+    encoder = _make_encoder(encoding_type)
+
+    root_node = ElementTree.Element('Delete')
+
+    quiet_node = ElementTree.SubElement(root_node, 'Quiet')
+    quiet_node.text = str(quiet).lower()
+
+    for object_name in objects:
+        object_node = ElementTree.SubElement(root_node, 'Object')
+        key_node = ElementTree.SubElement(object_node, 'Key')
+        key_node.text = encoder(object_name)
+
+    tree = ElementTree.ElementTree(root_node)
+    return _tree_to_string(tree)
 
