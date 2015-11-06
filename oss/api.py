@@ -17,6 +17,7 @@ from .models import (RequestResult,
                      ListMultipartUploadsResult)
 
 import urlparse
+import urllib
 
 
 class _Base(object):
@@ -59,6 +60,12 @@ class Bucket(_Base):
                  session=None):
         super(Bucket, self).__init__(auth, endpoint, is_cname, session)
         self.bucket_name = bucket_name
+
+    def sign_url(self, method, object_name, expires, headers=None, params=None):
+        req = http.Request(method, self._make_url(self.bucket_name, object_name),
+                           headers=headers,
+                           params=params)
+        return self.auth.sign_url(req, self.bucket_name, object_name, expires)
 
     def list_objects(self, prefix='', delimiter='', marker='', max_keys=100):
         resp = self.__do_object('GET', '',
@@ -217,6 +224,8 @@ class _UrlMaker(object):
         self.type = _determine_endpoint_type(p.netloc, is_cname)
 
     def __call__(self, bucket_name, object_name):
+        object_name = urllib.quote(object_name)
+
         if self.type == _ENDPOINT_TYPE_CNAME:
             return '{}://{}/{}'.format(self.scheme, self.netloc, object_name)
 

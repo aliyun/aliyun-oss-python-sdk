@@ -3,6 +3,7 @@ import hashlib
 import base64
 import time
 import logging
+import urllib
 
 
 class Auth(object):
@@ -22,12 +23,28 @@ class Auth(object):
     def sign_request(self, req, bucket_name, object_name):
         req.headers['date'] = time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime())
 
-        string_to_sign = self.get_string_to_sign(req, bucket_name, object_name)
-        h = hmac.new(self.secret, string_to_sign, hashlib.sha1)
-        signature = base64.b64encode(h.digest())
+        signature = self.make_signature(req, bucket_name, object_name)
         req.headers['authorization'] = "OSS {}:{}".format(self.id, signature)
 
-        logging.debug("string_to_sign={}".format(repr(string_to_sign)))
+    def sign_url(self, req, bucket_name, object_name, expires):
+        expiration_time = int(time.time()) + expires
+
+        req.headers['date'] = str(expiration_time)
+        signature = self.make_signature(req, bucket_name, object_name)
+
+        req.params['OSSAccessKeyId'] = self.id
+        req.params['Expires'] = str(expiration_time)
+        req.params['Signature'] = signature
+
+        return req.url + '?' + '&'.join(self.__param_to_quoted_query(k, v) for k, v in req.params.items())
+
+    def make_signature(self, req, bucket_name, object_name):
+        string_to_sign = self.get_string_to_sign(req, bucket_name, object_name)
+
+        logging.debug("string_to_sign={}".format(string_to_sign))
+
+        h = hmac.new(self.secret, string_to_sign, hashlib.sha1)
+        return base64.b64encode(h.digest())
 
     def get_string_to_sign(self, req, bucket_name, object_name):
         resource_string = self.get_resource_string(req, bucket_name, object_name)
@@ -84,4 +101,10 @@ class Auth(object):
             return k + '=' + v
         else:
             return k
+
+    def __param_to_quoted_query(self, k, v):
+        if v:
+            return urllib.quote(k, '') + '=' + urllib.quote(v, '')
+        else:
+            return urllib.quote(k, '')
 

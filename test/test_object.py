@@ -1,5 +1,8 @@
+# -*- coding: utf-8 -*-
+
 import unittest
 import logging
+import urllib
 
 import oss
 from oss.exceptions import NoSuchKey, PositionNotEqualToLength
@@ -65,6 +68,20 @@ class TestObject(unittest.TestCase):
 
         result = self.bucket.append_object(object_name, len(content1), content2)
         self.assertEqual(result.next_position, len(content1) + len(content2))
+
+        self.bucket.delete_object(object_name)
+
+    def test_private_download_url(self):
+        for object_name in [random_string(12), '中文对象名']:
+            content = random_string(42)
+
+            self.bucket.put_object(object_name, content)
+            url = self.bucket.sign_url('GET', object_name, 60)
+
+            print('url is ' + url)
+
+            resp = urllib.urlopen(url)
+            self.assertEqual(content, resp.read())
 
 if __name__ == '__main__':
     unittest.main()
