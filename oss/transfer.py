@@ -23,7 +23,7 @@ class _BaseIterator(object):
             if not self.is_truncated:
                 raise StopIteration
 
-            self.is_truncated, self.next_marker= self._fetch()
+            self.is_truncated, self.next_marker = self._fetch()
 
     def next(self):
         return self.__next__()
@@ -126,7 +126,7 @@ _PREFERRED_PART_COUNT = 100
 
 
 def how_many(m, n):
-    return (m + n - 1)/n
+    return (m + n - 1) // n
 
 
 def determine_part_size(total_size,
@@ -135,7 +135,7 @@ def determine_part_size(total_size,
         return total_size
 
     if preferred_size * _MAX_PART_COUNT < total_size:
-        return total_size/_MAX_PART_COUNT + 1
+        return total_size // _MAX_PART_COUNT + 1
     else:
         return preferred_size
 

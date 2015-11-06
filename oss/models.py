@@ -123,3 +123,16 @@ class ListPartsResult(RequestResult):
         self.is_truncated = False
         self.next_marker = ''
         self.parts = []
+
+
+class GetBucketAclResult(RequestResult):
+    def __init__(self, resp):
+        super(GetBucketAclResult, self).__init__(resp)
+        self.acl = ''
+
+
+class GetBucketLoggingResult(RequestResult):
+    def __init__(self, resp):
+        super(GetBucketLoggingResult, self).__init__(resp)
+        self.target_bucket = ''
+        self.target_prefix = ''

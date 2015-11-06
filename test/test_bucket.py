@@ -29,6 +29,30 @@ class TestBucket(unittest.TestCase):
 
         bucket.delete_bucket()
 
+    def test_acl(self):
+        auth = oss.Auth(OSS_ID, OSS_SECRET)
+        bucket = oss.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+
+        bucket.create_bucket('public-read')
+        result = bucket.get_bucket_acl()
+        self.assertEqual(result.acl, 'public-read')
+
+        bucket.put_bucket_acl('private')
+        result = bucket.get_bucket_acl()
+        self.assertEqual(result.acl, 'private')
+
+        bucket.delete_bucket()
+
+    def test_logging(self):
+        other_bucket = oss.Bucket(self.bucket.auth, OSS_ENDPOINT, random_string(63).lower())
+        other_bucket.create_bucket('private')
+
+        other_bucket.put_bucket_logging(self.bucket.bucket_name, 'logging/')
+        result = other_bucket.get_bucket_logging()
+        self.assertEqual(result.target_bucket, self.bucket.bucket_name)
+        self.assertEqual(result.target_prefix, 'logging/')
+
+        other_bucket.delete_bucket()
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)

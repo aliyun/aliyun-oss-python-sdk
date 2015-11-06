@@ -93,7 +93,7 @@ def parse_list_buckets(result, body):
     if result.is_truncated:
         result.next_marker = _find_tag(root, 'NextMarker')
 
-    for bucket_node in root.find('Buckets').findall('Bucket'):
+    for bucket_node in root.findall('Buckets/Bucket'):
         result.buckets.append(SimplifiedBucketInfo(
             _find_tag(bucket_node, 'Name'),
             _find_tag(bucket_node, 'Location'),
@@ -158,6 +158,21 @@ def parse_batch_delete_objects(result, body):
     return result
 
 
+def parse_get_bucket_acl(result, body):
+    root = ElementTree.fromstring(body)
+    result.acl = root.find('AccessControlList/Grant').text.strip()
+
+    return result
+
+
+def parse_get_bucket_logging(result, body):
+    root = ElementTree.fromstring(body)
+    result.target_bucket = root.find('LoggingEnabled/TargetBucket').text.strip()
+    result.target_prefix = root.find('LoggingEnabled/TargetPrefix').text.strip()
+
+    return result
+
+
 def _tree_to_string(tree):
     xml = None
     with io.BytesIO(xml) as f:
@@ -195,9 +210,19 @@ def to_batch_delete_objects_request(objects, quiet, encoding_type):
 
     for object_name in objects:
         object_node = ElementTree.SubElement(root_node, 'Object')
-        key_node = ElementTree.SubElement(object_node, 'Key')
-        key_node.text = encoder(object_name)
+        ElementTree.SubElement(object_node, 'Key').text = encoder(object_name)
 
     tree = ElementTree.ElementTree(root_node)
     return _tree_to_string(tree)
 
+
+def to_put_bucket_logging(target_bucket, target_prefix):
+    root = ElementTree.Element('BucketLoggingStatus')
+
+    if target_bucket:
+        logging_node = ElementTree.SubElement(root, 'LoggingEnabled')
+        ElementTree.SubElement(logging_node, 'TargetBucket').text = target_bucket
+        ElementTree.SubElement(logging_node, 'TargetPrefix').text = target_prefix
+
+    tree = ElementTree.ElementTree(root)
+    return _tree_to_string(tree)

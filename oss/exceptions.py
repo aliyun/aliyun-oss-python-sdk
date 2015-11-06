@@ -37,7 +37,7 @@ class PositionNotEqualToLength(OssError):
 
 
 def make_exception(resp):
-    assert resp.status / 100 != 2
+    assert resp.status // 100 != 2
 
     result = ErrorResult(resp)
 

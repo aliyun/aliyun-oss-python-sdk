@@ -4,17 +4,7 @@ from . import utils
 
 from .exceptions import make_exception
 
-from .models import (RequestResult,
-                     ListObjectsResult,
-                     GetObjectResult,
-                     PutObjectResult,
-                     AppendObjectResult,
-                     BatchDeleteObjectsResult,
-                     BucketResult,
-                     ListBucketsResult,
-                     InitMultipartUploadResult,
-                     ListPartsResult,
-                     ListMultipartUploadsResult)
+from .models import *
 
 import urlparse
 import urllib
@@ -33,10 +23,15 @@ class _Base(object):
         self.auth.sign_request(req, bucket_name, object_name)
 
         resp = self.session.do_request(req)
-        if resp.status / 100 != 2:
+        if resp.status // 100 != 2:
             raise make_exception(resp)
 
         return resp
+
+    def _parse_result(self, resp, parse_func, klass):
+        result = klass(resp)
+        parse_func(result, resp.read())
+        return result
 
 
 class Service(_Base):
@@ -49,9 +44,7 @@ class Service(_Base):
                         params={'prefix': prefix,
                                 'marker': marker,
                                 'max-keys': max_keys})
-        result = ListBucketsResult(resp)
-        xml_utils.parse_list_buckets(result, resp.read())
-        return result
+        return self._parse_result(resp, xml_utils.parse_list_buckets, ListBucketsResult)
 
 
 class Bucket(_Base):
@@ -74,8 +67,7 @@ class Bucket(_Base):
                                         'marker': marker,
                                         'max-keys': max_keys,
                                         'encoding-type': 'url'})
-        result = ListObjectsResult(resp)
-        return xml_utils.parse_list_objects(result, resp.read())
+        return self._parse_result(resp, xml_utils.parse_list_objects, ListObjectsResult)
 
     def put_object(self, object_name, data, headers=None):
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), object_name)
@@ -117,16 +109,13 @@ class Bucket(_Base):
                                 data=data,
                                 params={'delete': ''},
                                 headers={'Content-MD5': utils.content_md5(data)})
-
-        result = BatchDeleteObjectsResult(resp)
-        return xml_utils.parse_batch_delete_objects(result, resp.read())
+        return self._parse_result(resp, xml_utils.parse_batch_delete_objects, BatchDeleteObjectsResult)
 
     def init_multipart_upload(self, object_name, headers=None):
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), object_name)
 
         resp = self.__do_object('POST', object_name, params={'uploads': ''}, headers=headers)
-        result = InitMultipartUploadResult(resp)
-        return xml_utils.parse_init_multipart_upload(result, resp.read())
+        return self._parse_result(resp, xml_utils.parse_init_multipart_upload, InitMultipartUploadResult)
 
     def upload_part(self, object_name, upload_id, part_number, data, headers=None):
         resp = self.__do_object('PUT', object_name,
@@ -163,15 +152,13 @@ class Bucket(_Base):
                                         'upload-id-marker': upload_id_marker,
                                         'max-uploads': max_uploads,
                                         'encoding-type': 'url'})
-        result = ListMultipartUploadsResult(resp)
-        return xml_utils.parse_list_multipart_uploads(result, resp.read())
+        return self._parse_result(resp, xml_utils.parse_list_multipart_uploads, ListMultipartUploadsResult)
 
     def list_parts(self, object_name, upload_id,
                    marker=''):
         resp = self.__do_object('GET', object_name,
                                 params={'uploadId': upload_id, 'part-number-marker': marker})
-        result = ListPartsResult(resp)
-        return xml_utils.parse_list_parts(result, resp.read())
+        return self._parse_result(resp, xml_utils.parse_list_parts, ListPartsResult)
 
     def create_bucket(self, permission):
         resp = self.__do_bucket('PUT', headers={'x-oss-acl': permission})
@@ -181,15 +168,33 @@ class Bucket(_Base):
         resp = self.__do_bucket('DELETE')
         return RequestResult(resp)
 
-    def put_lifecycle(self, data):
-        resp = self.__do_bucket('PUT', params={'lifecycle': ''}, data=data)
+    def put_bucket_acl(self, permission):
+        resp = self.__do_bucket('PUT', headers={'x-oss-acl': permission}, params={'acl': ''})
         return RequestResult(resp)
 
-    def get_lifecycle(self):
+    def get_bucket_acl(self):
+        resp = self.__do_bucket('GET', params={'acl': ''})
+        return self._parse_result(resp, xml_utils.parse_get_bucket_acl, GetBucketAclResult)
+
+    def put_bucket_logging(self, target_bucket, target_prefix):
+        data = xml_utils.to_put_bucket_logging(target_bucket, target_prefix)
+        resp = self.__do_bucket('PUT', data=data, params={'logging': ''})
+        return RequestResult(resp)
+
+    def get_bucket_logging(self):
+        resp = self.__do_bucket('GET', params={'logging': ''})
+        return self._parse_result(resp, xml_utils.parse_get_bucket_logging, GetBucketLoggingResult)
+
+    def put_bucket_lifecycle(self, data):
+        resp = self.__do_bucket('PUT', params={'lifecycle': ''},
+                                data=data)
+        return RequestResult(resp)
+
+    def get_bucket_lifecycle(self):
         resp = self.__do_bucket('GET', params={'lifecycle': ''})
         return BucketResult(resp)
 
-    def delete_lifecycle(self):
+    def delete_bucket_lifecycle(self):
         resp = self.__do_bucket('DELETE', params={'lifecycle': ''})
         return RequestResult(resp)
 
@@ -198,6 +203,7 @@ class Bucket(_Base):
 
     def __do_bucket(self, method, **kwargs):
         return self._do(method, self.bucket_name, '', **kwargs)
+
 
 
 def _normalize_endpoint(endpoint):
