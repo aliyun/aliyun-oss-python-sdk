@@ -29,6 +29,10 @@ class Request(object):
         else:
             self.headers = headers
 
+        # tell requests not to add 'Accept-Encoding: gzip, deflate' by default
+        if 'Accept-Encoding' not in self.headers:
+            self.headers['Accept-Encoding'] = None
+
 
 class Response(object):
     def __init__(self, response):

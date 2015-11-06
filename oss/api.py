@@ -89,6 +89,10 @@ class Bucket(_Base):
         resp = self.__do_object('GET', object_name, headers=headers)
         return GetObjectResult(resp)
 
+    def head_object(self, object_name):
+        resp = self.__do_object('HEAD', object_name)
+        return RequestResult(resp)
+
     def delete_object(self, object_name):
         resp = self.__do_object('DELETE', object_name)
         return RequestResult(resp)

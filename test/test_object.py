@@ -26,6 +26,9 @@ class TestObject(unittest.TestCase):
         self.assertEqual(result.read(), content)
         self.assertEqual(result.headers['content-type'], 'application/javascript')
 
+        result = self.bucket.head_object(object_name)
+        self.assertEqual(int(result.headers['content-length']), len(content))
+
         self.bucket.delete_object(object_name)
 
         self.assertRaises(NoSuchKey, self.bucket.get_object, object_name)
