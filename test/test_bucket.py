@@ -47,12 +47,55 @@ class TestBucket(unittest.TestCase):
         other_bucket = oss.Bucket(self.bucket.auth, OSS_ENDPOINT, random_string(63).lower())
         other_bucket.create_bucket('private')
 
-        other_bucket.put_bucket_logging(self.bucket.bucket_name, 'logging/')
+        other_bucket.put_bucket_logging(oss.models.BucketLogging(self.bucket.bucket_name, 'logging/'))
         result = other_bucket.get_bucket_logging()
         self.assertEqual(result.target_bucket, self.bucket.bucket_name)
         self.assertEqual(result.target_prefix, 'logging/')
 
         other_bucket.delete_bucket()
+
+    def test_website(self):
+        object_name = random_string(12) + '/'
+        content = random_string(32)
+
+        self.bucket.put_object('index.html', content)
+
+        self.bucket.put_bucket_website(oss.models.BucketWebsite('index.html', 'error.html'))
+        website = self.bucket.get_bucket_website()
+        self.assertEqual(website.index_file, 'index.html')
+        self.assertEqual(website.error_file, 'error.html')
+
+        result = self.bucket.get_object(object_name)
+        self.assertEqual(result.read(), content)
+
+        self.bucket.delete_object('index.html')
+
+    def test_lifecycle(self):
+        action = oss.models.LifecycleAction('Expiration', 'Days', 1)
+        rule = oss.models.LifecycleRule(random_string(10), '', 'Disabled', [action])
+        lifecycle = oss.models.BucketLifecycle([rule])
+
+        self.bucket.put_bucket_lifecycle(lifecycle)
+        rule_got = self.bucket.get_bucket_lifecycle().rules[0]
+        action_got = rule_got.actions[0]
+
+        self.assertEqual(rule.id, rule_got.id)
+        self.assertEqual(rule.prefix, rule_got.prefix)
+        self.assertEqual(rule.status, rule_got.status)
+
+        self.assertEqual(action.action, action_got.action)
+        self.assertEqual(action.time_spec, action_got.time_spec)
+        self.assertEqual(action.time_value, action_got.time_value)
+
+        self.bucket.delete_bucket_lifecycle()
+
+    def test_cors(self):
+        rule = oss.models.CorsRule(allowed_origins=['*'],
+                                   allowed_methods=['HEAD', 'GET'],
+                                   allowed_headers=['*'])
+        cors = oss.models.BucketCors([rule])
+
+        self.bucket.put_bucket_cors(cors)
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)

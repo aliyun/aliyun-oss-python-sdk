@@ -144,7 +144,7 @@ class Bucket(_Base):
                                key_marker='',
                                upload_id_marker='',
                                max_uploads=1000):
-        resp = self.__do_object('GET',
+        resp = self.__do_object('GET', '',
                                 params={'uploads': '',
                                         'prefix': prefix,
                                         'delimiter': delimiter,
@@ -153,6 +153,21 @@ class Bucket(_Base):
                                         'max-uploads': max_uploads,
                                         'encoding-type': 'url'})
         return self._parse_result(resp, xml_utils.parse_list_multipart_uploads, ListMultipartUploadsResult)
+
+    def upload_part_copy(self, source_bucket_name, source_object_name, source_range,
+                         target_object_name, target_upload_id, target_part_number,
+                         headers=None):
+        headers = http.CaseInsensitiveDict(headers)
+        headers['x-oss-copy-source'] = '/' + source_bucket_name + '/' + source_object_name
+
+        range_string = _range_string(*source_range)
+        if range_string:
+            headers['x-oss-copy-source-range'] = 'bytes=' + range_string
+
+        resp = self.__do_object('PUT', target_object_name,
+                                params={'uploadId': target_upload_id,
+                                        'partNumber': str(target_part_number)})
+        return PutObjectResult(resp)
 
     def list_parts(self, object_name, upload_id,
                    marker=''):
@@ -176,8 +191,38 @@ class Bucket(_Base):
         resp = self.__do_bucket('GET', params={'acl': ''})
         return self._parse_result(resp, xml_utils.parse_get_bucket_acl, GetBucketAclResult)
 
-    def put_bucket_logging(self, target_bucket, target_prefix):
-        data = xml_utils.to_put_bucket_logging(target_bucket, target_prefix)
+    def put_bucket_cors(self, input):
+        data = self.__convert_data(BucketCors, xml_utils.to_put_bucket_cors, input)
+        resp = self.__do_bucket('PUT', data=data, params={'cors': ''})
+        return RequestResult(resp)
+
+    def get_bucket_cors(self):
+        resp = self.__do_bucket('GET', params={'cors': ''})
+        return self._parse_result(resp, xml_utils.parse_get_bucket_cors, GetBucketCorsResult)
+
+    def delete_bucket_cors(self):
+        resp = self.__do_bucket('DELETE', params={'cors': ''})
+        return RequestResult(resp)
+
+    def put_bucket_lifecycle(self, input):
+        data = self.__convert_data(BucketLifecycle, xml_utils.to_put_bucket_lifecycle, input)
+        resp = self.__do_bucket('PUT', data=data, params={'lifecycle': ''})
+        return RequestResult(resp)
+
+    def get_bucket_lifecycle(self):
+        resp = self.__do_bucket('GET', params={'lifecycle': ''})
+        return self._parse_result(resp, xml_utils.parse_get_bucket_lifecycle, GetBucketLifecycleResult)
+
+    def delete_bucket_lifecycle(self):
+        resp = self.__do_bucket('DELETE', params={'lifecycle': ''})
+        return RequestResult(resp)
+
+    def get_bucket_location(self):
+        resp = self.__do_bucket('GET', params={'location': ''})
+        return self._parse_result(resp, xml_utils.parse_get_bucket_location, GetBucketLocationResult)
+
+    def put_bucket_logging(self, input):
+        data = self.__convert_data(BucketLogging, xml_utils.to_put_bucket_logging, input)
         resp = self.__do_bucket('PUT', data=data, params={'logging': ''})
         return RequestResult(resp)
 
@@ -185,17 +230,30 @@ class Bucket(_Base):
         resp = self.__do_bucket('GET', params={'logging': ''})
         return self._parse_result(resp, xml_utils.parse_get_bucket_logging, GetBucketLoggingResult)
 
-    def put_bucket_lifecycle(self, data):
-        resp = self.__do_bucket('PUT', params={'lifecycle': ''},
-                                data=data)
+    def delete_bucket_logging(self):
+        resp = self.__do_bucket('DELETE', params={'logging': ''})
         return RequestResult(resp)
 
-    def get_bucket_lifecycle(self):
-        resp = self.__do_bucket('GET', params={'lifecycle': ''})
-        return BucketResult(resp)
+    def put_bucket_referer(self, input):
+        data = self.__convert_data(BucketReferer, xml_utils.to_put_bucket_referer, input)
+        resp = self.__do_bucket('PUT', data=data, params={'referer': ''})
+        return RequestResult(resp)
 
-    def delete_bucket_lifecycle(self):
-        resp = self.__do_bucket('DELETE', params={'lifecycle': ''})
+    def get_bucket_referer(self):
+        resp = self.__do_bucket('GET', params={'referer': ''})
+        return self._parse_result(resp, xml_utils.parse_get_bucket_referer, GetBucketRefererResult)
+
+    def put_bucket_website(self, input):
+        data = self.__convert_data(BucketWebsite, xml_utils.to_put_bucket_website, input)
+        resp = self.__do_bucket('PUT', data=data, params={'website': ''})
+        return RequestResult(resp)
+
+    def get_bucket_website(self):
+        resp = self.__do_bucket('GET', params={'website': ''})
+        return self._parse_result(resp, xml_utils.parse_get_bucket_websiste, GetBucketWebsiteResult)
+
+    def delete_bucket_website(self):
+        resp = self.__do_bucket('DELETE', params={'website': ''})
         return RequestResult(resp)
 
     def __do_object(self, method, object_name, **kwargs):
@@ -204,6 +262,11 @@ class Bucket(_Base):
     def __do_bucket(self, method, **kwargs):
         return self._do(method, self.bucket_name, '', **kwargs)
 
+    def __convert_data(self, klass, converter, data):
+        if isinstance(data, klass):
+            return converter(data)
+        else:
+            return data
 
 
 def _normalize_endpoint(endpoint):
@@ -216,6 +279,19 @@ def _normalize_endpoint(endpoint):
 _ENDPOINT_TYPE_ALIYUN = 0
 _ENDPOINT_TYPE_CNAME = 1
 _ENDPOINT_TYPE_IP = 2
+
+
+def _range_string(start, last):
+    def to_str(pos):
+        if pos is None:
+            return ''
+        else:
+            return str(pos)
+
+    if start is None and last is None:
+        return ''
+
+    return to_str(start) + '-' + to_str(last)
 
 
 def _determine_endpoint_type(netloc, is_cname):

@@ -131,8 +131,94 @@ class GetBucketAclResult(RequestResult):
         self.acl = ''
 
 
-class GetBucketLoggingResult(RequestResult):
+class GetBucketLocationResult(RequestResult):
     def __init__(self, resp):
         super(GetBucketLoggingResult, self).__init__(resp)
-        self.target_bucket = ''
-        self.target_prefix = ''
+        self.location = ''
+
+
+class BucketLogging(object):
+    def __init__(self, target_bucket, target_prefix):
+        self.target_bucket = target_bucket
+        self.target_prefix = target_prefix
+
+
+class GetBucketLoggingResult(RequestResult, BucketLogging):
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        BucketLogging.__init__(self, '', '')
+
+
+class BucketReferer(object):
+    def __init__(self, allow_empty_referer, referers):
+        self.allow_empty_referer = allow_empty_referer
+        self.referers = referers
+
+
+class GetBucketRefererResult(RequestResult, BucketReferer):
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        BucketReferer.__init__(self, False, [])
+
+
+class BucketWebsite(object):
+    def __init__(self, index_file, error_file):
+        self.index_file = index_file
+        self.error_file = error_file
+
+
+class GetBucketWebsiteResult(RequestResult, BucketWebsite):
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        BucketWebsite.__init__(self, '', '')
+
+
+class LifecycleAction(object):
+    def __init__(self, action, time_spec, time_value):
+        self.action = action
+        self.time_spec = time_spec
+        self.time_value = str(time_value)
+
+
+class LifecycleRule(object):
+    def __init__(self, id, prefix, status, actions):
+        self.id = id
+        self.prefix = prefix
+        self.status = status
+        self.actions = actions
+
+
+class BucketLifecycle(object):
+    def __init__(self, rules=None):
+        self.rules = rules or []
+
+
+class GetBucketLifecycleResult(RequestResult, BucketLifecycle):
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        BucketLifecycle.__init__(self)
+
+
+class CorsRule(object):
+    def __init__(self,
+                 allowed_origins=None,
+                 allowed_methods=None,
+                 allowed_headers=None,
+                 expose_headers=None,
+                 max_age_seconds=None):
+        self.allowed_origins = allowed_origins or []
+        self.allowed_methods = allowed_methods or []
+        self.allowed_headers = allowed_headers or []
+        self.expose_headers = expose_headers or []
+        self.max_age_seconds = max_age_seconds
+
+
+class BucketCors(object):
+    def __init__(self, rules=None):
+        self.rules = rules or []
+
+
+class GetBucketCorsResult(RequestResult, BucketCors):
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        BucketCors.__init__(self)
