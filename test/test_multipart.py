@@ -16,7 +16,7 @@ class TestMultipart(unittest.TestCase):
 
     def test_multipart(self):
         object_name = random_string(64)
-        content = random_string(128 * 1024)
+        content = random_bytes(128 * 1024)
 
         parts = []
         upload_id = self.bucket.init_multipart_upload(object_name).upload_id
@@ -31,7 +31,7 @@ class TestMultipart(unittest.TestCase):
 
     def test_uploader(self):
         object_name = 'multipart-' + random_string(32)
-        content = random_string(400 * 1024)
+        content = random_bytes(400 * 1024)
 
         with io.BytesIO(content) as f:
             uploader = oss.ResumableUploader(f, len(content), self.bucket, object_name, None,
@@ -40,7 +40,7 @@ class TestMultipart(unittest.TestCase):
 
     def test_resume(self):
         object_name = 'resume-' + random_string(32)
-        content = random_string(500*1024)
+        content = random_bytes(500*1024)
 
         upload_id = self.bucket.init_multipart_upload(object_name).upload_id
         self.bucket.upload_part(object_name, upload_id, 1, content[0:100*1024])

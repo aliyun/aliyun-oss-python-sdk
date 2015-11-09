@@ -1,9 +1,10 @@
 import hmac
 import hashlib
-import base64
 import time
 import logging
-import urllib
+
+from . import utils
+from .compat import urlquote, to_bytes, to_string
 
 
 class Auth(object):
@@ -24,7 +25,7 @@ class Auth(object):
         req.headers['date'] = time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime())
 
         signature = self.make_signature(req, bucket_name, object_name)
-        req.headers['authorization'] = "OSS {}:{}".format(self.id, signature)
+        req.headers['authorization'] = "OSS {0}:{1}".format(self.id, signature)
 
     def sign_url(self, req, bucket_name, object_name, expires):
         expiration_time = int(time.time()) + expires
@@ -41,10 +42,10 @@ class Auth(object):
     def make_signature(self, req, bucket_name, object_name):
         string_to_sign = self.get_string_to_sign(req, bucket_name, object_name)
 
-        logging.debug("string_to_sign={}".format(string_to_sign))
+        logging.debug("string_to_sign={0}".format(string_to_sign))
 
-        h = hmac.new(self.secret, string_to_sign, hashlib.sha1)
-        return base64.b64encode(h.digest())
+        h = hmac.new(to_bytes(self.secret), to_bytes(string_to_sign), hashlib.sha1)
+        return utils.b64encode_as_string(h.digest())
 
     def get_string_to_sign(self, req, bucket_name, object_name):
         resource_string = self.get_resource_string(req, bucket_name, object_name)
@@ -78,7 +79,7 @@ class Auth(object):
         if not bucket_name:
             return '/'
         else:
-            return '/{}/{}{}'.format(bucket_name, object_name, self.get_subresource_string(req.params))
+            return '/{0}/{1}{2}'.format(bucket_name, object_name, self.get_subresource_string(req.params))
 
     def get_subresource_string(self, params):
         if not params:
@@ -104,7 +105,7 @@ class Auth(object):
 
     def __param_to_quoted_query(self, k, v):
         if v:
-            return urllib.quote(k, '') + '=' + urllib.quote(v, '')
+            return urlquote(k, '') + '=' + urlquote(v, '')
         else:
-            return urllib.quote(k, '')
+            return urlquote(k, '')
 

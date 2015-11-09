@@ -4,26 +4,32 @@ import socket
 import hashlib
 import base64
 
+from .compat import to_string
+
 _EXTRA_TYPES_MAP = {
-    "js": "application/javascript",
-    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "xltx": "application/vnd.openxmlformats-officedocument.spreadsheetml.template",
-    "potx": "application/vnd.openxmlformats-officedocument.presentationml.template",
-    "ppsx": "application/vnd.openxmlformats-officedocument.presentationml.slideshow",
-    "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    "sldx": "application/vnd.openxmlformats-officedocument.presentationml.slide",
-    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "dotx": "application/vnd.openxmlformats-officedocument.wordprocessingml.template",
-    "xlam": "application/vnd.ms-excel.addin.macroEnabled.12",
-    "xlsb": "application/vnd.ms-excel.sheet.binary.macroEnabled.12",
-    "apk": "application/vnd.android.package-archive"
+    ".js": "application/javascript",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".xltx": "application/vnd.openxmlformats-officedocument.spreadsheetml.template",
+    ".potx": "application/vnd.openxmlformats-officedocument.presentationml.template",
+    ".ppsx": "application/vnd.openxmlformats-officedocument.presentationml.slideshow",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".sldx": "application/vnd.openxmlformats-officedocument.presentationml.slide",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".dotx": "application/vnd.openxmlformats-officedocument.wordprocessingml.template",
+    ".xlam": "application/vnd.ms-excel.addin.macroEnabled.12",
+    ".xlsb": "application/vnd.ms-excel.sheet.binary.macroEnabled.12",
+    ".apk": "application/vnd.android.package-archive"
 }
+
+
+def b64encode_as_string(data):
+    return to_string(base64.b64encode(data))
 
 
 def content_md5(data):
     m = hashlib.md5()
     m.update(data)
-    return base64.b64encode(m.digest())
+    return b64encode_as_string(m.digest())
 
 
 def content_type_by_name(name):

@@ -6,8 +6,7 @@ from .exceptions import make_exception
 
 from .models import *
 
-import urlparse
-import urllib
+from .compat import urlquote, urlparse
 
 
 class _Base(object):
@@ -306,24 +305,24 @@ def _determine_endpoint_type(netloc, is_cname):
 
 class _UrlMaker(object):
     def __init__(self, endpoint, is_cname):
-        p = urlparse.urlparse(endpoint)
+        p = urlparse(endpoint)
 
         self.scheme = p.scheme
         self.netloc = p.netloc
         self.type = _determine_endpoint_type(p.netloc, is_cname)
 
     def __call__(self, bucket_name, object_name):
-        object_name = urllib.quote(object_name)
+        object_name = urlquote(object_name)
 
         if self.type == _ENDPOINT_TYPE_CNAME:
-            return '{}://{}/{}'.format(self.scheme, self.netloc, object_name)
+            return '{0}://{1}/{2}'.format(self.scheme, self.netloc, object_name)
 
         if self.type == _ENDPOINT_TYPE_IP:
             assert bucket_name
-            return '{}://{}/{}/{}'.format(self.scheme, self.netloc, bucket_name, object_name)
+            return '{0}://{1}/{2}/{3}'.format(self.scheme, self.netloc, bucket_name, object_name)
 
         if not bucket_name:
             assert not object_name
-            return '{}://{}'.format(self.scheme, self.netloc)
+            return '{0}://{1}'.format(self.scheme, self.netloc)
 
-        return '{}://{}.{}/{}'.format(self.scheme, bucket_name, self.netloc, object_name)
+        return '{0}://{1}.{2}/{3}'.format(self.scheme, bucket_name, self.netloc, object_name)

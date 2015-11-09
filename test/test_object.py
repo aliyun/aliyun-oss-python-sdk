@@ -2,7 +2,7 @@
 
 import unittest
 import logging
-import urllib
+import requests
 
 import oss
 from oss.exceptions import NoSuchKey, PositionNotEqualToLength
@@ -21,7 +21,7 @@ class TestObject(unittest.TestCase):
 
     def test_object(self):
         object_name = random_string(12) + '.js'
-        content = random_string(1024)
+        content = random_bytes(1024)
 
         result = self.bucket.put_object(object_name, content)
 
@@ -42,7 +42,7 @@ class TestObject(unittest.TestCase):
 
     def test_batch_delete_objects(self):
         object_list = []
-        for i in xrange(0, 5):
+        for i in range(0, 5):
             object_name = random_string(12)
             object_list.append(object_name)
 
@@ -53,8 +53,8 @@ class TestObject(unittest.TestCase):
 
     def test_append_object(self):
         object_name = random_string(12)
-        content1 = random_string(512)
-        content2 = random_string(128)
+        content1 = random_bytes(512)
+        content2 = random_bytes(128)
 
         result = self.bucket.append_object(object_name, 0, content1)
         self.assertEqual(result.next_position, len(content1))
@@ -73,20 +73,18 @@ class TestObject(unittest.TestCase):
 
     def test_private_download_url(self):
         for object_name in [random_string(12), '中文对象名']:
-            content = random_string(42)
+            content = random_bytes(42)
 
             self.bucket.put_object(object_name, content)
             url = self.bucket.sign_url('GET', object_name, 60)
 
-            print('url is ' + url)
-
-            resp = urllib.urlopen(url)
-            self.assertEqual(content, resp.read())
+            resp = requests.get(url)
+            self.assertEqual(content, resp.content)
 
     def test_copy_object(self):
         source_object_name = random_string(12)
         target_object_name = random_string(13)
-        content = random_string(36)
+        content = random_bytes(36)
 
         self.bucket.put_object(source_object_name, content)
         self.bucket.copy_object(self.bucket.bucket_name, source_object_name, target_object_name)

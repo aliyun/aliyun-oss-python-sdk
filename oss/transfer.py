@@ -197,7 +197,7 @@ class ResumableUploader(object):
             num_parts = how_many(self.size, self.part_size)
             start_part = 1
 
-        for i in xrange(start_part, num_parts+1):
+        for i in range(start_part, num_parts+1):
             if i == num_parts:
                 bytes_to_upload = remaining % self.part_size
             else:

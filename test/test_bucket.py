@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import unittest
 import oss
 import logging
@@ -56,7 +58,7 @@ class TestBucket(unittest.TestCase):
 
     def test_website(self):
         object_name = random_string(12) + '/'
-        content = random_string(32)
+        content = random_bytes(32)
 
         self.bucket.put_object('index.html', content)
 
@@ -96,6 +98,25 @@ class TestBucket(unittest.TestCase):
         cors = oss.models.BucketCors([rule])
 
         self.bucket.put_bucket_cors(cors)
+
+        cors_got = self.bucket.get_bucket_cors()
+        rule_got = cors_got.rules[0]
+
+        self.assertEqual(rule.allowed_origins, rule_got.allowed_origins)
+        self.assertEqual(rule.allowed_methods, rule_got.allowed_methods)
+        self.assertEqual(rule.allowed_headers, rule_got.allowed_headers)
+
+        self.bucket.delete_bucket_cors()
+
+    def test_xml_input(self):
+        xml_input = '''<?xml version="1.0" encoding="UTF-8"?>
+                       <RefererConfiguration>
+                         <AllowEmptyReferer>true</AllowEmptyReferer>
+                         <RefererList>
+                            <Referer>阿里云</Referer>
+                         </RefererList>
+                       </RefererConfiguration>'''
+        self.bucket.put_bucket_referer(xml_input)
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)

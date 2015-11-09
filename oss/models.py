@@ -1,4 +1,4 @@
-import xml_utils
+import xml.etree.ElementTree as ElementTree
 
 
 class PartInfo(object):
@@ -19,7 +19,8 @@ class RequestResult(object):
 class ErrorResult(RequestResult):
     def __init__(self, resp):
         super(ErrorResult, self).__init__(resp)
-        self.details = xml_utils.parse_error_body(resp.read(4096))
+        self.error_body = resp.read(4096)
+        self.details = _parse_error_body(self.error_body)
         self.code = self.details.get('Code', '')
         self.message = self.details.get('Message', '')
 
@@ -222,3 +223,17 @@ class GetBucketCorsResult(RequestResult, BucketCors):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         BucketCors.__init__(self)
+
+
+def _parse_error_body(body):
+    try:
+        root = ElementTree.fromstring(body)
+        if root.tag != 'Error':
+            return {}
+
+        details = {}
+        for child in root:
+            details[child.tag] = child.text
+        return details
+    except ElementTree.ParseError:
+        return {}

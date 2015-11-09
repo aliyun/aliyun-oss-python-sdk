@@ -1,1 +1,18 @@
-# Python SDK for Aliyun OSS
+# Aliyun OSS SDK for Python
+
+## 概述
+
+## 运行环境
+Python 2.6，2.7，3.3，3.4，3.5
+
+## 安装方法
+
+## 快速使用
+
+## 更多使用
+
+## 注意事项
+
+## 联系我们
+
+## 代码许可

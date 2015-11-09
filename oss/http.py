@@ -3,9 +3,10 @@ import platform
 
 from . import __version__
 from requests.structures import CaseInsensitiveDict
+from .compat import to_bytes
 
 
-_USER_AGENT = 'aliyun-sdk-python/{} ({}/{}/{};{})'.format(
+_USER_AGENT = 'aliyun-sdk-python/{0} ({1}/{2}/{3};{4})'.format(
     __version__, platform.system(), platform.release(), platform.machine(), platform.python_version())
 
 
@@ -28,7 +29,7 @@ class Request(object):
                  headers=None):
         self.method = method
         self.url = url
-        self.data = data
+        self.data = to_bytes(data)
         self.params = params or {}
 
         if not isinstance(headers, CaseInsensitiveDict):
@@ -52,9 +53,9 @@ class Response(object):
 
     def read(self, amt=None):
         if amt is None:
-            content = ''
+            content = b''
             for chunk in self.response.iter_content(512 * 1024):
                 content += chunk
             return content
         else:
-            return self.response.iter_content(amt).next()
+            return next(self.response.iter_content(amt))

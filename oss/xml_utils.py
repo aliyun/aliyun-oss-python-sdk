@@ -1,5 +1,4 @@
 import xml.etree.ElementTree as ElementTree
-import urllib
 import io
 
 from .models import (SimplifiedObjectInfo,
@@ -9,6 +8,8 @@ from .models import (SimplifiedObjectInfo,
                      LifecycleRule,
                      LifecycleAction,
                      CorsRule)
+
+from .compat import urlquote, urlunquote
 
 
 def _find_tag(parent, path):
@@ -35,7 +36,7 @@ def _find_int(parent, path):
 def _find_object(parent, path, url_encoded):
     name = _find_tag(parent, path)
     if url_encoded:
-        return urllib.unquote(name)
+        return urlunquote(name)
     else:
         return name
 
@@ -46,20 +47,6 @@ def _is_url_encoding(root):
         return True
     else:
         return False
-
-#TODO: generalize xml to list k-v interfaces
-def parse_error_body(body):
-    try:
-        root = ElementTree.fromstring(body)
-        if root.tag != 'Error':
-            return {}
-
-        details = {}
-        for child in root:
-            details[child.tag] = child.text
-        return details
-    except ElementTree.ParseError:
-        return {}
 
 
 def parse_list_objects(result, body):
@@ -255,7 +242,7 @@ def _node_to_string(root):
 
     xml = None
     with io.BytesIO(xml) as f:
-        tree.write(f, xml_declaration=True)
+        tree.write(f, encoding='utf-8')
         xml = f.getvalue()
 
     return xml
@@ -263,7 +250,7 @@ def _node_to_string(root):
 
 def _make_encoder(encoding_type):
     if encoding_type == 'url':
-        return urllib.quote
+        return urlquote
     else:
         return lambda x: x
 
@@ -273,7 +260,7 @@ def to_complete_upload_request(parts):
     for p in parts:
         part_node = ElementTree.SubElement(root, "Part")
         ElementTree.SubElement(part_node, 'PartNumber').text = str(p.part_number)
-        ElementTree.SubElement(part_node, 'ETag').text = '"{}"'.format(p.etag)
+        ElementTree.SubElement(part_node, 'ETag').text = '"{0}"'.format(p.etag)
 
     return _node_to_string(root)
 
