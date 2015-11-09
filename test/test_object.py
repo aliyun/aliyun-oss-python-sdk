@@ -92,5 +92,17 @@ class TestObject(unittest.TestCase):
         result = self.bucket.get_object(target_object_name)
         self.assertEqual(content, result.read())
 
+    def test_object_acl(self):
+        object_name = random_string(12)
+        content = random_bytes(32)
+
+        self.bucket.put_object(object_name, content)
+        self.assertEqual(self.bucket.get_object_acl(object_name).acl, 'default')
+
+        self.bucket.put_object_acl(object_name, 'private')
+        self.assertEqual(self.bucket.get_object_acl(object_name).acl, 'private')
+
+        self.bucket.delete_object(object_name)
+
 if __name__ == '__main__':
     unittest.main()

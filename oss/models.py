@@ -80,6 +80,12 @@ class SimplifiedObjectInfo(object):
         self.size = size
 
 
+class GetObjectAclResult(RequestResult):
+    def __init__(self, resp):
+        super(GetObjectAclResult, self).__init__(resp)
+        self.acl = ''
+
+
 class BucketResult(RequestResult):
     def __init__(self, resp):
         super(BucketResult, self).__init__(resp)

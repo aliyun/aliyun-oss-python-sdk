@@ -154,6 +154,7 @@ def parse_get_bucket_acl(result, body):
 
     return result
 
+parse_get_object_acl = parse_get_bucket_acl
 
 def parse_get_bucket_location(result, body):
     result.location = ElementTree.fromstring(body).text

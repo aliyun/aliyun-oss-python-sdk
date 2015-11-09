@@ -102,6 +102,14 @@ class Bucket(_Base):
         resp = self.__do_object('DELETE', object_name)
         return RequestResult(resp)
 
+    def put_object_acl(self, object_name, permission):
+        resp = self.__do_object('PUT', object_name, params={'acl': ''}, headers={'x-oss-object-acl': permission})
+        return RequestResult(resp)
+
+    def get_object_acl(self, object_name):
+        resp = self.__do_object('GET', object_name, params={'acl': ''})
+        return self._parse_result(resp, xml_utils.parse_get_object_acl, GetObjectAclResult)
+
     def batch_delete_objects(self, objects, quiet=False):
         data = xml_utils.to_batch_delete_objects_request(objects, quiet, 'url')
         resp = self.__do_object('POST', '',
@@ -318,8 +326,10 @@ class _UrlMaker(object):
             return '{0}://{1}/{2}'.format(self.scheme, self.netloc, object_name)
 
         if self.type == _ENDPOINT_TYPE_IP:
-            assert bucket_name
-            return '{0}://{1}/{2}/{3}'.format(self.scheme, self.netloc, bucket_name, object_name)
+            if bucket_name:
+                return '{0}://{1}/{2}/{3}'.format(self.scheme, self.netloc, bucket_name, object_name)
+            else:
+                return '{0}://{1}/{2}'.format(self.scheme, self.netloc, object_name)
 
         if not bucket_name:
             assert not object_name
