@@ -30,7 +30,20 @@ bucket.get_object(object_name).read()
 # 删除
 bucket.delete_object(object_name)
 ```
-
+## 测试
+首先通过环境变量来设置测试所需的AccessKeyID、AccessKeySecret、Endpoint以及Bucket信息：
+```bash
+$ export OSS_TEST_ACCESS_KEY_ID=<AccessKeyID>
+$ export OSS_TEST_ACCESS_KEY_SECRET=<AccessKeySecret>
+$ export OSS_TEST_ENDPOINT=<endpoint>
+$ export OSS_TEST_BUCKET=<bucket>
+```
+然后可以通过以下方式之一运行测试：
+```bash
+$ python -m unitest discover test   # 如果Python版本 >= 2.7
+$ nosetests                         # 如果安装了nose
+$ py.test                           # 如果安装了py.test
+```
 ## 更多使用
 
 ## 注意事项
