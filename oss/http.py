@@ -19,7 +19,7 @@ class Session(object):
                                              data=req.data,
                                              params=req.params,
                                              headers=req.headers,
-                                             stream=False))
+                                             stream=True))
 
 
 class Request(object):
@@ -58,4 +58,7 @@ class Response(object):
                 content += chunk
             return content
         else:
-            return next(self.response.iter_content(amt))
+            try:
+                return next(self.response.iter_content(amt))
+            except StopIteration:
+                return b''
