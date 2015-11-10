@@ -47,7 +47,7 @@ $ py.test                           # 如果安装了py.test
 ## 更多使用
 
 ## 注意事项
-
+* 不要使用Python 3.3.0、3.3.1，参考[Python Issue 16658](https://bugs.python.org/issue16658)
 ## 联系我们
 
 ## 代码许可

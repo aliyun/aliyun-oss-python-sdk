@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from . import xml_utils
 from . import http
 from . import utils
@@ -34,11 +36,38 @@ class _Base(object):
 
 
 class Service(_Base):
+    """用于Service操作的类，如罗列用户所有的Bucket。
+
+    用法::
+
+        >>> import oss
+        >>> auth = oss.Auth('your-access-key-id', 'your-access-key-secret')
+        >>> service = oss.Service(auth, 'oss-cn-hangzhou.aliyuncs.com')
+        >>> service.list_buckets()
+        <oss.models.ListBucketsResult object at 0x0299FAB0>
+    """
+
     def __init__(self, auth, endpoint,
                  session=None):
+        """构造Service类。
+
+        :param auth: 包含了用户认证信息的Auth对象
+        :param endpoint: 访问域名，如杭州区域的域名为oss-cn-hangzhou.aliyuncs.com
+        :param session: 会话。如果是None表示新开会话，非None则复用传入的会话
+        :type session: Session或None
+        """
         super(Service, self).__init__(auth, endpoint, False, session)
 
     def list_buckets(self, prefix='', marker='', max_keys=100):
+        """根据前缀罗列用户的Bucket。
+
+        :param prefix: 只罗列Bucket名为该前缀的Bucket，空串表示罗列所有的Bucket
+        :param marker: 分页标志。首次调用传空串，后续使用返回值的next_marker
+        :param max_keys: 每次调用最多返回的Bucket数目
+
+        :return: 罗列的结果
+        :rtype: :class:`oss.models.ListBucketsResult`
+        """
         resp = self._do('GET', '', '',
                         params={'prefix': prefix,
                                 'marker': marker,
@@ -47,9 +76,27 @@ class Service(_Base):
 
 
 class Bucket(_Base):
+    """用于Bucket和Object操作的类，诸如创建、删除Bucket，上传、下载对象等。
+
+    用法::
+        >>> import oss
+        >>> auth = oss.Auth('your-access-key-id', 'your-access-key-secret')
+        >>> bucket = oss.Bucket(auth, 'oss-cn-beijing.aliyuncs.com', 'your-bucket')
+        >>> bucket.put_object('readme.txt', 'content of the object')
+        <oss.models.PutObjectResult object at 0x029B9930>
+    """
     def __init__(self, auth, endpoint, bucket_name,
                  is_cname=False,
                  session=None):
+        """构造Bucket类。
+
+        :param auth: 包含了用户认证信息的Auth对象
+        :param endpoint: 访问域名或者CNAME
+        :param bucket_name: Bucket名
+        :param is_cname: 如果`endpoint`是CNAME则设为True;如果是诸如oss-cn-hangzhou.aliyuncs.com的域名则为False
+        :param session: 会话。如果是None表示新开会话，非None则复用传入的会话
+        :type session: Session或None
+        """
         super(Bucket, self).__init__(auth, endpoint, is_cname, session)
         self.bucket_name = bucket_name
 
