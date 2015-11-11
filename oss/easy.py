@@ -1,4 +1,4 @@
-from . models import PartInfo, MultipartUploadInfo
+from . models import PartInfo, MultipartUploadInfo, SimplifiedObjectInfo
 from .exceptions import NoSuchUpload
 
 
@@ -54,7 +54,8 @@ class ObjectIterator(_BaseIterator):
         result = self.bucket.list_objects(prefix=self.prefix,
                                           delimiter=self.delimiter,
                                           marker=self.next_marker)
-        self.entries = result.object_list + result.prefix_list
+        self.entries = result.object_list + [SimplifiedObjectInfo(prefix, None, None, None, None)
+                                             for prefix in result.prefix_list]
         self.entries.sort()
 
         return result.is_truncated, result.next_marker

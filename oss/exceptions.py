@@ -36,6 +36,11 @@ class PositionNotEqualToLength(OssError):
         self.next_position = int(self.result.headers['x-oss-next-append-position'])
 
 
+class ObjectNotAppendable(OssError):
+    status = 409
+    code = 'ObjectNotAppendable'
+
+
 def make_exception(resp):
     assert resp.status // 100 != 2
 

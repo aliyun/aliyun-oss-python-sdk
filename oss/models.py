@@ -79,6 +79,9 @@ class SimplifiedObjectInfo(object):
         self.type = type
         self.size = size
 
+    def is_prefix(self):
+        return self.last_modified is None
+
 
 class GetObjectAclResult(RequestResult):
     def __init__(self, resp):
