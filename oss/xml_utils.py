@@ -104,8 +104,8 @@ def parse_list_multipart_uploads(result, body):
     url_encoded = _is_url_encoding(root)
 
     result.is_truncated = _find_bool(root, 'IsTruncated')
-    result.next_key_marker = _find_tag(root, 'NextKeyMarker')
-    result.next_upload_id_marker = _find_tag('NextUploadIdMarker')
+    result.next_key_marker = _find_object(root, 'NextKeyMarker', url_encoded)
+    result.next_upload_id_marker = _find_tag(root, 'NextUploadIdMarker')
 
     for upload_node in root.findall('Upload'):
         result.upload_list.append(MultipartUploadInfo(

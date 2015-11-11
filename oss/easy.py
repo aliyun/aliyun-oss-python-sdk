@@ -43,39 +43,43 @@ class BucketIterator(_BaseIterator):
 
 
 class ObjectIterator(_BaseIterator):
-    def __init__(self, bucket, prefix='', delimiter='', marker=''):
+    def __init__(self, bucket, prefix='', delimiter='', marker='', max_keys=100):
         super(ObjectIterator, self).__init__(marker)
 
         self.bucket = bucket
         self.prefix = prefix
         self.delimiter = delimiter
+        self.max_keys = max_keys
 
     def _fetch(self):
         result = self.bucket.list_objects(prefix=self.prefix,
                                           delimiter=self.delimiter,
-                                          marker=self.next_marker)
+                                          marker=self.next_marker,
+                                          max_keys=self.max_keys)
         self.entries = result.object_list + [SimplifiedObjectInfo(prefix, None, None, None, None)
                                              for prefix in result.prefix_list]
-        self.entries.sort()
+        self.entries.sort(key=lambda obj: obj.name)
 
         return result.is_truncated, result.next_marker
 
 
 class MultipartUploadIterator(_BaseIterator):
-    def __init__(self, bucket, prefix='', delimiter='', key_marker='', upload_id_marker=''):
+    def __init__(self, bucket, prefix='', delimiter='', key_marker='', upload_id_marker='', max_uploads=1000):
         super(MultipartUploadIterator,self).__init__(key_marker)
 
         self.bucket = bucket
         self.prefix = prefix
         self.delimiter = delimiter
         self.next_upload_id_marker = upload_id_marker
+        self.max_uploads = max_uploads
 
     def _fetch(self):
         result = self.bucket.list_multipart_uploads(prefix=self.prefix,
                                                     delimiter=self.delimiter,
                                                     key_marker=self.next_marker,
-                                                    upload_id_marker=self.next_upload_id_marker)
-        self.entries = result.upload_list + [MultipartUploadInfo(prefix) for prefix in result.prefix_list]
+                                                    upload_id_marker=self.next_upload_id_marker,
+                                                    max_uploads=self.max_uploads)
+        self.entries = result.upload_list + [MultipartUploadInfo(prefix, None, None) for prefix in result.prefix_list]
         self.entries.sort(key=lambda u: u.object_name)
 
         self.next_upload_id_marker = result.next_upload_id_marker

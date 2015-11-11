@@ -116,6 +116,9 @@ class MultipartUploadInfo(object):
         self.upload_id = upload_id
         self.creation_time = creation_time
 
+    def is_prefix(self):
+        return self.upload_id is None
+
 
 class ListMultipartUploadsResult(RequestResult):
     def __init__(self, resp):
