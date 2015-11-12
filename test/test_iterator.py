@@ -82,7 +82,7 @@ class TestIterator(unittest.TestCase):
         part_list = []
         for part_number in [1, 3, 6, 7, 9, 10]:
             content = random_string(128 * 1024)
-            etag = hashlib.md5(content).hexdigest().upper()
+            etag = hashlib.md5(oss.compat.to_bytes(content)).hexdigest().upper()
             part_list.append(oss.models.PartInfo(part_number, etag, len(content)))
 
             self.bucket.upload_part(object_name, upload_id, part_number, content)

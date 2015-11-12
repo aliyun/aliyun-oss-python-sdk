@@ -76,7 +76,7 @@ class TestObject(unittest.TestCase):
             content = random_bytes(42)
 
             self.bucket.put_object(object_name, content)
-            url = self.bucket._sign_url('GET', object_name, 60)
+            url = self.bucket.sign_url('GET', object_name, 60)
 
             resp = requests.get(url)
             self.assertEqual(content, resp.content)
