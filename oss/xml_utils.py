@@ -1,3 +1,17 @@
+# -*- coding: utf-8 -*-
+
+"""
+oss.xml_utils
+~~~~~~~~~~~~~
+
+XML处理相关。
+
+主要包括两类接口：
+    - parse_开头的函数：用来解析服务器端返回的XML
+    - to_开头的函数：用来生成发往服务器端的XML
+
+"""
+
 import xml.etree.ElementTree as ElementTree
 import io
 
@@ -41,12 +55,39 @@ def _find_object(parent, path, url_encoded):
         return name
 
 
+def _find_all_tags(parent, tag):
+    return [node.text or '' for node in parent.findall(tag)]
+
+
 def _is_url_encoding(root):
     node = root.find('EncodingType')
     if node is not None and node.text == 'url':
         return True
     else:
         return False
+
+
+def _node_to_string(root):
+    tree = ElementTree.ElementTree(root)
+
+    xml = None
+    with io.BytesIO(xml) as f:
+        tree.write(f, encoding='utf-8')
+        xml = f.getvalue()
+
+    return xml
+
+
+def _add_node_list(parent, tag, entries):
+    for e in entries:
+        ElementTree.SubElement(parent, tag).text = e
+
+
+def _make_encoder(encoding_type):
+    if encoding_type == 'url':
+        return urlquote
+    else:
+        return lambda x: x
 
 
 def parse_list_objects(result, body):
@@ -156,6 +197,7 @@ def parse_get_bucket_acl(result, body):
 
 parse_get_object_acl = parse_get_bucket_acl
 
+
 def parse_get_bucket_location(result, body):
     result.location = ElementTree.fromstring(body).text
     return result
@@ -215,10 +257,6 @@ def parse_get_bucket_lifecycle(result, body):
     return result
 
 
-def _find_all_tags(parent, tag):
-    return [node.text or '' for node in parent.findall(tag)]
-
-
 def parse_get_bucket_cors(result, body):
     root = ElementTree.fromstring(body)
 
@@ -236,24 +274,6 @@ def parse_get_bucket_cors(result, body):
         result.rules.append(rule)
 
     return result
-
-
-def _node_to_string(root):
-    tree = ElementTree.ElementTree(root)
-
-    xml = None
-    with io.BytesIO(xml) as f:
-        tree.write(f, encoding='utf-8')
-        xml = f.getvalue()
-
-    return xml
-
-
-def _make_encoder(encoding_type):
-    if encoding_type == 'url':
-        return urlquote
-    else:
-        return lambda x: x
 
 
 def to_complete_upload_request(parts):
@@ -330,11 +350,6 @@ def to_put_bucket_lifecycle(bucket_lifecycle):
             ElementTree.SubElement(action_node, action.time_spec).text = action.time_value
 
     return _node_to_string(root)
-
-
-def _add_node_list(parent, tag, entries):
-    for e in entries:
-        ElementTree.SubElement(parent, tag).text = e
 
 
 def to_put_bucket_cors(bucket_cors):

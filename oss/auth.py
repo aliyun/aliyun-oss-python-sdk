@@ -1,14 +1,18 @@
+# -*- coding: utf-8 -*-
+
 import hmac
 import hashlib
 import time
 import logging
 
 from . import utils
-from .compat import urlquote, to_bytes, to_string
+from .compat import urlquote, to_bytes
 
 
 class Auth(object):
-    subresource_key_set = frozenset(
+    """用于保存用户AccessKeyId、AccessKeySecret，以及计算签名的对象。"""
+
+    _subresource_key_set = frozenset(
         ['response-content-type', 'response-content-language',
          'response-cache-control', 'logging', 'response-content-encoding',
          'acl', 'uploadId', 'uploads', 'partNumber', 'group', 'link',
@@ -21,17 +25,17 @@ class Auth(object):
         self.id = access_key_id
         self.secret = access_key_secret
 
-    def sign_request(self, req, bucket_name, object_name):
+    def _sign_request(self, req, bucket_name, object_name):
         req.headers['date'] = time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime())
 
-        signature = self.make_signature(req, bucket_name, object_name)
+        signature = self.__make_signature(req, bucket_name, object_name)
         req.headers['authorization'] = "OSS {0}:{1}".format(self.id, signature)
 
-    def sign_url(self, req, bucket_name, object_name, expires):
+    def _sign_url(self, req, bucket_name, object_name, expires):
         expiration_time = int(time.time()) + expires
 
         req.headers['date'] = str(expiration_time)
-        signature = self.make_signature(req, bucket_name, object_name)
+        signature = self.__make_signature(req, bucket_name, object_name)
 
         req.params['OSSAccessKeyId'] = self.id
         req.params['Expires'] = str(expiration_time)
@@ -39,17 +43,17 @@ class Auth(object):
 
         return req.url + '?' + '&'.join(self.__param_to_quoted_query(k, v) for k, v in req.params.items())
 
-    def make_signature(self, req, bucket_name, object_name):
-        string_to_sign = self.get_string_to_sign(req, bucket_name, object_name)
+    def __make_signature(self, req, bucket_name, object_name):
+        string_to_sign = self.__get_string_to_sign(req, bucket_name, object_name)
 
         logging.debug("string_to_sign={0}".format(string_to_sign))
 
         h = hmac.new(to_bytes(self.secret), to_bytes(string_to_sign), hashlib.sha1)
         return utils.b64encode_as_string(h.digest())
 
-    def get_string_to_sign(self, req, bucket_name, object_name):
-        resource_string = self.get_resource_string(req, bucket_name, object_name)
-        headers_string = self.get_headers_string(req)
+    def __get_string_to_sign(self, req, bucket_name, object_name):
+        resource_string = self.__get_resource_string(req, bucket_name, object_name)
+        headers_string = self.__get_headers_string(req)
 
         content_md5 = req.headers.get('content-md5', '')
         content_type = req.headers.get('content-type', '')
@@ -60,7 +64,7 @@ class Auth(object):
                           date,
                           headers_string + resource_string])
 
-    def get_headers_string(self, req):
+    def __get_headers_string(self, req):
         headers = req.headers
         canon_headers = []
         for k, v in headers.items():
@@ -75,19 +79,19 @@ class Auth(object):
         else:
             return ''
 
-    def get_resource_string(self, req, bucket_name, object_name):
+    def __get_resource_string(self, req, bucket_name, object_name):
         if not bucket_name:
             return '/'
         else:
-            return '/{0}/{1}{2}'.format(bucket_name, object_name, self.get_subresource_string(req.params))
+            return '/{0}/{1}{2}'.format(bucket_name, object_name, self.__get_subresource_string(req.params))
 
-    def get_subresource_string(self, params):
+    def __get_subresource_string(self, params):
         if not params:
             return ''
 
         subresource_params = []
         for key, value in params.items():
-            if key in self.subresource_key_set:
+            if key in self._subresource_key_set:
                 subresource_params.append((key, value))
 
         subresource_params.sort(key=lambda e: e[0])

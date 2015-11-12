@@ -1,3 +1,12 @@
+# -*- coding: utf-8 -*-
+
+"""
+oss.models
+~~~~~~~~~~
+
+该模块包含Python SDK API接口所需要的输入参数以及返回值类型。
+"""
+
 import xml.etree.ElementTree as ElementTree
 
 
@@ -87,12 +96,6 @@ class GetObjectAclResult(RequestResult):
     def __init__(self, resp):
         super(GetObjectAclResult, self).__init__(resp)
         self.acl = ''
-
-
-class BucketResult(RequestResult):
-    def __init__(self, resp):
-        super(BucketResult, self).__init__(resp)
-        self.data = resp.read()
 
 
 class SimplifiedBucketInfo(object):

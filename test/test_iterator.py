@@ -14,6 +14,10 @@ class TestIterator(unittest.TestCase):
     def setUp(self):
         self.bucket = oss.Bucket(oss.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
 
+    def test_bucket_iterator(self):
+        service = oss.Service(oss.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT)
+        self.assertTrue(OSS_BUCKET in (b.name for b in oss.BucketIterator(service)))
+
     def test_object_iterator(self):
         prefix = random_string(12) + '/'
         object_list = []

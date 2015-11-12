@@ -1,3 +1,12 @@
+# -*- coding: utf-8 -*-
+
+"""
+oss.exceptions
+~~~~~~~~~~~~~~
+
+异常类。
+"""
+
 from .models import ErrorResult
 
 _OSS_ERROR_TO_EXCEPTION = {} # populated at end of module
@@ -15,6 +24,11 @@ class OssError(Exception):
 class NoSuchBucket(OssError):
     status = 404
     code = 'NoSuchBucket'
+
+
+class BucketNotEmpty(OssError):
+    status = 409
+    code = 'BucketNotEmpty'
 
 
 class NoSuchKey(OssError):

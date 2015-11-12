@@ -1,3 +1,13 @@
+# -*- coding: utf-8 -*-
+
+"""
+oss.http
+~~~~~~~~
+
+这个模块包含了HTTP Adapters。尽管OSS Python SDK内部使用requests库进行HTTP通信，但是对使用者是透明的。
+该模块中的 `Session` 、 `Request` 、`Response` 对requests的对应的类做了简单的封装。
+"""
+
 import requests
 import platform
 

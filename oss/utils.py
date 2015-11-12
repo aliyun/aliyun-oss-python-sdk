@@ -1,3 +1,12 @@
+# -*- coding: utf-8 -*-
+
+"""
+oss.utils
+---------
+
+工具函数模块。
+"""
+
 import os.path
 import mimetypes
 import socket
@@ -27,12 +36,17 @@ def b64encode_as_string(data):
 
 
 def content_md5(data):
+    """计算data的MD5值，经过Base64编码并返回str类型。
+
+    返回值可以直接作为HTTP Content-Type头部的值
+    """
     m = hashlib.md5()
     m.update(data)
     return b64encode_as_string(m.digest())
 
 
 def content_type_by_name(name):
+    """根据文件名，返回Content-Type。"""
     ext = os.path.splitext(name)[1].lower()
     if ext in _EXTRA_TYPES_MAP:
         return _EXTRA_TYPES_MAP[ext]
@@ -41,6 +55,7 @@ def content_type_by_name(name):
 
 
 def set_content_type(headers, name):
+    """根据文件名在headers里设置Content-Type。如果headers中已经存在Content-Type，则直接返回。"""
     headers = headers or {}
 
     if 'Content-Type' in headers:
@@ -54,6 +69,7 @@ def set_content_type(headers, name):
 
 
 def is_ip_or_localhost(netloc):
+    """判断网络地址是否为IP或localhost。"""
     loc = netloc.split(':')[0]
     if loc == 'localhost':
         return True

@@ -1,3 +1,12 @@
+# -*- coding: utf-8 -*-
+
+"""
+oss.easy
+~~~~~~~~
+
+该模块包含了一些易用性接口。一般用户应优先使用这些接口。
+"""
+
 from . models import PartInfo, MultipartUploadInfo, SimplifiedObjectInfo
 from .exceptions import NoSuchUpload
 
@@ -30,19 +39,37 @@ class _BaseIterator(object):
 
 
 class BucketIterator(_BaseIterator):
-    def __init__(self, service, prefix='', marker=''):
+    """遍历用户Bucket的迭代器。每次迭代返回的是 :class:`SimplifiedBucketInfo <oss.models.SimplifiedBucketInfo>` 对象。
+
+    :param service: :class:`Service <oss.api.Service>` 对象
+    :param prefix: 只列举匹配该前缀的Bucket
+    :param marker: 分页符。只列举Bucket名字典序在此之后的Bucket
+    :param max_keys: 每次调用 `list_buckets` 时的max_keys参数。注意迭代器返回的数目可能会大于该值。
+    """
+    def __init__(self, service, prefix='', marker='', max_keys=100):
         super(BucketIterator, self).__init__(marker)
         self.service = service
         self.prefix = prefix
+        self.max_keys = max_keys
 
     def _fetch(self):
-        result = self.service.list_buckets(prefix=self.prefix, marker=self.next_marker)
+        result = self.service.list_buckets(prefix=self.prefix,
+                                           marker=self.next_marker,
+                                           max_keys=self.max_keys)
         self.entries = result.buckets
 
         return result.is_truncated, result.next_marker
 
 
 class ObjectIterator(_BaseIterator):
+    """遍历Bucket里对象的迭代器。每次迭代返回的是 :class:`SimplifiedObjectInfo <oss.models.SimplifiedObjectInfo>` 对象。
+
+    :param bucket: :class:`Bucket <oss.api.Bucket>` 对象
+    :param prefix: 只列举匹配该前缀的对象
+    :param delimiter: 目录分隔符
+    :param marker: 分页符
+    :param max_keys: 每次调用 `list_objects` 时的max_keys参数。注意迭代器返回的数目可能会大于该值。
+    """
     def __init__(self, bucket, prefix='', delimiter='', marker='', max_keys=100):
         super(ObjectIterator, self).__init__(marker)
 
@@ -64,6 +91,15 @@ class ObjectIterator(_BaseIterator):
 
 
 class MultipartUploadIterator(_BaseIterator):
+    """遍历Bucket里未完成的分片上传。
+
+    :param bucket: :class:`Bucket <oss.api.Bucket>` 对象
+    :param prefix: 仅列举匹配该前缀的对象的分片上传
+    :param delimiter: 目录分隔符
+    :param key_marker: 对象名分页符
+    :param upload_id_marker: 分片上传ID分页符
+    :param max_uploads: 每次调用 `list_multipart_uploads` 时的max_uploads参数。注意迭代器返回的数目可能会大于该值。
+    """
     def __init__(self, bucket, prefix='', delimiter='', key_marker='', upload_id_marker='', max_uploads=1000):
         super(MultipartUploadIterator,self).__init__(key_marker)
 
@@ -87,15 +123,26 @@ class MultipartUploadIterator(_BaseIterator):
 
 
 class PartIterator(_BaseIterator):
-    def __init__(self, bucket, object_name, upload_id, marker='0'):
+    """遍历一个分片上传会话中已经上传的分片。
+
+    :param bucket: :class:`Bucket <oss.api.Bucket>` 对象
+    :param object_name: 对象名
+    :param upload_id: 分片上传ID
+    :param marker: 分页符
+    :param max_parts: 每次调用 `list_parts` 时的max_parts参数。注意迭代器返回的数目可能会大于该值。
+    """
+    def __init__(self, bucket, object_name, upload_id, marker='0', max_parts=1000):
         super(PartIterator, self).__init__(marker)
 
         self.bucket = bucket
         self.object_name = object_name
         self.upload_id = upload_id
+        self.max_parts = max_parts
 
     def _fetch(self):
-        result = self.bucket.list_parts(self.object_name, self.upload_id, marker=self.next_marker)
+        result = self.bucket.list_parts(self.object_name, self.upload_id,
+                                        marker=self.next_marker,
+                                        max_parts=self.max_parts)
         self.entries = result.parts
 
         return result.is_truncated, result.next_marker
@@ -146,6 +193,16 @@ def determine_part_size(total_size,
 
 
 class ResumableUploader(object):
+    """以断点续传方式上传文件。
+
+    :param stream: file-like object
+    :param size: 文件总长度
+    :param bucket: :class:`Bucket <oss.api.Bucket>` 对象
+    :param object_name: 对象名
+    :param upload_id: 分片上传ID
+    :param part_size: 分片大小。优先使用用户提供的值。如果用户没有指定，那么对于新上传，计算出一个合理值；对于老的上传，采用第一个
+        分片的大小。
+    """
     def __init__(self, stream, size, bucket, object_name, upload_id,
                  part_size=None):
         self.stream = stream
