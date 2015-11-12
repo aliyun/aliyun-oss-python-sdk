@@ -41,6 +41,11 @@ class NoSuchUpload(OssError):
     code = 'NoSuchUpload'
 
 
+class NotModified(OssError):
+    status = 304
+    code = ''
+
+
 class PositionNotEqualToLength(OssError):
     status = 409
     code = 'PositionNotEqualToLength'

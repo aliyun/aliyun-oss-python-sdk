@@ -104,5 +104,13 @@ class TestObject(unittest.TestCase):
 
         self.bucket.delete_object(object_name)
 
+    def test_object_exists(self):
+        object_name = random_string(12)
+
+        self.assertTrue(not self.bucket.object_exists(object_name))
+
+        self.bucket.put_object(object_name, "hello world")
+        self.assertTrue(self.bucket.object_exists(object_name))
+
 if __name__ == '__main__':
     unittest.main()

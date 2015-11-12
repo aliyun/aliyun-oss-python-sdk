@@ -61,11 +61,12 @@ range参数，表明读取数据的范围。Range是一个二元tuple：(start, 
 from . import xml_utils
 from . import http
 from . import utils
+from . import exceptions
 
-from .exceptions import make_exception
 from .models import *
 from .compat import urlquote, urlparse
 
+import time
 
 class _Base(object):
     def __init__(self, auth, endpoint, is_cname, session):
@@ -81,7 +82,7 @@ class _Base(object):
 
         resp = self.session.do_request(req)
         if resp.status // 100 != 2:
-            raise make_exception(resp)
+            raise exceptions.make_exception(resp)
 
         return resp
 
@@ -271,6 +272,25 @@ class Bucket(_Base):
         """
         resp = self.__do_object('HEAD', object_name, headers=headers)
         return RequestResult(resp)
+
+    def object_exists(self, object_name):
+        """如果对象存在就返回True，否则返回False。如果Bucket不存在，或是发生其他错误，则抛出异常。"""
+
+        # 如果我们用head_object来实现的话，由于HTTP HEAD请求没有响应体，只有响应头部，这样当发生404时，
+        # 我们无法区分是NoSuchBucket还是NoSuchKey错误。
+        #
+        # 下面的实现是通过if-modified-since头部，把date设为当前时间1小时后，这样如果对象存在，则会返回
+        # 304 (NotModified)；不存在，则会返回NoSuchKey
+        date = time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.gmtime(time.time() + 60 * 60))
+
+        try:
+            self.get_object(object_name, headers={'if-modified-since': date})
+        except exceptions.NotModified:
+            return True
+        except exceptions.NoSuchKey:
+            return False
+        else:
+            raise RuntimeError('This is impossible')
 
     def copy_object(self, source_bucket_name, source_object_name, target_object_name, headers=None):
         """拷贝一个对象到当前Bucket。
@@ -466,6 +486,16 @@ class Bucket(_Base):
         """
         resp = self.__do_bucket('DELETE')
         return RequestResult(resp)
+
+    def bucket_exists(self):
+        """如果Bucket存在则返回True，反之返回False。
+        """
+        try:
+            self.get_bucket_acl()
+        except exceptions.NoSuchBucket:
+            return False
+        else:
+            return True
 
     def put_bucket_acl(self, permission):
         """设置Bucket的ACL。

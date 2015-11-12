@@ -114,6 +114,13 @@ class TestBucket(unittest.TestCase):
                        </RefererConfiguration>'''
         self.bucket.put_bucket_referer(xml_input)
 
+    def test_bucket_exists(self):
+        self.assertTrue(self.bucket.bucket_exists())
+
+        utopia = oss.Bucket(oss.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, 'utopia-1a2b3c-zxcv-qwer')
+        self.assertTrue(not utopia.bucket_exists())
+
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     unittest.main()
