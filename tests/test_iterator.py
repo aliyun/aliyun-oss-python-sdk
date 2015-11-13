@@ -7,8 +7,6 @@ import hashlib
 import oss
 from common import *
 
-logging.basicConfig(level=logging.DEBUG)
-
 
 class TestIterator(unittest.TestCase):
     def setUp(self):

@@ -8,8 +8,6 @@ import oss
 from oss.exceptions import NoSuchKey, PositionNotEqualToLength
 from common import *
 
-logging.basicConfig(level=logging.DEBUG)
-
 
 class TestObject(unittest.TestCase):
     def __init__(self, *args, **kwargs):
@@ -111,6 +109,16 @@ class TestObject(unittest.TestCase):
 
         self.bucket.put_object(object_name, "hello world")
         self.assertTrue(self.bucket.object_exists(object_name))
+
+    def test_user_meta(self):
+        object_name = random_string(12)
+
+        self.bucket.put_object(object_name, 'hello', headers={'x-oss-meta-key1': 'value1',
+                                                              'X-Oss-Meta-Key2': 'value2'})
+
+        headers = self.bucket.get_object(object_name).headers
+        self.assertEqual(headers['x-oss-meta-key1'], 'value1')
+        self.assertEqual(headers['x-oss-meta-key2'], 'value2')
 
 if __name__ == '__main__':
     unittest.main()

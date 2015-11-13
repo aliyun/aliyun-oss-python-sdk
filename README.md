@@ -7,10 +7,14 @@
 Python 2.6，2.7，3.3，3.4，3.5
 
 ## 安装方法
+通过pip安装官方发布的版本：
 ```bash
 $ pip install oss
 ```
-
+也可以直接安装解压后的安装包：
+```bash
+$ sudo python setup.py install
+```
 ## 快速使用
 ```python
 import oss
@@ -40,7 +44,7 @@ $ export OSS_TEST_BUCKET=<bucket>
 ```
 然后可以通过以下方式之一运行测试：
 ```bash
-$ python -m unitest discover test   # 如果Python版本 >= 2.7
+$ python -m unitest discover tests  # 如果Python版本 >= 2.7
 $ nosetests                         # 如果安装了nose
 $ py.test                           # 如果安装了py.test
 ```
