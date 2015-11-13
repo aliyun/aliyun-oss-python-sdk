@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-import logging
 import hashlib
 
 import oss
+import oss.iterators
+
 from common import *
 
 
@@ -14,7 +15,7 @@ class TestIterator(unittest.TestCase):
 
     def test_bucket_iterator(self):
         service = oss.Service(oss.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT)
-        self.assertTrue(OSS_BUCKET in (b.name for b in oss.BucketIterator(service)))
+        self.assertTrue(OSS_BUCKET in (b.name for b in oss.iterators.BucketIterator(service)))
 
     def test_object_iterator(self):
         prefix = random_string(12) + '/'
@@ -34,7 +35,7 @@ class TestIterator(unittest.TestCase):
         # 验证
         objects_got = []
         dirs_got = []
-        for info in oss.easy.ObjectIterator(self.bucket, prefix, delimiter='/', max_keys=4):
+        for info in oss.iterators.ObjectIterator(self.bucket, prefix, delimiter='/', max_keys=4):
             if info.is_prefix():
                 dirs_got.append(info.name)
             else:
@@ -62,7 +63,7 @@ class TestIterator(unittest.TestCase):
         # 验证
         uploads_got = []
         dirs_got = []
-        for u in oss.easy.MultipartUploadIterator(self.bucket, prefix=prefix, delimiter='/', max_uploads=2):
+        for u in oss.iterators.MultipartUploadIterator(self.bucket, prefix=prefix, delimiter='/', max_uploads=2):
             if u.is_prefix():
                 dirs_got.append(u.object_name)
             else:
@@ -87,7 +88,7 @@ class TestIterator(unittest.TestCase):
 
         # 验证
         parts_got = []
-        for part_info in oss.easy.PartIterator(self.bucket, object_name, upload_id):
+        for part_info in oss.iterators.PartIterator(self.bucket, object_name, upload_id):
             parts_got.append(part_info)
 
         self.assertEqual(len(part_list), len(parts_got))
