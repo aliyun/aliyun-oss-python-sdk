@@ -9,6 +9,13 @@ import sys
 is_py2 = (sys.version_info[0] == 2)
 is_py3 = (sys.version_info[0] == 3)
 
+
+try:
+    import simplejson as json
+except (ImportError, SyntaxError):
+    import json
+
+
 if is_py2:
     from urllib import quote as urlquote, unquote as urlunquote
     from urlparse import urlparse

@@ -391,7 +391,7 @@ class Bucket(_Base):
 
         :return: :class:`PutObjectResult <oss.models.PutObjectResult>`
         """
-        data = xml_utils.to_complete_upload_request(parts)
+        data = xml_utils.to_complete_upload_request(sorted(parts, key=lambda p: p.part_number))
         resp = self.__do_object('POST', object_name,
                                 params={'uploadId': upload_id},
                                 data=data,

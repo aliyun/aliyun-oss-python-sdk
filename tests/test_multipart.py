@@ -29,27 +29,6 @@ class TestMultipart(unittest.TestCase):
         result = self.bucket.get_object(object_name)
         self.assertEqual(content, result.read())
 
-    def test_uploader(self):
-        object_name = 'multipart-' + random_string(32)
-        content = random_bytes(400 * 1024)
-
-        with io.BytesIO(content) as f:
-            uploader = oss.ResumableUploader(f, len(content), self.bucket, object_name, None,
-                                             part_size=100*1024)
-            uploader.upload()
-
-    def test_resume(self):
-        object_name = 'resume-' + random_string(32)
-        content = random_bytes(500*1024)
-
-        upload_id = self.bucket.init_multipart_upload(object_name).upload_id
-        self.bucket.upload_part(object_name, upload_id, 1, content[0:100*1024])
-        self.bucket.upload_part(object_name, upload_id, 2, content[100*1024:2*100*1024])
-
-        with io.BytesIO(content) as f:
-            uploader = oss.ResumableUploader(f, len(content), self.bucket, object_name, upload_id,
-                                             part_size=100*1024)
-            uploader.upload()
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)

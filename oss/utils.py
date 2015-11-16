@@ -13,7 +13,7 @@ import socket
 import hashlib
 import base64
 
-from .compat import to_string
+from .compat import to_string, to_bytes
 
 _EXTRA_TYPES_MAP = {
     ".js": "application/javascript",
@@ -56,9 +56,13 @@ def content_md5(data):
 
     返回值可以直接作为HTTP Content-Type头部的值
     """
-    m = hashlib.md5()
-    m.update(data)
+    m = hashlib.md5(to_bytes(data))
     return b64encode_as_string(m.digest())
+
+
+def md5_string(data):
+    """返回 `data` 的MD5值，以十六进制可读字符串（32个小写字符）的方式。"""
+    return hashlib.md5(to_bytes(data)).hexdigest()
 
 
 def content_type_by_name(name):
@@ -96,3 +100,29 @@ def is_ip_or_localhost(netloc):
         return False
 
     return True
+
+
+class _SizedStreamReader(object):
+    def __init__(self, file_object, size):
+        self.file_object = file_object
+        self.size = size
+        self.offset = 0
+
+    def read(self, amt=None):
+        if self.offset >= self.size:
+            return ''
+
+        if (amt is None or amt < 0) or (amt + self.offset >= self.size):
+            data = self.file_object.read(self.size - self.offset)
+            self.offset = self.size
+            return data
+
+        self.offset += amt
+        return self.file_object.read(amt)
+
+    def __len__(self):
+        return self.size
+
+
+def how_many(m, n):
+    return (m + n - 1) // n
