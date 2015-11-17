@@ -205,8 +205,12 @@ def parse_get_bucket_location(result, body):
 
 def parse_get_bucket_logging(result, body):
     root = ElementTree.fromstring(body)
-    result.target_bucket = root.find('LoggingEnabled/TargetBucket').text.strip()
-    result.target_prefix = root.find('LoggingEnabled/TargetPrefix').text.strip()
+
+    if root.find('LoggingEnabled/TargetBucket') is not None:
+        result.target_bucket = root.find('LoggingEnabled/TargetBucket').text
+
+    if root.find('LoggingEnabled/TargetPrefix') is not None:
+        result.target_prefix = root.find('LoggingEnabled/TargetPrefix').text
 
     return result
 

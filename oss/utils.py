@@ -35,22 +35,6 @@ def b64encode_as_string(data):
     return to_string(base64.b64encode(data))
 
 
-def etag(data):
-    """计算data的etag，data可以是bytes或file-like object。"""
-    m = hashlib.md5()
-
-    if hasattr(data, 'read'):
-        while True:
-            content = data.read()
-            if content:
-                m.update(content)
-            else:
-                return m.hexdigest().upper()
-    else:
-        m.update(data)
-        return m.hexdigest().upper()
-
-
 def content_md5(data):
     """计算data的MD5值，经过Base64编码并返回str类型。
 

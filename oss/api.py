@@ -68,6 +68,7 @@ from .compat import urlquote, urlparse
 
 import time
 
+
 class _Base(object):
     def __init__(self, auth, endpoint, is_cname, session):
         self.auth = auth
@@ -549,12 +550,17 @@ class Bucket(_Base):
         """获取对象生命周期管理配置。
 
         :return: :class:`GetBucketLifecycleResult <oss.models.GetBucketLifecycleResult>`
+
+        :raises: 如果没有设置Lifecycle，那么抛出 :class:`NoSuchLifecycle <oss.exceptions.NoSuchLifecycle>`
         """
         resp = self.__do_bucket('GET', params={'lifecycle': ''})
         return self._parse_result(resp, xml_utils.parse_get_bucket_lifecycle, GetBucketLifecycleResult)
 
     def delete_bucket_lifecycle(self):
-        """删除对象生命周期管理配置"""
+        """删除对象生命周期管理配置。如果Lifecycle没有设置，也返回成功。
+
+        :raises: 如果没有设置Lifecycle，那么抛出 :class:`NoSuchLifecycle <oss.exceptions.NoSuchLifecycle>`
+        """
         resp = self.__do_bucket('DELETE', params={'lifecycle': ''})
         return RequestResult(resp)
 
@@ -618,6 +624,8 @@ class Bucket(_Base):
         """获取Bucket的静态网站托管配置。
 
         :return: :class:`GetBucketWebsiteResult <oss.models.GetBucketWebsiteResult>`
+
+        :raises: 如果没有设置静态网站托管，那么就抛出 :class:`NoSuchWebsite <oss.exceptions.NoSuchWebsite>`
         """
         resp = self.__do_bucket('GET', params={'website': ''})
         return self._parse_result(resp, xml_utils.parse_get_bucket_websiste, GetBucketWebsiteResult)

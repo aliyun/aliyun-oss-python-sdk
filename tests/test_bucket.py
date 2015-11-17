@@ -46,9 +46,17 @@ class TestBucket(unittest.TestCase):
         other_bucket.create_bucket('private')
 
         other_bucket.put_bucket_logging(oss.models.BucketLogging(self.bucket.bucket_name, 'logging/'))
+
         result = other_bucket.get_bucket_logging()
         self.assertEqual(result.target_bucket, self.bucket.bucket_name)
         self.assertEqual(result.target_prefix, 'logging/')
+
+        other_bucket.delete_bucket_logging()
+        other_bucket.delete_bucket_logging()
+
+        result = other_bucket.get_bucket_logging()
+        self.assertEqual(result.target_bucket, '')
+        self.assertEqual(result.target_prefix, '')
 
         other_bucket.delete_bucket()
 
@@ -58,15 +66,26 @@ class TestBucket(unittest.TestCase):
 
         self.bucket.put_object('index.html', content)
 
+        # 设置index页面和error页面
         self.bucket.put_bucket_website(oss.models.BucketWebsite('index.html', 'error.html'))
+
+        # 验证index页面和error页面
         website = self.bucket.get_bucket_website()
         self.assertEqual(website.index_file, 'index.html')
         self.assertEqual(website.error_file, 'error.html')
 
+        # 验证读取目录会重定向到index页面
         result = self.bucket.get_object(object_name)
         self.assertEqual(result.read(), content)
 
         self.bucket.delete_object('index.html')
+
+        # 关闭静态网站托管模式
+        self.bucket.delete_bucket_website()
+        self.bucket.delete_bucket_website()
+
+        # 再次关闭报错
+        self.assertRaises(oss.exceptions.NoSuchWebsite, self.bucket.get_bucket_website)
 
     def test_lifecycle(self):
         action = oss.models.LifecycleAction('Expiration', 'Days', 1)
@@ -87,6 +106,8 @@ class TestBucket(unittest.TestCase):
 
         self.bucket.delete_bucket_lifecycle()
 
+        self.assertRaises(oss.exceptions.NoSuchLifecycle, self.bucket.get_bucket_lifecycle)
+
     def test_cors(self):
         rule = oss.models.CorsRule(allowed_origins=['*'],
                                    allowed_methods=['HEAD', 'GET'],
@@ -105,6 +126,9 @@ class TestBucket(unittest.TestCase):
         self.assertEqual(rule.max_age_seconds, rule_got.max_age_seconds)
 
         self.bucket.delete_bucket_cors()
+        self.bucket.delete_bucket_cors()
+
+        self.assertRaises(oss.exceptions.NoSuchCors, self.bucket.get_bucket_cors)
 
     def test_referer(self):
         referers = ['http://hello.com', 'mibrowser:home']

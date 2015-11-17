@@ -82,17 +82,16 @@ class ResumableUploader(object):
         record = self.__load_record()
 
         parts_uploaded = [PartInfo(int(p['part_number']), p['etag']) for p in record['parts']]
-        verify_parts = self.__file_changed(record)
         upload_id = record['upload_id']
 
         with open(self.filename, 'rb') as f:
-            parts_to_upload, kept_parts = self.__get_parts_to_upload(f, parts_uploaded, verify_parts)
+            parts_to_upload, kept_parts = self.__get_parts_to_upload(f, parts_uploaded)
             parts_to_upload = sorted(parts_to_upload, key=lambda p: p.part_number)
 
             for part in parts_to_upload:
                 f.seek(part.start, os.SEEK_SET)
                 result = self.bucket.upload_part(self.object_name, upload_id, part.part_number,
-                                                 _SizedStreamReader(f, part.size))
+                                                 utils._SizedStreamReader(f, part.size))
                 kept_parts.append(PartInfo(part.part_number, result.etag))
 
                 record['parts'].append({'part_number': part.part_number, 'etag': result.etag})
@@ -108,10 +107,13 @@ class ResumableUploader(object):
             self.store.delete(self.key)
             record = None
 
-        if record:
-            if not self.__upload_exists(record['upload_id']):
-                self.store.delete(self.key)
-                record = None
+        if record and self.__file_changed(record):
+            self.store.delete(self.key)
+            record = None
+
+        if record and not self.__upload_exists(record['upload_id']):
+            self.store.delete(self.key)
+            record = None
 
         if record:
             self.part_size = record['part_size']
@@ -126,12 +128,6 @@ class ResumableUploader(object):
 
         return record
 
-    def __list_parts(self, upload_id, part_marker):
-        try:
-            return list(iterators.PartIterator(self.bucket, self.object_name, upload_id, str(part_marker)))
-        except exceptions.NoSuchUpload:
-            return None
-
     def __upload_exists(self, upload_id):
         try:
             list(iterators.PartIterator(self.bucket, self.object_name, upload_id, '0', max_parts=1))
@@ -143,7 +139,7 @@ class ResumableUploader(object):
     def __file_changed(self, record):
         return record['mtime'] != self.mtime or record['size'] != self.size
 
-    def __get_parts_to_upload(self, f, parts_uploaded, verify_parts):
+    def __get_parts_to_upload(self, f, parts_uploaded):
         num_parts = utils.how_many(self.size, self.part_size)
         uploaded_map = {}
         to_upload_map = {}
@@ -168,15 +164,10 @@ class ResumableUploader(object):
 
         for uploaded in parts_uploaded:
             if uploaded.part_number in to_upload_map:
-                if not verify_parts or uploaded.etag == self.__compute_etag(f, to_upload_map[uploaded.part_number]):
-                    del to_upload_map[uploaded.part_number]
-                    kept_parts.append(uploaded)
+                del to_upload_map[uploaded.part_number]
+                kept_parts.append(uploaded)
 
         return to_upload_map.values(), kept_parts
-
-    def __compute_etag(self, f, part_to_upload):
-        f.seek(part_to_upload.start, os.SEEK_SET)
-        return utils.etag(_SizedStreamReader(f, part_to_upload.size))
 
 
 class FileStore(object):
@@ -262,28 +253,6 @@ def is_record_sane(record):
         return False
 
     return True
-
-
-class _SizedStreamReader(object):
-    def __init__(self, file_object, size):
-        self.file_object = file_object
-        self.size = size
-        self.offset = 0
-
-    def read(self, amt=None):
-        if self.offset >= self.size:
-            return ''
-
-        if (amt is None or amt < 0) or (amt + self.offset >= self.size):
-            data = self.file_object.read(self.size - self.offset)
-            self.offset = self.size
-            return data
-
-        self.offset += amt
-        return self.file_object.read(amt)
-
-    def __len__(self):
-        return self.size
 
 
 class _PartToUpload(object):

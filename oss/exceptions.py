@@ -60,6 +60,21 @@ class ObjectNotAppendable(OssError):
     code = 'ObjectNotAppendable'
 
 
+class NoSuchWebsite(OssError):
+    status = 404
+    code = 'NoSuchWebsiteConfiguration'
+
+
+class NoSuchLifecycle(OssError):
+    status = 404
+    code = 'NoSuchLifecycle'
+
+
+class NoSuchCors(OssError):
+    status = 404
+    code = 'NoSuchCORSConfiguration'
+
+
 def make_exception(resp):
     assert resp.status // 100 != 2
 
