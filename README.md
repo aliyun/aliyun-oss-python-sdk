@@ -33,6 +33,10 @@ bucket.get_object(object_name).read()
 
 # 删除
 bucket.delete_object(object_name)
+
+# 遍历所有对象
+for object_info in oss.iterators.ObjectIterator(bucket):
+    print(object_info.name)
 ```
 ## 测试
 首先通过环境变量来设置测试所需的AccessKeyID、AccessKeySecret、Endpoint以及Bucket信息：
@@ -52,6 +56,7 @@ $ py.test                           # 如果安装了py.test
 
 ## 注意事项
 * 不要使用Python 3.3.0、3.3.1，参考[Python Issue 16658](https://bugs.python.org/issue16658)
+
 ## 联系我们
 
 ## 代码许可

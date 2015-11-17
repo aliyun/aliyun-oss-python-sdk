@@ -40,7 +40,7 @@ class Auth(object):
         req.params['Expires'] = str(expiration_time)
         req.params['Signature'] = signature
 
-        return req.url + '?' + '&'.join(self.__param_to_quoted_query(k, v) for k, v in req.params.items())
+        return req.url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in req.params.items())
 
     def __make_signature(self, req, bucket_name, object_name):
         string_to_sign = self.__get_string_to_sign(req, bucket_name, object_name)
@@ -104,9 +104,19 @@ class Auth(object):
         else:
             return k
 
-    def __param_to_quoted_query(self, k, v):
-        if v:
-            return urlquote(k, '') + '=' + urlquote(v, '')
-        else:
-            return urlquote(k, '')
+
+class AnonymousAuth(object):
+    """用于匿名访问"""
+    def _sign_request(self, req, bucket_name, object_name):
+        pass
+
+    def _sign_url(self, req, bucket_name, object_name, expires):
+        return req.url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in req.params.items())
+
+
+def _param_to_quoted_query(self, k, v):
+    if v:
+        return urlquote(k, '') + '=' + urlquote(v, '')
+    else:
+        return urlquote(k, '')
 

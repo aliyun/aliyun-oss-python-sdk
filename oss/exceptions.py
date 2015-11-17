@@ -60,6 +60,11 @@ class ObjectNotAppendable(OssError):
     code = 'ObjectNotAppendable'
 
 
+class AccessDenied(OssError):
+    status = 403
+    code = 'AccessDenied'
+
+
 class NoSuchWebsite(OssError):
     status = 404
     code = 'NoSuchWebsiteConfiguration'

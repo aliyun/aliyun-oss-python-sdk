@@ -33,6 +33,29 @@ class TestObject(unittest.TestCase):
 
         self.assertRaises(NoSuchKey, self.bucket.get_object, object_name)
 
+    def test_anonymous(self):
+        object_name = random_string(12)
+        content = random_bytes(512)
+
+        # 设置bucket为public-read，并确认可以上传和下载
+        self.bucket.put_bucket_acl('public-read-write')
+
+        b = oss.Bucket(oss.AnonymousAuth(), OSS_ENDPOINT, OSS_BUCKET)
+        b.put_object(object_name, content)
+        result = b.get_object(object_name)
+        self.assertEqual(result.read(), content)
+
+        # 测试sign_url
+        url = b.sign_url('GET', object_name, 100)
+        resp = requests.get(url)
+        self.assertEqual(content, resp.content)
+
+        # 设置bucket为private，并确认上传和下载都会失败
+        self.bucket.put_bucket_acl('private')
+
+        self.assertRaises(oss.exceptions.AccessDenied, b.put_object, object_name, content)
+        self.assertRaises(oss.exceptions.AccessDenied, b.get_object, object_name)
+
     def test_range_get(self):
         object_name = random_string(12)
         content = random_bytes(1024)
