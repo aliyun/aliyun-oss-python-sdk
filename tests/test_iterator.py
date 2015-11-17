@@ -15,7 +15,7 @@ class TestIterator(unittest.TestCase):
 
     def test_bucket_iterator(self):
         service = oss.Service(oss.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT)
-        self.assertTrue(OSS_BUCKET in (b.name for b in oss.iterators.BucketIterator(service)))
+        self.assertTrue(OSS_BUCKET in (b.name for b in oss.iterators.BucketIterator(service, max_keys=2)))
 
     def test_object_iterator(self):
         prefix = random_string(12) + '/'
@@ -71,6 +71,34 @@ class TestIterator(unittest.TestCase):
 
         self.assertEqual(sorted(upload_list), uploads_got)
         self.assertEqual(sorted(dir_list), dirs_got)
+
+    def test_object_upload_iterator(self):
+        # target_object是想要列举的对象，而intact_object则不是。
+        # 这里intact_object故意以target_object为前缀
+        target_object = random_string(16)
+        intact_object = target_object + '-' + random_string(10)
+
+        target_list = []
+        intact_list = []
+
+        # 准备分片
+        for i in range(10):
+            target_list.append(self.bucket.init_multipart_upload(target_object).upload_id)
+            intact_list.append(self.bucket.init_multipart_upload(intact_object).upload_id)
+
+        # 验证
+        uploads_got = []
+        for u in oss.iterators.ObjectUploadIterator(self.bucket, target_object, max_uploads=5):
+            uploads_got.append(u.upload_id)
+
+        self.assertEqual(sorted(target_list), uploads_got)
+
+        # 清理
+        for upload_id in target_list:
+            self.bucket.abort_multipart_upload(target_object, upload_id)
+
+        for upload_id in intact_list:
+            self.bucket.abort_multipart_upload(intact_object, upload_id)
 
     def test_part_iterator(self):
         object_name = random_string(16)

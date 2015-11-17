@@ -149,7 +149,7 @@ class GetBucketAclResult(RequestResult):
 
 class GetBucketLocationResult(RequestResult):
     def __init__(self, resp):
-        super(GetBucketLoggingResult, self).__init__(resp)
+        super(GetBucketLocationResult, self).__init__(resp)
         self.location = ''
 
 

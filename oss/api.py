@@ -46,8 +46,8 @@ HTTP包体。
 诸如 :func:`get_object <Bucket.get_object>` 以及 :func:`upload_part_copy <Bucket.upload_part_copy>` 这样的函数，可以接受
 range参数，表明读取数据的范围。Range是一个二元tuple：(start, last)。这些接口会把它转换为Range头部的值，如：
     - range 为 (0, 99) 转换为 'bytes=0-99'，表示读取前100个字节
-    - range 为 (None, 99) 转换为 'bytes=-99'
-    - range 为 (100, None) 转换为 'bytes=100-'，表示读取第101个字节到对象结尾的部分
+    - range 为 (None, 99) 转换为 'bytes=-99'，表示读取最后99个字节
+    - range 为 (100, None) 转换为 'bytes=100-'，表示读取第101个字节到对象结尾的部分（包含第101个字节）
 
 
 分页罗列
@@ -450,11 +450,12 @@ class Bucket(_Base):
 
         range_string = _make_range_string(source_range)
         if range_string:
-            headers['x-oss-copy-source-range'] = 'bytes=' + range_string
+            headers['x-oss-copy-source-range'] = range_string
 
         resp = self.__do_object('PUT', target_object_name,
                                 params={'uploadId': target_upload_id,
-                                        'partNumber': str(target_part_number)})
+                                        'partNumber': str(target_part_number)},
+                                headers=headers)
         return PutObjectResult(resp)
 
     def list_parts(self, object_name, upload_id,

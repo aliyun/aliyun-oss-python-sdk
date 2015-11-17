@@ -217,7 +217,7 @@ class FileStore(object):
         return os.path.join(self.dir, key)
 
 
-def rebuild_record(store, bucket, object_name, filename, upload_id, part_size=None):
+def rebuild_record(filename, store, bucket, object_name, upload_id, part_size=None):
     abspath = os.path.abspath(filename)
     mtime = os.path.getmtime(filename)
     size = os.path.getsize(filename)

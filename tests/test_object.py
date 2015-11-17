@@ -33,6 +33,21 @@ class TestObject(unittest.TestCase):
 
         self.assertRaises(NoSuchKey, self.bucket.get_object, object_name)
 
+    def test_range_get(self):
+        object_name = random_string(12)
+        content = random_bytes(1024)
+
+        self.bucket.put_object(object_name, content)
+
+        result = self.bucket.get_object(object_name, range=(500, None))
+        self.assertEqual(result.read(), content[500:])
+
+        result = self.bucket.get_object(object_name, range=(None, 199))
+        self.assertEqual(result.read(), content[-199:])
+
+        result = self.bucket.get_object(object_name, range=(3, 3))
+        self.assertEqual(result.read(), content[3:4])
+
     def test_list_objects(self):
         result = self.bucket.list_objects()
         self.assertEqual(result.status, 200)

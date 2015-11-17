@@ -122,16 +122,18 @@ class MultipartUploadIterator(_BaseIterator):
 
 
 class ObjectUploadIterator(_BaseIterator):
-    def __init__(self, bucket, object_name):
+    def __init__(self, bucket, object_name, max_uploads=1000):
         super(ObjectUploadIterator, self).__init__('')
         self.bucket = bucket
         self.object_name = object_name
         self.next_upload_id_marker = ''
+        self.max_uploads = max_uploads
 
     def _fetch(self):
         result = self.bucket.list_multipart_uploads(prefix=self.object_name,
                                                     key_marker=self.next_marker,
-                                                    upload_id_marker=self.next_upload_id_marker)
+                                                    upload_id_marker=self.next_upload_id_marker,
+                                                    max_uploads=self.max_uploads)
 
         self.entries = [u for u in result.upload_list if u.object_name == self.object_name]
         self.next_upload_id_marker = result.next_upload_id_marker

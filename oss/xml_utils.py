@@ -216,7 +216,7 @@ def parse_get_bucket_referer(result, body):
 
     result.allow_empty_referer = _find_bool(root, 'AllowEmptyReferer')
     for referer in root.findall('RefererList/Referer'):
-        result.append(referer.text)
+        result.referers.append(referer.text)
 
     return result
 
@@ -363,6 +363,6 @@ def to_put_bucket_cors(bucket_cors):
         _add_node_list(rule_node, 'ExposeHeader', rule.expose_headers)
 
         if rule.max_age_seconds is not None:
-            ElementTree.SubElement(rule_node, 'MaxAgeSeconds', str(rule.max_age_seconds))
+            ElementTree.SubElement(rule_node, 'MaxAgeSeconds').text = str(rule.max_age_seconds)
 
     return _node_to_string(root)

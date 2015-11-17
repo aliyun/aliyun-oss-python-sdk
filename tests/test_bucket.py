@@ -90,7 +90,8 @@ class TestBucket(unittest.TestCase):
     def test_cors(self):
         rule = oss.models.CorsRule(allowed_origins=['*'],
                                    allowed_methods=['HEAD', 'GET'],
-                                   allowed_headers=['*'])
+                                   allowed_headers=['*'],
+                                   max_age_seconds=1000)
         cors = oss.models.BucketCors([rule])
 
         self.bucket.put_bucket_cors(cors)
@@ -101,8 +102,23 @@ class TestBucket(unittest.TestCase):
         self.assertEqual(rule.allowed_origins, rule_got.allowed_origins)
         self.assertEqual(rule.allowed_methods, rule_got.allowed_methods)
         self.assertEqual(rule.allowed_headers, rule_got.allowed_headers)
+        self.assertEqual(rule.max_age_seconds, rule_got.max_age_seconds)
 
         self.bucket.delete_bucket_cors()
+
+    def test_referer(self):
+        referers = ['http://hello.com', 'mibrowser:home']
+        config = oss.models.BucketReferer(True, referers)
+
+        self.bucket.put_bucket_referer(config)
+        result = self.bucket.get_bucket_referer()
+
+        self.assertTrue(result.allow_empty_referer)
+        self.assertEqual(sorted(referers), sorted(result.referers))
+
+    def test_location(self):
+        result = self.bucket.get_bucket_location()
+        self.assertTrue(result.location)
 
     def test_xml_input(self):
         xml_input = '''<?xml version="1.0" encoding="UTF-8"?>
