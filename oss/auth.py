@@ -114,7 +114,7 @@ class AnonymousAuth(object):
         return req.url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in req.params.items())
 
 
-def _param_to_quoted_query(self, k, v):
+def _param_to_quoted_query(k, v):
     if v:
         return urlquote(k, '') + '=' + urlquote(v, '')
     else:
