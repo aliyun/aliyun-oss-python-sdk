@@ -90,7 +90,7 @@ class ObjectIterator(_BaseIterator):
 
 
 class MultipartUploadIterator(_BaseIterator):
-    """遍历Bucket里未完成的分片上传。
+    """遍历Bucket里未完成的分片上传，每次返回 :class:`MultipartUploadInfo <oss.models.MultipartUploadInfo>` 对象。
 
     :param bucket: :class:`Bucket <oss.api.Bucket>` 对象
     :param prefix: 仅列举匹配该前缀的对象的分片上传
@@ -122,6 +122,12 @@ class MultipartUploadIterator(_BaseIterator):
 
 
 class ObjectUploadIterator(_BaseIterator):
+    """遍历一个Object所有未完成的分片上传，每次返回 :class:`MultipartUploadInfo <oss.models.MultipartUploadInfo>` 对象。
+
+    :param bucket: :class:`Bucket <oss.api.Bucket>` 对象
+    :param object_name: 对象名
+    :param max_uploads: 每次调用 `list_multipart_uploads` 时的max_uploads参数。注意迭代器返回的数目可能会大于该值。
+    """
     def __init__(self, bucket, object_name, max_uploads=1000):
         super(ObjectUploadIterator, self).__init__('')
         self.bucket = bucket

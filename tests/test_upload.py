@@ -2,7 +2,6 @@
 
 import unittest
 import oss
-import oss.iterators
 import os
 import tempfile
 import sys

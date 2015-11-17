@@ -4,7 +4,6 @@ import unittest
 import hashlib
 
 import oss
-import oss.iterators
 
 from common import *
 

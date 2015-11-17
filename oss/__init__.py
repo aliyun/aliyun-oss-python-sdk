@@ -4,3 +4,6 @@ from .api import (Service, Bucket)
 from .auth import Auth
 
 from . import resumable
+from . import exceptions
+from . import models
+from . import iterators

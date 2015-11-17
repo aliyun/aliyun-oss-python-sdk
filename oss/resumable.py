@@ -18,7 +18,6 @@ from .compat import json, stringify
 
 import logging
 
-_STORE_VERSION = '1'
 
 _MULTIPART_THRESHOLD = 500 * 1024 * 1024
 _PREFERRED_PART_SIZE = 100 * 1024 * 1024
@@ -31,6 +30,18 @@ def upload_file(filename, bucket, object_name,
                 store=None,
                 multipart_threshold=_MULTIPART_THRESHOLD,
                 part_size=_PREFERRED_PART_SIZE):
+    """断点上传本地文件。
+
+    缺省条件下，该函数会在用户HOME目录下保存断点续传的信息。当待上传的本地文件没有发生变化，
+    且目标对象名没有变化时，会根据本地保存的信息，从断点开始上传。
+
+    :param filename: 待上传本地文件名
+    :param bucket: :class:`Bucket <oss.api.Bucket>` 对象
+    :param object_name: 上传到用户空间的对象名
+    :param store: 用来保存断点信息的持久存储，参见 :class:`FileStore` 的接口。如不指定，则使用 `FileStore` 。
+    :param multipart_threshold: 文件长度大于该值时，则用分片上传。
+    :param part_size: 指定分片上传的每个分片的大小。如不指定，则自动计算。
+    """
     size = os.path.getsize(filename)
 
     if size >= multipart_threshold:
@@ -234,7 +245,6 @@ def rebuild_record(filename, store, bucket, object_name, upload_id, part_size=No
 
 def is_record_sane(record):
     try:
-
         for key in ('upload_id', 'abspath', 'object_name'):
             if not isinstance(record[key], str):
                 logging.error('{0} is not a string: {1}, but {2}'.format(key, record[key], record[key].__class__))
