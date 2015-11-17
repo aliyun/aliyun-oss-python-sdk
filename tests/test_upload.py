@@ -110,8 +110,6 @@ class TestUpload(unittest.TestCase):
 
         from unittest.mock import patch
 
-        part_size = 100 * 1024
-
         object_name = 'resume-' + random_string(32)
         content = random_bytes(content_size)
 

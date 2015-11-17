@@ -165,12 +165,12 @@ class ResumableUploader(object):
             return to_upload_map.values(), []
 
         kept_parts = []
-        if verify_parts:
-            for uploaded in parts_uploaded:
-                if uploaded.part_number in to_upload_map:
-                    if uploaded.etag == self.__compute_etag(f, to_upload_map[uploaded.part_number]):
-                        del to_upload_map[uploaded.part_number]
-                        kept_parts.append(uploaded)
+
+        for uploaded in parts_uploaded:
+            if uploaded.part_number in to_upload_map:
+                if not verify_parts or uploaded.etag == self.__compute_etag(f, to_upload_map[uploaded.part_number]):
+                    del to_upload_map[uploaded.part_number]
+                    kept_parts.append(uploaded)
 
         return to_upload_map.values(), kept_parts
 
