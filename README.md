@@ -17,11 +17,14 @@ $ sudo python setup.py install
 ```
 ## 快速使用
 ```python
+# -*- coding: utf-8 -*-
+
 import oss
 
+endpoint = 'oss-cn-hangzhou.aliyuncs.com' # 假设你的Bucket处于杭州区域
 
-auth = oss.Auth(access_key_id, access_key_secret)
-bucket = oss.Bucket(auth, 'oss-cn-hangzhou.aliyuncs.com', 'my-bucket')
+auth = oss.Auth('<你的AccessKeyId>', '<你的AccessKeySecret>')
+bucket = oss.Bucket(auth, endpoaint, '<你的Bucket名>')
 
 object_name = 'story.txt'
 
