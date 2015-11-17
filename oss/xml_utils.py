@@ -116,7 +116,7 @@ def parse_list_objects(result, body):
 def parse_list_buckets(result, body):
     root = ElementTree.fromstring(body)
 
-    if not root.find('IsTruncated'):
+    if root.find('IsTruncated') is None:
         result.is_truncated = False
     else:
         result.is_truncated = _find_bool(root, 'IsTruncated')

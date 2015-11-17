@@ -14,7 +14,7 @@ from . import iterators
 from . import exceptions
 
 from .models import PartInfo
-from .compat import json
+from .compat import json, stringify
 
 import logging
 
@@ -108,6 +108,7 @@ class ResumableUploader(object):
             record = None
 
         if record and self.__file_changed(record):
+            logging.debug('{0} was changed, clear the record.'.format(self.filename))
             self.store.delete(self.key)
             record = None
 
@@ -187,8 +188,10 @@ class FileStore(object):
         if not os.path.exists(pathname):
             return None
 
+        # json.load()返回的总是unicode，对于Python2，我们将其转换
+        # 为str。
         with open(pathname, 'r') as f:
-            return json.load(f)
+            return stringify(json.load(f))
 
     def put(self, key, value):
         pathname = self.__path(key)
@@ -231,9 +234,10 @@ def rebuild_record(filename, store, bucket, object_name, upload_id, part_size=No
 
 def is_record_sane(record):
     try:
+
         for key in ('upload_id', 'abspath', 'object_name'):
             if not isinstance(record[key], str):
-                logging.info('{0} is not a string: {1}'.format(key, record[key]))
+                logging.error('{0} is not a string: {1}, but {2}'.format(key, record[key], record[key].__class__))
                 return False
 
         for key in ('size', 'part_size'):
@@ -242,11 +246,11 @@ def is_record_sane(record):
                 return False
 
         if not isinstance(record['mtime'], int) and not isinstance(record['mtime'], float):
-            logging.info('mtime is not a float or an integer: {0}'.format(record['mtime']))
+            logging.error('mtime is not a float or an integer: {0}'.format(record['mtime']))
             return False
 
         if not isinstance(record['parts'], list):
-            logging.info('parts is not a list: {0}'.format(record['parts'].__class__.__name__))
+            logging.error('parts is not a list: {0}'.format(record['parts'].__class__.__name__))
             return False
     except KeyError as e:
         logging.error('Key not found: {0}'.format(e.args))

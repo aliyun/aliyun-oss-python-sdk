@@ -32,6 +32,16 @@ if is_py2:
         """把输入转换为str对象"""
         return to_bytes(data)
 
+    def stringify(input):
+        if isinstance(input, dict):
+            return dict([(stringify(key), stringify(value)) for key,value in input.iteritems()])
+        elif isinstance(input, list):
+            return [stringify(element) for element in input]
+        elif isinstance(input, unicode):
+            return input.encode('utf-8')
+        else:
+            return input
+
     builtin_str = str
     bytes = str
     str = unicode
@@ -54,6 +64,9 @@ elif is_py3:
             return data
         else:
             return data.decode('utf-8')
+
+    def stringify(input):
+        return input
 
     builtin_str = str
     bytes = bytes
