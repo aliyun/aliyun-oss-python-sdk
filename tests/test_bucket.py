@@ -105,6 +105,7 @@ class TestBucket(unittest.TestCase):
         self.assertEqual(action.time_value, action_got.time_value)
 
         self.bucket.delete_bucket_lifecycle()
+        self.bucket.delete_bucket_lifecycle()
 
         self.assertRaises(oss.exceptions.NoSuchLifecycle, self.bucket.get_bucket_lifecycle)
 

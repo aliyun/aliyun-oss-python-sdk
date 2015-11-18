@@ -165,7 +165,8 @@ class Bucket(_Base):
         :type method: str
         :param object_name: 对象名
         :param expires: 过期时间（单位：秒），链接在当前时间再过expires秒后过期
-        :param headers: 需要签名的HTTP头部，如名称以x-oss-开头的头部、Content-Type头部等。对于下载，不需要填。
+        :param headers: 需要签名的HTTP头部，如名称以x-oss-meta-开头的头部（作为用户自定义元数据）、
+            Content-Type头部等。对于下载，不需要填。
         :param params: 需要签名的HTTP查询参数
 
         :return: 签名URL。
@@ -557,10 +558,7 @@ class Bucket(_Base):
         return self._parse_result(resp, xml_utils.parse_get_bucket_lifecycle, GetBucketLifecycleResult)
 
     def delete_bucket_lifecycle(self):
-        """删除对象生命周期管理配置。如果Lifecycle没有设置，也返回成功。
-
-        :raises: 如果没有设置Lifecycle，那么抛出 :class:`NoSuchLifecycle <oss.exceptions.NoSuchLifecycle>`
-        """
+        """删除对象生命周期管理配置。如果Lifecycle没有设置，也返回成功。"""
         resp = self.__do_bucket('DELETE', params={'lifecycle': ''})
         return RequestResult(resp)
 

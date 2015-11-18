@@ -1,66 +1,72 @@
 # Aliyun OSS SDK for Python
 
-## ¸ÅÊö
-°¢ÀïÔÆ¶ÔÏó´æ´¢Python SDK¡£
+## æ¦‚è¿°
+é˜¿é‡Œäº‘å¯¹è±¡å­˜å‚¨Python SDKã€‚
 
-## ÔËĞĞ»·¾³
-Python 2.6£¬2.7£¬3.3£¬3.4£¬3.5
+## è¿è¡Œç¯å¢ƒ
+Python 2.6ï¼Œ2.7ï¼Œ3.3ï¼Œ3.4ï¼Œ3.5
 
-## °²×°·½·¨
-Í¨¹ıpip°²×°¹Ù·½·¢²¼µÄ°æ±¾£º
+**æ³¨æ„**ï¼šè¯·ä¸è¦ä½¿ç”¨Python 3.3.0ã€3.3.1ï¼Œå‚è€ƒ[Python Issue 16658](https://bugs.python.org/issue16658)
+
+## å®‰è£…æ–¹æ³•
+é€šè¿‡pipå®‰è£…å®˜æ–¹å‘å¸ƒçš„ç‰ˆæœ¬ï¼ˆä»¥Linuxç³»ç»Ÿä¸ºä¾‹ï¼‰ï¼š
 ```bash
 $ pip install oss
 ```
-Ò²¿ÉÒÔÖ±½Ó°²×°½âÑ¹ºóµÄ°²×°°ü£º
+ä¹Ÿå¯ä»¥ç›´æ¥å®‰è£…è§£å‹åçš„å®‰è£…åŒ…ï¼š
 ```bash
 $ sudo python setup.py install
 ```
-## ¿ìËÙÊ¹ÓÃ
+
+## å¿«é€Ÿä½¿ç”¨
 ```python
 # -*- coding: utf-8 -*-
 
 import oss
 
-endpoint = 'oss-cn-hangzhou.aliyuncs.com' # ¼ÙÉèÄãµÄBucket´¦ÓÚº¼ÖİÇøÓò
+endpoint = 'oss-cn-hangzhou.aliyuncs.com' # å‡è®¾ä½ çš„Bucketå¤„äºæ­å·åŒºåŸŸ
 
-auth = oss.Auth('<ÄãµÄAccessKeyId>', '<ÄãµÄAccessKeySecret>')
-bucket = oss.Bucket(auth, endpoint, '<ÄãµÄBucketÃû>')
+auth = oss.Auth('<ä½ çš„AccessKeyId>', '<ä½ çš„AccessKeySecret>')
+bucket = oss.Bucket(auth, endpoint, '<ä½ çš„Bucketå>')
 
 object_name = 'story.txt'
 
-# ÉÏ´«
+# ä¸Šä¼ 
 bucket.put_object(object_name, 'Ali Baba is a happy youth.')
 
-# ÏÂÔØ
+# ä¸‹è½½
 bucket.get_object(object_name).read()
 
-# É¾³ı
+# åˆ é™¤
 bucket.delete_object(object_name)
 
-# ±éÀúËùÓĞ¶ÔÏó
+# éå†æ‰€æœ‰å¯¹è±¡
 for object_info in oss.iterators.ObjectIterator(bucket):
     print(object_info.name)
 ```
-## ²âÊÔ
-Ê×ÏÈÍ¨¹ı»·¾³±äÁ¿À´ÉèÖÃ²âÊÔËùĞèµÄAccessKeyID¡¢AccessKeySecret¡¢EndpointÒÔ¼°BucketĞÅÏ¢£º
+
+## æµ‹è¯•
+é¦–å…ˆé€šè¿‡ç¯å¢ƒå˜é‡æ¥è®¾ç½®æµ‹è¯•æ‰€éœ€çš„AccessKeyIDã€AccessKeySecretã€Endpointä»¥åŠBucketä¿¡æ¯ï¼ˆä»¥Linuxç³»ç»Ÿä¸ºä¾‹ï¼‰ï¼š
 ```bash
 $ export OSS_TEST_ACCESS_KEY_ID=<AccessKeyID>
 $ export OSS_TEST_ACCESS_KEY_SECRET=<AccessKeySecret>
 $ export OSS_TEST_ENDPOINT=<endpoint>
 $ export OSS_TEST_BUCKET=<bucket>
 ```
-È»ºó¿ÉÒÔÍ¨¹ıÒÔÏÂ·½Ê½Ö®Ò»ÔËĞĞ²âÊÔ£º
+ç„¶åå¯ä»¥é€šè¿‡ä»¥ä¸‹æ–¹å¼ä¹‹ä¸€è¿è¡Œæµ‹è¯•ï¼š
 ```bash
-$ python -m unitest discover tests  # Èç¹ûPython°æ±¾ >= 2.7
-$ nosetests                         # Èç¹û°²×°ÁËnose
-$ py.test                           # Èç¹û°²×°ÁËpy.test
+$ python -m unitest discover tests  # å¦‚æœPythonç‰ˆæœ¬ >= 2.7
+$ nosetests                         # å¦‚æœå®‰è£…äº†nose
+$ py.test                           # å¦‚æœå®‰è£…äº†py.test
 ```
-## ¸ü¶àÊ¹ÓÃ
+## æ›´å¤šä½¿ç”¨
+å‚è§[å®˜ç½‘Python SDKæ–‡æ¡£](https://docs.aliyun.com/#/pub/oss/sdk/python-sdk&preface)
 
-## ×¢ÒâÊÂÏî
-* ²»ÒªÊ¹ÓÃPython 3.3.0¡¢3.3.1£¬²Î¿¼[Python Issue 16658](https://bugs.python.org/issue16658)
+## è”ç³»æˆ‘ä»¬
+- [é˜¿é‡Œäº‘OSSå®˜æ–¹ç½‘ç«™](http://oss.aliyun.com)
+- [é˜¿é‡Œäº‘OSSå®˜æ–¹è®ºå›](http://bbs.aliyun.com)
+- [é˜¿é‡Œäº‘OSSå®˜æ–¹æ–‡æ¡£ä¸­å¿ƒ](http://www.aliyun.com/product/oss#Docs)
+- é˜¿é‡Œäº‘å®˜æ–¹æŠ€æœ¯æ”¯æŒï¼š[æäº¤å·¥å•](https://workorder.console.aliyun.com/#/ticket/createIndex)
 
-## ÁªÏµÎÒÃÇ
-
-## ´úÂëĞí¿É
-MITĞí¿ÉÖ¤£¬²Î¼ûLICENSEÎÄ¼ş¡£
+## ä»£ç è®¸å¯
+MITè®¸å¯è¯ï¼Œå‚è§LICENSEæ–‡ä»¶ã€‚
