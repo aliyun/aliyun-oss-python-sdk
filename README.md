@@ -24,7 +24,7 @@ import oss
 endpoint = 'oss-cn-hangzhou.aliyuncs.com' # 假设你的Bucket处于杭州区域
 
 auth = oss.Auth('<你的AccessKeyId>', '<你的AccessKeySecret>')
-bucket = oss.Bucket(auth, endpoaint, '<你的Bucket名>')
+bucket = oss.Bucket(auth, endpoint, '<你的Bucket名>')
 
 object_name = 'story.txt'
 
