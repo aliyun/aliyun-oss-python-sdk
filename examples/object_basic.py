@@ -6,7 +6,7 @@ import shutil
 import oss
 
 
-# 该文件展示了基本的文件上传、下载用法。
+# 该文件展示了基本的文件上传、下载、罗列、删除用法。
 
 
 # 首先初始化AccessKeyId、AccessKeySecret、Endpoint等信息。
