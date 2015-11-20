@@ -346,10 +346,10 @@ class Bucket(_Base):
 
         :return: :class:`BatchDeleteObjectsResult <oss.models.BatchDeleteObjectsResult>`
         """
-        data = xml_utils.to_batch_delete_objects_request(objects, False, 'url')
+        data = xml_utils.to_batch_delete_objects_request(objects, False)
         resp = self.__do_object('POST', '',
                                 data=data,
-                                params={'delete': ''},
+                                params={'delete': '', 'encoding-type': 'url'},
                                 headers={'Content-MD5': utils.content_md5(data)})
         return self._parse_result(resp, xml_utils.parse_batch_delete_objects, BatchDeleteObjectsResult)
 

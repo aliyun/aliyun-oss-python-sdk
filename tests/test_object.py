@@ -86,6 +86,16 @@ class TestObject(unittest.TestCase):
         result = self.bucket.batch_delete_objects(object_list)
         self.assertEqual(sorted(object_list), sorted(result.object_list))
 
+        for object in object_list:
+            self.assertTrue(not self.bucket.object_exists(object))
+
+    def test_batch_delete_objects_chinese(self):
+        object_name = '中文对象\x0C.txt'
+        self.bucket.put_object(object_name, '中文内容')
+        self.bucket.batch_delete_objects([object_name])
+
+        self.assertTrue(not self.bucket.object_exists(object_name))
+
     def test_append_object(self):
         object_name = random_string(12)
         content1 = random_bytes(512)

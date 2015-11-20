@@ -7,7 +7,11 @@ oss.models
 该模块包含Python SDK API接口所需要的输入参数以及返回值类型。
 """
 
+import re
+
 import xml.etree.ElementTree as ElementTree
+
+from .compat import to_string
 
 
 class PartInfo(object):
@@ -251,4 +255,22 @@ def _parse_error_body(body):
             details[child.tag] = child.text
         return details
     except ElementTree.ParseError:
-        return {}
+        return _guess_error_details(body)
+
+
+def _guess_error_details(body):
+    details = {}
+    body = to_string(body)
+
+    if '<Error>' not in body or '</Error>' not in body:
+        return details
+
+    m = re.search('<Code>(.*)</Code>', body)
+    if m:
+        details['Code'] = m.group(1)
+
+    m = re.search('<Message>(.*)</Message>', body)
+    if m:
+        details['Message'] = m.group(1)
+
+    return details

@@ -290,9 +290,7 @@ def to_complete_upload_request(parts):
     return _node_to_string(root)
 
 
-def to_batch_delete_objects_request(objects, quiet, encoding_type):
-    encoder = _make_encoder(encoding_type)
-
+def to_batch_delete_objects_request(objects, quiet):
     root_node = ElementTree.Element('Delete')
 
     quiet_node = ElementTree.SubElement(root_node, 'Quiet')
@@ -300,7 +298,7 @@ def to_batch_delete_objects_request(objects, quiet, encoding_type):
 
     for object_name in objects:
         object_node = ElementTree.SubElement(root_node, 'Object')
-        ElementTree.SubElement(object_node, 'Key').text = encoder(object_name)
+        ElementTree.SubElement(object_node, 'Key').text = object_name
 
     return _node_to_string(root_node)
 
