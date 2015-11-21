@@ -27,12 +27,24 @@ bucket = oss.Bucket(oss.Auth(access_key_id, access_key_secret), endpoint, bucket
 
 # 上传时携带自定义元数据
 # 自定义元数据通过以x-oss-meta-开头的HTTP Header来设置
-bucket.put_object('quote.txt', "Anything you're good at contributes to happiness.",
-                  headers={'x-oss-meta-author': 'Bertrand Russell'})
+result = bucket.put_object('quote.txt', "Anything you're good at contributes to happiness.",
+                           headers={'x-oss-meta-author': 'Russell'})
+
+# 几乎所有的result都是RequestResult的子类，携带了一些必要的信息，可以用来调试等：
+# 比如向阿里云客户提交工单时，能够提供request-id，可以极大的方便问题的排查
+print('http-status={0} request-id={1}'.format(result.status, result.request_id))
+
+
+# 修改自定义元数据
+bucket.update_object_meta('quote.txt', {'x-oss-meta-author': 'Bertrand Russell'})
 
 # 查看自定义元数据
 result = bucket.head_object('quote.txt')
 assert result.headers['x-oss-meta-author'] == 'Bertrand Russell'
+
+
+# 拷贝对象（适用于小文件）。这里是把quote.txt拷贝成quote-backup.txt
+bucket.copy_object(bucket.bucket_name, 'quote.txt', 'quote-backup.txt')
 
 
 # 有些文件可以进行追加写，比如日志文件

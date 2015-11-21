@@ -32,15 +32,23 @@ bucket.put_object('motto.txt', 'Never give up. - Jack Ma')
 
 # 把刚刚上传的Object下载到本地文件 “座右铭.txt” 中
 # 因为get_object()方法返回的是一个file-like object，所以我们可以直接用shutil.copyfileobj()做拷贝
-with open('座右铭.txt', 'wb') as f:
+with open('本地座右铭.txt', 'wb') as f:
     shutil.copyfileobj(bucket.get_object('motto.txt'), f)
+
+
+# 也可以用一行代码来实现下载到本地文件
+bucket.get_object_as_file('motto.txt', '本地文件名.txt')
 
 
 # 把本地文件 “座右铭.txt” 上传到OSS，新的Object叫做 “我的座右铭.txt”
 # 注意到，这次put_object()的第二个参数是file object；而上次上传是一个字符串。
 # put_object()能够识别不同的参数类型
-with open('座右铭.txt', 'rb') as f:
-    bucket.put_object('我的座右铭.txt', f)
+with open('本地座右铭.txt', 'rb') as f:
+    bucket.put_object('云上座右铭.txt', f)
+
+
+# 上面两行代码，也可以用下面的一行代码来实现
+bucket.put_object_from_file('云上座右铭.txt', '本地座右铭.txt')
 
 
 # 列举Bucket下10个Object，并打印它们的最后修改时间、文件名
@@ -56,7 +64,7 @@ bucket.delete_object('motto.txt')
 
 # 也可以批量删除
 # 注意：重复删除motto.txt，并不会报错
-bucket.batch_delete_objects(['motto.txt', '我的座右铭.txt'])
+bucket.batch_delete_objects(['motto.txt', '云上座右铭.txt'])
 
 
 # 确认Object已经被删除了
@@ -65,8 +73,12 @@ assert not bucket.object_exists('motto.txt')
 
 # 获取不存在的文件会抛出oss.exceptions.NoSuchKey异常
 try:
-    bucket.get_object('我的座右铭.txt')
+    bucket.get_object('云上座右铭.txt')
 except oss.exceptions.NoSuchKey:
     print('已经被删除了')
 else:
     assert False
+
+#清楚
+os.remove('本地文件名')
+os.remove('本地座右铭')

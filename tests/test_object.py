@@ -2,9 +2,14 @@
 
 import unittest
 import requests
+import filecmp
+import os
 
 import oss
+
 from oss.exceptions import NoSuchKey, PositionNotEqualToLength
+from oss.compat import to_string
+
 from common import *
 
 
@@ -32,6 +37,32 @@ class TestObject(unittest.TestCase):
         self.bucket.delete_object(object_name)
 
         self.assertRaises(NoSuchKey, self.bucket.get_object, object_name)
+
+    def test_file(self):
+        filename = random_string(12) + '.js'
+        filename2 = random_string(12)
+
+        object_name = random_string(12) + '.txt'
+        content = random_bytes(1024 * 1024)
+
+        with open(filename, 'wb') as f:
+            f.write(content)
+
+        # 上传本地文件到OSS
+        self.bucket.put_object_from_file(object_name, filename)
+
+        # 检查Content-Type应该是javascript
+        result = self.bucket.head_object(object_name)
+        self.assertEqual(result.headers['content-type'], 'application/javascript')
+
+        # 下载到本地文件
+        self.bucket.get_object_as_file(object_name, filename2)
+
+        self.assertTrue(filecmp.cmp(filename, filename2))
+
+        # 清理
+        os.remove(filename)
+        os.remove(filename2)
 
     def test_anonymous(self):
         object_name = random_string(12)
@@ -62,13 +93,13 @@ class TestObject(unittest.TestCase):
 
         self.bucket.put_object(object_name, content)
 
-        result = self.bucket.get_object(object_name, range=(500, None))
+        result = self.bucket.get_object(object_name, byte_range=(500, None))
         self.assertEqual(result.read(), content[500:])
 
-        result = self.bucket.get_object(object_name, range=(None, 199))
+        result = self.bucket.get_object(object_name, byte_range=(None, 199))
         self.assertEqual(result.read(), content[-199:])
 
-        result = self.bucket.get_object(object_name, range=(3, 3))
+        result = self.bucket.get_object(object_name, byte_range=(3, 3))
         self.assertEqual(result.read(), content[3:4])
 
     def test_list_objects(self):
@@ -90,11 +121,13 @@ class TestObject(unittest.TestCase):
             self.assertTrue(not self.bucket.object_exists(object))
 
     def test_batch_delete_objects_chinese(self):
-        object_name = '中文对象\x0C.txt'
-        self.bucket.put_object(object_name, '中文内容')
-        self.bucket.batch_delete_objects([object_name])
+        object_name = u'中文对象\x0C.txt'
+        str_name = to_string(object_name)
 
-        self.assertTrue(not self.bucket.object_exists(object_name))
+        self.bucket.put_object(str_name, '中文内容')
+        self.bucket.batch_delete_objects([str_name])
+
+        self.assertTrue(not self.bucket.object_exists(str_name))
 
     def test_append_object(self):
         object_name = random_string(12)
@@ -117,11 +150,12 @@ class TestObject(unittest.TestCase):
         self.bucket.delete_object(object_name)
 
     def test_private_download_url(self):
-        for object_name in [random_string(12), '中文对象名']:
+        for object_name in [random_string(12), u'中文对象名']:
             content = random_bytes(42)
 
-            self.bucket.put_object(object_name, content)
-            url = self.bucket.sign_url('GET', object_name, 60)
+            str_name = to_string(object_name)
+            self.bucket.put_object(str_name, content)
+            url = self.bucket.sign_url('GET', str_name, 60)
 
             resp = requests.get(url)
             self.assertEqual(content, resp.content)
@@ -136,6 +170,20 @@ class TestObject(unittest.TestCase):
 
         result = self.bucket.get_object(target_object_name)
         self.assertEqual(content, result.read())
+
+    def test_update_object_meta(self):
+        object_name = random_string(12) + '.txt'
+        content = random_bytes(36)
+
+        self.bucket.put_object(object_name, content)
+
+        # 更改Content-Type，增加用户自定义元数据
+        self.bucket.update_object_meta(object_name, {'Content-Type': 'whatever',
+                                                     'x-oss-meta-category': 'novel'})
+
+        result = self.bucket.head_object(object_name)
+        self.assertEqual(result.headers['content-type'], 'whatever')
+        self.assertEqual(result.headers['x-oss-meta-category'], 'novel')
 
     def test_object_acl(self):
         object_name = random_string(12)

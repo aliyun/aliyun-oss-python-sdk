@@ -39,15 +39,15 @@ HTTP包体。
 当HTTP请求失败时，即响应状态码不是2XX时，如无特殊说明都会抛出 :class:`OssError <oss.exceptions.OssError>` 异常或是其子类。
 
 
-.. _range:
+.. _byte_range:
 
-对象下载方法中的range参数
+对象下载方法中的byte_range参数
 -----------------------
 诸如 :func:`get_object <Bucket.get_object>` 以及 :func:`upload_part_copy <Bucket.upload_part_copy>` 这样的函数，可以接受
-range参数，表明读取数据的范围。Range是一个二元tuple：(start, last)。这些接口会把它转换为Range头部的值，如：
-    - range 为 (0, 99) 转换为 'bytes=0-99'，表示读取前100个字节
-    - range 为 (None, 99) 转换为 'bytes=-99'，表示读取最后99个字节
-    - range 为 (100, None) 转换为 'bytes=100-'，表示读取第101个字节到对象结尾的部分（包含第101个字节）
+byte_range参数，表明读取数据的范围。该参数是一个二元tuple：(start, last)。这些接口会把它转换为Range头部的值，如：
+    - byte_range 为 (0, 99) 转换为 'bytes=0-99'，表示读取前100个字节
+    - byte_range 为 (None, 99) 转换为 'bytes=-99'，表示读取最后99个字节
+    - byte_range 为 (100, None) 转换为 'bytes=100-'，表示读取第101个字节到对象结尾的部分（包含第101个字节）
 
 
 分页罗列
@@ -67,6 +67,7 @@ from .models import *
 from .compat import urlquote, urlparse
 
 import time
+import shutil
 
 
 class _Base(object):
@@ -200,7 +201,7 @@ class Bucket(_Base):
         :param object_name: 上传到OSS的对象名
         :param data: 待上传的内容。
         :type data: bytes，str或file-like object
-        :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-开头的头部等
+        :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-meta-开头的头部等
 
         :return: :class:`PutObjectResult <oss.models.PutObjectResult>`
 
@@ -209,6 +210,20 @@ class Bucket(_Base):
 
         resp = self.__do_object('PUT', object_name, data=data, headers=headers)
         return PutObjectResult(resp)
+
+    def put_object_from_file(self, object_name, filename, headers=None):
+        """上传一个本地文件到OSS的普通对象。
+
+        :param object_name: 上传到OSS的对象名
+        :param filename: 本地文件名，需要有可读权限
+        :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-meta-开头的头部等
+
+        :return: :class:`PutObjectResult <oss.models.PutObjectResult>`
+        """
+        headers = utils.set_content_type(http.CaseInsensitiveDict(headers), filename)
+
+        with open(filename, 'rb') as f:
+            return self.put_object(object_name, f, headers)
 
     def append_object(self, object_name, position, data, headers=None):
         """追加上传一个对象。
@@ -234,7 +249,7 @@ class Bucket(_Base):
                                 params={'append': '', 'position': str(position)})
         return AppendObjectResult(resp)
 
-    def get_object(self, object_name, range=None, headers=None):
+    def get_object(self, object_name, byte_range=None, headers=None):
         """下载一个对象。
 
         用法::
@@ -244,7 +259,7 @@ class Bucket(_Base):
             'hello world'
 
         :param object_name: 对象名
-        :param range: 指定下载范围。参见 :ref:`range`
+        :param byte_range: 指定下载范围。参见 :ref:`byte_range`
         :param headers: HTTP头部
 
         :return: file-like object
@@ -253,12 +268,28 @@ class Bucket(_Base):
         """
         headers = http.CaseInsensitiveDict(headers)
 
-        range_string = _make_range_string(range)
+        range_string = _make_range_string(byte_range)
         if range_string:
             headers['range'] = range_string
 
         resp = self.__do_object('GET', object_name, headers=headers)
         return GetObjectResult(resp)
+
+    def get_object_as_file(self, object_name, filename, byte_range=None, headers=None):
+        """下载一个对象到本地文件。
+
+        :param object_name: 对象名
+        :param filename: 本地文件名。需要有写权限。
+        :param byte_range: 指定下载范围。参见 :ref:`byte_range`
+        :param headers: HTTP头部
+
+        :return: 如果对象不存在，则抛出 :class:`NoSuchKey <oss.exceptions.NoSuchKey>` ；还可能抛出其他异常
+        """
+        with open(filename, 'wb') as f:
+            result = self.get_object(object_name, byte_range=byte_range, headers=headers)
+            shutil.copyfileobj(result, f)
+
+            return result
 
     def head_object(self, object_name, headers=None):
         """获取对象元信息。
@@ -309,6 +340,18 @@ class Bucket(_Base):
 
         resp = self.__do_object('PUT', target_object_name, headers=headers)
         return PutObjectResult(resp)
+
+    def update_object_meta(self, object_name, headers):
+        """更改Object的元数据信息，包括Content-Type这类标准的HTTP头部，以及以x-oss-meta-开头的自定义元数据。
+
+        用户可以通过 :func:`head_object` 获得元数据信息。
+
+        :param object_name: 对象名
+        :param headers: HTTP头部，包含了元数据信息
+
+        :return: :class:`RequestResult <oss.models.RequestResults>`
+        """
+        self.copy_object(self.bucket_name, object_name, object_name, headers=headers)
 
     def delete_object(self, object_name):
         """删除一个对象。
@@ -438,19 +481,19 @@ class Bucket(_Base):
                                         'encoding-type': 'url'})
         return self._parse_result(resp, xml_utils.parse_list_multipart_uploads, ListMultipartUploadsResult)
 
-    def upload_part_copy(self, source_bucket_name, source_object_name, source_range,
+    def upload_part_copy(self, source_bucket_name, source_object_name, byte_range,
                          target_object_name, target_upload_id, target_part_number,
                          headers=None):
         """分片拷贝。把一个已有对象的一部分或整体拷贝成目标对象的一个分片。
 
-        :param source_range: 指定待拷贝的范围。参见 :ref:`range`
+        :param byte_range: 指定待拷贝内容在源对象里的范围。参见 :ref:`byte_range`
 
         :return: :class:`PutObjectResult <oss.models.PutObjectResult>`
         """
         headers = http.CaseInsensitiveDict(headers)
         headers['x-oss-copy-source'] = '/' + source_bucket_name + '/' + source_object_name
 
-        range_string = _make_range_string(source_range)
+        range_string = _make_range_string(byte_range)
         if range_string:
             headers['x-oss-copy-source-range'] = range_string
 

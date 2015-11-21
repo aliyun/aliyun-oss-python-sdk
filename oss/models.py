@@ -10,6 +10,8 @@ oss.models
 import re
 
 import xml.etree.ElementTree as ElementTree
+from xml.parsers import expat
+
 
 from .compat import to_string
 
@@ -244,6 +246,13 @@ class GetBucketCorsResult(RequestResult, BucketCors):
         BucketCors.__init__(self)
 
 
+# XML parsing exceptions have changed in Python2.7 and ElementTree 1.3
+if hasattr(ElementTree, 'ParseError'):
+    ElementTreeParseError = (ElementTree.ParseError, expat.ExpatError)
+else:
+    ElementTreeParseError = (expat.ExpatError)
+
+
 def _parse_error_body(body):
     try:
         root = ElementTree.fromstring(body)
@@ -254,7 +263,7 @@ def _parse_error_body(body):
         for child in root:
             details[child.tag] = child.text
         return details
-    except ElementTree.ParseError:
+    except ElementTreeParseError:
         return _guess_error_details(body)
 
 

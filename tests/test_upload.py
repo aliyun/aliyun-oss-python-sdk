@@ -34,7 +34,7 @@ class TestUpload(unittest.TestCase):
 
         pathname = self._prepare_temp_file(content)
 
-        oss.resumable.upload_file(pathname, self.bucket, object_name)
+        oss.resumable.upload_file(self.bucket, object_name, pathname)
 
         result = self.bucket.get_object(object_name)
         self.assertEqual(content, result.read())
@@ -46,7 +46,7 @@ class TestUpload(unittest.TestCase):
 
         pathname = self._prepare_temp_file(content)
 
-        oss.resumable.upload_file(pathname, self.bucket, object_name, multipart_threshold=200*1024, part_size=None)
+        oss.resumable.upload_file(self.bucket, object_name, pathname, multipart_threshold=200 * 1024, part_size=None)
 
         result = self.bucket.get_object(object_name)
         self.assertEqual(content, result.read())
@@ -73,7 +73,7 @@ class TestUpload(unittest.TestCase):
             self.bucket.upload_part(object_name, upload_id, part_number, content[start:end])
 
         oss.resumable.rebuild_record(pathname, oss.resumable.FileStore(), self.bucket, object_name, upload_id, part_size)
-        oss.resumable.upload_file(pathname, self.bucket, object_name, part_size=100*1024, multipart_threshold=0)
+        oss.resumable.upload_file(self.bucket, object_name, pathname, multipart_threshold=0, part_size=100 * 1024)
 
         result = self.bucket.get_object(object_name)
         self.assertEqual(content, result.read())
@@ -111,14 +111,15 @@ class TestUpload(unittest.TestCase):
         from unittest.mock import patch
         with patch.object(oss.Bucket, 'upload_part', side_effect=upload_part, autospec=True) as mock_upload_part:
             try:
-                oss.resumable.upload_file(pathname, self.bucket, object_name, part_size=100*1024, multipart_threshold=0)
+                oss.resumable.upload_file(self.bucket, object_name, pathname, multipart_threshold=0,
+                                          part_size=100 * 1024)
             except RuntimeError:
                 pass
 
         if modify_record_func:
             modify_record_func(oss.resumable.FileStore(), self.bucket.bucket_name, object_name, pathname)
 
-        oss.resumable.upload_file(pathname, self.bucket, object_name, part_size=100*1024, multipart_threshold=0)
+        oss.resumable.upload_file(self.bucket, object_name, pathname, multipart_threshold=0, part_size=100 * 1024)
 
         self.assertEqual(len(list(oss.iterators.ObjectUploadIterator(self.bucket, object_name))), expected_unfinished)
 

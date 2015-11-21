@@ -26,9 +26,7 @@ _MAX_PART_COUNT = 10000
 _MIN_PART_SIZE = 100 * 1024
 
 
-def upload_file(filename, bucket, object_name,
-                store=None,
-                multipart_threshold=_MULTIPART_THRESHOLD,
+def upload_file(bucket, object_name, filename, store=None, multipart_threshold=_MULTIPART_THRESHOLD,
                 part_size=_PREFERRED_PART_SIZE):
     """断点上传本地文件。
 
@@ -45,7 +43,7 @@ def upload_file(filename, bucket, object_name,
     size = os.path.getsize(filename)
 
     if size >= multipart_threshold:
-        uploader = ResumableUploader(filename, size, bucket, object_name, store, part_size=part_size)
+        uploader = ResumableUploader(bucket, object_name, filename, size, store, part_size=part_size)
         uploader.upload()
     else:
         with open(filename, 'rb') as f:
@@ -74,8 +72,7 @@ class ResumableUploader(object):
     :param part_size: 分片大小。优先使用用户提供的值。如果用户没有指定，那么对于新上传，计算出一个合理值；对于老的上传，采用第一个
         分片的大小。
     """
-    def __init__(self, filename, size, bucket, object_name,
-                 store=None, part_size=_PREFERRED_PART_SIZE):
+    def __init__(self, bucket, object_name, filename, size, store=None, part_size=_PREFERRED_PART_SIZE):
         self.bucket = bucket
         self.object_name = object_name
         self.filename = filename

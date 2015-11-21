@@ -13,7 +13,6 @@ XML处理相关。
 """
 
 import xml.etree.ElementTree as ElementTree
-import io
 
 from .models import (SimplifiedObjectInfo,
                      SimplifiedBucketInfo,
@@ -23,7 +22,7 @@ from .models import (SimplifiedObjectInfo,
                      LifecycleAction,
                      CorsRule)
 
-from .compat import urlquote, urlunquote
+from .compat import urlquote, urlunquote, to_unicode
 
 
 def _find_tag(parent, path):
@@ -68,19 +67,16 @@ def _is_url_encoding(root):
 
 
 def _node_to_string(root):
-    tree = ElementTree.ElementTree(root)
-
-    xml = None
-    with io.BytesIO(xml) as f:
-        tree.write(f, encoding='utf-8')
-        xml = f.getvalue()
-
-    return xml
+    return ElementTree.tostring(root, encoding='utf-8')
 
 
 def _add_node_list(parent, tag, entries):
     for e in entries:
-        ElementTree.SubElement(parent, tag).text = e
+        _add_text_child(parent, tag, e)
+
+
+def _add_text_child(parent, tag, text):
+    ElementTree.SubElement(parent, tag).text = to_unicode(text)
 
 
 def _make_encoder(encoding_type):
@@ -284,8 +280,8 @@ def to_complete_upload_request(parts):
     root = ElementTree.Element('CompleteMultipartUpload')
     for p in parts:
         part_node = ElementTree.SubElement(root, "Part")
-        ElementTree.SubElement(part_node, 'PartNumber').text = str(p.part_number)
-        ElementTree.SubElement(part_node, 'ETag').text = '"{0}"'.format(p.etag)
+        _add_text_child(part_node, 'PartNumber', str(p.part_number))
+        _add_text_child(part_node, 'ETag', '"{0}"'.format(p.etag))
 
     return _node_to_string(root)
 
@@ -293,12 +289,11 @@ def to_complete_upload_request(parts):
 def to_batch_delete_objects_request(objects, quiet):
     root_node = ElementTree.Element('Delete')
 
-    quiet_node = ElementTree.SubElement(root_node, 'Quiet')
-    quiet_node.text = str(quiet).lower()
+    _add_text_child(root_node, 'Quiet', str(quiet).lower())
 
     for object_name in objects:
         object_node = ElementTree.SubElement(root_node, 'Object')
-        ElementTree.SubElement(object_node, 'Key').text = object_name
+        _add_text_child(object_node, 'Key', object_name)
 
     return _node_to_string(root_node)
 
@@ -308,8 +303,8 @@ def to_put_bucket_logging(bucket_logging):
 
     if bucket_logging.target_bucket:
         logging_node = ElementTree.SubElement(root, 'LoggingEnabled')
-        ElementTree.SubElement(logging_node, 'TargetBucket').text = bucket_logging.target_bucket
-        ElementTree.SubElement(logging_node, 'TargetPrefix').text = bucket_logging.target_prefix
+        _add_text_child(logging_node, 'TargetBucket', bucket_logging.target_bucket)
+        _add_text_child(logging_node, 'TargetPrefix', bucket_logging.target_prefix)
 
     return _node_to_string(root)
 
@@ -317,11 +312,11 @@ def to_put_bucket_logging(bucket_logging):
 def to_put_bucket_referer(bucket_referer):
     root = ElementTree.Element('RefererConfiguration')
 
-    ElementTree.SubElement(root, 'AllowEmptyReferer').text = str(bucket_referer.allow_empty_referer).lower()
+    _add_text_child(root, 'AllowEmptyReferer', str(bucket_referer.allow_empty_referer).lower())
     list_node = ElementTree.SubElement(root, 'RefererList')
 
     for r in bucket_referer.referers:
-        ElementTree.SubElement(list_node, 'Referer').text = r
+        _add_text_child(list_node, 'Referer', r)
 
     return _node_to_string(root)
 
@@ -330,10 +325,10 @@ def to_put_bucket_website(bucket_websiste):
     root = ElementTree.Element('WebsiteConfiguration')
 
     index_node = ElementTree.SubElement(root, 'IndexDocument')
-    ElementTree.SubElement(index_node, 'Suffix').text = bucket_websiste.index_file
+    _add_text_child(index_node, 'Suffix', bucket_websiste.index_file)
 
     error_node = ElementTree.SubElement(root, 'ErrorDocument')
-    ElementTree.SubElement(error_node, 'Key').text = bucket_websiste.error_file
+    _add_text_child(error_node, 'Key', bucket_websiste.error_file)
 
     return _node_to_string(root)
 
@@ -343,13 +338,13 @@ def to_put_bucket_lifecycle(bucket_lifecycle):
 
     for rule in bucket_lifecycle.rules:
         rule_node = ElementTree.SubElement(root, 'Rule')
-        ElementTree.SubElement(rule_node, 'ID').text = rule.id
-        ElementTree.SubElement(rule_node, 'Prefix').text = rule.prefix
-        ElementTree.SubElement(rule_node, 'Status').text = rule.status
+        _add_text_child(rule_node, 'ID', rule.id)
+        _add_text_child(rule_node, 'Prefix', rule.prefix)
+        _add_text_child(rule_node, 'Status', rule.status)
 
         for action in rule.actions:
             action_node = ElementTree.SubElement(rule_node, action.action)
-            ElementTree.SubElement(action_node, action.time_spec).text = action.time_value
+            _add_text_child(action_node, action.time_spec, action.time_value)
 
     return _node_to_string(root)
 
@@ -365,6 +360,6 @@ def to_put_bucket_cors(bucket_cors):
         _add_node_list(rule_node, 'ExposeHeader', rule.expose_headers)
 
         if rule.max_age_seconds is not None:
-            ElementTree.SubElement(rule_node, 'MaxAgeSeconds').text = str(rule.max_age_seconds)
+            _add_text_child(rule_node, 'MaxAgeSeconds', str(rule.max_age_seconds))
 
     return _node_to_string(root)
