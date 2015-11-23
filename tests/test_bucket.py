@@ -2,7 +2,6 @@
 
 import unittest
 import oss
-import logging
 
 from common import *
 
@@ -163,5 +162,4 @@ class TestBucket(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
     unittest.main()

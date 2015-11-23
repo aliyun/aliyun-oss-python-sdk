@@ -100,7 +100,8 @@ def parse_list_objects(result, body):
             _find_tag(contents_node, 'LastModified'),
             _find_tag(contents_node, 'ETag').strip('"'),
             _find_tag(contents_node, 'Type'),
-            int(_find_tag(contents_node, 'Size'))
+            int(_find_tag(contents_node, 'Size')),
+            _find_tag(contents_node, 'StorageClass')
         ))
 
     for prefix_node in root.findall('CommonPrefixes'):
@@ -166,7 +167,8 @@ def parse_list_parts(result, body):
         result.parts.append(PartInfo(
             _find_int(part_node, 'PartNumber'),
             _find_tag(part_node, 'ETag').strip('"'),
-            _find_int(part_node, 'Size')
+            _find_int(part_node, 'Size'),
+
         ))
 
     return result

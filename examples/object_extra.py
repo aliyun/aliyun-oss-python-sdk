@@ -5,7 +5,7 @@ import os
 import oss
 
 
-# 该文件展示了一些和文件相关的高级用法，如设置用户自定义元数据、拷贝文件、追加上传等。
+# 该文件展示了一些和文件相关的高级用法，如中文、设置用户自定义元数据、拷贝文件、追加上传等。
 
 
 # 首先初始化AccessKeyId、AccessKeySecret、Endpoint等信息。
@@ -23,6 +23,11 @@ for param in (access_key_id, access_key_secret, bucket_name, endpoint):
 
 # 创建Bucket对象，所有Object相关的接口都可以通过Bucket对象来进行
 bucket = oss.Bucket(oss.Auth(access_key_id, access_key_secret), endpoint, bucket_name)
+
+
+# Object名、前缀名等等参数可以直接用str类型（即Python2的bytes，Python3的unicode）
+# 文件内容原则上只接受bytes类型。如果用户提供了unicode类型，则转换为UTF-8编码的bytes
+bucket.put_object('中文文件名.txt', '中文内容')
 
 
 # 上传时携带自定义元数据

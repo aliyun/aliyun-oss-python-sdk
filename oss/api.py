@@ -148,6 +148,15 @@ class Bucket(_Base):
     :param session: 会话。如果是None表示新开会话，非None则复用传入的会话
     :type session: Session或None
     """
+
+    ACL = 'acl'
+    CORS = 'cors'
+    LIFECYCLE = 'lifecycle'
+    LOCATION = 'location'
+    LOGGING = 'logging'
+    REFERER = 'referer'
+    WEBSITE = 'website'
+
     def __init__(self, auth, endpoint, bucket_name,
                  is_cname=False,
                  session=None):
@@ -548,7 +557,7 @@ class Bucket(_Base):
 
         :param permission: 新的ACL，可以是'private'、'public-read'或`public-read-write`
         """
-        resp = self.__do_bucket('PUT', headers={'x-oss-acl': permission}, params={'acl': ''})
+        resp = self.__do_bucket('PUT', headers={'x-oss-acl': permission}, params={Bucket.ACL: ''})
         return RequestResult(resp)
 
     def get_bucket_acl(self):
@@ -556,7 +565,7 @@ class Bucket(_Base):
 
         :return: :class:`GetBucketAclResult <oss.models.GetBucketAclResult>`
         """
-        resp = self.__do_bucket('GET', params={'acl': ''})
+        resp = self.__do_bucket('GET', params={Bucket.ACL: ''})
         return self._parse_result(resp, xml_utils.parse_get_bucket_acl, GetBucketAclResult)
 
     def put_bucket_cors(self, input):
@@ -565,7 +574,7 @@ class Bucket(_Base):
         :param input: :class:`BucketCors <oss.models.BucketCors>` 对象或其他
         """
         data = self.__convert_data(BucketCors, xml_utils.to_put_bucket_cors, input)
-        resp = self.__do_bucket('PUT', data=data, params={'cors': ''})
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.CORS: ''})
         return RequestResult(resp)
 
     def get_bucket_cors(self):
@@ -573,12 +582,12 @@ class Bucket(_Base):
 
         :return: :class:`GetBucketCorsResult <oss.models.GetBucketCorsResult>`
         """
-        resp = self.__do_bucket('GET', params={'cors': ''})
+        resp = self.__do_bucket('GET', params={Bucket.CORS: ''})
         return self._parse_result(resp, xml_utils.parse_get_bucket_cors, GetBucketCorsResult)
 
     def delete_bucket_cors(self):
         """删除Bucket的CORS配置。"""
-        resp = self.__do_bucket('DELETE', params={'cors': ''})
+        resp = self.__do_bucket('DELETE', params={Bucket.CORS: ''})
         return RequestResult(resp)
 
     def put_bucket_lifecycle(self, input):
@@ -587,7 +596,7 @@ class Bucket(_Base):
         :param input: :class:`BucketLifecycle <oss.models.BucketLifecycle>` 对象或其他
         """
         data = self.__convert_data(BucketLifecycle, xml_utils.to_put_bucket_lifecycle, input)
-        resp = self.__do_bucket('PUT', data=data, params={'lifecycle': ''})
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.LIFECYCLE: ''})
         return RequestResult(resp)
 
     def get_bucket_lifecycle(self):
@@ -597,12 +606,12 @@ class Bucket(_Base):
 
         :raises: 如果没有设置Lifecycle，那么抛出 :class:`NoSuchLifecycle <oss.exceptions.NoSuchLifecycle>`
         """
-        resp = self.__do_bucket('GET', params={'lifecycle': ''})
+        resp = self.__do_bucket('GET', params={Bucket.LIFECYCLE: ''})
         return self._parse_result(resp, xml_utils.parse_get_bucket_lifecycle, GetBucketLifecycleResult)
 
     def delete_bucket_lifecycle(self):
         """删除对象生命周期管理配置。如果Lifecycle没有设置，也返回成功。"""
-        resp = self.__do_bucket('DELETE', params={'lifecycle': ''})
+        resp = self.__do_bucket('DELETE', params={Bucket.LIFECYCLE: ''})
         return RequestResult(resp)
 
     def get_bucket_location(self):
@@ -610,7 +619,7 @@ class Bucket(_Base):
 
         :return: :class:`GetBucketLocationResult <oss.models.GetBucketLocationResult>`
         """
-        resp = self.__do_bucket('GET', params={'location': ''})
+        resp = self.__do_bucket('GET', params={Bucket.LOCATION: ''})
         return self._parse_result(resp, xml_utils.parse_get_bucket_location, GetBucketLocationResult)
 
     def put_bucket_logging(self, input):
@@ -619,7 +628,7 @@ class Bucket(_Base):
         :param input: :class:`BucketLogging <oss.models.BucketLogging>` 对象或其他
         """
         data = self.__convert_data(BucketLogging, xml_utils.to_put_bucket_logging, input)
-        resp = self.__do_bucket('PUT', data=data, params={'logging': ''})
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.LOGGING: ''})
         return RequestResult(resp)
 
     def get_bucket_logging(self):
@@ -627,12 +636,12 @@ class Bucket(_Base):
 
         :return: :class:`GetBucketLoggingResult <oss.models.GetBucketLoggingResult>`
         """
-        resp = self.__do_bucket('GET', params={'logging': ''})
+        resp = self.__do_bucket('GET', params={Bucket.LOGGING: ''})
         return self._parse_result(resp, xml_utils.parse_get_bucket_logging, GetBucketLoggingResult)
 
     def delete_bucket_logging(self):
         """关闭Bucket的日志功能。"""
-        resp = self.__do_bucket('DELETE', params={'logging': ''})
+        resp = self.__do_bucket('DELETE', params={Bucket.LOGGING: ''})
         return RequestResult(resp)
 
     def put_bucket_referer(self, input):
@@ -641,7 +650,7 @@ class Bucket(_Base):
         :param input: :class:`BucketReferer <oss.models.BucketReferer>` 对象或其他
         """
         data = self.__convert_data(BucketReferer, xml_utils.to_put_bucket_referer, input)
-        resp = self.__do_bucket('PUT', data=data, params={'referer': ''})
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.REFERER: ''})
         return RequestResult(resp)
 
     def get_bucket_referer(self):
@@ -649,7 +658,7 @@ class Bucket(_Base):
 
         :return: :class:`GetBucketRefererResult <oss.models.GetBucketRefererResult>`
         """
-        resp = self.__do_bucket('GET', params={'referer': ''})
+        resp = self.__do_bucket('GET', params={Bucket.REFERER: ''})
         return self._parse_result(resp, xml_utils.parse_get_bucket_referer, GetBucketRefererResult)
 
     def put_bucket_website(self, input):
@@ -658,7 +667,7 @@ class Bucket(_Base):
         :param input: :class:`BucketWebsite <oss.models.BucketWebsite>`
         """
         data = self.__convert_data(BucketWebsite, xml_utils.to_put_bucket_website, input)
-        resp = self.__do_bucket('PUT', data=data, params={'website': ''})
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.WEBSITE: ''})
         return RequestResult(resp)
 
     def get_bucket_website(self):
@@ -668,13 +677,23 @@ class Bucket(_Base):
 
         :raises: 如果没有设置静态网站托管，那么就抛出 :class:`NoSuchWebsite <oss.exceptions.NoSuchWebsite>`
         """
-        resp = self.__do_bucket('GET', params={'website': ''})
+        resp = self.__do_bucket('GET', params={Bucket.WEBSITE: ''})
         return self._parse_result(resp, xml_utils.parse_get_bucket_websiste, GetBucketWebsiteResult)
 
     def delete_bucket_website(self):
         """关闭Bucket的静态网站托管功能。"""
-        resp = self.__do_bucket('DELETE', params={'website': ''})
+        resp = self.__do_bucket('DELETE', params={Bucket.WEBSITE: ''})
         return RequestResult(resp)
+
+    def _get_bucket_config(self, config):
+        """获得Bucket某项配置，具体哪种配置由 `config` 指定。该接口直接返回 `RequestResult` 对象。
+        通过read()接口可以获得XML字符串。不建议使用。
+
+        :param type: 可以是 `Bucket.ACL` 、 `Bucket.LOGGING` 等。
+
+        :return: :class:`RequestResult <oss.models.RequestResult>`
+        """
+        return self.__do_bucket('GET', params={config: ''})
 
     def __do_object(self, method, object_name, **kwargs):
         return self._do(method, self.bucket_name, object_name, **kwargs)

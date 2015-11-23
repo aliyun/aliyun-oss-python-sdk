@@ -82,7 +82,7 @@ class ObjectIterator(_BaseIterator):
                                           delimiter=self.delimiter,
                                           marker=self.next_marker,
                                           max_keys=self.max_keys)
-        self.entries = result.object_list + [SimplifiedObjectInfo(prefix, None, None, None, None)
+        self.entries = result.object_list + [SimplifiedObjectInfo(prefix, None, None, None, None, None)
                                              for prefix in result.prefix_list]
         self.entries.sort(key=lambda obj: obj.name)
 

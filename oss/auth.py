@@ -3,6 +3,7 @@
 import hmac
 import hashlib
 import time
+import logging
 
 from . import utils
 from .compat import urlquote, to_bytes
@@ -44,6 +45,8 @@ class Auth(object):
 
     def __make_signature(self, req, bucket_name, object_name):
         string_to_sign = self.__get_string_to_sign(req, bucket_name, object_name)
+
+        logging.debug('string_to_sign={0}'.format(string_to_sign))
 
         h = hmac.new(to_bytes(self.secret), to_bytes(string_to_sign), hashlib.sha1)
         return utils.b64encode_as_string(h.digest())

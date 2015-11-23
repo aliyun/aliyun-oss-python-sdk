@@ -17,10 +17,11 @@ from .compat import to_string
 
 
 class PartInfo(object):
-    def __init__(self, part_number, etag, size=None):
+    def __init__(self, part_number, etag, size=None, last_modified=None):
         self.part_number = part_number
         self.etag = etag
         self.size = size
+        self.last_modified = last_modified
 
 
 class RequestResult(object):
@@ -87,12 +88,13 @@ class ListObjectsResult(RequestResult):
 
 
 class SimplifiedObjectInfo(object):
-    def __init__(self, name, last_modified, etag, type, size):
+    def __init__(self, name, last_modified, etag, type, size, storage_class):
         self.name = name
         self.last_modified = last_modified
         self.etag = etag
         self.type = type
         self.size = size
+        self.storage_class = storage_class
 
     def is_prefix(self):
         return self.last_modified is None
@@ -120,10 +122,10 @@ class ListBucketsResult(RequestResult):
 
 
 class MultipartUploadInfo(object):
-    def __init__(self, object_name, upload_id, creation_time):
+    def __init__(self, object_name, upload_id, initiation_date):
         self.object_name = object_name
         self.upload_id = upload_id
-        self.creation_time = creation_time
+        self.initiation_date = initiation_date
 
     def is_prefix(self):
         return self.upload_id is None
