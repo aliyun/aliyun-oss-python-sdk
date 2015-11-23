@@ -10,7 +10,7 @@ import oss
 
 
 # 首先初始化AccessKeyId、AccessKeySecret、Endpoint等信息。
-# 通过环境变量获取，或者把诸如“<你的AccessKeyId>”替换成真是的AccessKeyId等。
+# 通过环境变量获取，或者把诸如“<你的AccessKeyId>”替换成真实的AccessKeyId等。
 access_key_id = os.getenv('OSS_TEST_ACCESS_KEY_ID', '<你的AccessKeyId>')
 access_key_secret = os.getenv('OSS_TEST_ACCESS_KEY_SECRET', '<你的AccessKeySecret>')
 bucket_name = os.getenv('OSS_TEST_BUCKET', '<你的Bucket>')
@@ -79,6 +79,6 @@ except oss.exceptions.NoSuchKey:
 else:
     assert False
 
-#清楚
+#清除
 os.remove('本地文件名')
 os.remove('本地座右铭')
