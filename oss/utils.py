@@ -86,7 +86,7 @@ def is_ip_or_localhost(netloc):
     return True
 
 
-class _SizedStreamReader(object):
+class SizedStreamReader(object):
     def __init__(self, file_object, size):
         self.file_object = file_object
         self.size = size

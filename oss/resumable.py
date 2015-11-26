@@ -108,7 +108,7 @@ class ResumableUploader(object):
             for part in parts_to_upload:
                 f.seek(part.start, os.SEEK_SET)
                 result = self.bucket.upload_part(self.object_name, upload_id, part.part_number,
-                                                 utils._SizedStreamReader(f, part.size))
+                                                 utils.SizedStreamReader(f, part.size))
                 kept_parts.append(PartInfo(part.part_number, result.etag))
 
                 record['parts'].append({'part_number': part.part_number, 'etag': result.etag})

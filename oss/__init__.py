@@ -2,6 +2,8 @@ __version__ = '1.0.0'
 
 from .api import (Service, Bucket)
 from .auth import Auth, AnonymousAuth
+from .http import CaseInsensitiveDict
+
 
 from . import resumable
 from . import exceptions
