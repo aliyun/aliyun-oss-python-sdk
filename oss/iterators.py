@@ -7,13 +7,17 @@ oss.iterators
 该模块包含了一些易于使用的迭代器，可以用来遍历Bucket、对象、分片上传等。
 """
 
-from . models import MultipartUploadInfo, SimplifiedObjectInfo
+from .models import MultipartUploadInfo, SimplifiedObjectInfo
+from .exceptions import OssError
+
+from . import defaults
 
 
 class _BaseIterator(object):
-    def __init__(self, marker):
+    def __init__(self, marker, max_retries):
         self.is_truncated = True
         self.next_marker = marker
+        self.max_retries = max_retries if max_retries > 0 else 1
 
         self.entries = []
 
@@ -31,10 +35,21 @@ class _BaseIterator(object):
             if not self.is_truncated:
                 raise StopIteration
 
-            self.is_truncated, self.next_marker = self._fetch()
+            self.fetch_with_retry()
 
     def next(self):
         return self.__next__()
+
+    def fetch_with_retry(self):
+        for i in range(self.max_retries):
+            try:
+                self.is_truncated, self.next_marker = self._fetch()
+            except OssError as e:
+                if e.result.status // 100 != 5:
+                    raise
+
+                if i == self.max_retries - 1:
+                    raise
 
 
 class BucketIterator(_BaseIterator):
@@ -45,8 +60,8 @@ class BucketIterator(_BaseIterator):
     :param marker: 分页符。只列举Bucket名字典序在此之后的Bucket
     :param max_keys: 每次调用 `list_buckets` 时的max_keys参数。注意迭代器返回的数目可能会大于该值。
     """
-    def __init__(self, service, prefix='', marker='', max_keys=100):
-        super(BucketIterator, self).__init__(marker)
+    def __init__(self, service, prefix='', marker='', max_keys=100, max_retries=defaults.request_retries):
+        super(BucketIterator, self).__init__(marker, max_retries)
         self.service = service
         self.prefix = prefix
         self.max_keys = max_keys
@@ -69,8 +84,8 @@ class ObjectIterator(_BaseIterator):
     :param marker: 分页符
     :param max_keys: 每次调用 `list_objects` 时的max_keys参数。注意迭代器返回的数目可能会大于该值。
     """
-    def __init__(self, bucket, prefix='', delimiter='', marker='', max_keys=100):
-        super(ObjectIterator, self).__init__(marker)
+    def __init__(self, bucket, prefix='', delimiter='', marker='', max_keys=100, max_retries=defaults.request_retries):
+        super(ObjectIterator, self).__init__(marker, max_retries)
 
         self.bucket = bucket
         self.prefix = prefix
@@ -99,8 +114,10 @@ class MultipartUploadIterator(_BaseIterator):
     :param upload_id_marker: 分片上传ID分页符
     :param max_uploads: 每次调用 `list_multipart_uploads` 时的max_uploads参数。注意迭代器返回的数目可能会大于该值。
     """
-    def __init__(self, bucket, prefix='', delimiter='', key_marker='', upload_id_marker='', max_uploads=1000):
-        super(MultipartUploadIterator, self).__init__(key_marker)
+    def __init__(self, bucket,
+                 prefix='', delimiter='', key_marker='', upload_id_marker='',
+                 max_uploads=1000, max_retries=defaults.request_retries):
+        super(MultipartUploadIterator, self).__init__(key_marker, max_retries)
 
         self.bucket = bucket
         self.prefix = prefix
@@ -128,8 +145,8 @@ class ObjectUploadIterator(_BaseIterator):
     :param object_name: 对象名
     :param max_uploads: 每次调用 `list_multipart_uploads` 时的max_uploads参数。注意迭代器返回的数目可能会大于该值。
     """
-    def __init__(self, bucket, object_name, max_uploads=1000):
-        super(ObjectUploadIterator, self).__init__('')
+    def __init__(self, bucket, object_name, max_uploads=1000, max_retries=defaults.request_retries):
+        super(ObjectUploadIterator, self).__init__('', max_retries)
         self.bucket = bucket
         self.object_name = object_name
         self.next_upload_id_marker = ''
@@ -162,8 +179,9 @@ class PartIterator(_BaseIterator):
     :param marker: 分页符
     :param max_parts: 每次调用 `list_parts` 时的max_parts参数。注意迭代器返回的数目可能会大于该值。
     """
-    def __init__(self, bucket, object_name, upload_id, marker='0', max_parts=1000):
-        super(PartIterator, self).__init__(marker)
+    def __init__(self, bucket, object_name, upload_id,
+                 marker='0', max_parts=1000, max_retries=defaults.request_retries):
+        super(PartIterator, self).__init__(marker, max_retries)
 
         self.bucket = bucket
         self.object_name = object_name

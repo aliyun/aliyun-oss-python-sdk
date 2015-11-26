@@ -7,7 +7,7 @@ import os
 
 import oss
 
-from oss.exceptions import NoSuchKey, PositionNotEqualToLength
+from oss.exceptions import NoSuchKey, PositionNotEqualToLength, NotFound
 from oss.compat import to_string
 
 from common import *
@@ -24,6 +24,8 @@ class TestObject(unittest.TestCase):
     def test_object(self):
         object_name = random_string(12) + '.js'
         content = random_bytes(1024)
+
+        self.assertRaises(NotFound, self.bucket.head_object, object_name)
 
         result = self.bucket.put_object(object_name, content)
 
@@ -56,7 +58,7 @@ class TestObject(unittest.TestCase):
         self.assertEqual(result.headers['content-type'], 'application/javascript')
 
         # 下载到本地文件
-        self.bucket.get_object_as_file(object_name, filename2)
+        self.bucket.get_object_to_file(object_name, filename2)
 
         self.assertTrue(filecmp.cmp(filename, filename2))
 

@@ -12,6 +12,7 @@ import os
 from . import utils
 from . import iterators
 from . import exceptions
+from . import defaults
 
 from .models import PartInfo
 from .compat import json, stringify
@@ -19,15 +20,15 @@ from .compat import json, stringify
 import logging
 
 
-_MULTIPART_THRESHOLD = 500 * 1024 * 1024
-_PREFERRED_PART_SIZE = 100 * 1024 * 1024
-
 _MAX_PART_COUNT = 10000
 _MIN_PART_SIZE = 100 * 1024
 
 
-def upload_file(bucket, object_name, filename, store=None, multipart_threshold=_MULTIPART_THRESHOLD,
-                part_size=_PREFERRED_PART_SIZE):
+def upload_file(bucket, object_name, filename,
+                store=None,
+                headers=None,
+                multipart_threshold=defaults.multipart_threshold,
+                part_size=defaults.part_size):
     """断点上传本地文件。
 
     缺省条件下，该函数会在用户HOME目录下保存断点续传的信息。当待上传的本地文件没有发生变化，
@@ -37,21 +38,24 @@ def upload_file(bucket, object_name, filename, store=None, multipart_threshold=_
     :param bucket: :class:`Bucket <oss.api.Bucket>` 对象
     :param object_name: 上传到用户空间的对象名
     :param store: 用来保存断点信息的持久存储，参见 :class:`FileStore` 的接口。如不指定，则使用 `FileStore` 。
+    :param headers: 传给 `put_object` 或 `init_multipart_upload` 的HTTP头部
     :param multipart_threshold: 文件长度大于该值时，则用分片上传。
     :param part_size: 指定分片上传的每个分片的大小。如不指定，则自动计算。
     """
     size = os.path.getsize(filename)
 
     if size >= multipart_threshold:
-        uploader = ResumableUploader(bucket, object_name, filename, size, store, part_size=part_size)
+        uploader = ResumableUploader(bucket, object_name, filename, size, store,
+                                     part_size=part_size,
+                                     headers=headers)
         uploader.upload()
     else:
         with open(filename, 'rb') as f:
-            bucket.put_object(object_name, f)
+            bucket.put_object(object_name, f, headers=headers)
 
 
 def determine_part_size(total_size,
-                        preferred_size=_PREFERRED_PART_SIZE):
+                        preferred_size=defaults.part_size):
     if total_size < preferred_size:
         return total_size
 
@@ -69,16 +73,21 @@ class ResumableUploader(object):
     :param filename: 待上传的文件名
     :param size: 文件总长度
     :param store: 用来保存进度的持久化存储
+    :param headers: 传给 `init_multipart_upload` 的HTTP头部
     :param part_size: 分片大小。优先使用用户提供的值。如果用户没有指定，那么对于新上传，计算出一个合理值；对于老的上传，采用第一个
         分片的大小。
     """
-    def __init__(self, bucket, object_name, filename, size, store=None, part_size=_PREFERRED_PART_SIZE):
+    def __init__(self, bucket, object_name, filename, size,
+                 store=None,
+                 headers=None,
+                 part_size=defaults.part_size):
         self.bucket = bucket
         self.object_name = object_name
         self.filename = filename
         self.size = size
 
         self.store = store or FileStore()
+        self.headers = headers
         self.part_size = part_size
 
         self.abspath = os.path.abspath(filename)
@@ -128,7 +137,7 @@ class ResumableUploader(object):
             self.part_size = record['part_size']
         else:
             self.part_size = self.part_size or determine_part_size(self.size)
-            upload_id = self.bucket.init_multipart_upload(self.object_name).upload_id
+            upload_id = self.bucket.init_multipart_upload(self.object_name, headers=self.headers).upload_id
             record = {'upload_id': upload_id, 'mtime': self.mtime, 'size': self.size, 'parts': [],
                       'abspath': self.abspath, 'object_name': self.object_name,
                       'part_size': self.part_size}

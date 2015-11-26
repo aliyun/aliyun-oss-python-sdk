@@ -31,6 +31,11 @@ class BucketNotEmpty(OssError):
     code = 'BucketNotEmpty'
 
 
+class NotFound(OssError):
+    status = 404
+    code = ''
+
+
 class NoSuchKey(OssError):
     status = 404
     code = 'NoSuchKey'

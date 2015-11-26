@@ -24,12 +24,13 @@ class Session(object):
     def __init__(self):
         self.session = requests.Session()
 
-    def do_request(self, req):
+    def do_request(self, req, timeout):
         return Response(self.session.request(req.method, req.url,
                                              data=req.data,
                                              params=req.params,
                                              headers=req.headers,
-                                             stream=True))
+                                             stream=True,
+                                             timeout=timeout))
 
 
 class Request(object):

@@ -62,19 +62,21 @@ from . import xml_utils
 from . import http
 from . import utils
 from . import exceptions
+from . import defaults
 
 from .models import *
-from .compat import urlquote, urlparse
+from .compat import urlquote, urlparse, to_bytes
 
 import time
 import shutil
 
 
 class _Base(object):
-    def __init__(self, auth, endpoint, is_cname, session):
+    def __init__(self, auth, endpoint, is_cname, session, connect_timeout, read_timeout):
         self.auth = auth
         self.endpoint = _normalize_endpoint(endpoint)
         self.session = session or http.Session()
+        self.timeout = (connect_timeout, read_timeout)
 
         self._make_url = _UrlMaker(self.endpoint, is_cname)
 
@@ -82,7 +84,7 @@ class _Base(object):
         req = http.Request(method, self._make_url(bucket_name, object_name), **kwargs)
         self.auth._sign_request(req, bucket_name, object_name)
 
-        resp = self.session.do_request(req)
+        resp = self.session.do_request(req, timeout=self.timeout)
         if resp.status // 100 != 2:
             raise exceptions.make_exception(resp)
 
@@ -111,8 +113,11 @@ class Service(_Base):
     :type session: Session或None
     """
     def __init__(self, auth, endpoint,
-                 session=None):
-        super(Service, self).__init__(auth, endpoint, False, session)
+                 session=None,
+                 connect_timeout=defaults.connect_timeout,
+                 read_timeout=defaults.read_timeout
+                 ):
+        super(Service, self).__init__(auth, endpoint, False, session, connect_timeout, read_timeout)
 
     def list_buckets(self, prefix='', marker='', max_keys=100):
         """根据前缀罗列用户的Bucket。
@@ -159,8 +164,10 @@ class Bucket(_Base):
 
     def __init__(self, auth, endpoint, bucket_name,
                  is_cname=False,
-                 session=None):
-        super(Bucket, self).__init__(auth, endpoint, is_cname, session)
+                 session=None,
+                 connect_timeout=defaults.connect_timeout,
+                 read_timeout=defaults.read_timeout):
+        super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout, read_timeout)
         self.bucket_name = bucket_name
 
     def sign_url(self, method, object_name, expires, headers=None, params=None):
@@ -204,37 +211,47 @@ class Bucket(_Base):
                                         'encoding-type': 'url'})
         return self._parse_result(resp, xml_utils.parse_list_objects, ListObjectsResult)
 
-    def put_object(self, object_name, data, headers=None):
+    def put_object(self, object_name, data,
+                   headers=None,
+                   progress_callback=None):
         """上传一个普通对象。
 
         :param object_name: 上传到OSS的对象名
         :param data: 待上传的内容。
         :type data: bytes，str或file-like object
         :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-meta-开头的头部等
+        :param progress_callback: 用户指定进度回调函数。可以用来实现进度条等功能。参考 :ref:`progress_callback` 。
 
         :return: :class:`PutObjectResult <oss.models.PutObjectResult>`
-
         """
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), object_name)
+
+        if progress_callback:
+            data = utils.MonitoredStreamReader(data, progress_callback)
 
         resp = self.__do_object('PUT', object_name, data=data, headers=headers)
         return PutObjectResult(resp)
 
-    def put_object_from_file(self, object_name, filename, headers=None):
+    def put_object_from_file(self, object_name, filename,
+                             headers=None,
+                             progress_callback=None):
         """上传一个本地文件到OSS的普通对象。
 
         :param object_name: 上传到OSS的对象名
         :param filename: 本地文件名，需要有可读权限
         :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-meta-开头的头部等
+        :param progress_callback: 用户支持的进度回调函数。参考 :ref:`progress_callback`
 
         :return: :class:`PutObjectResult <oss.models.PutObjectResult>`
         """
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), filename)
 
         with open(filename, 'rb') as f:
-            return self.put_object(object_name, f, headers)
+            return self.put_object(object_name, f, headers=headers, progress_callback=progress_callback)
 
-    def append_object(self, object_name, position, data, headers=None):
+    def append_object(self, object_name, position, data,
+                      headers=None,
+                      progress_callback=None):
         """追加上传一个对象。
 
         :param object_name: 新的对象名，或已经存在的可追加对象名
@@ -251,6 +268,9 @@ class Bucket(_Base):
                  还会抛出其他一些异常
         """
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), object_name)
+
+        if progress_callback:
+            data = utils.MonitoredStreamReader(data, progress_callback)
 
         resp = self.__do_object('POST', object_name,
                                 data=data,
@@ -284,7 +304,7 @@ class Bucket(_Base):
         resp = self.__do_object('GET', object_name, headers=headers)
         return GetObjectResult(resp)
 
-    def get_object_as_file(self, object_name, filename, byte_range=None, headers=None):
+    def get_object_to_file(self, object_name, filename, byte_range=None, headers=None):
         """下载一个对象到本地文件。
 
         :param object_name: 对象名
@@ -310,7 +330,7 @@ class Bucket(_Base):
 
         :return: :class:`RequestResult <oss.models.RequestResults>`
 
-        :raises: 如果对象不存在，则抛出 :class:`NoSuchKey <oss.exceptions.NoSuchKey>` ；还可能抛出其他异常
+        :raises: 如果Bucket不存在或者Object不存在，则抛出 :class:`NotFound <oss.exceptions.NotFound>`
         """
         resp = self.__do_object('HEAD', object_name, headers=headers)
         return RequestResult(resp)
@@ -376,7 +396,7 @@ class Bucket(_Base):
         """设置对象的ACL。
 
         :param object_name: 对象名
-        :param permission: 可以是'private'、'public-read'或'public-read-write'
+        :param permission: 可以是'default'、'private'、'public-read'或'public-read-write'
 
         :return: :class:`RequestResult <oss.models.RequestResult>`
         """

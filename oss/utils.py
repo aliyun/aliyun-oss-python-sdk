@@ -110,3 +110,69 @@ class _SizedStreamReader(object):
 
 def how_many(m, n):
     return (m + n - 1) // n
+
+
+def _get_data_size(data):
+    if hasattr(data, '__len__'):
+        return len(data)
+
+    if hasattr(data, 'seek') and hasattr(data, 'tell'):
+        current = data.tell()
+
+        data.seek(0, os.SEEK_END)
+        end = data.tell()
+        data.seek(current, os.SEEK_SET)
+
+        return end - current
+
+    raise RuntimeError('Cannot determine the size of data of type: {0}'.format(data.__class__.__name__))
+
+
+class MonitoredStreamReader(object):
+    def __init__(self, data, callback, size=None):
+        self.data = to_bytes(data)
+        self.callback = callback
+
+        if size is None:
+            self.size = _get_data_size(data)
+        else:
+            self.size = size
+
+        self.offset = 0
+
+    def __len__(self):
+        return self.size
+
+    def read(self, amt=None):
+        if self.offset >= self.size:
+            self.callback(self.size, self.size, 0)
+            return ''
+
+        if amt is None or amt < 0:
+            bytes_to_read = self.size - self.offset
+        else:
+            bytes_to_read = min(amt, self.size - self.offset)
+
+        self.callback(self.offset, self.size, bytes_to_read)
+
+        if isinstance(self.data, bytes):
+            content = self.__read_bytes(bytes_to_read)
+        else:
+            content = self.__read_file(bytes_to_read)
+
+        return content
+
+    def __read_bytes(self, bytes_to_read):
+        assert bytes_to_read is not None and bytes_to_read >= 0
+
+        content = self.data[self.offset:self.offset+bytes_to_read]
+        self.offset += bytes_to_read
+
+        return content
+
+    def __read_file(self, bytes_to_read):
+        assert bytes_to_read is not None and bytes_to_read >= 0
+
+        self.offset += bytes_to_read
+
+        return self.data.read(bytes_to_read)

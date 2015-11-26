@@ -37,7 +37,7 @@ with open('本地座右铭.txt', 'wb') as f:
 
 
 # 也可以用一行代码来实现下载到本地文件
-bucket.get_object_as_file('motto.txt', '本地文件名.txt')
+bucket.get_object_to_file('motto.txt', '本地文件名.txt')
 
 
 # 把本地文件 “座右铭.txt” 上传到OSS，新的Object叫做 “我的座右铭.txt”
@@ -80,5 +80,5 @@ else:
     assert False
 
 #清除
-os.remove('本地文件名')
-os.remove('本地座右铭')
+os.remove('本地文件名.txt')
+os.remove('本地座右铭.txt')
