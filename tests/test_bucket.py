@@ -87,21 +87,22 @@ class TestBucket(unittest.TestCase):
         self.assertRaises(oss.exceptions.NoSuchWebsite, self.bucket.get_bucket_website)
 
     def test_lifecycle(self):
-        action = oss.models.LifecycleAction('Expiration', 'Days', 1)
-        rule = oss.models.LifecycleRule(random_string(10), '', 'Disabled', [action])
-        lifecycle = oss.models.BucketLifecycle([rule])
+        from oss.models import LifecycleExpiration, LifecycleRule, BucketLifecycle
+
+        rule = LifecycleRule(random_string(10), '',
+                             status=LifecycleRule.DISABLED,
+                             expiration=LifecycleExpiration(days=356))
+        lifecycle = BucketLifecycle([rule])
 
         self.bucket.put_bucket_lifecycle(lifecycle)
         rule_got = self.bucket.get_bucket_lifecycle().rules[0]
-        action_got = rule_got.actions[0]
 
         self.assertEqual(rule.id, rule_got.id)
         self.assertEqual(rule.prefix, rule_got.prefix)
         self.assertEqual(rule.status, rule_got.status)
 
-        self.assertEqual(action.action, action_got.action)
-        self.assertEqual(action.time_spec, action_got.time_spec)
-        self.assertEqual(action.time_value, action_got.time_value)
+        self.assertEqual(rule_got.expiration.days, 356)
+        self.assertEqual(rule_got.expiration.date, None)
 
         self.bucket.delete_bucket_lifecycle()
         self.bucket.delete_bucket_lifecycle()

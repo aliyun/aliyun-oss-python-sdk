@@ -19,7 +19,7 @@ from .models import (SimplifiedObjectInfo,
                      PartInfo,
                      MultipartUploadInfo,
                      LifecycleRule,
-                     LifecycleAction,
+                     LifecycleExpiration,
                      CorsRule)
 
 from .compat import urlquote, urlunquote, to_unicode
@@ -232,28 +232,31 @@ def parse_get_bucket_websiste(result, body):
     return result
 
 
-def parse_lifecycle_actions(rule_node):
-    actions = []
+def parse_lifecycle_expiration(expiration_node):
+    if expiration_node is None:
+        return None
 
-    for node in rule_node.findall('*'):
-        if node.tag in ('ID', 'Prefix', 'Status'):
-            continue
+    expiration = LifecycleExpiration()
 
-        time_node = node.findall('*')[0]
-        actions.append(LifecycleAction(node.tag, time_node.tag, time_node.text))
+    if expiration_node.find('Days') is not None:
+        expiration.days = _find_int(expiration_node, 'Days')
+    elif expiration_node.find('Date') is not None:
+        expiration.date = _find_int(expiration_node, 'Date')
 
-    return actions
+    return expiration
 
 
 def parse_get_bucket_lifecycle(result, body):
     root = ElementTree.fromstring(body)
 
     for rule_node in root.findall('Rule'):
+        expiration = parse_lifecycle_expiration(rule_node.find('Expiration'))
         rule = LifecycleRule(
             _find_tag(rule_node, 'ID'),
             _find_tag(rule_node, 'Prefix'),
-            _find_tag(rule_node, 'Status'),
-            parse_lifecycle_actions(rule_node))
+            status=_find_tag(rule_node, 'Status'),
+            expiration=expiration
+            )
         result.rules.append(rule)
 
     return result
@@ -344,9 +347,14 @@ def to_put_bucket_lifecycle(bucket_lifecycle):
         _add_text_child(rule_node, 'Prefix', rule.prefix)
         _add_text_child(rule_node, 'Status', rule.status)
 
-        for action in rule.actions:
-            action_node = ElementTree.SubElement(rule_node, action.action)
-            _add_text_child(action_node, action.time_spec, action.time_value)
+        expiration = rule.expiration
+        if expiration:
+            expiration_node = ElementTree.SubElement(rule_node, 'Expiration')
+
+            if expiration.days is not None:
+                _add_text_child(expiration_node, 'Days', str(expiration.days))
+            elif expiration.date is not None:
+                _add_text_child(expiration_node, 'Date', expiration.date)
 
     return _node_to_string(root)
 

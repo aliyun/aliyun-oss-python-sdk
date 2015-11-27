@@ -197,19 +197,40 @@ class GetBucketWebsiteResult(RequestResult, BucketWebsite):
         BucketWebsite.__init__(self, '', '')
 
 
-class LifecycleAction(object):
-    def __init__(self, action, time_spec, time_value):
-        self.action = action
-        self.time_spec = time_spec
-        self.time_value = str(time_value)
+class LifecycleExpiration(object):
+    """过期删除操作。
+
+    :param days: 表示在对象修改后过了这么多天，就会匹配规则，从而被删除
+    :param date: 表示在该日期之后，规则就一直生效。即每天都会对符合前缀的对象执行删除操作（如，删除），而不管对象是什么时候生成的。
+        *不建议使用*
+    """
+    def __init__(self, days=None, date=None):
+        if days is not None and date is not None:
+            raise RuntimeError('days and date should not be both specified')
+
+        self.days = days
+        self.date = date
 
 
 class LifecycleRule(object):
-    def __init__(self, id, prefix, status, actions):
+    """生命周期规则。
+
+    :param id: 规则名
+    :param prefix: 只有文件名匹配该前缀的对象才适用本规则
+    :param expiration: 过期删除操作。
+    :type expiration: :class:`LifecycleExpiration`
+    :param status: 启用还是禁止该规则。可选值为 `LifecycleRule.ENABLED` 或 `LifecycleRule.DISABLED`
+    """
+
+    ENABLED = 'Enabled'
+    DISABLED = 'Disabled'
+
+    def __init__(self, id, prefix,
+                 status=ENABLED, expiration=None):
         self.id = id
         self.prefix = prefix
         self.status = status
-        self.actions = actions
+        self.expiration = expiration
 
 
 class BucketLifecycle(object):
