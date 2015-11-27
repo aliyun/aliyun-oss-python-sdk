@@ -50,6 +50,8 @@ class _BaseIterator(object):
 
                 if i == self.max_retries - 1:
                     raise
+            else:
+                return
 
 
 class BucketIterator(_BaseIterator):
