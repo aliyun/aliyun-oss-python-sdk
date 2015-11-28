@@ -14,6 +14,7 @@ from xml.parsers import expat
 
 
 from .compat import to_string
+from .utils import gmt_to_unixtime
 
 
 class PartInfo(object):
@@ -44,7 +45,17 @@ class ErrorResult(RequestResult):
         return repr(self.details)
 
 
-class GetObjectResult(RequestResult):
+class HeadObjectResult(RequestResult):
+    def __init__(self, resp):
+        super(HeadObjectResult, self).__init__(resp)
+        self.object_type = self.headers['x-oss-object-type']
+        self.last_modified = gmt_to_unixtime(self.headers['last-modified'])
+        self.content_type = self.headers['content-type']
+        self.content_length = int(self.headers['content-length'])
+        self.etag = self.headers['etag'].strip('"')
+
+
+class GetObjectResult(HeadObjectResult):
     def __init__(self, resp):
         super(GetObjectResult, self).__init__(resp)
 
@@ -203,6 +214,7 @@ class LifecycleExpiration(object):
     :param days: 表示在对象修改后过了这么多天，就会匹配规则，从而被删除
     :param date: 表示在该日期之后，规则就一直生效。即每天都会对符合前缀的对象执行删除操作（如，删除），而不管对象是什么时候生成的。
         *不建议使用*
+    :type date: `datetime.date`
     """
     def __init__(self, days=None, date=None):
         if days is not None and date is not None:

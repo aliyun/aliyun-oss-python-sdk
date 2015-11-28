@@ -52,7 +52,7 @@ bucket.put_object_from_file('云上座右铭.txt', '本地座右铭.txt')
 
 
 # 列举Bucket下10个Object，并打印它们的最后修改时间、文件名
-for i, object_info in enumerate(oss.iterators.ObjectIterator(bucket)):
+for i, object_info in enumerate(oss.ObjectIterator(bucket)):
     print("{0} {1}".format(object_info.last_modified, object_info.name))
 
     if i >= 9:

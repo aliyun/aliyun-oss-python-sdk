@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import unittest
+import datetime
 import oss
 
 from common import *
@@ -86,7 +87,7 @@ class TestBucket(unittest.TestCase):
         # 再次关闭报错
         self.assertRaises(oss.exceptions.NoSuchWebsite, self.bucket.get_bucket_website)
 
-    def test_lifecycle(self):
+    def test_lifecycle_days(self):
         from oss.models import LifecycleExpiration, LifecycleRule, BucketLifecycle
 
         rule = LifecycleRule(random_string(10), '',
@@ -108,6 +109,22 @@ class TestBucket(unittest.TestCase):
         self.bucket.delete_bucket_lifecycle()
 
         self.assertRaises(oss.exceptions.NoSuchLifecycle, self.bucket.get_bucket_lifecycle)
+
+    def test_lifecycle_date(self):
+        from oss.models import LifecycleExpiration, LifecycleRule, BucketLifecycle
+
+        rule = LifecycleRule(random_string(10), '',
+                             status=LifecycleRule.DISABLED,
+                             expiration=LifecycleExpiration(date=datetime.date(2100, 12, 25)))
+        lifecycle = BucketLifecycle([rule])
+
+        self.bucket.put_bucket_lifecycle(lifecycle)
+        rule_got = self.bucket.get_bucket_lifecycle().rules[0]
+
+        self.assertEqual(rule_got.expiration.days, None)
+        self.assertEqual(rule_got.expiration.date, datetime.date(2100, 12, 25))
+
+        self.bucket.delete_bucket_lifecycle()
 
     def test_cors(self):
         rule = oss.models.CorsRule(allowed_origins=['*'],
@@ -145,7 +162,7 @@ class TestBucket(unittest.TestCase):
         result = self.bucket.get_bucket_location()
         self.assertTrue(result.location)
 
-    def test_xml_input(self):
+    def test_xml_input_output(self):
         xml_input = '''<?xml version="1.0" encoding="UTF-8"?>
                        <RefererConfiguration>
                          <AllowEmptyReferer>true</AllowEmptyReferer>
@@ -154,6 +171,13 @@ class TestBucket(unittest.TestCase):
                          </RefererList>
                        </RefererConfiguration>'''
         self.bucket.put_bucket_referer(xml_input)
+
+        resp = self.bucket._get_bucket_config(oss.Bucket.REFERER)
+        result = oss.models.GetBucketRefererResult(resp)
+        oss.xml_utils.parse_get_bucket_referer(result, resp.read())
+
+        self.assertEqual(result.allow_empty_referer, True)
+        self.assertEqual(result.referers[0], '阿里云')
 
     def test_bucket_exists(self):
         self.assertTrue(self.bucket.bucket_exists())

@@ -4,13 +4,19 @@ import unittest
 import requests
 import filecmp
 import os
+import calendar
+import time
 
 import oss
 
 from oss.exceptions import NoSuchKey, PositionNotEqualToLength, NotFound
-from oss.compat import to_string
+from oss import to_string
 
 from common import *
+
+
+def now():
+    return int(calendar.timegm(time.gmtime()))
 
 
 class TestObject(unittest.TestCase):
@@ -27,14 +33,30 @@ class TestObject(unittest.TestCase):
 
         self.assertRaises(NotFound, self.bucket.head_object, object_name)
 
-        result = self.bucket.put_object(object_name, content)
+        lower_bound = now() - 60 * 16
+        upper_bound = now() + 60 * 16
 
-        result = self.bucket.get_object(object_name)
-        self.assertEqual(result.read(), content)
-        self.assertEqual(result.headers['content-type'], 'application/javascript')
+        def assert_result(result):
+            self.assertEqual(result.content_length, len(content))
+            self.assertEqual(result.content_type, 'application/javascript')
+            self.assertEqual(result.object_type, 'Normal')
 
-        result = self.bucket.head_object(object_name)
-        self.assertEqual(int(result.headers['content-length']), len(content))
+            self.assertTrue(result.last_modified > lower_bound)
+            self.assertTrue(result.last_modified < upper_bound)
+
+            self.assertTrue(result.etag)
+
+        self.bucket.put_object(object_name, content)
+
+        get_result = self.bucket.get_object(object_name)
+        self.assertEqual(get_result.read(), content)
+        assert_result(get_result)
+
+        head_result = self.bucket.head_object(object_name)
+        assert_result(head_result)
+
+        self.assertEqual(get_result.last_modified, head_result.last_modified)
+        self.assertEqual(get_result.etag, head_result.etag)
 
         self.bucket.delete_object(object_name)
 
@@ -207,6 +229,21 @@ class TestObject(unittest.TestCase):
         headers = self.bucket.get_object(object_name).headers
         self.assertEqual(headers['x-oss-meta-key1'], 'value1')
         self.assertEqual(headers['x-oss-meta-key2'], 'value2')
+
+    def test_progress_put(self):
+        self.previous = -1
+
+        def progress_callback(bytes_consumed, total_bytes, bytes_to_consume):
+            self.assertTrue(bytes_consumed + bytes_to_consume <= total_bytes)
+            self.assertTrue(bytes_consumed > self.previous)
+
+            self.previous = bytes_consumed
+
+        object_name = random_string(12)
+        content = random_bytes(1024 * 1024)
+
+        self.bucket.put_object(object_name, content, progress_callback=progress_callback)
+
 
 if __name__ == '__main__':
     unittest.main()

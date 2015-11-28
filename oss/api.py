@@ -175,7 +175,7 @@ class Bucket(_Base):
 
         常见的用法是生成加签的URL以供授信用户下载，如为log.jpg生成一个5分钟后过期的下载链接::
 
-            >>> bucket._sign_url('GET', 'log.jpg', 5 * 60)
+            >>> bucket.sign_url('GET', 'log.jpg', 5 * 60)
             'http://your-bucket.oss-cn-hangzhou.aliyuncs.com/logo.jpg?OSSAccessKeyId=YourAccessKeyId\&Expires=1447178011&Signature=UJfeJgvcypWq6Q%2Bm3IJcSHbvSak%3D'
 
         :param method: HTTP方法，如'GET'、'PUT'、'DELETE'等
@@ -328,12 +328,12 @@ class Bucket(_Base):
         :param object_name: 对象名
         :param headers: HTTP头部
 
-        :return: :class:`RequestResult <oss.models.RequestResults>`
+        :return: :class:`HeadObjectResult <oss.models.HeadObjectResults>`
 
         :raises: 如果Bucket不存在或者Object不存在，则抛出 :class:`NotFound <oss.exceptions.NotFound>`
         """
         resp = self.__do_object('HEAD', object_name, headers=headers)
-        return RequestResult(resp)
+        return HeadObjectResult(resp)
 
     def object_exists(self, object_name):
         """如果对象存在就返回True，否则返回False。如果Bucket不存在，或是发生其他错误，则抛出异常。"""
@@ -380,7 +380,7 @@ class Bucket(_Base):
 
         :return: :class:`RequestResult <oss.models.RequestResults>`
         """
-        self.copy_object(self.bucket_name, object_name, object_name, headers=headers)
+        return self.copy_object(self.bucket_name, object_name, object_name, headers=headers)
 
     def delete_object(self, object_name):
         """删除一个对象。
@@ -763,14 +763,17 @@ def _range(start, last):
     return to_str(start) + '-' + to_str(last)
 
 
-def _determine_endpoint_type(netloc, is_cname):
+def _determine_endpoint_type(netloc, is_cname, bucket_name):
     if utils.is_ip_or_localhost(netloc):
         return _ENDPOINT_TYPE_IP
 
     if is_cname:
         return _ENDPOINT_TYPE_CNAME
-    else:
+
+    if utils.is_valid_bucket_name(bucket_name):
         return _ENDPOINT_TYPE_ALIYUN
+    else:
+        return _ENDPOINT_TYPE_IP
 
 
 class _UrlMaker(object):
@@ -779,9 +782,11 @@ class _UrlMaker(object):
 
         self.scheme = p.scheme
         self.netloc = p.netloc
-        self.type = _determine_endpoint_type(p.netloc, is_cname)
+        self.is_cname = is_cname
 
     def __call__(self, bucket_name, object_name):
+        self.type = _determine_endpoint_type(self.netloc, self.is_cname, bucket_name)
+
         object_name = urlquote(object_name)
 
         if self.type == _ENDPOINT_TYPE_CNAME:

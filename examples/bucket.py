@@ -26,7 +26,7 @@ for param in (access_key_id, access_key_secret, bucket_name, endpoint):
 #   1. 先创建一个Service对象
 #   2. 用oss.iterators.BucketIterator遍历
 service = oss.Service(oss.Auth(access_key_id, access_key_secret), endpoint)
-print('\n'.join(info.name for info in oss.iterators.BucketIterator(service)))
+print('\n'.join(info.name for info in oss.BucketIterator(service)))
 
 
 # 创建Bucket对象，所有Object相关的接口都可以通过Bucket对象来进行
@@ -55,7 +55,7 @@ bucket.put_bucket_website(xml)
 # 方法三：可以从本地文件读取XML配置
 # oss.compat.to_bytes()可以把unicode转换为bytes
 with open('website_config.xml', 'wb') as f:
-    f.write(oss.compat.to_bytes(xml))
+    f.write(oss.to_bytes(xml))
 
 with open('website_config.xml', 'rb') as f:
     bucket.put_bucket_website(f)

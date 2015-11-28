@@ -22,14 +22,19 @@ from .models import (SimplifiedObjectInfo,
                      LifecycleExpiration,
                      CorsRule)
 
-from .compat import urlquote, urlunquote, to_unicode
+from .compat import urlunquote, to_unicode, to_string
+from .utils import iso8601_to_unixtime, date_to_iso8601, iso8601_to_date
 
 
 def _find_tag(parent, path):
     child = parent.find(path)
     if child is None:
         raise KeyError("parse xml: " + path + " could not be found under " + parent.tag)
-    return child.text or ''
+
+    if child.text is None:
+        return ''
+
+    return to_string(child.text)
 
 
 def _find_bool(parent, path):
@@ -55,12 +60,12 @@ def _find_object(parent, path, url_encoded):
 
 
 def _find_all_tags(parent, tag):
-    return [node.text or '' for node in parent.findall(tag)]
+    return [to_string(node.text) or '' for node in parent.findall(tag)]
 
 
 def _is_url_encoding(root):
     node = root.find('EncodingType')
-    if node is not None and node.text == 'url':
+    if node is not None and to_string(node.text) == 'url':
         return True
     else:
         return False
@@ -79,13 +84,6 @@ def _add_text_child(parent, tag, text):
     ElementTree.SubElement(parent, tag).text = to_unicode(text)
 
 
-def _make_encoder(encoding_type):
-    if encoding_type == 'url':
-        return urlquote
-    else:
-        return lambda x: x
-
-
 def parse_list_objects(result, body):
     root = ElementTree.fromstring(body)
     url_encoded = _is_url_encoding(root)
@@ -97,7 +95,7 @@ def parse_list_objects(result, body):
     for contents_node in root.findall('Contents'):
         result.object_list.append(SimplifiedObjectInfo(
             _find_object(contents_node, 'Key', url_encoded),
-            _find_tag(contents_node, 'LastModified'),
+            iso8601_to_unixtime(_find_tag(contents_node, 'LastModified')),
             _find_tag(contents_node, 'ETag').strip('"'),
             _find_tag(contents_node, 'Type'),
             int(_find_tag(contents_node, 'Size')),
@@ -197,7 +195,7 @@ parse_get_object_acl = parse_get_bucket_acl
 
 
 def parse_get_bucket_location(result, body):
-    result.location = ElementTree.fromstring(body).text
+    result.location = to_string(ElementTree.fromstring(body).text)
     return result
 
 
@@ -205,10 +203,10 @@ def parse_get_bucket_logging(result, body):
     root = ElementTree.fromstring(body)
 
     if root.find('LoggingEnabled/TargetBucket') is not None:
-        result.target_bucket = root.find('LoggingEnabled/TargetBucket').text
+        result.target_bucket = _find_tag(root, 'LoggingEnabled/TargetBucket')
 
     if root.find('LoggingEnabled/TargetPrefix') is not None:
-        result.target_prefix = root.find('LoggingEnabled/TargetPrefix').text
+        result.target_prefix = _find_tag(root, 'LoggingEnabled/TargetPrefix')
 
     return result
 
@@ -217,8 +215,7 @@ def parse_get_bucket_referer(result, body):
     root = ElementTree.fromstring(body)
 
     result.allow_empty_referer = _find_bool(root, 'AllowEmptyReferer')
-    for referer in root.findall('RefererList/Referer'):
-        result.referers.append(referer.text)
+    result.referers = _find_all_tags(root, 'RefererList/Referer')
 
     return result
 
@@ -226,8 +223,8 @@ def parse_get_bucket_referer(result, body):
 def parse_get_bucket_websiste(result, body):
     root = ElementTree.fromstring(body)
 
-    result.index_file = root.find('IndexDocument/Suffix').text
-    result.error_file = root.find('ErrorDocument/Key').text
+    result.index_file = _find_tag(root, 'IndexDocument/Suffix')
+    result.error_file = _find_tag(root, 'ErrorDocument/Key')
 
     return result
 
@@ -241,7 +238,7 @@ def parse_lifecycle_expiration(expiration_node):
     if expiration_node.find('Days') is not None:
         expiration.days = _find_int(expiration_node, 'Days')
     elif expiration_node.find('Date') is not None:
-        expiration.date = _find_int(expiration_node, 'Date')
+        expiration.date = iso8601_to_date(_find_tag(expiration_node, 'Date'))
 
     return expiration
 
@@ -354,7 +351,7 @@ def to_put_bucket_lifecycle(bucket_lifecycle):
             if expiration.days is not None:
                 _add_text_child(expiration_node, 'Days', str(expiration.days))
             elif expiration.date is not None:
-                _add_text_child(expiration_node, 'Date', expiration.date)
+                _add_text_child(expiration_node, 'Date', date_to_iso8601(expiration.date))
 
     return _node_to_string(root)
 

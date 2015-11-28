@@ -12,6 +12,10 @@ import mimetypes
 import socket
 import hashlib
 import base64
+import threading
+import calendar
+import datetime
+import time
 
 from .compat import to_string, to_bytes
 
@@ -86,7 +90,27 @@ def is_ip_or_localhost(netloc):
     return True
 
 
+_ALPHA_NUM = 'abcdefghijklmnopqrstuvwxyz0123456789'
+_HYPHEN = '-'
+_BUCKET_NAME_CHARS = set(_ALPHA_NUM + '-')
+
+
+def is_valid_bucket_name(name):
+    """判断是否为合法的Bucket名"""
+    if len(name) < 3 or len(name) > 63:
+        return False
+
+    if name[-1] == "-":
+        return False
+
+    if name[0] not in _ALPHA_NUM:
+        return False
+
+    return set(name) <= _BUCKET_NAME_CHARS
+
+
 class SizedStreamReader(object):
+    """通过这个适配器（Adapter），可以把原先的 `file_object` 的长度限制到小于或等于 `size`。"""
     def __init__(self, file_object, size):
         self.file_object = file_object
         self.size = size
@@ -129,6 +153,12 @@ def _get_data_size(data):
 
 
 class MonitoredStreamReader(object):
+    """通过这个适配器，可以给 `data` 加上进度监控。
+
+    :param data: 可以是UTF-8编码的unicode字符串、bytes或可以seek的file object
+    :param callback: 用户提供的进度报告回调，形如 callback(bytes_read, total_bytes, bytes_to_read)。
+        其中bytes_read是已经读取的字节数；total_bytes是总的字节数；bytes_to_read是这次即将读取的字节数。
+    """
     def __init__(self, data, callback, size=None):
         self.data = to_bytes(data)
         self.callback = callback
@@ -176,3 +206,34 @@ class MonitoredStreamReader(object):
         self.offset += bytes_to_read
 
         return self.data.read(bytes_to_read)
+
+
+_STRPTIME_LOCK = threading.Lock()
+
+
+_GMT_FORMAT = "%a, %d %b %Y %H:%M:%S GMT"
+_ISO8601_FORMAT = "%Y-%m-%dT%H:%M:%S.000Z"
+
+
+def to_unixtime(time_string, format_string):
+    with _STRPTIME_LOCK:
+        return int(calendar.timegm(time.strptime(time_string, format_string)))
+
+
+def gmt_to_unixtime(time_string):
+    """把GMT时间字符串转换为UNIX时间（自1970年1月1日UTC零点的秒数）"""
+    return to_unixtime(time_string, _GMT_FORMAT)
+
+
+def iso8601_to_unixtime(time_string):
+    """把ISO8601时间字符串（形如，2012-02-24T06:07:48.000Z）转换为UNIX时间，精确到秒。"""
+    return to_unixtime(time_string, _ISO8601_FORMAT)
+
+
+def date_to_iso8601(d):
+    return d.strftime(_ISO8601_FORMAT)
+
+
+def iso8601_to_date(time_string):
+    timestamp = iso8601_to_unixtime(time_string)
+    return datetime.date.fromtimestamp(timestamp)

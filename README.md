@@ -41,7 +41,7 @@ bucket.get_object(object_name).read()
 bucket.delete_object(object_name)
 
 # 遍历所有对象
-for object_info in oss.iterators.ObjectIterator(bucket):
+for object_info in oss.ObjectIterator(bucket):
     print(object_info.name)
 ```
 

@@ -34,7 +34,7 @@ class TestUpload(unittest.TestCase):
 
         pathname = self._prepare_temp_file(content)
 
-        oss.resumable.upload_file(self.bucket, object_name, pathname)
+        oss.resumable_upload(self.bucket, object_name, pathname)
 
         result = self.bucket.get_object(object_name)
         self.assertEqual(content, result.read())
@@ -46,7 +46,7 @@ class TestUpload(unittest.TestCase):
 
         pathname = self._prepare_temp_file(content)
 
-        oss.resumable.upload_file(self.bucket, object_name, pathname, multipart_threshold=200 * 1024, part_size=None)
+        oss.resumable_upload(self.bucket, object_name, pathname, multipart_threshold=200 * 1024, part_size=None)
 
         result = self.bucket.get_object(object_name)
         self.assertEqual(content, result.read())
@@ -72,13 +72,13 @@ class TestUpload(unittest.TestCase):
 
             self.bucket.upload_part(object_name, upload_id, part_number, content[start:end])
 
-        oss.resumable.rebuild_record(pathname, oss.resumable.FileStore(), self.bucket, object_name, upload_id, part_size)
-        oss.resumable.upload_file(self.bucket, object_name, pathname, multipart_threshold=0, part_size=100 * 1024)
+        oss.resumable.rebuild_record(pathname, oss.resumable.make_upload_store(), self.bucket, object_name, upload_id, part_size)
+        oss.resumable_upload(self.bucket, object_name, pathname, multipart_threshold=0, part_size=100 * 1024)
 
         result = self.bucket.get_object(object_name)
         self.assertEqual(content, result.read())
 
-        self.assertEqual(len(list(oss.iterators.ObjectUploadIterator(self.bucket, object_name))), expected_unfinished)
+        self.assertEqual(len(list(oss.ObjectUploadIterator(self.bucket, object_name))), expected_unfinished)
 
     def test_resume_empty(self):
         self.__test_resume(250 * 1024, [])
@@ -111,17 +111,17 @@ class TestUpload(unittest.TestCase):
         from unittest.mock import patch
         with patch.object(oss.Bucket, 'upload_part', side_effect=upload_part, autospec=True) as mock_upload_part:
             try:
-                oss.resumable.upload_file(self.bucket, object_name, pathname, multipart_threshold=0,
+                oss.resumable_upload(self.bucket, object_name, pathname, multipart_threshold=0,
                                           part_size=100 * 1024)
             except RuntimeError:
                 pass
 
         if modify_record_func:
-            modify_record_func(oss.resumable.FileStore(), self.bucket.bucket_name, object_name, pathname)
+            modify_record_func(oss.resumable.make_upload_store(), self.bucket.bucket_name, object_name, pathname)
 
-        oss.resumable.upload_file(self.bucket, object_name, pathname, multipart_threshold=0, part_size=100 * 1024)
+        oss.resumable_upload(self.bucket, object_name, pathname, multipart_threshold=0, part_size=100 * 1024)
 
-        self.assertEqual(len(list(oss.iterators.ObjectUploadIterator(self.bucket, object_name))), expected_unfinished)
+        self.assertEqual(len(list(oss.ObjectUploadIterator(self.bucket, object_name))), expected_unfinished)
 
     if sys.version_info >= (3, 3):
         def test_interrupt_empty(self):

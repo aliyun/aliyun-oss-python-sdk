@@ -24,11 +24,11 @@ _MAX_PART_COUNT = 10000
 _MIN_PART_SIZE = 100 * 1024
 
 
-def upload_file(bucket, object_name, filename,
-                store=None,
-                headers=None,
-                multipart_threshold=defaults.multipart_threshold,
-                part_size=defaults.part_size):
+def resumable_upload(bucket, object_name, filename,
+                     store=None,
+                     headers=None,
+                     multipart_threshold=defaults.multipart_threshold,
+                     part_size=defaults.part_size):
     """断点上传本地文件。
 
     缺省条件下，该函数会在用户HOME目录下保存断点续传的信息。当待上传的本地文件没有发生变化，
@@ -65,6 +65,9 @@ def determine_part_size(total_size,
         return preferred_size
 
 
+_UPLOAD_TEMP_DIR = '.py-oss-upload'
+
+
 class ResumableUploader(object):
     """以断点续传方式上传文件。
 
@@ -86,7 +89,7 @@ class ResumableUploader(object):
         self.filename = filename
         self.size = size
 
-        self.store = store or FileStore()
+        self.store = store or FileStore(dir=_UPLOAD_TEMP_DIR)
         self.headers = headers
         self.part_size = part_size
 
@@ -189,8 +192,15 @@ class ResumableUploader(object):
 
 
 class FileStore(object):
-    def __init__(self, dir=None):
-        self.dir = dir or os.path.expanduser('~')
+    def __init__(self, root=None, dir=None):
+        root = root or os.path.expanduser('~')
+        if dir:
+            self.dir = os.path.join(root, dir)
+        else:
+            self.dir = root
+
+        if not os.path.isdir(self.dir):
+            os.makedirs(self.dir)
 
     @staticmethod
     def make_key(bucket_name, object_name, filename):
@@ -226,6 +236,10 @@ class FileStore(object):
 
     def __path(self, key):
         return os.path.join(self.dir, key)
+
+
+def make_upload_store():
+    return FileStore(dir=_UPLOAD_TEMP_DIR)
 
 
 def rebuild_record(filename, store, bucket, object_name, upload_id, part_size=None):

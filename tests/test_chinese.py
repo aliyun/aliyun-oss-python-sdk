@@ -1,14 +1,10 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-import requests
-import filecmp
-import os
 import sys
 import oss
 
-from oss.exceptions import NoSuchKey, PositionNotEqualToLength
-from oss.compat import to_string, to_bytes
+from oss import to_bytes
 
 from common import *
 
@@ -29,7 +25,7 @@ class TestChinese(unittest.TestCase):
             self.bucket.put_object(object_name, content)
             self.assertEqual(self.bucket.get_object(object_name).read(), to_bytes(content))
 
-            self.assertTrue(object_name in list(info.name for info in oss.iterators.ObjectIterator(self.bucket, prefix='中文')))
+            self.assertTrue(object_name in list(info.name for info in oss.ObjectIterator(self.bucket, prefix='中文')))
 
             self.bucket.delete_object(object_name)
 
@@ -48,7 +44,7 @@ class TestChinese(unittest.TestCase):
 
             self.bucket.put_object(object_name, content)
             self.assertEqual(self.bucket.get_object(object_name).read(), content)
-            self.assertTrue(object_name in list(info.name for info in oss.iterators.ObjectIterator(self.bucket, prefix='中文')))
+            self.assertTrue(object_name in list(info.name for info in oss.ObjectIterator(self.bucket, prefix='中文')))
 
             self.bucket.delete_object(object_name)
 

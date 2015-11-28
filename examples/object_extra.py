@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+from datetime import datetime
 
 import oss
 
@@ -46,6 +47,10 @@ bucket.update_object_meta('quote.txt', {'x-oss-meta-author': 'Bertrand Russell'}
 # 查看自定义元数据
 result = bucket.head_object('quote.txt')
 assert result.headers['x-oss-meta-author'] == 'Bertrand Russell'
+
+# 也可以查看长度，最后修改时间等
+print(result.content_length)
+print(datetime.fromtimestamp(result.last_modified))
 
 
 # 拷贝对象（适用于小文件）。这里是把quote.txt拷贝成quote-backup.txt
