@@ -88,6 +88,21 @@ class TestObject(unittest.TestCase):
         os.remove(filename)
         os.remove(filename2)
 
+    def test_streaming(self):
+        src_key = random_string(12) + '.src'
+        dst_key = random_string(12) + '.dst'
+
+        content = random_bytes(1024 * 1024)
+
+        self.bucket.put_object(src_key, content)
+
+        # 获取OSS上的文件，一边读取一边写入到另外一个OSS文件
+        src = self.bucket.get_object(src_key)
+        self.bucket.put_object(dst_key, src)
+
+        # verify
+        self.assertEqual(self.bucket.get_object(src_key).read(), self.bucket.get_object(dst_key).read())
+
     def test_anonymous(self):
         key = random_string(12)
         content = random_bytes(512)

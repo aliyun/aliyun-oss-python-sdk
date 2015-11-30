@@ -123,7 +123,7 @@ def parse_list_buckets(result, body):
         result.buckets.append(SimplifiedBucketInfo(
             _find_tag(bucket_node, 'Name'),
             _find_tag(bucket_node, 'Location'),
-            _find_tag(bucket_node, 'CreationDate')
+            iso8601_to_unixtime(_find_tag(bucket_node, 'CreationDate'))
         ))
 
 

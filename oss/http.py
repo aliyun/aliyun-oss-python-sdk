@@ -56,6 +56,9 @@ class Request(object):
             self.headers['User-Agent'] = _USER_AGENT
 
 
+_CHUNK_SIZE = 512 * 1024
+
+
 class Response(object):
     def __init__(self, response):
         self.response = response
@@ -65,7 +68,7 @@ class Response(object):
     def read(self, amt=None):
         if amt is None:
             content = b''
-            for chunk in self.response.iter_content(512 * 1024):
+            for chunk in self.response.iter_content(_CHUNK_SIZE):
                 content += chunk
             return content
         else:
@@ -73,3 +76,6 @@ class Response(object):
                 return next(self.response.iter_content(amt))
             except StopIteration:
                 return b''
+
+    def __iter__(self):
+        return self.response.iter_content(_CHUNK_SIZE)
