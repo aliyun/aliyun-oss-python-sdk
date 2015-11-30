@@ -36,11 +36,11 @@ class TestIterator(unittest.TestCase):
         dirs_got = []
         for info in oss.ObjectIterator(self.bucket, prefix, delimiter='/', max_keys=4):
             if info.is_prefix():
-                dirs_got.append(info.name)
+                dirs_got.append(info.key)
             else:
-                objects_got.append(info.name)
+                objects_got.append(info.key)
 
-                result = self.bucket.head_object(info.name)
+                result = self.bucket.head_object(info.key)
                 self.assertEqual(result.last_modified, info.last_modified)
 
         self.assertEqual(sorted(object_list), objects_got)
@@ -48,14 +48,14 @@ class TestIterator(unittest.TestCase):
 
     def test_upload_iterator(self):
         prefix = random_string(10) + '/'
-        object_name = prefix + random_string(16)
+        key = prefix + random_string(16)
 
         upload_list = []
         dir_list = []
 
         # 准备分片上传
         for i in range(10):
-            upload_list.append(self.bucket.init_multipart_upload(object_name).upload_id)
+            upload_list.append(self.bucket.init_multipart_upload(key).upload_id)
 
         # 准备碎片目录
         for i in range(4):
@@ -67,7 +67,7 @@ class TestIterator(unittest.TestCase):
         dirs_got = []
         for u in oss.MultipartUploadIterator(self.bucket, prefix=prefix, delimiter='/', max_uploads=2):
             if u.is_prefix():
-                dirs_got.append(u.object_name)
+                dirs_got.append(u.key)
             else:
                 uploads_got.append(u.upload_id)
 
@@ -103,9 +103,9 @@ class TestIterator(unittest.TestCase):
             self.bucket.abort_multipart_upload(intact_object, upload_id)
 
     def test_part_iterator(self):
-        object_name = random_string(16)
+        key = random_string(16)
 
-        upload_id = self.bucket.init_multipart_upload(object_name).upload_id
+        upload_id = self.bucket.init_multipart_upload(key).upload_id
 
         # 准备分片
         part_list = []
@@ -114,11 +114,11 @@ class TestIterator(unittest.TestCase):
             etag = hashlib.md5(oss.to_bytes(content)).hexdigest().upper()
             part_list.append(oss.models.PartInfo(part_number, etag, len(content)))
 
-            self.bucket.upload_part(object_name, upload_id, part_number, content)
+            self.bucket.upload_part(key, upload_id, part_number, content)
 
         # 验证
         parts_got = []
-        for part_info in oss.PartIterator(self.bucket, object_name, upload_id):
+        for part_info in oss.PartIterator(self.bucket, key, upload_id):
             parts_got.append(part_info)
 
         self.assertEqual(len(part_list), len(parts_got))

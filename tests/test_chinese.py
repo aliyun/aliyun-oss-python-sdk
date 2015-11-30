@@ -19,39 +19,39 @@ class TestChinese(unittest.TestCase):
 
     if sys.version_info >= (3, 0):
         def test_put_get_list_delete(self):
-            object_name = '中文对象\x0C-1.txt'
+            key = '中文对象\x0C-1.txt'
             content = '中文内容'
 
-            self.bucket.put_object(object_name, content)
-            self.assertEqual(self.bucket.get_object(object_name).read(), to_bytes(content))
+            self.bucket.put_object(key, content)
+            self.assertEqual(self.bucket.get_object(key).read(), to_bytes(content))
 
-            self.assertTrue(object_name in list(info.name for info in oss.ObjectIterator(self.bucket, prefix='中文')))
+            self.assertTrue(key in list(info.key for info in oss.ObjectIterator(self.bucket, prefix='中文')))
 
-            self.bucket.delete_object(object_name)
+            self.bucket.delete_object(key)
 
         def test_batch_delete_objects(self):
-            object_name = '中文对象\x0C-2.txt'
+            key = '中文对象\x0C-2.txt'
             content = '中文内容'
 
-            self.bucket.put_object(object_name, content)
-            self.bucket.batch_delete_objects([object_name])
+            self.bucket.put_object(key, content)
+            self.bucket.batch_delete_objects([key])
 
-            self.assertTrue(not self.bucket.object_exists(object_name))
+            self.assertTrue(not self.bucket.object_exists(key))
     else:
         def test_put_get_list_delete(self):
-            object_name = '中文对象\x0C-1.txt'
+            key = '中文对象\x0C-1.txt'
             content = '中文内容'
 
-            self.bucket.put_object(object_name, content)
-            self.assertEqual(self.bucket.get_object(object_name).read(), content)
-            self.assertTrue(object_name in list(info.name for info in oss.ObjectIterator(self.bucket, prefix='中文')))
+            self.bucket.put_object(key, content)
+            self.assertEqual(self.bucket.get_object(key).read(), content)
+            self.assertTrue(key in list(info.key for info in oss.ObjectIterator(self.bucket, prefix='中文')))
 
-            self.bucket.delete_object(object_name)
+            self.bucket.delete_object(key)
 
         def test_batch_delete_objects(self):
-            object_name = '中文对象\x0C-2.txt'
+            key = '中文对象\x0C-2.txt'
             content = '中文内容'
-            self.bucket.put_object(object_name, content)
-            self.bucket.batch_delete_objects([object_name])
+            self.bucket.put_object(key, content)
+            self.bucket.batch_delete_objects([key])
 
-            self.assertTrue(not self.bucket.object_exists(object_name))
+            self.assertTrue(not self.bucket.object_exists(key))

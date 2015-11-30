@@ -80,9 +80,9 @@ class _Base(object):
 
         self._make_url = _UrlMaker(self.endpoint, is_cname)
 
-    def _do(self, method, bucket_name, object_name, **kwargs):
-        req = http.Request(method, self._make_url(bucket_name, object_name), **kwargs)
-        self.auth._sign_request(req, bucket_name, object_name)
+    def _do(self, method, bucket_name, key, **kwargs):
+        req = http.Request(method, self._make_url(bucket_name, key), **kwargs)
+        self.auth._sign_request(req, bucket_name, key)
 
         resp = self.session.do_request(req, timeout=self.timeout)
         if resp.status // 100 != 2:
@@ -167,7 +167,7 @@ class Bucket(_Base):
         super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout)
         self.bucket_name = bucket_name
 
-    def sign_url(self, method, object_name, expires, headers=None, params=None):
+    def sign_url(self, method, key, expires, headers=None, params=None):
         """生成签名URL。
 
         常见的用法是生成加签的URL以供授信用户下载，如为log.jpg生成一个5分钟后过期的下载链接::
@@ -177,7 +177,7 @@ class Bucket(_Base):
 
         :param method: HTTP方法，如'GET'、'PUT'、'DELETE'等
         :type method: str
-        :param object_name: 对象名
+        :param key: 对象名
         :param expires: 过期时间（单位：秒），链接在当前时间再过expires秒后过期
         :param headers: 需要签名的HTTP头部，如名称以x-oss-meta-开头的头部（作为用户自定义元数据）、
             Content-Type头部等。对于下载，不需要填。
@@ -185,10 +185,10 @@ class Bucket(_Base):
 
         :return: 签名URL。
         """
-        req = http.Request(method, self._make_url(self.bucket_name, object_name),
+        req = http.Request(method, self._make_url(self.bucket_name, key),
                            headers=headers,
                            params=params)
-        return self.auth._sign_url(req, self.bucket_name, object_name, expires)
+        return self.auth._sign_url(req, self.bucket_name, key, expires)
 
     def list_objects(self, prefix='', delimiter='', marker='', max_keys=100):
         """根据前缀罗列Bucket里的对象。
@@ -208,12 +208,12 @@ class Bucket(_Base):
                                         'encoding-type': 'url'})
         return self._parse_result(resp, xml_utils.parse_list_objects, ListObjectsResult)
 
-    def put_object(self, object_name, data,
+    def put_object(self, key, data,
                    headers=None,
                    progress_callback=None):
         """上传一个普通对象。
 
-        :param object_name: 上传到OSS的对象名
+        :param key: 上传到OSS的对象名
         :param data: 待上传的内容。
         :type data: bytes，str或file-like object
         :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-meta-开头的头部等
@@ -221,20 +221,20 @@ class Bucket(_Base):
 
         :return: :class:`PutObjectResult <oss.models.PutObjectResult>`
         """
-        headers = utils.set_content_type(http.CaseInsensitiveDict(headers), object_name)
+        headers = utils.set_content_type(http.CaseInsensitiveDict(headers), key)
 
         if progress_callback:
             data = utils.MonitoredStreamReader(data, progress_callback)
 
-        resp = self.__do_object('PUT', object_name, data=data, headers=headers)
+        resp = self.__do_object('PUT', key, data=data, headers=headers)
         return PutObjectResult(resp)
 
-    def put_object_from_file(self, object_name, filename,
+    def put_object_from_file(self, key, filename,
                              headers=None,
                              progress_callback=None):
         """上传一个本地文件到OSS的普通对象。
 
-        :param object_name: 上传到OSS的对象名
+        :param key: 上传到OSS的对象名
         :param filename: 本地文件名，需要有可读权限
         :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-meta-开头的头部等
         :param progress_callback: 用户支持的进度回调函数。参考 :ref:`progress_callback`
@@ -244,14 +244,14 @@ class Bucket(_Base):
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), filename)
 
         with open(filename, 'rb') as f:
-            return self.put_object(object_name, f, headers=headers, progress_callback=progress_callback)
+            return self.put_object(key, f, headers=headers, progress_callback=progress_callback)
 
-    def append_object(self, object_name, position, data,
+    def append_object(self, key, position, data,
                       headers=None,
                       progress_callback=None):
         """追加上传一个对象。
 
-        :param object_name: 新的对象名，或已经存在的可追加对象名
+        :param key: 新的对象名，或已经存在的可追加对象名
         :param position: 追加上传一个新的对象， `position` 设为0；追加一个已经存在的可追加对象， `position` 设为对象的当前长度。
             position可以从上次追加的结果 `AppendObjectResult.next_position` 中获得。
         :param data: 用户数据
@@ -264,18 +264,18 @@ class Bucket(_Base):
                  如果当前对象不是可追加类型，抛出 :class:`ObjectNotAppendable <oss.exceptions.ObjectNotAppendable>` ；
                  还会抛出其他一些异常
         """
-        headers = utils.set_content_type(http.CaseInsensitiveDict(headers), object_name)
+        headers = utils.set_content_type(http.CaseInsensitiveDict(headers), key)
 
         if progress_callback:
             data = utils.MonitoredStreamReader(data, progress_callback)
 
-        resp = self.__do_object('POST', object_name,
+        resp = self.__do_object('POST', key,
                                 data=data,
                                 headers=headers,
                                 params={'append': '', 'position': str(position)})
         return AppendObjectResult(resp)
 
-    def get_object(self, object_name, byte_range=None, headers=None):
+    def get_object(self, key, byte_range=None, headers=None):
         """下载一个对象。
 
         用法::
@@ -284,7 +284,7 @@ class Bucket(_Base):
             >>> print(result.read())
             'hello world'
 
-        :param object_name: 对象名
+        :param key: 对象名
         :param byte_range: 指定下载范围。参见 :ref:`byte_range`
         :param headers: HTTP头部
 
@@ -298,13 +298,13 @@ class Bucket(_Base):
         if range_string:
             headers['range'] = range_string
 
-        resp = self.__do_object('GET', object_name, headers=headers)
+        resp = self.__do_object('GET', key, headers=headers)
         return GetObjectResult(resp)
 
-    def get_object_to_file(self, object_name, filename, byte_range=None, headers=None):
+    def get_object_to_file(self, key, filename, byte_range=None, headers=None):
         """下载一个对象到本地文件。
 
-        :param object_name: 对象名
+        :param key: 对象名
         :param filename: 本地文件名。需要有写权限。
         :param byte_range: 指定下载范围。参见 :ref:`byte_range`
         :param headers: HTTP头部
@@ -312,27 +312,27 @@ class Bucket(_Base):
         :return: 如果对象不存在，则抛出 :class:`NoSuchKey <oss.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
         with open(filename, 'wb') as f:
-            result = self.get_object(object_name, byte_range=byte_range, headers=headers)
+            result = self.get_object(key, byte_range=byte_range, headers=headers)
             shutil.copyfileobj(result, f)
 
             return result
 
-    def head_object(self, object_name, headers=None):
+    def head_object(self, key, headers=None):
         """获取对象元信息。
 
         HTTP响应的头部包含了对象元信息，可以通过 `RequestResult` 的 `headers` 成员获得。
 
-        :param object_name: 对象名
+        :param key: 对象名
         :param headers: HTTP头部
 
         :return: :class:`HeadObjectResult <oss.models.HeadObjectResults>`
 
         :raises: 如果Bucket不存在或者Object不存在，则抛出 :class:`NotFound <oss.exceptions.NotFound>`
         """
-        resp = self.__do_object('HEAD', object_name, headers=headers)
+        resp = self.__do_object('HEAD', key, headers=headers)
         return HeadObjectResult(resp)
 
-    def object_exists(self, object_name):
+    def object_exists(self, key):
         """如果对象存在就返回True，否则返回False。如果Bucket不存在，或是发生其他错误，则抛出异常。"""
 
         # 如果我们用head_object来实现的话，由于HTTP HEAD请求没有响应体，只有响应头部，这样当发生404时，
@@ -343,7 +343,7 @@ class Bucket(_Base):
         date = time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.gmtime(time.time() + 60 * 60))
 
         try:
-            self.get_object(object_name, headers={'if-modified-since': date})
+            self.get_object(key, headers={'if-modified-since': date})
         except exceptions.NotModified:
             return True
         except exceptions.NoSuchKey:
@@ -351,61 +351,61 @@ class Bucket(_Base):
         else:
             raise RuntimeError('This is impossible')
 
-    def copy_object(self, source_bucket_name, source_object_name, target_object_name, headers=None):
+    def copy_object(self, source_bucket_name, source_key, target_key, headers=None):
         """拷贝一个对象到当前Bucket。
 
         :param source_bucket_name: 源Bucket名
-        :param source_object_name: 源对象名
-        :param target_object_name: 目标对象名
+        :param source_key: 源对象名
+        :param target_key: 目标对象名
         :param headers: HTTP头部
 
         :return: :class:`PutObjectResult <oss.models.PutObjectResult>`
         """
         headers = http.CaseInsensitiveDict(headers)
-        headers['x-oss-copy-source'] = '/' + source_bucket_name + '/' + source_object_name
+        headers['x-oss-copy-source'] = '/' + source_bucket_name + '/' + source_key
 
-        resp = self.__do_object('PUT', target_object_name, headers=headers)
+        resp = self.__do_object('PUT', target_key, headers=headers)
         return PutObjectResult(resp)
 
-    def update_object_meta(self, object_name, headers):
+    def update_object_meta(self, key, headers):
         """更改Object的元数据信息，包括Content-Type这类标准的HTTP头部，以及以x-oss-meta-开头的自定义元数据。
 
         用户可以通过 :func:`head_object` 获得元数据信息。
 
-        :param object_name: 对象名
+        :param key: 对象名
         :param headers: HTTP头部，包含了元数据信息
 
         :return: :class:`RequestResult <oss.models.RequestResults>`
         """
-        return self.copy_object(self.bucket_name, object_name, object_name, headers=headers)
+        return self.copy_object(self.bucket_name, key, key, headers=headers)
 
-    def delete_object(self, object_name):
+    def delete_object(self, key):
         """删除一个对象。
 
-        :param object_name: 对象名
+        :param key: 对象名
 
         :return: :class:`RequestResult <oss.models.RequestResult>`
         """
-        resp = self.__do_object('DELETE', object_name)
+        resp = self.__do_object('DELETE', key)
         return RequestResult(resp)
 
-    def put_object_acl(self, object_name, permission):
+    def put_object_acl(self, key, permission):
         """设置对象的ACL。
 
-        :param object_name: 对象名
+        :param key: 对象名
         :param permission: 可以是'default'、'private'、'public-read'或'public-read-write'
 
         :return: :class:`RequestResult <oss.models.RequestResult>`
         """
-        resp = self.__do_object('PUT', object_name, params={'acl': ''}, headers={'x-oss-object-acl': permission})
+        resp = self.__do_object('PUT', key, params={'acl': ''}, headers={'x-oss-object-acl': permission})
         return RequestResult(resp)
 
-    def get_object_acl(self, object_name):
+    def get_object_acl(self, key):
         """获取对象的ACL。
 
         :return: :class:`GetObjectAclResult <oss.models.GetObjectAclResult>`
         """
-        resp = self.__do_object('GET', object_name, params={'acl': ''})
+        resp = self.__do_object('GET', key, params={'acl': ''})
         return self._parse_result(resp, xml_utils.parse_get_object_acl, GetObjectAclResult)
 
     def batch_delete_objects(self, objects):
@@ -422,40 +422,44 @@ class Bucket(_Base):
                                 headers={'Content-MD5': utils.content_md5(data)})
         return self._parse_result(resp, xml_utils.parse_batch_delete_objects, BatchDeleteObjectsResult)
 
-    def init_multipart_upload(self, object_name, headers=None):
+    def init_multipart_upload(self, key, headers=None):
         """初始化分片上传。
 
-        返回值中的 `upload_id` 以及bucket名和object_name三元组唯一对应了此次分片上传的会话。
+        返回值中的 `upload_id` 以及bucket名和Object名三元组唯一对应了此次分片上传的会话。
 
-        :param object_name: 待上传的对象名
+        :param key: 待上传的对象名
         :param headers: HTTP头部
 
         :return: :class:`InitMultipartUploadResult <oss.models.InitMultipartUploadResult>`
         """
-        headers = utils.set_content_type(http.CaseInsensitiveDict(headers), object_name)
+        headers = utils.set_content_type(http.CaseInsensitiveDict(headers), key)
 
-        resp = self.__do_object('POST', object_name, params={'uploads': ''}, headers=headers)
+        resp = self.__do_object('POST', key, params={'uploads': ''}, headers=headers)
         return self._parse_result(resp, xml_utils.parse_init_multipart_upload, InitMultipartUploadResult)
 
-    def upload_part(self, object_name, upload_id, part_number, data):
+    def upload_part(self, key, upload_id, part_number, data, progress_callback=None):
         """上传一个分片。
 
-        :param object_name: 待上传对象名，这个对象名要和 :func:`init_multipart_upload` 的对象名一致。
+        :param key: 待上传对象名，这个对象名要和 :func:`init_multipart_upload` 的对象名一致。
         :param upload_id: 分片上传ID
         :param part_number: 分片号，最小值是1.
         :param data: 待上传数据
+        :param progress_callback: 用户指定进度回调函数。可以用来实现进度条等功能。参考 :ref:`progress_callback` 。
 
         :return: :class:`PutObjectResult <oss.models.PutObjectResult>`
         """
-        resp = self.__do_object('PUT', object_name,
+        if progress_callback:
+            data = utils.MonitoredStreamReader(data, progress_callback)
+
+        resp = self.__do_object('PUT', key,
                                 params={'uploadId': upload_id, 'partNumber': str(part_number)},
                                 data=data)
         return PutObjectResult(resp)
 
-    def complete_multipart_upload(self, object_name, upload_id, parts, headers=None):
+    def complete_multipart_upload(self, key, upload_id, parts, headers=None):
         """完成分片上传，创建对象。
 
-        :param object_name: 待上传的对象名，这个对象名要和 :func:`init_multipart_upload` 的对象名一致。
+        :param key: 待上传的对象名，这个对象名要和 :func:`init_multipart_upload` 的对象名一致。
         :param upload_id: 分片上传ID
         :param parts: `PartInfo` 列表，按照分片号升序的方式排列。 `PartInfo` 中的 `etag` 可以从 `upload_part` 的返回值中得到。
         :param headers: HTTP头部
@@ -463,21 +467,21 @@ class Bucket(_Base):
         :return: :class:`PutObjectResult <oss.models.PutObjectResult>`
         """
         data = xml_utils.to_complete_upload_request(sorted(parts, key=lambda p: p.part_number))
-        resp = self.__do_object('POST', object_name,
+        resp = self.__do_object('POST', key,
                                 params={'uploadId': upload_id},
                                 data=data,
                                 headers=headers)
         return PutObjectResult(resp)
 
-    def abort_multipart_upload(self, object_name, upload_id):
+    def abort_multipart_upload(self, key, upload_id):
         """取消分片上传。
 
-        :param object_name: 待上传的对象名，这个对象名要和 :func:`init_multipart_upload` 的对象名一致。
+        :param key: 待上传的对象名，这个对象名要和 :func:`init_multipart_upload` 的对象名一致。
         :param upload_id: 分片上传ID
 
         :return: :class:`RequestResult <oss.models.RequestResult>`
         """
-        resp = self.__do_object('DELETE', object_name,
+        resp = self.__do_object('DELETE', key,
                                 params={'uploadId': upload_id})
         return RequestResult(resp)
 
@@ -507,8 +511,8 @@ class Bucket(_Base):
                                         'encoding-type': 'url'})
         return self._parse_result(resp, xml_utils.parse_list_multipart_uploads, ListMultipartUploadsResult)
 
-    def upload_part_copy(self, source_bucket_name, source_object_name, byte_range,
-                         target_object_name, target_upload_id, target_part_number,
+    def upload_part_copy(self, source_bucket_name, source_key, byte_range,
+                         target_key, target_upload_id, target_part_number,
                          headers=None):
         """分片拷贝。把一个已有对象的一部分或整体拷贝成目标对象的一个分片。
 
@@ -517,25 +521,25 @@ class Bucket(_Base):
         :return: :class:`PutObjectResult <oss.models.PutObjectResult>`
         """
         headers = http.CaseInsensitiveDict(headers)
-        headers['x-oss-copy-source'] = '/' + source_bucket_name + '/' + source_object_name
+        headers['x-oss-copy-source'] = '/' + source_bucket_name + '/' + source_key
 
         range_string = _make_range_string(byte_range)
         if range_string:
             headers['x-oss-copy-source-range'] = range_string
 
-        resp = self.__do_object('PUT', target_object_name,
+        resp = self.__do_object('PUT', target_key,
                                 params={'uploadId': target_upload_id,
                                         'partNumber': str(target_part_number)},
                                 headers=headers)
         return PutObjectResult(resp)
 
-    def list_parts(self, object_name, upload_id,
+    def list_parts(self, key, upload_id,
                    marker='', max_parts=1000):
         """列举分片上传会话中已经上传的分片。支持分页。
 
         :return: :class:`ListPartsResult <oss.models.ListPartsResult>`
         """
-        resp = self.__do_object('GET', object_name,
+        resp = self.__do_object('GET', key,
                                 params={'uploadId': upload_id,
                                         'part-number-marker': marker,
                                         'max-parts': str(max_parts)})
@@ -712,8 +716,8 @@ class Bucket(_Base):
         """
         return self.__do_bucket('GET', params={config: ''})
 
-    def __do_object(self, method, object_name, **kwargs):
-        return self._do(method, self.bucket_name, object_name, **kwargs)
+    def __do_object(self, method, key, **kwargs):
+        return self._do(method, self.bucket_name, key, **kwargs)
 
     def __do_bucket(self, method, **kwargs):
         return self._do(method, self.bucket_name, '', **kwargs)
@@ -781,22 +785,22 @@ class _UrlMaker(object):
         self.netloc = p.netloc
         self.is_cname = is_cname
 
-    def __call__(self, bucket_name, object_name):
+    def __call__(self, bucket_name, key):
         self.type = _determine_endpoint_type(self.netloc, self.is_cname, bucket_name)
 
-        object_name = urlquote(object_name)
+        key = urlquote(key)
 
         if self.type == _ENDPOINT_TYPE_CNAME:
-            return '{0}://{1}/{2}'.format(self.scheme, self.netloc, object_name)
+            return '{0}://{1}/{2}'.format(self.scheme, self.netloc, key)
 
         if self.type == _ENDPOINT_TYPE_IP:
             if bucket_name:
-                return '{0}://{1}/{2}/{3}'.format(self.scheme, self.netloc, bucket_name, object_name)
+                return '{0}://{1}/{2}/{3}'.format(self.scheme, self.netloc, bucket_name, key)
             else:
-                return '{0}://{1}/{2}'.format(self.scheme, self.netloc, object_name)
+                return '{0}://{1}/{2}'.format(self.scheme, self.netloc, key)
 
         if not bucket_name:
-            assert not object_name
+            assert not key
             return '{0}://{1}'.format(self.scheme, self.netloc)
 
-        return '{0}://{1}.{2}/{3}'.format(self.scheme, bucket_name, self.netloc, object_name)
+        return '{0}://{1}.{2}/{3}'.format(self.scheme, bucket_name, self.netloc, key)

@@ -29,39 +29,65 @@ class TestUpload(unittest.TestCase):
         return pathname
 
     def test_upload_small(self):
-        object_name = random_string(16)
+        key = random_string(16)
         content = random_bytes(100)
 
         pathname = self._prepare_temp_file(content)
 
-        oss.resumable_upload(self.bucket, object_name, pathname)
+        oss.resumable_upload(self.bucket, key, pathname)
 
-        result = self.bucket.get_object(object_name)
+        result = self.bucket.get_object(key)
         self.assertEqual(content, result.read())
         self.assertEqual(result.headers['x-oss-object-type'], 'Normal')
 
     def test_upload_large(self):
-        object_name = random_string(16)
+        key = random_string(16)
         content = random_bytes(5 * 100 * 1024)
 
         pathname = self._prepare_temp_file(content)
 
-        oss.resumable_upload(self.bucket, object_name, pathname, multipart_threshold=200 * 1024, part_size=None)
+        oss.resumable_upload(self.bucket, key, pathname, multipart_threshold=200 * 1024, part_size=None)
 
-        result = self.bucket.get_object(object_name)
+        result = self.bucket.get_object(key)
         self.assertEqual(content, result.read())
         self.assertEqual(result.headers['x-oss-object-type'], 'Multipart')
+
+    def test_progress(self):
+        stats = {'previous': -1}
+
+        def progress_callback(bytes_consumed, total_bytes, bytes_to_consume):
+            self.assertTrue(bytes_consumed + bytes_to_consume <= total_bytes)
+            self.assertTrue(bytes_consumed > stats['previous'])
+
+            stats['previous'] = bytes_consumed
+
+        key = random_string(16)
+        content = random_bytes(5 * 100 * 1024 + 100)
+
+        pathname = self._prepare_temp_file(content)
+
+        oss.resumable_upload(self.bucket, key, pathname,
+                             multipart_threshold=200 * 1024,
+                             part_size=100*1024,
+                             progress_callback=progress_callback)
+        self.assertEqual(stats['previous'], len(content))
+
+        stats = {'previous': -1}
+        oss.resumable_upload(self.bucket, key, pathname,
+                             multipart_threshold=len(content) + 100,
+                             progress_callback=progress_callback)
+        self.assertEqual(stats['previous'], len(content))
 
     def __test_resume(self, content_size, uploaded_parts, expected_unfinished=0):
         part_size = 100 * 1024
         num_parts = (content_size + part_size - 1) // part_size
 
-        object_name = 'resume-' + random_string(32)
+        key = 'resume-' + random_string(32)
         content = random_bytes(content_size)
 
         pathname = self._prepare_temp_file(content)
 
-        upload_id = self.bucket.init_multipart_upload(object_name).upload_id
+        upload_id = self.bucket.init_multipart_upload(key).upload_id
 
         for part_number in uploaded_parts:
             start = (part_number -1) * part_size
@@ -70,15 +96,15 @@ class TestUpload(unittest.TestCase):
             else:
                 end = start + part_size
 
-            self.bucket.upload_part(object_name, upload_id, part_number, content[start:end])
+            self.bucket.upload_part(key, upload_id, part_number, content[start:end])
 
-        oss.resumable.rebuild_record(pathname, oss.resumable.make_upload_store(), self.bucket, object_name, upload_id, part_size)
-        oss.resumable_upload(self.bucket, object_name, pathname, multipart_threshold=0, part_size=100 * 1024)
+        oss.resumable.rebuild_record(pathname, oss.resumable.make_upload_store(), self.bucket, key, upload_id, part_size)
+        oss.resumable_upload(self.bucket, key, pathname, multipart_threshold=0, part_size=100 * 1024)
 
-        result = self.bucket.get_object(object_name)
+        result = self.bucket.get_object(key)
         self.assertEqual(content, result.read())
 
-        self.assertEqual(len(list(oss.ObjectUploadIterator(self.bucket, object_name))), expected_unfinished)
+        self.assertEqual(len(list(oss.ObjectUploadIterator(self.bucket, key))), expected_unfinished)
 
     def test_resume_empty(self):
         self.__test_resume(250 * 1024, [])
@@ -97,13 +123,13 @@ class TestUpload(unittest.TestCase):
                          modify_record_func=None):
         orig_upload_part = oss.Bucket.upload_part
 
-        def upload_part(self, object_name, upload_id, part_number, data):
+        def upload_part(self, key, upload_id, part_number, data):
             if part_number == failed_part_number:
                 raise RuntimeError
             else:
-                return orig_upload_part(self, object_name, upload_id, part_number, data)
+                return orig_upload_part(self, key, upload_id, part_number, data)
 
-        object_name = 'resume-' + random_string(32)
+        key = 'resume-' + random_string(32)
         content = random_bytes(content_size)
 
         pathname = self._prepare_temp_file(content)
@@ -111,17 +137,17 @@ class TestUpload(unittest.TestCase):
         from unittest.mock import patch
         with patch.object(oss.Bucket, 'upload_part', side_effect=upload_part, autospec=True) as mock_upload_part:
             try:
-                oss.resumable_upload(self.bucket, object_name, pathname, multipart_threshold=0,
+                oss.resumable_upload(self.bucket, key, pathname, multipart_threshold=0,
                                           part_size=100 * 1024)
             except RuntimeError:
                 pass
 
         if modify_record_func:
-            modify_record_func(oss.resumable.make_upload_store(), self.bucket.bucket_name, object_name, pathname)
+            modify_record_func(oss.resumable.make_upload_store(), self.bucket.bucket_name, key, pathname)
 
-        oss.resumable_upload(self.bucket, object_name, pathname, multipart_threshold=0, part_size=100 * 1024)
+        oss.resumable_upload(self.bucket, key, pathname, multipart_threshold=0, part_size=100 * 1024)
 
-        self.assertEqual(len(list(oss.ObjectUploadIterator(self.bucket, object_name))), expected_unfinished)
+        self.assertEqual(len(list(oss.ObjectUploadIterator(self.bucket, key))), expected_unfinished)
 
     if sys.version_info >= (3, 3):
         def test_interrupt_empty(self):
@@ -144,7 +170,7 @@ class TestUpload(unittest.TestCase):
                                   expected_unfinished=1)
 
         def test_file_changed_mtime(self):
-            def change_mtime(store, bucket_name, object_name, pathname):
+            def change_mtime(store, bucket_name, key, pathname):
                 time.sleep(2)
                 os.utime(pathname, (time.time(), time.time()))
 
@@ -153,7 +179,7 @@ class TestUpload(unittest.TestCase):
                                   expected_unfinished=1)
 
         def test_file_changed_size(self):
-            def change_size(store, bucket_name, object_name, pathname):
+            def change_size(store, bucket_name, key, pathname):
                 mtime = os.path.getmtime(pathname)
 
                 with open(pathname, 'w') as f:
@@ -167,12 +193,12 @@ class TestUpload(unittest.TestCase):
         print('skip error injection cases for Python version < 3.3')
 
     def __make_corrupt_record(self, name, value):
-        def corrupt_record(store, bucket_name, object_name, pathname):
-            key = store.make_key(bucket_name, object_name, pathname)
+        def corrupt_record(store, bucket_name, key, pathname):
+            store_key = store.make_store_key(bucket_name, key, pathname)
 
-            record = store.get(key)
+            record = store.get(store_key)
             record[name] = value
-            store.put(key, record)
+            store.put(store_key, record)
         return corrupt_record
 
     def test_is_record_sane(self):
@@ -182,7 +208,7 @@ class TestUpload(unittest.TestCase):
             'part_size': 123,
             'mtime': 12345,
             'abspath': '/hello',
-            'object_name': 'hello.txt',
+            'key': 'hello.txt',
             'parts': []
         }
 
@@ -202,7 +228,7 @@ class TestUpload(unittest.TestCase):
         check_not_sane('part_size', 'hello')
         check_not_sane('mtime', 'hello')
         check_not_sane('abspath', 1)
-        check_not_sane('object_name', None)
+        check_not_sane('key', None)
         check_not_sane('parts', None)
 
 

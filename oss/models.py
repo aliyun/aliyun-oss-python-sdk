@@ -99,8 +99,8 @@ class ListObjectsResult(RequestResult):
 
 
 class SimplifiedObjectInfo(object):
-    def __init__(self, name, last_modified, etag, type, size, storage_class):
-        self.name = name
+    def __init__(self, key, last_modified, etag, type, size, storage_class):
+        self.key = key
         self.last_modified = last_modified
         self.etag = etag
         self.type = type
@@ -133,8 +133,8 @@ class ListBucketsResult(RequestResult):
 
 
 class MultipartUploadInfo(object):
-    def __init__(self, object_name, upload_id, initiation_date):
-        self.object_name = object_name
+    def __init__(self, key, upload_id, initiation_date):
+        self.key = key
         self.upload_id = upload_id
         self.initiation_date = initiation_date
 

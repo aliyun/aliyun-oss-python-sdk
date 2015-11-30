@@ -16,19 +16,37 @@ class TestMultipart(unittest.TestCase):
         self.bucket = oss.Bucket(oss.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
 
     def test_multipart(self):
-        object_name = random_string(64)
+        key = random_string(64)
         content = random_bytes(128 * 1024)
 
         parts = []
-        upload_id = self.bucket.init_multipart_upload(object_name).upload_id
+        upload_id = self.bucket.init_multipart_upload(key).upload_id
 
-        result = self.bucket.upload_part(object_name, upload_id, 1, content)
+        result = self.bucket.upload_part(key, upload_id, 1, content)
         parts.append(oss.models.PartInfo(1, result.etag))
 
-        self.bucket.complete_multipart_upload(object_name, upload_id, parts)
+        self.bucket.complete_multipart_upload(key, upload_id, parts)
 
-        result = self.bucket.get_object(object_name)
+        result = self.bucket.get_object(key)
         self.assertEqual(content, result.read())
+
+    def test_progress(self):
+        stats = {'previous': -1}
+
+        def progress_callback(bytes_consumed, total_bytes, bytes_to_consume):
+            self.assertTrue(bytes_consumed + bytes_to_consume <= total_bytes)
+            self.assertTrue(bytes_consumed > stats['previous'])
+
+            stats['previous'] = bytes_consumed
+
+        key = random_string(64)
+        content = random_bytes(128 * 1024)
+
+        upload_id = self.bucket.init_multipart_upload(key).upload_id
+        self.bucket.upload_part(key, upload_id, 1, content, progress_callback=progress_callback)
+        self.assertEqual(stats['previous'], len(content))
+
+        self.bucket.abort_multipart_upload(key, upload_id)
 
     def test_upload_part_copy(self):
         src_object = random_string(64)

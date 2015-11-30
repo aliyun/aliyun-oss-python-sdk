@@ -288,14 +288,14 @@ def to_complete_upload_request(parts):
     return _node_to_string(root)
 
 
-def to_batch_delete_objects_request(objects, quiet):
+def to_batch_delete_objects_request(keys, quiet):
     root_node = ElementTree.Element('Delete')
 
     _add_text_child(root_node, 'Quiet', str(quiet).lower())
 
-    for object_name in objects:
+    for key in keys:
         object_node = ElementTree.SubElement(root_node, 'Object')
-        _add_text_child(object_node, 'Key', object_name)
+        _add_text_child(object_node, 'Key', key)
 
     return _node_to_string(root_node)
 

@@ -101,7 +101,7 @@ class ObjectIterator(_BaseIterator):
                                           max_keys=self.max_keys)
         self.entries = result.object_list + [SimplifiedObjectInfo(prefix, None, None, None, None, None)
                                              for prefix in result.prefix_list]
-        self.entries.sort(key=lambda obj: obj.name)
+        self.entries.sort(key=lambda obj: obj.key)
 
         return result.is_truncated, result.next_marker
 
@@ -134,7 +134,7 @@ class MultipartUploadIterator(_BaseIterator):
                                                     upload_id_marker=self.next_upload_id_marker,
                                                     max_uploads=self.max_uploads)
         self.entries = result.upload_list + [MultipartUploadInfo(prefix, None, None) for prefix in result.prefix_list]
-        self.entries.sort(key=lambda u: u.object_name)
+        self.entries.sort(key=lambda u: u.key)
 
         self.next_upload_id_marker = result.next_upload_id_marker
         return result.is_truncated, result.next_key_marker
@@ -144,29 +144,29 @@ class ObjectUploadIterator(_BaseIterator):
     """遍历一个Object所有未完成的分片上传，每次返回 :class:`MultipartUploadInfo <oss.models.MultipartUploadInfo>` 对象。
 
     :param bucket: :class:`Bucket <oss.api.Bucket>` 对象
-    :param object_name: 对象名
+    :param key: 对象名
     :param max_uploads: 每次调用 `list_multipart_uploads` 时的max_uploads参数。注意迭代器返回的数目可能会大于该值。
     """
-    def __init__(self, bucket, object_name, max_uploads=1000, max_retries=defaults.request_retries):
+    def __init__(self, bucket, key, max_uploads=1000, max_retries=defaults.request_retries):
         super(ObjectUploadIterator, self).__init__('', max_retries)
         self.bucket = bucket
-        self.object_name = object_name
+        self.key = key
         self.next_upload_id_marker = ''
         self.max_uploads = max_uploads
 
     def _fetch(self):
-        result = self.bucket.list_multipart_uploads(prefix=self.object_name,
+        result = self.bucket.list_multipart_uploads(prefix=self.key,
                                                     key_marker=self.next_marker,
                                                     upload_id_marker=self.next_upload_id_marker,
                                                     max_uploads=self.max_uploads)
 
-        self.entries = [u for u in result.upload_list if u.object_name == self.object_name]
+        self.entries = [u for u in result.upload_list if u.key == self.key]
         self.next_upload_id_marker = result.next_upload_id_marker
 
         if not result.is_truncated or not self.entries:
             return False, result.next_key_marker
 
-        if result.next_key_marker > self.object_name:
+        if result.next_key_marker > self.key:
             return False, result.next_key_marker
 
         return result.is_truncated, result.next_key_marker
@@ -176,22 +176,22 @@ class PartIterator(_BaseIterator):
     """遍历一个分片上传会话中已经上传的分片。
 
     :param bucket: :class:`Bucket <oss.api.Bucket>` 对象
-    :param object_name: 对象名
+    :param key: 对象名
     :param upload_id: 分片上传ID
     :param marker: 分页符
     :param max_parts: 每次调用 `list_parts` 时的max_parts参数。注意迭代器返回的数目可能会大于该值。
     """
-    def __init__(self, bucket, object_name, upload_id,
+    def __init__(self, bucket, key, upload_id,
                  marker='0', max_parts=1000, max_retries=defaults.request_retries):
         super(PartIterator, self).__init__(marker, max_retries)
 
         self.bucket = bucket
-        self.object_name = object_name
+        self.key = key
         self.upload_id = upload_id
         self.max_parts = max_parts
 
     def _fetch(self):
-        result = self.bucket.list_parts(self.object_name, self.upload_id,
+        result = self.bucket.list_parts(self.key, self.upload_id,
                                         marker=self.next_marker,
                                         max_parts=self.max_parts)
         self.entries = result.parts

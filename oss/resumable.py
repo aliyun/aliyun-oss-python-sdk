@@ -24,11 +24,12 @@ _MAX_PART_COUNT = 10000
 _MIN_PART_SIZE = 100 * 1024
 
 
-def resumable_upload(bucket, object_name, filename,
+def resumable_upload(bucket, key, filename,
                      store=None,
                      headers=None,
                      multipart_threshold=defaults.multipart_threshold,
-                     part_size=defaults.part_size):
+                     part_size=defaults.part_size,
+                     progress_callback=None):
     """断点上传本地文件。
 
     缺省条件下，该函数会在用户HOME目录下保存断点续传的信息。当待上传的本地文件没有发生变化，
@@ -36,7 +37,7 @@ def resumable_upload(bucket, object_name, filename,
 
     :param filename: 待上传本地文件名
     :param bucket: :class:`Bucket <oss.api.Bucket>` 对象
-    :param object_name: 上传到用户空间的对象名
+    :param key: 上传到用户空间的对象名
     :param store: 用来保存断点信息的持久存储，参见 :class:`FileStore` 的接口。如不指定，则使用 `FileStore` 。
     :param headers: 传给 `put_object` 或 `init_multipart_upload` 的HTTP头部
     :param multipart_threshold: 文件长度大于该值时，则用分片上传。
@@ -45,13 +46,16 @@ def resumable_upload(bucket, object_name, filename,
     size = os.path.getsize(filename)
 
     if size >= multipart_threshold:
-        uploader = ResumableUploader(bucket, object_name, filename, size, store,
+        uploader = ResumableUploader(bucket, key, filename, size, store,
                                      part_size=part_size,
-                                     headers=headers)
+                                     headers=headers,
+                                     progress_callback=progress_callback)
         uploader.upload()
     else:
         with open(filename, 'rb') as f:
-            bucket.put_object(object_name, f, headers=headers)
+            bucket.put_object(key, f,
+                              headers=headers,
+                              progress_callback=progress_callback)
 
 
 def determine_part_size(total_size,
@@ -72,7 +76,7 @@ class ResumableUploader(object):
     """以断点续传方式上传文件。
 
     :param bucket: :class:`Bucket <oss.api.Bucket>` 对象
-    :param object_name: 对象名
+    :param key: 对象名
     :param filename: 待上传的文件名
     :param size: 文件总长度
     :param store: 用来保存进度的持久化存储
@@ -80,12 +84,13 @@ class ResumableUploader(object):
     :param part_size: 分片大小。优先使用用户提供的值。如果用户没有指定，那么对于新上传，计算出一个合理值；对于老的上传，采用第一个
         分片的大小。
     """
-    def __init__(self, bucket, object_name, filename, size,
+    def __init__(self, bucket, key, filename, size,
                  store=None,
                  headers=None,
-                 part_size=defaults.part_size):
+                 part_size=defaults.part_size,
+                 progress_callback=None):
         self.bucket = bucket
-        self.object_name = object_name
+        self.key = key
         self.filename = filename
         self.size = size
 
@@ -96,62 +101,99 @@ class ResumableUploader(object):
         self.abspath = os.path.abspath(filename)
         self.mtime = os.path.getmtime(filename)
 
-        self.key = self.store.make_key(bucket.bucket_name, object_name, self.abspath)
+        self.progress_callback = progress_callback
+
+        self.store_key = self.store.make_store_key(bucket.bucket_name, key, self.abspath)
 
     def upload(self):
         record = self.__load_record()
 
-        parts_uploaded = [PartInfo(int(p['part_number']), p['etag']) for p in record['parts']]
+        parts_uploaded = self.__recorded_parts(record)
         upload_id = record['upload_id']
 
         with open(self.filename, 'rb') as f:
             parts_to_upload, kept_parts = self.__get_parts_to_upload(f, parts_uploaded)
             parts_to_upload = sorted(parts_to_upload, key=lambda p: p.part_number)
 
+            size_uploaded = sum(p.size for p in kept_parts)
+
             for part in parts_to_upload:
                 f.seek(part.start, os.SEEK_SET)
-                result = self.bucket.upload_part(self.object_name, upload_id, part.part_number,
+                result = self.bucket.upload_part(self.key, upload_id, part.part_number,
                                                  utils.SizedStreamReader(f, part.size))
                 kept_parts.append(PartInfo(part.part_number, result.etag))
 
-                record['parts'].append({'part_number': part.part_number, 'etag': result.etag})
-                self.store.put(self.key, record)
+                if self.progress_callback:
+                    self.progress_callback(size_uploaded, self.size, part.size)
 
-            self.bucket.complete_multipart_upload(self.object_name, upload_id, kept_parts)
-            self.store.delete(self.key)
+                size_uploaded += part.size
+
+                record['parts'].append({'part_number': part.part_number, 'etag': result.etag})
+                self.__store_put(record)
+
+            if self.progress_callback:
+                self.progress_callback(self.size, self.size, 0)
+
+            self.bucket.complete_multipart_upload(self.key, upload_id, kept_parts)
+            self.__store_delete()
+
+    def __store_get(self):
+        return self.store.get(self.store_key)
+
+    def __store_put(self, record):
+        return self.store.put(self.store_key, record)
+
+    def __store_delete(self):
+        return self.store.delete(self.store_key)
 
     def __load_record(self):
-        record = self.store.get(self.key)
+        record = self.__store_get()
 
         if record and not is_record_sane(record):
-            self.store.delete(self.key)
+            self.__store_delete()
             record = None
 
         if record and self.__file_changed(record):
             logging.debug('{0} was changed, clear the record.'.format(self.filename))
-            self.store.delete(self.key)
+            self.__store_delete()
             record = None
 
         if record and not self.__upload_exists(record['upload_id']):
-            self.store.delete(self.key)
+            self.__store_delete()
             record = None
 
         if record:
             self.part_size = record['part_size']
         else:
             self.part_size = self.part_size or determine_part_size(self.size)
-            upload_id = self.bucket.init_multipart_upload(self.object_name, headers=self.headers).upload_id
+            upload_id = self.bucket.init_multipart_upload(self.key, headers=self.headers).upload_id
             record = {'upload_id': upload_id, 'mtime': self.mtime, 'size': self.size, 'parts': [],
-                      'abspath': self.abspath, 'object_name': self.object_name,
+                      'abspath': self.abspath, 'key': self.key,
                       'part_size': self.part_size}
 
-            self.store.put(self.key, record)
+            self.__store_put(record)
 
         return record
 
+    def __recorded_parts(self, record):
+        last_part_number = utils.how_many(self.size, self.part_size)
+
+        parts_uploaded = []
+
+        for p in record['parts']:
+            part_info = PartInfo(int(p['part_number']), p['etag'])
+            if part_info.part_number == last_part_number:
+                part_info.size = self.size % self.part_size
+            else:
+                part_info.size = self.part_size
+
+            parts_uploaded.append(part_info)
+
+        return parts_uploaded
+
     def __upload_exists(self, upload_id):
         try:
-            list(iterators.PartIterator(self.bucket, self.object_name, upload_id, '0', max_parts=1))
+            list(iterators.PartIterator(self.bucket, self.key, upload_id, '0', max_parts=1))
         except exceptions.NoSuchUpload:
             return False
         else:
@@ -203,8 +245,8 @@ class FileStore(object):
             os.makedirs(self.dir)
 
     @staticmethod
-    def make_key(bucket_name, object_name, filename):
-        oss_pathname = 'oss://{0}/{1}'.format(bucket_name, object_name)
+    def make_store_key(bucket_name, key, filename):
+        oss_pathname = 'oss://{0}/{1}'.format(bucket_name, key)
         return utils.md5_string(oss_pathname) + '-' + utils.md5_string(filename)
 
     def get(self, key):
@@ -242,16 +284,16 @@ def make_upload_store():
     return FileStore(dir=_UPLOAD_TEMP_DIR)
 
 
-def rebuild_record(filename, store, bucket, object_name, upload_id, part_size=None):
+def rebuild_record(filename, store, bucket, key, upload_id, part_size=None):
     abspath = os.path.abspath(filename)
     mtime = os.path.getmtime(filename)
     size = os.path.getsize(filename)
 
-    key = store.make_key(bucket.bucket_name, object_name, abspath)
+    store_key = store.make_store_key(bucket.bucket_name, key, abspath)
     record = {'upload_id': upload_id, 'mtime': mtime, 'size': size, 'parts': [],
-              'abspath': abspath, 'object_name': object_name}
+              'abspath': abspath, 'key': key}
 
-    for p in iterators.PartIterator(bucket, object_name, upload_id):
+    for p in iterators.PartIterator(bucket, key, upload_id):
         record['parts'].append({'part_number': p.part_number,
                                 'etag': p.etag})
 
@@ -260,12 +302,12 @@ def rebuild_record(filename, store, bucket, object_name, upload_id, part_size=No
 
     record['part_size'] = part_size
 
-    store.put(key, record)
+    store.put(store_key, record)
 
 
 def is_record_sane(record):
     try:
-        for key in ('upload_id', 'abspath', 'object_name'):
+        for key in ('upload_id', 'abspath', 'key'):
             if not isinstance(record[key], str):
                 logging.error('{0} is not a string: {1}, but {2}'.format(key, record[key], record[key].__class__))
                 return False

@@ -29,20 +29,21 @@ endpoint = 'oss-cn-hangzhou.aliyuncs.com' # 假设你的Bucket处于杭州区域
 auth = oss.Auth('<你的AccessKeyId>', '<你的AccessKeySecret>')
 bucket = oss.Bucket(auth, endpoint, '<你的Bucket名>')
 
-object_name = 'story.txt'
+# 对象名（key）为storage.txt
+key = 'story.txt'
 
 # 上传
-bucket.put_object(object_name, 'Ali Baba is a happy youth.')
+bucket.put_object(key, 'Ali Baba is a happy youth.')
 
 # 下载
-bucket.get_object(object_name).read()
+bucket.get_object(key).read()
 
 # 删除
-bucket.delete_object(object_name)
+bucket.delete_object(key)
 
 # 遍历所有对象
 for object_info in oss.ObjectIterator(bucket):
-    print(object_info.name)
+    print(object_info.key)
 ```
 
 ## 测试

@@ -61,7 +61,7 @@ class TestBucket(unittest.TestCase):
         other_bucket.delete_bucket()
 
     def test_website(self):
-        object_name = random_string(12) + '/'
+        key = random_string(12) + '/'
         content = random_bytes(32)
 
         self.bucket.put_object('index.html', content)
@@ -75,7 +75,7 @@ class TestBucket(unittest.TestCase):
         self.assertEqual(website.error_file, 'error.html')
 
         # 验证读取目录会重定向到index页面
-        result = self.bucket.get_object(object_name)
+        result = self.bucket.get_object(key)
         self.assertEqual(result.read(), content)
 
         self.bucket.delete_object('index.html')
