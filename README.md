@@ -56,7 +56,7 @@ $ export OSS_TEST_BUCKET=<bucket>
 ```
 然后可以通过以下方式之一运行测试：
 ```bash
-$ python -m unitest discover tests  # 如果Python版本 >= 2.7
+$ python -m unittest discover tests  # 如果Python版本 >= 2.7
 $ nosetests                         # 如果安装了nose
 $ py.test                           # 如果安装了py.test
 ```
