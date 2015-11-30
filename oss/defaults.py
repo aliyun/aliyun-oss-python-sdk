@@ -1,6 +1,5 @@
 
 connect_timeout = 10
-read_timeout = 180
 
 
 request_retries = 3

@@ -147,7 +147,7 @@ def parse_list_multipart_uploads(result, body):
         result.upload_list.append(MultipartUploadInfo(
             _find_object(upload_node, 'Key', url_encoded),
             _find_tag(upload_node, 'UploadId'),
-            _find_tag(upload_node, 'Initiated')
+            iso8601_to_unixtime(_find_tag(upload_node, 'Initiated'))
         ))
 
     for prefix_node in root.findall('CommonPrefixes'):
@@ -165,8 +165,8 @@ def parse_list_parts(result, body):
         result.parts.append(PartInfo(
             _find_int(part_node, 'PartNumber'),
             _find_tag(part_node, 'ETag').strip('"'),
-            _find_int(part_node, 'Size'),
-
+            size=_find_int(part_node, 'Size'),
+            last_modified=iso8601_to_unixtime(_find_tag(part_node, 'LastModified'))
         ))
 
     return result

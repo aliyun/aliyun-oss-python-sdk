@@ -65,18 +65,18 @@ from . import exceptions
 from . import defaults
 
 from .models import *
-from .compat import urlquote, urlparse, to_bytes
+from .compat import urlquote, urlparse
 
 import time
 import shutil
 
 
 class _Base(object):
-    def __init__(self, auth, endpoint, is_cname, session, connect_timeout, read_timeout):
+    def __init__(self, auth, endpoint, is_cname, session, connect_timeout):
         self.auth = auth
         self.endpoint = _normalize_endpoint(endpoint)
         self.session = session or http.Session()
-        self.timeout = (connect_timeout, read_timeout)
+        self.timeout = connect_timeout
 
         self._make_url = _UrlMaker(self.endpoint, is_cname)
 
@@ -114,10 +114,8 @@ class Service(_Base):
     """
     def __init__(self, auth, endpoint,
                  session=None,
-                 connect_timeout=defaults.connect_timeout,
-                 read_timeout=defaults.read_timeout
-                 ):
-        super(Service, self).__init__(auth, endpoint, False, session, connect_timeout, read_timeout)
+                 connect_timeout=defaults.connect_timeout):
+        super(Service, self).__init__(auth, endpoint, False, session, connect_timeout)
 
     def list_buckets(self, prefix='', marker='', max_keys=100):
         """根据前缀罗列用户的Bucket。
@@ -165,9 +163,8 @@ class Bucket(_Base):
     def __init__(self, auth, endpoint, bucket_name,
                  is_cname=False,
                  session=None,
-                 connect_timeout=defaults.connect_timeout,
-                 read_timeout=defaults.read_timeout):
-        super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout, read_timeout)
+                 connect_timeout=defaults.connect_timeout):
+        super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout)
         self.bucket_name = bucket_name
 
     def sign_url(self, method, object_name, expires, headers=None, params=None):
