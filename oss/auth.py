@@ -7,6 +7,7 @@ import logging
 
 from . import utils
 from .compat import urlquote, to_bytes
+from .http import http_date
 
 
 class Auth(object):
@@ -26,7 +27,7 @@ class Auth(object):
         self.secret = access_key_secret
 
     def _sign_request(self, req, bucket_name, key):
-        req.headers['date'] = time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime())
+        req.headers['date'] = http_date()
 
         signature = self.__make_signature(req, bucket_name, key)
         req.headers['authorization'] = "OSS {0}:{1}".format(self.id, signature)
@@ -109,7 +110,11 @@ class Auth(object):
 
 
 class AnonymousAuth(object):
-    """用于匿名访问"""
+    """用于匿名访问。
+
+    **注意**匿名用户只能读取public-read的Bucket，或只能读取、写入public-read-write的Bucket。
+
+    """
     def _sign_request(self, req, bucket_name, key):
         pass
 

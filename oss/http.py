@@ -12,8 +12,10 @@ import requests
 import platform
 
 from . import __version__
-from requests.structures import CaseInsensitiveDict
 from .compat import to_bytes
+
+from requests.structures import CaseInsensitiveDict
+from email.utils import formatdate
 
 
 _USER_AGENT = 'aliyun-sdk-python/{0} ({1}/{2}/{3};{4})'.format(
@@ -21,6 +23,7 @@ _USER_AGENT = 'aliyun-sdk-python/{0} ({1}/{2}/{3};{4})'.format(
 
 
 class Session(object):
+    """属于同一个Session的请求共享一组连接池，如有可能也会重用HTTP连接。"""
     def __init__(self):
         self.session = requests.Session()
 
@@ -79,3 +82,10 @@ class Response(object):
 
     def __iter__(self):
         return self.response.iter_content(_CHUNK_SIZE)
+
+
+def http_date(timeval=None):
+    """返回符合HTTP标准的GMT时间字符串，用strftime的格式表示就是"%a, %d %b %Y %H:%M:%S GMT"。
+    但不能使用strftime，因为strftime的结果是和locale相关的。
+    """
+    return formatdate(timeval, usegmt=True)

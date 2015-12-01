@@ -5,6 +5,14 @@ oss.models
 ~~~~~~~~~~
 
 该模块包含Python SDK API接口所需要的输入参数以及返回值类型。
+
+.. _unix_time:
+
+UNIX Time
+---------
+OSS Python SDK会把从服务器获得时间戳都转换为自1970年1月1日UTC零点以来的秒数，即UNIX Time。
+参见 `UNIX Time <https://en.wikipedia.org/wiki/Unix_time>`_
+
 """
 
 import re

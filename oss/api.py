@@ -121,7 +121,7 @@ class _Base(object):
 class Service(_Base):
     """用于Service操作的类，如罗列用户所有的Bucket。
 
-    用法::
+    用法 ::
 
         >>> import oss
         >>> auth = oss.Auth('your-access-key-id', 'your-access-key-secret')
@@ -130,14 +130,14 @@ class Service(_Base):
         <oss.models.ListBucketsResult object at 0x0299FAB0>
 
     :param auth: 包含了用户认证信息的Auth对象
-    :type auth: :class:`Auth <oss.auth.Auth>`
+    :type auth: oss.Auth
 
     :param str endpoint: 访问域名，如杭州区域的域名为oss-cn-hangzhou.aliyuncs.com
 
     :param session: 会话。如果是None表示新开会话，非None则复用传入的会话
     :type session: oss.Session
 
-    :param int connect_timeout: 连接超时时间
+    :param int connect_timeout: 连接超时时间，以秒为单位。
     """
     def __init__(self, auth, endpoint,
                  session=None,
@@ -148,7 +148,7 @@ class Service(_Base):
         """根据前缀罗列用户的Bucket。
 
         :param str prefix: 只罗列Bucket名为该前缀的Bucket，空串表示罗列所有的Bucket
-        :param str marker: 分页标志。首次调用传空串，后续使用返回值的next_marker
+        :param str marker: 分页标志。首次调用传空串，后续使用返回值中的next_marker
         :param int max_keys: 每次调用最多返回的Bucket数目
 
         :return: 罗列的结果
@@ -164,7 +164,8 @@ class Service(_Base):
 class Bucket(_Base):
     """用于Bucket和Object操作的类，诸如创建、删除Bucket，上传、下载Object等。
 
-    用法::
+    用法 ::
+
         >>> import oss
         >>> auth = oss.Auth('your-access-key-id', 'your-access-key-secret')
         >>> bucket = oss.Bucket(auth, 'oss-cn-beijing.aliyuncs.com', 'your-bucket')
@@ -172,11 +173,11 @@ class Bucket(_Base):
         <oss.models.PutObjectResult object at 0x029B9930>
 
     :param auth: 包含了用户认证信息的Auth对象
-    :type auth: :class:`Auth <oss.auth.Auth>`
+    :type auth: oss.Auth
 
     :param str endpoint: 访问域名或者CNAME
     :param str bucket_name: Bucket名
-    :param bool is_cname: 如果`endpoint`是CNAME则设为True;如果是诸如oss-cn-hangzhou.aliyuncs.com的域名则为False
+    :param bool is_cname: 如果endpoint是CNAME则设为True；反之，则为False。
 
     :param session: 会话。如果是None表示新开会话，非None则复用传入的会话
     :type session: oss.Session
@@ -209,8 +210,11 @@ class Bucket(_Base):
         :type method: str
         :param key: 对象名
         :param expires: 过期时间（单位：秒），链接在当前时间再过expires秒后过期
+
         :param headers: 需要签名的HTTP头部，如名称以x-oss-meta-开头的头部（作为用户自定义元数据）、
             Content-Type头部等。对于下载，不需要填。
+        :type headers: 可以是dict，建议是oss.CaseInsensitiveDict
+
         :param params: 需要签名的HTTP查询参数
 
         :return: 签名URL。
@@ -223,10 +227,10 @@ class Bucket(_Base):
     def list_objects(self, prefix='', delimiter='', marker='', max_keys=100):
         """根据前缀罗列Bucket里的对象。
 
-        :param prefix: 只罗列以文件名为该前缀的对象
-        :param delimiter: 分隔符，可以用来模拟目录
-        :param marker: 分页标志。首次调用传空串，后续使用返回值的next_marker
-        :param max_keys: 最多返回对象的个数，对象和目录的和不能超过该值
+        :param str prefix: 只罗列文件名为该前缀的对象
+        :param str delimiter: 分隔符。可以用来模拟目录
+        :param str marker: 分页标志。首次调用传空串，后续使用返回值的next_marker
+        :param int max_keys: 最多返回对象的个数，对象和目录的和不能超过该值
 
         :return: :class:`ListObjectsResult <oss.models.ListObjectsResult>`
         """
@@ -243,14 +247,22 @@ class Bucket(_Base):
                    progress_callback=None):
         """上传一个普通对象。
 
+        用法 ::
+            >>> bucket.put_object('readme.txt', 'content of readme.txt')
+            >>> with open('local_file.txt', 'rb') as f:
+            >>>     bucket.put_object('remote_file.txt', f)
+
         :param key: 上传到OSS的对象名
+
         :param data: 待上传的内容。
         :type data: bytes，str或file-like object
+
         :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-meta-开头的头部等
-        :param progress_callback: 用户指定进度回调函数。可以用来实现进度条等功能。参考 :ref:`progress_callback` 。
+        :type headers: 可以是dict，建议是oss.CaseInsensitiveDict
+
+        :param progress_callback: 用户指定的进度回调函数。可以用来实现进度条等功能。参考 :ref:`progress_callback` 。
 
         :return: :class:`PutObjectResult <oss.models.PutObjectResult>`
-        :rtype: oss.Auth
         """
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), key)
 
@@ -265,10 +277,13 @@ class Bucket(_Base):
                              progress_callback=None):
         """上传一个本地文件到OSS的普通对象。
 
-        :param key: 上传到OSS的对象名
-        :param filename: 本地文件名，需要有可读权限
+        :param str key: 上传到OSS的对象名
+        :param str filename: 本地文件名，需要有可读权限
+
         :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-meta-开头的头部等
-        :param progress_callback: 用户支持的进度回调函数。参考 :ref:`progress_callback`
+        :type headers: 可以是dict，建议是oss.CaseInsensitiveDict
+
+        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
 
         :return: :class:`PutObjectResult <oss.models.PutObjectResult>`
         """
@@ -282,12 +297,17 @@ class Bucket(_Base):
                       progress_callback=None):
         """追加上传一个对象。
 
-        :param key: 新的对象名，或已经存在的可追加对象名
-        :param position: 追加上传一个新的对象， `position` 设为0；追加一个已经存在的可追加对象， `position` 设为对象的当前长度。
+        :param str key: 新的对象名，或已经存在的可追加对象名
+        :param int position: 追加上传一个新的对象， `position` 设为0；追加一个已经存在的可追加对象， `position` 设为对象的当前长度。
             position可以从上次追加的结果 `AppendObjectResult.next_position` 中获得。
+
         :param data: 用户数据
         :type data: str、bytes、file-like object或可迭代对象
+
         :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-开头的头部等
+        :type headers: 可以是dict，建议是oss.CaseInsensitiveDict
+
+        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
 
         :return: :class:`AppendObjectResult <oss.models.AppendObjectResult>`
 
@@ -312,7 +332,7 @@ class Bucket(_Base):
                    progress_callback=None):
         """下载一个对象。
 
-        用法::
+        用法 ::
 
             >>> result = bucket.get_object('readme.txt')
             >>> print(result.read())
@@ -320,7 +340,11 @@ class Bucket(_Base):
 
         :param key: 对象名
         :param byte_range: 指定下载范围。参见 :ref:`byte_range`
+
         :param headers: HTTP头部
+        :type headers: 可以是dict，建议是oss.CaseInsensitiveDict
+
+        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
 
         :return: file-like object
 
@@ -344,7 +368,11 @@ class Bucket(_Base):
         :param key: 对象名
         :param filename: 本地文件名。需要有写权限。
         :param byte_range: 指定下载范围。参见 :ref:`byte_range`
+
         :param headers: HTTP头部
+        :type headers: 可以是dict，建议是oss.CaseInsensitiveDict
+
+        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
 
         :return: 如果对象不存在，则抛出 :class:`NoSuchKey <oss.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
@@ -358,9 +386,16 @@ class Bucket(_Base):
         """获取对象元信息。
 
         HTTP响应的头部包含了对象元信息，可以通过 `RequestResult` 的 `headers` 成员获得。
+        用法 ::
+
+            >>> result = bucket.head_object('readme.txt')
+            >>> print result.content_type
+            'text/plain'
 
         :param key: 对象名
+
         :param headers: HTTP头部
+        :type headers: 可以是dict，建议是oss.CaseInsensitiveDict
 
         :return: :class:`HeadObjectResult <oss.models.HeadObjectResults>`
 
@@ -391,10 +426,12 @@ class Bucket(_Base):
     def copy_object(self, source_bucket_name, source_key, target_key, headers=None):
         """拷贝一个对象到当前Bucket。
 
-        :param source_bucket_name: 源Bucket名
-        :param source_key: 源对象名
-        :param target_key: 目标对象名
+        :param str source_bucket_name: 源Bucket名
+        :param str source_key: 源对象名
+        :param str target_key: 目标对象名
+
         :param headers: HTTP头部
+        :type headers: 可以是dict，建议是oss.CaseInsensitiveDict
 
         :return: :class:`PutObjectResult <oss.models.PutObjectResult>`
         """
@@ -409,8 +446,10 @@ class Bucket(_Base):
 
         用户可以通过 :func:`head_object` 获得元数据信息。
 
-        :param key: 对象名
+        :param str key: 对象名
+
         :param headers: HTTP头部，包含了元数据信息
+        :type headers: 可以是dict，建议是oss.CaseInsensitiveDict
 
         :return: :class:`RequestResult <oss.models.RequestResults>`
         """
@@ -419,7 +458,7 @@ class Bucket(_Base):
     def delete_object(self, key):
         """删除一个对象。
 
-        :param key: 对象名
+        :param str key: 对象名
 
         :return: :class:`RequestResult <oss.models.RequestResult>`
         """
@@ -429,8 +468,8 @@ class Bucket(_Base):
     def put_object_acl(self, key, permission):
         """设置对象的ACL。
 
-        :param key: 对象名
-        :param permission: 可以是'default'、'private'、'public-read'或'public-read-write'
+        :param str key: 对象名
+        :param str permission: 可以是'default'、'private'、'public-read'或'public-read-write'
 
         :return: :class:`RequestResult <oss.models.RequestResult>`
         """
@@ -445,14 +484,15 @@ class Bucket(_Base):
         resp = self.__do_object('GET', key, params={'acl': ''})
         return self._parse_result(resp, xml_utils.parse_get_object_acl, GetObjectAclResult)
 
-    def batch_delete_objects(self, objects):
+    def batch_delete_objects(self, key_list):
         """批量删除对象。
 
-        :param objects: 对象名列表
+        :param key_list: 对象名列表
+        :type key_list: list of str
 
         :return: :class:`BatchDeleteObjectsResult <oss.models.BatchDeleteObjectsResult>`
         """
-        data = xml_utils.to_batch_delete_objects_request(objects, False)
+        data = xml_utils.to_batch_delete_objects_request(key_list, False)
         resp = self.__do_object('POST', '',
                                 data=data,
                                 params={'delete': '', 'encoding-type': 'url'},
@@ -462,10 +502,12 @@ class Bucket(_Base):
     def init_multipart_upload(self, key, headers=None):
         """初始化分片上传。
 
-        返回值中的 `upload_id` 以及bucket名和Object名三元组唯一对应了此次分片上传的会话。
+        返回值中的 `upload_id` 以及bucket名和Object名三元组唯一对应了此次分片上传事件。
 
-        :param key: 待上传的对象名
+        :param str key: 待上传的对象名
+
         :param headers: HTTP头部
+        :type headers: 可以是dict，建议是oss.CaseInsensitiveDict
 
         :return: :class:`InitMultipartUploadResult <oss.models.InitMultipartUploadResult>`
         """
@@ -477,10 +519,10 @@ class Bucket(_Base):
     def upload_part(self, key, upload_id, part_number, data, progress_callback=None):
         """上传一个分片。
 
-        :param key: 待上传对象名，这个对象名要和 :func:`init_multipart_upload` 的对象名一致。
-        :param upload_id: 分片上传ID
-        :param part_number: 分片号，最小值是1.
-        :param data: 待上传数据
+        :param str key: 待上传对象名，这个对象名要和 :func:`init_multipart_upload` 的对象名一致。
+        :param str upload_id: 分片上传ID
+        :param int part_number: 分片号，最小值是1.
+        :param data: 待上传数据。
         :param progress_callback: 用户指定进度回调函数。可以用来实现进度条等功能。参考 :ref:`progress_callback` 。
 
         :return: :class:`PutObjectResult <oss.models.PutObjectResult>`
@@ -496,10 +538,15 @@ class Bucket(_Base):
     def complete_multipart_upload(self, key, upload_id, parts, headers=None):
         """完成分片上传，创建对象。
 
-        :param key: 待上传的对象名，这个对象名要和 :func:`init_multipart_upload` 的对象名一致。
-        :param upload_id: 分片上传ID
-        :param parts: `PartInfo` 列表，按照分片号升序的方式排列。 `PartInfo` 中的 `etag` 可以从 `upload_part` 的返回值中得到。
+        :param str key: 待上传的对象名，这个对象名要和 :func:`init_multipart_upload` 的对象名一致。
+        :param str upload_id: 分片上传ID
+
+        :param parts: PartInfo列表，按照分片号升序的方式排列。PartInfo中的part_number和etag是必填项。
+            其中的etag可以从 :func:`upload_part` 的返回值中得到。
+        :type parts: list of `PartInfo <oss.models.PartInfo>`
+
         :param headers: HTTP头部
+        :type headers: 可以是dict，建议是oss.CaseInsensitiveDict
 
         :return: :class:`PutObjectResult <oss.models.PutObjectResult>`
         """
@@ -513,8 +560,8 @@ class Bucket(_Base):
     def abort_multipart_upload(self, key, upload_id):
         """取消分片上传。
 
-        :param key: 待上传的对象名，这个对象名要和 :func:`init_multipart_upload` 的对象名一致。
-        :param upload_id: 分片上传ID
+        :param str key: 待上传的对象名，这个对象名要和 :func:`init_multipart_upload` 的对象名一致。
+        :param str upload_id: 分片上传ID
 
         :return: :class:`RequestResult <oss.models.RequestResult>`
         """
@@ -530,11 +577,11 @@ class Bucket(_Base):
                                max_uploads=1000):
         """罗列正在进行中的分片上传。支持分页。
 
-        :param prefix: 只罗列对象名为该前缀的对象的分片上传
-        :param delimiter: 目录分割符
-        :param key_marker: 对象名分页符。第一次调用可以不传，后续设为返回值中的 `next_key_marker`
-        :param upload_id_marker: 分片ID分页符。第一次调用可以不传，后续设为返回值中的 `next_upload_id_marker`
-        :param max_uploads: 一次罗列最多能够返回的条目数
+        :param str prefix: 只罗列对象名为该前缀的对象的分片上传
+        :param str delimiter: 目录分割符
+        :param str key_marker: 对象名分页符。第一次调用可以不传，后续设为返回值中的 `next_key_marker`
+        :param str upload_id_marker: 分片ID分页符。第一次调用可以不传，后续设为返回值中的 `next_upload_id_marker`
+        :param int max_uploads: 一次罗列最多能够返回的条目数
 
         :return: :class:`ListMultipartUploadsResult <oss.models.ListMultipartUploadsResult>`
         """
@@ -555,6 +602,9 @@ class Bucket(_Base):
 
         :param byte_range: 指定待拷贝内容在源对象里的范围。参见 :ref:`byte_range`
 
+        :param headers: HTTP头部
+        :type headers: 可以是dict，建议是oss.CaseInsensitiveDict
+
         :return: :class:`PutObjectResult <oss.models.PutObjectResult>`
         """
         headers = http.CaseInsensitiveDict(headers)
@@ -572,7 +622,12 @@ class Bucket(_Base):
 
     def list_parts(self, key, upload_id,
                    marker='', max_parts=1000):
-        """列举分片上传会话中已经上传的分片。支持分页。
+        """列举已经上传的分片。支持分页。
+
+        :param str key: 对象名
+        :param str upload_id: 分片上传ID
+        :param str marker: 分页符
+        :param int max_parts: 一次最多罗列多少分片
 
         :return: :class:`ListPartsResult <oss.models.ListPartsResult>`
         """
@@ -585,7 +640,7 @@ class Bucket(_Base):
     def create_bucket(self, permission):
         """创建新的Bucket。
 
-        :param permission: 指定Bucket的ACL，可以是'private'（推荐）、'public-read'或是'public-read-write'
+        :param str permission: 指定Bucket的ACL，可以是'private'（推荐）、'public-read'或是'public-read-write'
         """
         resp = self.__do_bucket('PUT', headers={'x-oss-acl': permission})
         return RequestResult(resp)
@@ -613,7 +668,7 @@ class Bucket(_Base):
     def put_bucket_acl(self, permission):
         """设置Bucket的ACL。
 
-        :param permission: 新的ACL，可以是'private'、'public-read'或`public-read-write`
+        :param str permission: 新的ACL，可以是'private'、'public-read'或`public-read-write`
         """
         resp = self.__do_bucket('PUT', headers={'x-oss-acl': permission}, params={Bucket.ACL: ''})
         return RequestResult(resp)
@@ -747,7 +802,7 @@ class Bucket(_Base):
         """获得Bucket某项配置，具体哪种配置由 `config` 指定。该接口直接返回 `RequestResult` 对象。
         通过read()接口可以获得XML字符串。不建议使用。
 
-        :param type: 可以是 `Bucket.ACL` 、 `Bucket.LOGGING` 等。
+        :param str config: 可以是 `Bucket.ACL` 、 `Bucket.LOGGING` 等。
 
         :return: :class:`RequestResult <oss.models.RequestResult>`
         """
