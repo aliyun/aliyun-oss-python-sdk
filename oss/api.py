@@ -181,6 +181,8 @@ class Bucket(_Base):
 
     :param session: 会话。如果是None表示新开会话，非None则复用传入的会话
     :type session: oss.Session
+
+    :param int connect_timeout: 连接超时时间，以秒为单位。
     """
 
     ACL = 'acl'

@@ -112,8 +112,9 @@ class Auth(object):
 class AnonymousAuth(object):
     """用于匿名访问。
 
-    **注意**匿名用户只能读取public-read的Bucket，或只能读取、写入public-read-write的Bucket。
-
+    .. note::
+        匿名用户只能读取public-read的Bucket，或只能读取、写入public-read-write的Bucket。
+        不能进行Service、Bucket相关的操作，也不能罗列对象等。
     """
     def _sign_request(self, req, bucket_name, key):
         pass
