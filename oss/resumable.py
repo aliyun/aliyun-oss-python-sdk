@@ -35,13 +35,14 @@ def resumable_upload(bucket, key, filename,
     缺省条件下，该函数会在用户HOME目录下保存断点续传的信息。当待上传的本地文件没有发生变化，
     且目标对象名没有变化时，会根据本地保存的信息，从断点开始上传。
 
-    :param filename: 待上传本地文件名
     :param bucket: :class:`Bucket <oss.api.Bucket>` 对象
     :param key: 上传到用户空间的对象名
+    :param filename: 待上传本地文件名
     :param store: 用来保存断点信息的持久存储，参见 :class:`FileStore` 的接口。如不指定，则使用 `FileStore` 。
     :param headers: 传给 `put_object` 或 `init_multipart_upload` 的HTTP头部
     :param multipart_threshold: 文件长度大于该值时，则用分片上传。
     :param part_size: 指定分片上传的每个分片的大小。如不指定，则自动计算。
+    :param progress_callback: 上传进度回调函数。参见 :ref:`progress_callback` 。
     """
     size = os.path.getsize(filename)
 
@@ -83,6 +84,7 @@ class ResumableUploader(object):
     :param headers: 传给 `init_multipart_upload` 的HTTP头部
     :param part_size: 分片大小。优先使用用户提供的值。如果用户没有指定，那么对于新上传，计算出一个合理值；对于老的上传，采用第一个
         分片的大小。
+    :param progress_callback: 上传进度回调函数。参见 :ref:`progress_callback` 。
     """
     def __init__(self, bucket, key, filename, size,
                  store=None,

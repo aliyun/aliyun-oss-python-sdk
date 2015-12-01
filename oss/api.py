@@ -275,7 +275,10 @@ class Bucket(_Base):
                                 params={'append': '', 'position': str(position)})
         return AppendObjectResult(resp)
 
-    def get_object(self, key, byte_range=None, headers=None):
+    def get_object(self, key,
+                   byte_range=None,
+                   headers=None,
+                   progress_callback=None):
         """下载一个对象。
 
         用法::
@@ -299,9 +302,12 @@ class Bucket(_Base):
             headers['range'] = range_string
 
         resp = self.__do_object('GET', key, headers=headers)
-        return GetObjectResult(resp)
+        return GetObjectResult(resp, progress_callback=progress_callback)
 
-    def get_object_to_file(self, key, filename, byte_range=None, headers=None):
+    def get_object_to_file(self, key, filename,
+                           byte_range=None,
+                           headers=None,
+                           progress_callback=None):
         """下载一个对象到本地文件。
 
         :param key: 对象名
@@ -312,7 +318,7 @@ class Bucket(_Base):
         :return: 如果对象不存在，则抛出 :class:`NoSuchKey <oss.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
         with open(filename, 'wb') as f:
-            result = self.get_object(key, byte_range=byte_range, headers=headers)
+            result = self.get_object(key, byte_range=byte_range, headers=headers, progress_callback=progress_callback)
             shutil.copyfileobj(result, f)
 
             return result

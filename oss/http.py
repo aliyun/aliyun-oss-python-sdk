@@ -56,7 +56,7 @@ class Request(object):
             self.headers['User-Agent'] = _USER_AGENT
 
 
-_CHUNK_SIZE = 512 * 1024
+_CHUNK_SIZE = 8 * 1024
 
 
 class Response(object):

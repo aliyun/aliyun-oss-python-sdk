@@ -152,6 +152,9 @@ def _get_data_size(data):
     raise RuntimeError('Cannot determine the size of data of type: {0}'.format(data.__class__.__name__))
 
 
+_CHUNK_SIZE = 8 * 1024
+
+
 class MonitoredStreamReader(object):
     """通过这个适配器，可以给 `data` 加上进度监控。
 
@@ -172,6 +175,19 @@ class MonitoredStreamReader(object):
 
     def __len__(self):
         return self.size
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return self.next()
+
+    def next(self):
+        if self.offset >= self.size:
+            self.callback(self.size, self.size, 0)
+            raise StopIteration
+
+        return self.read(_CHUNK_SIZE)
 
     def read(self, amt=None):
         if self.offset >= self.size:

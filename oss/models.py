@@ -14,7 +14,7 @@ from xml.parsers import expat
 
 
 from .compat import to_string
-from .utils import gmt_to_unixtime
+from .utils import gmt_to_unixtime, MonitoredStreamReader
 
 
 class PartInfo(object):
@@ -92,17 +92,19 @@ class HeadObjectResult(RequestResult):
 
 
 class GetObjectResult(HeadObjectResult):
-    def __init__(self, resp):
+    def __init__(self, resp, progress_callback=None):
         super(GetObjectResult, self).__init__(resp)
 
+        if progress_callback:
+            self.stream = MonitoredStreamReader(self.resp, progress_callback, self.content_length)
+        else:
+            self.stream = self.resp
+
     def read(self, amt=None):
-        return self.resp.read(amt)
+        return self.stream.read(amt)
 
     def __iter__(self):
-        return iter(self.resp)
-
-    def foo(self):
-        return 'hello'
+        return iter(self.stream)
 
 
 class PutObjectResult(RequestResult):
