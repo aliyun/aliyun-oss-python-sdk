@@ -4,7 +4,7 @@ from . import models, exceptions
 
 from .api import Service, Bucket
 from .auth import Auth, AnonymousAuth
-from .http import CaseInsensitiveDict
+from .http import Session, CaseInsensitiveDict
 
 from .iterators import (BucketIterator, ObjectIterator,
                         MultipartUploadIterator, ObjectUploadIterator, PartIterator)
