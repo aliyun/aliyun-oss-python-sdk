@@ -41,8 +41,8 @@ HTTP包体。
 
 .. _byte_range:
 
-对象下载方法中的byte_range参数
------------------------
+指定下载范围
+------------
 诸如 :func:`get_object <Bucket.get_object>` 以及 :func:`upload_part_copy <Bucket.upload_part_copy>` 这样的函数，可以接受
 byte_range参数，表明读取数据的范围。该参数是一个二元tuple：(start, last)。这些接口会把它转换为Range头部的值，如：
     - byte_range 为 (0, 99) 转换为 'bytes=0-99'，表示读取前100个字节
@@ -56,6 +56,28 @@ byte_range参数，表明读取数据的范围。该参数是一个二元tuple�
 分页查询。通过设定分页标记（如：`marker` 、 `key_marker` ）的方式可以指定查询某一页。首次调用将分页标记设为空（缺省值，可以不设），
 后续的调用使用返回值中的 `next_marker` 、 `next_key_marker` 等。每次调用后检查返回值中的 `is_truncated` ，其值为 `False` 说明
 已经到了最后一页。
+
+
+.. _progress_callback:
+
+上传下载进度
+-----------
+上传下载接口，诸如 `get_object` 、 `put_object` 、`resumable_upload`，都支持进度回调函数，可以用它实现进度条等功能。
+对于上传，要求待上传的对象（即 `data` 参数）是bytes或可以得到长度的file object（可以seek、tell）。
+
+`progress_callback` 的函数原型如下::
+
+    def progress_callback(bytes_consumed, total_bytes, bytes_to_consume):
+        '''进度回调函数。
+
+        :param int bytes_consumed: 已经消费的字节数。对于上传，就是已经上传的量；对于下载，就是已经下载的量。
+        :param int total_bytes: 总长度。
+        :param int bytes_to_consume: 即将要消费的字节数。
+        '''
+        pass
+
+该进度回调函数在每次上传、下载一段数据之前调用，所以这里区分了已经消费（bytes_consumed）和即将消费（bytes_to_consume）两个量。
+一般情况下，只需使用bytes_consumed即可。在上传、下载结束时，bytes_consumed的值会等于total_bytes。
 """
 
 from . import xml_utils
@@ -108,9 +130,14 @@ class Service(_Base):
         <oss.models.ListBucketsResult object at 0x0299FAB0>
 
     :param auth: 包含了用户认证信息的Auth对象
-    :param endpoint: 访问域名，如杭州区域的域名为oss-cn-hangzhou.aliyuncs.com
+    :type auth: :class:`Auth <oss.auth.Auth>`
+
+    :param str endpoint: 访问域名，如杭州区域的域名为oss-cn-hangzhou.aliyuncs.com
+
     :param session: 会话。如果是None表示新开会话，非None则复用传入的会话
-    :type session: Session或None
+    :type session: oss.Session
+
+    :param int connect_timeout: 连接超时时间
     """
     def __init__(self, auth, endpoint,
                  session=None,
@@ -120,12 +147,12 @@ class Service(_Base):
     def list_buckets(self, prefix='', marker='', max_keys=100):
         """根据前缀罗列用户的Bucket。
 
-        :param prefix: 只罗列Bucket名为该前缀的Bucket，空串表示罗列所有的Bucket
-        :param marker: 分页标志。首次调用传空串，后续使用返回值的next_marker
-        :param max_keys: 每次调用最多返回的Bucket数目
+        :param str prefix: 只罗列Bucket名为该前缀的Bucket，空串表示罗列所有的Bucket
+        :param str marker: 分页标志。首次调用传空串，后续使用返回值的next_marker
+        :param int max_keys: 每次调用最多返回的Bucket数目
 
         :return: 罗列的结果
-        :rtype: :class:`ListBucketsResult <oss.models.ListBucketsResult>`
+        :rtype: oss.models.ListBucketsResult
         """
         resp = self._do('GET', '', '',
                         params={'prefix': prefix,
@@ -135,7 +162,7 @@ class Service(_Base):
 
 
 class Bucket(_Base):
-    """用于Bucket和Object操作的类，诸如创建、删除Bucket，上传、下载对象等。
+    """用于Bucket和Object操作的类，诸如创建、删除Bucket，上传、下载Object等。
 
     用法::
         >>> import oss
@@ -145,11 +172,14 @@ class Bucket(_Base):
         <oss.models.PutObjectResult object at 0x029B9930>
 
     :param auth: 包含了用户认证信息的Auth对象
-    :param endpoint: 访问域名或者CNAME
-    :param bucket_name: Bucket名
-    :param is_cname: 如果`endpoint`是CNAME则设为True;如果是诸如oss-cn-hangzhou.aliyuncs.com的域名则为False
+    :type auth: :class:`Auth <oss.auth.Auth>`
+
+    :param str endpoint: 访问域名或者CNAME
+    :param str bucket_name: Bucket名
+    :param bool is_cname: 如果`endpoint`是CNAME则设为True;如果是诸如oss-cn-hangzhou.aliyuncs.com的域名则为False
+
     :param session: 会话。如果是None表示新开会话，非None则复用传入的会话
-    :type session: Session或None
+    :type session: oss.Session
     """
 
     ACL = 'acl'
@@ -220,6 +250,7 @@ class Bucket(_Base):
         :param progress_callback: 用户指定进度回调函数。可以用来实现进度条等功能。参考 :ref:`progress_callback` 。
 
         :return: :class:`PutObjectResult <oss.models.PutObjectResult>`
+        :rtype: oss.Auth
         """
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), key)
 
