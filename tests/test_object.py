@@ -9,7 +9,7 @@ import time
 
 import oss
 
-from oss.exceptions import NoSuchKey, PositionNotEqualToLength, NotFound
+from oss.exceptions import NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable
 from oss import to_string
 
 from common import *
@@ -269,6 +269,18 @@ class TestObject(unittest.TestCase):
         self.assertEqual(stats['previous'], len(content))
 
         os.remove(filename)
+
+    def test_exceptions(self):
+        key = random_string(12)
+        content = random_bytes(16)
+
+        self.assertRaises(NotFound, self.bucket.get_object, key)
+        self.assertRaises(NoSuchKey, self.bucket.get_object, key)
+
+        self.bucket.put_object(key, content)
+
+        self.assertRaises(Conflict, self.bucket.append_object, key, len(content), b'more content')
+        self.assertRaises(ObjectNotAppendable, self.bucket.append_object, key, len(content), b'more content')
 
 
 if __name__ == '__main__':

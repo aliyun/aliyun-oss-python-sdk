@@ -21,37 +21,52 @@ class OssError(Exception):
         return repr(self.result)
 
 
-class NoSuchBucket(OssError):
-    status = 404
-    code = 'NoSuchBucket'
-
-
-class BucketNotEmpty(OssError):
-    status = 409
-    code = 'BucketNotEmpty'
-
-
 class NotFound(OssError):
     status = 404
     code = ''
 
 
-class NoSuchKey(OssError):
+class NoSuchBucket(NotFound):
+    status = 404
+    code = 'NoSuchBucket'
+
+
+class NoSuchKey(NotFound):
     status = 404
     code = 'NoSuchKey'
 
 
-class NoSuchUpload(OssError):
+class NoSuchUpload(NotFound):
     status = 404
     code = 'NoSuchUpload'
 
 
-class NotModified(OssError):
-    status = 304
+class NoSuchWebsite(NotFound):
+    status = 404
+    code = 'NoSuchWebsiteConfiguration'
+
+
+class NoSuchLifecycle(NotFound):
+    status = 404
+    code = 'NoSuchLifecycle'
+
+
+class NoSuchCors(NotFound):
+    status = 404
+    code = 'NoSuchCORSConfiguration'
+
+
+class Conflict(OssError):
+    status = 409
     code = ''
 
 
-class PositionNotEqualToLength(OssError):
+class BucketNotEmpty(Conflict):
+    status = 409
+    code = 'BucketNotEmpty'
+
+
+class PositionNotEqualToLength(Conflict):
     status = 409
     code = 'PositionNotEqualToLength'
 
@@ -60,29 +75,19 @@ class PositionNotEqualToLength(OssError):
         self.next_position = int(self.result.headers['x-oss-next-append-position'])
 
 
-class ObjectNotAppendable(OssError):
+class ObjectNotAppendable(Conflict):
     status = 409
     code = 'ObjectNotAppendable'
+
+
+class NotModified(OssError):
+    status = 304
+    code = ''
 
 
 class AccessDenied(OssError):
     status = 403
     code = 'AccessDenied'
-
-
-class NoSuchWebsite(OssError):
-    status = 404
-    code = 'NoSuchWebsiteConfiguration'
-
-
-class NoSuchLifecycle(OssError):
-    status = 404
-    code = 'NoSuchLifecycle'
-
-
-class NoSuchCors(OssError):
-    status = 404
-    code = 'NoSuchCORSConfiguration'
 
 
 def make_exception(resp):
