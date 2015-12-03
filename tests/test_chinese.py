@@ -17,6 +17,13 @@ class TestChinese(unittest.TestCase):
     def setUp(self):
         self.bucket = oss.Bucket(oss.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
 
+    def test_unicode(self):
+        key = random_string(16)
+        content = u'几天后，阿里巴巴为侄子和马尔佳娜举行了隆重的婚礼。'
+
+        self.bucket.put_object(key, content)
+        self.assertEqual(self.bucket.get_object(key).read(), content.encode('utf-8'))
+
     if sys.version_info >= (3, 0):
         def test_put_get_list_delete(self):
             key = '中文对象\x0C-1.txt'

@@ -239,7 +239,7 @@ class TestObject(unittest.TestCase):
         key = random_string(12)
 
         self.bucket.put_object(key, 'hello', headers={'x-oss-meta-key1': 'value1',
-                                                              'X-Oss-Meta-Key2': 'value2'})
+                                                      'X-Oss-Meta-Key2': 'value2'})
 
         headers = self.bucket.get_object(key).headers
         self.assertEqual(headers['x-oss-meta-key1'], 'value1')
