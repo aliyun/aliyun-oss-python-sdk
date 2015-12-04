@@ -46,6 +46,17 @@ for object_info in oss.ObjectIterator(bucket):
     print(object_info.key)
 ```
 
+## 出错处理
+除非特别说明，一旦出错，Python SDK的接口就会抛出异常（见oss.exceptions子模块）。参考下面的例子：
+```python
+
+try:
+    result = bucket.get_object(key)
+    print(result.read())
+catch oss.exceptions.NoSuchKey as e:
+    print('{0} not found: http_status={1}, request_id={2}'.format(key, e.result.status, e.result.request_id))
+```
+
 ## 测试
 首先通过环境变量来设置测试所需的AccessKeyID、AccessKeySecret、Endpoint以及Bucket信息（以Linux系统为例）：
 ```bash
