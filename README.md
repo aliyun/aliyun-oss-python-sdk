@@ -73,7 +73,8 @@ $ nosetests                         # 如果安装了nose
 $ py.test                           # 如果安装了py.test
 ```
 ## 更多使用
-参见[官网Python SDK文档](https://docs.aliyun.com/#/pub/oss/sdk/python-sdk&preface)
+- [更多例子](https://github.com/aliyun/aliyun-oss-python-sdk/tree/master/examples)
+- [官网Python SDK文档](https://docs.aliyun.com/#/pub/oss/sdk/python-sdk&preface)
 
 ## 联系我们
 - [阿里云OSS官方网站](http://oss.aliyun.com)

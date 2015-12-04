@@ -6,8 +6,6 @@ import oss2
 
 from common import *
 
-import logging
-logging.basicConfig(level=logging.DEBUG)
 
 class TestBucket(unittest.TestCase):
     def __init__(self, *args, **kwargs):

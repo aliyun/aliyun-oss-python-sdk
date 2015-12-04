@@ -92,7 +92,7 @@ def is_ip_or_localhost(netloc):
 
 _ALPHA_NUM = 'abcdefghijklmnopqrstuvwxyz0123456789'
 _HYPHEN = '-'
-_BUCKET_NAME_CHARS = set(_ALPHA_NUM + '-')
+_BUCKET_NAME_CHARS = set(_ALPHA_NUM + _HYPHEN)
 
 
 def is_valid_bucket_name(name):
@@ -100,7 +100,7 @@ def is_valid_bucket_name(name):
     if len(name) < 3 or len(name) > 63:
         return False
 
-    if name[-1] == "-":
+    if name[-1] == _HYPHEN:
         return False
 
     if name[0] not in _ALPHA_NUM:
