@@ -2,7 +2,6 @@
 
 import unittest
 import oss2
-import logging
 
 from common import *
 
@@ -77,5 +76,4 @@ class TestMultipart(unittest.TestCase):
         self.assertEqual(content_got, content)
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
     unittest.main()

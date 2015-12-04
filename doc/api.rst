@@ -14,6 +14,11 @@ API文档
 .. autoclass:: oss2.Service
 .. autoclass:: oss2.Session
 
+参数说明
+--------
+
+.. automodule:: oss2.api
+
 文件（Object）相关操作
 --------------------
 

@@ -1,11 +1,6 @@
 # -*- coding: utf-8 -*-
 
 """
-oss2.api
-~~~~~~~~
-
-这个模块包含了用于访问OSS的底层接口。
-
 文件上传方法中的data参数
 ----------------------
 诸如 :func:`put_object <Bucket.put_object>` 这样的上传接口都会有 `data` 参数用于接收用户数据。`data` 可以是下述类型
@@ -30,7 +25,7 @@ Bucket配置修改方法中的input参数
 ------
 :class:`Service` 和 :class:`Bucket` 类的大多数方法都是返回 :class:`RequestResult <oss2.models.RequestResult>`
 及其子类。`RequestResult` 包含了HTTP响应的状态码、头部以及OSS Request ID，而它的子类则包含用户真正想要的结果。例如，
-`ListBucketsResult.buckets` 就是返回的Bucket信息列表；`GetObjectResult` 则是一个file-like object，可以调用`read()`来获取响应的
+`ListBucketsResult.buckets` 就是返回的Bucket信息列表；`GetObjectResult` 则是一个file-like object，可以调用 `read()` 来获取响应的
 HTTP包体。
 
 
@@ -44,7 +39,7 @@ HTTP包体。
 指定下载范围
 ------------
 诸如 :func:`get_object <Bucket.get_object>` 以及 :func:`upload_part_copy <Bucket.upload_part_copy>` 这样的函数，可以接受
-byte_range参数，表明读取数据的范围。该参数是一个二元tuple：(start, last)。这些接口会把它转换为Range头部的值，如：
+`byte_range` 参数，表明读取数据的范围。该参数是一个二元tuple：(start, last)。这些接口会把它转换为Range头部的值，如：
     - byte_range 为 (0, 99) 转换为 'bytes=0-99'，表示读取前100个字节
     - byte_range 为 (None, 99) 转换为 'bytes=-99'，表示读取最后99个字节
     - byte_range 为 (100, None) 转换为 'bytes=100-'，表示读取第101个字节到文件结尾的部分（包含第101个字节）
@@ -125,7 +120,7 @@ class Service(_Base):
 
         >>> import oss2
         >>> auth = oss2.Auth('your-access-key-id', 'your-access-key-secret')
-        >>> service = oss2.Service(auth, oss2)
+        >>> service = oss2.Service(auth, 'oss-cn-hangzhou.aliyuncs.com')
         >>> service.list_buckets()
         <oss2.models.ListBucketsResult object at 0x0299FAB0>
 
@@ -164,11 +159,11 @@ class Service(_Base):
 class Bucket(_Base):
     """用于Bucket和Object操作的类，诸如创建、删除Bucket，上传、下载Object等。
 
-    用法 ::
+    用法（假设Bucket属于杭州区域） ::
 
         >>> import oss2
         >>> auth = oss2.Auth('your-access-key-id', 'your-access-key-secret')
-        >>> bucket = oss2.Bucket(auth, 'oss-cn-beijing.aliyuncs.com', 'your-bucket')
+        >>> bucket = oss2.Bucket(auth, 'oss-cn-hangzhou.aliyuncs.com', 'your-bucket')
         >>> bucket.put_object('readme.txt', 'content of the object')
         <oss2.models.PutObjectResult object at 0x029B9930>
 
@@ -301,7 +296,7 @@ class Bucket(_Base):
 
         :param str key: 新的文件名，或已经存在的可追加文件名
         :param int position: 追加上传一个新的文件， `position` 设为0；追加一个已经存在的可追加文件， `position` 设为文件的当前长度。
-            position可以从上次追加的结果 `AppendObjectResult.next_position` 中获得。
+            `position` 可以从上次追加的结果 `AppendObjectResult.next_position` 中获得。
 
         :param data: 用户数据
         :type data: str、bytes、file-like object或可迭代对象
@@ -391,8 +386,8 @@ class Bucket(_Base):
         用法 ::
 
             >>> result = bucket.head_object('readme.txt')
-            >>> print result.content_type
-            'text/plain'
+            >>> print(result.content_type)
+            text/plain
 
         :param key: 文件名
 
@@ -471,7 +466,8 @@ class Bucket(_Base):
         """设置文件的ACL。
 
         :param str key: 文件名
-        :param str permission: 可以是'default'、'private'、'public-read'或'public-read-write'
+        :param str permission: 可以是OBJECT_ACL_DEFAULT、OBJECT_ACL_PRIVATE、OBJECT_ACL_PUBLIC_READ或
+            OBJECT_ACL_PUBLIC_READ_WRITE。
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
@@ -504,7 +500,7 @@ class Bucket(_Base):
     def init_multipart_upload(self, key, headers=None):
         """初始化分片上传。
 
-        返回值中的 `upload_id` 以及bucket名和Object名三元组唯一对应了此次分片上传事件。
+        返回值中的 `upload_id` 以及Bucket名和Object名三元组唯一对应了此次分片上传事件。
 
         :param str key: 待上传的文件名
 
@@ -543,8 +539,7 @@ class Bucket(_Base):
         :param str key: 待上传的文件名，这个文件名要和 :func:`init_multipart_upload` 的文件名一致。
         :param str upload_id: 分片上传ID
 
-        :param parts: PartInfo列表，按照分片号升序的方式排列。PartInfo中的part_number和etag是必填项。
-            其中的etag可以从 :func:`upload_part` 的返回值中得到。
+        :param parts: PartInfo列表。PartInfo中的part_number和etag是必填项。其中的etag可以从 :func:`upload_part` 的返回值中得到。
         :type parts: list of `PartInfo <oss2.models.PartInfo>`
 
         :param headers: HTTP头部
@@ -670,7 +665,8 @@ class Bucket(_Base):
     def put_bucket_acl(self, permission):
         """设置Bucket的ACL。
 
-        :param str permission: 新的ACL，可以是'private'、'public-read'或`public-read-write`
+        :param str permission: 新的ACL，可以是oss2.BUCKET_ACL_PRIVATE、oss2.BUCKET_ACL_PUBLIC_READ或
+            oss2.BUCKET_ACL_PUBLIC_READ_WRITE
         """
         resp = self.__do_bucket('PUT', headers={'x-oss-acl': permission}, params={Bucket.ACL: ''})
         return RequestResult(resp)
@@ -719,7 +715,7 @@ class Bucket(_Base):
 
         :return: :class:`GetBucketLifecycleResult <oss2.models.GetBucketLifecycleResult>`
 
-        :raises: 如果没有设置Lifecycle，那么抛出 :class:`NoSuchLifecycle <oss2.exceptions.NoSuchLifecycle>`
+        :raises: 如果没有设置Lifecycle，则抛出 :class:`NoSuchLifecycle <oss2.exceptions.NoSuchLifecycle>`
         """
         resp = self.__do_bucket('GET', params={Bucket.LIFECYCLE: ''})
         return self._parse_result(resp, xml_utils.parse_get_bucket_lifecycle, GetBucketLifecycleResult)

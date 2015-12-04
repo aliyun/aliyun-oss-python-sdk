@@ -7,8 +7,6 @@ import socket
 
 from common import *
 
-logging.basicConfig(level=logging.DEBUG)
-
 
 class TestBucket(unittest.TestCase):
     def __init__(self, *args, **kwargs):

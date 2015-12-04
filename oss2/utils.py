@@ -161,6 +161,7 @@ class MonitoredStreamReader(object):
     :param data: 可以是UTF-8编码的unicode字符串、bytes或可以seek的file object
     :param callback: 用户提供的进度报告回调，形如 callback(bytes_read, total_bytes, bytes_to_read)。
         其中bytes_read是已经读取的字节数；total_bytes是总的字节数；bytes_to_read是这次即将读取的字节数。
+    :param size: `data` 的总长度，如果没有给出，则尝试调用len()或seek()和tell()获得长度。
     """
     def __init__(self, data, callback, size=None):
         self.data = to_bytes(data)
