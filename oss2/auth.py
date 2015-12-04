@@ -23,8 +23,8 @@ class Auth(object):
     )
 
     def __init__(self, access_key_id, access_key_secret):
-        self.id = access_key_id
-        self.secret = access_key_secret
+        self.id = access_key_id.strip()
+        self.secret = access_key_secret.strip()
 
     def _sign_request(self, req, bucket_name, key):
         req.headers['date'] = http_date()

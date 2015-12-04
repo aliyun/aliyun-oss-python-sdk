@@ -1,13 +1,13 @@
-oss package
-===========
+oss2 package
+============
 
 Submodules
 ----------
 
-oss.api module
---------------
+oss2.api module
+---------------
 
-.. automodule:: oss.api
+.. automodule:: oss2.api
     :members:
     :undoc-members:
     :show-inheritance:
@@ -15,7 +15,7 @@ oss.api module
 oss.auth module
 ---------------
 
-.. automodule:: oss.auth
+.. automodule:: oss2.auth
     :members:
     :undoc-members:
     :show-inheritance:
@@ -23,7 +23,7 @@ oss.auth module
 oss.compat module
 -----------------
 
-.. automodule:: oss.compat
+.. automodule:: oss2.compat
     :members:
     :undoc-members:
     :show-inheritance:
@@ -31,7 +31,7 @@ oss.compat module
 oss.defaults module
 -------------------
 
-.. automodule:: oss.defaults
+.. automodule:: oss2.defaults
     :members:
     :undoc-members:
     :show-inheritance:
@@ -39,7 +39,7 @@ oss.defaults module
 oss.exceptions module
 ---------------------
 
-.. automodule:: oss.exceptions
+.. automodule:: oss2.exceptions
     :members:
     :undoc-members:
     :show-inheritance:
@@ -47,7 +47,7 @@ oss.exceptions module
 oss.http module
 ---------------
 
-.. automodule:: oss.http
+.. automodule:: oss2.http
     :members:
     :undoc-members:
     :show-inheritance:
@@ -55,7 +55,7 @@ oss.http module
 oss.iterators module
 --------------------
 
-.. automodule:: oss.iterators
+.. automodule:: oss2.iterators
     :members:
     :undoc-members:
     :show-inheritance:
@@ -63,7 +63,7 @@ oss.iterators module
 oss.models module
 -----------------
 
-.. automodule:: oss.models
+.. automodule:: oss2.models
     :members:
     :undoc-members:
     :show-inheritance:
@@ -71,7 +71,7 @@ oss.models module
 oss.resumable module
 --------------------
 
-.. automodule:: oss.resumable
+.. automodule:: oss2.resumable
     :members:
     :undoc-members:
     :show-inheritance:
@@ -79,7 +79,7 @@ oss.resumable module
 oss.utils module
 ----------------
 
-.. automodule:: oss.utils
+.. automodule:: oss2.utils
     :members:
     :undoc-members:
     :show-inheritance:
@@ -87,7 +87,7 @@ oss.utils module
 oss.xml_utils module
 --------------------
 
-.. automodule:: oss.xml_utils
+.. automodule:: oss2.xml_utils
     :members:
     :undoc-members:
     :show-inheritance:
@@ -96,7 +96,7 @@ oss.xml_utils module
 Module contents
 ---------------
 
-.. automodule:: oss
+.. automodule:: oss2
     :members:
     :undoc-members:
     :show-inheritance:

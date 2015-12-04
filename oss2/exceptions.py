@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-oss.exceptions
+oss2.exceptions
 ~~~~~~~~~~~~~~
 
 异常类。

@@ -1,7 +1,8 @@
 # Aliyun OSS SDK for Python
 
 ## 概述
-阿里云对象存储Python SDK。
+阿里云对象存储Python SDK 2.x版本。该版本不和上一个版本（0.x版本）兼容，包的名称为oss2，以避免和先前的版本冲突。
+该版本的SDK依赖于优秀的第三方HTTP库[requests](github.com/kennethreitz/requests)，请按照下述安装方法进行安装。
 
 ## 运行环境
 Python 2.6，2.7，3.3，3.4，3.5
@@ -11,7 +12,7 @@ Python 2.6，2.7，3.3，3.4，3.5
 ## 安装方法
 通过pip安装官方发布的版本（以Linux系统为例）：
 ```bash
-$ pip install oss
+$ pip install oss2
 ```
 也可以直接安装解压后的安装包：
 ```bash
@@ -22,12 +23,12 @@ $ sudo python setup.py install
 ```python
 # -*- coding: utf-8 -*-
 
-import oss
+import oss2
 
-endpoint = 'oss-cn-hangzhou.aliyuncs.com' # 假设你的Bucket处于杭州区域
+endpoint = 'http://oss-cn-hangzhou.aliyuncs.com' # 假设你的Bucket处于杭州区域
 
-auth = oss.Auth('<你的AccessKeyId>', '<你的AccessKeySecret>')
-bucket = oss.Bucket(auth, endpoint, '<你的Bucket名>')
+auth = oss2.Auth('<你的AccessKeyId>', '<你的AccessKeySecret>')
+bucket = oss2.Bucket(auth, endpoint, '<你的Bucket名>')
 
 # 对象名（key）为storage.txt
 key = 'story.txt'
@@ -42,18 +43,18 @@ bucket.get_object(key).read()
 bucket.delete_object(key)
 
 # 遍历所有对象
-for object_info in oss.ObjectIterator(bucket):
+for object_info in oss2.ObjectIterator(bucket):
     print(object_info.key)
 ```
 
 ## 出错处理
-除非特别说明，一旦出错，Python SDK的接口就会抛出异常（见oss.exceptions子模块）。参考下面的例子：
+除非特别说明，一旦出错，Python SDK的接口就会抛出异常（见oss2.exceptions子模块）。参考下面的例子：
 ```python
 
 try:
     result = bucket.get_object(key)
     print(result.read())
-catch oss.exceptions.NoSuchKey as e:
+catch oss2.exceptions.NoSuchKey as e:
     print('{0} not found: http_status={1}, request_id={2}'.format(key, e.result.status, e.result.request_id))
 ```
 

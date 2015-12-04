@@ -7,10 +7,10 @@ import os
 import calendar
 import time
 
-import oss
+import oss2
 
-from oss.exceptions import NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable
-from oss import to_string
+from oss2.exceptions import NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable
+from oss2 import to_string
 
 from common import *
 
@@ -25,7 +25,7 @@ class TestObject(unittest.TestCase):
         self.bucket = None
 
     def setUp(self):
-        self.bucket = oss.Bucket(oss.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
+        self.bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
 
     def test_object(self):
         key = random_string(12) + '.js'
@@ -124,7 +124,7 @@ class TestObject(unittest.TestCase):
         # 设置bucket为public-read，并确认可以上传和下载
         self.bucket.put_bucket_acl('public-read-write')
 
-        b = oss.Bucket(oss.AnonymousAuth(), OSS_ENDPOINT, OSS_BUCKET)
+        b = oss2.Bucket(oss2.AnonymousAuth(), OSS_ENDPOINT, OSS_BUCKET)
         b.put_object(key, content)
         result = b.get_object(key)
         self.assertEqual(result.read(), content)
@@ -137,8 +137,8 @@ class TestObject(unittest.TestCase):
         # 设置bucket为private，并确认上传和下载都会失败
         self.bucket.put_bucket_acl('private')
 
-        self.assertRaises(oss.exceptions.AccessDenied, b.put_object, key, content)
-        self.assertRaises(oss.exceptions.AccessDenied, b.get_object, key)
+        self.assertRaises(oss2.exceptions.AccessDenied, b.put_object, key, content)
+        self.assertRaises(oss2.exceptions.AccessDenied, b.get_object, key)
 
     def test_range_get(self):
         key = random_string(12)

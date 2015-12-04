@@ -4,26 +4,26 @@
 易用性接口
 ==========
 
-.. module:: oss
+.. module:: oss2
 
 迭代器
 ~~~~~~
 
-.. autoclass:: oss.BucketIterator
-.. autoclass:: oss.ObjectIterator
-.. autoclass:: oss.MultipartUploadIterator
-.. autoclass:: oss.ObjectUploadIterator
-.. autoclass:: oss.PartIterator
+.. autoclass:: oss2.BucketIterator
+.. autoclass:: oss2.ObjectIterator
+.. autoclass:: oss2.MultipartUploadIterator
+.. autoclass:: oss2.ObjectUploadIterator
+.. autoclass:: oss2.PartIterator
 
 
 断点续传上传
 ~~~~~~~~~~~~
 
-.. autofunction:: oss.resumable_upload
+.. autofunction:: oss2.resumable_upload
 
 
 FileObject适配器
 ~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: oss.SizedStreamReader
-.. autoclass:: oss.MonitoredStreamReader
+.. autoclass:: oss2.SizedStreamReader
+.. autoclass:: oss2.MonitoredStreamReader

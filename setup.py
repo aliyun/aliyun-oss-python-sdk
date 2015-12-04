@@ -10,7 +10,7 @@ except ImportError:
 
 
 version = ''
-with open('oss/__init__.py', 'r') as fd:
+with open('oss2/__init__.py', 'r') as fd:
     version = re.search(r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]',
                         fd.read(), re.MULTILINE).group(1)
 
@@ -19,13 +19,13 @@ if not version:
 
 
 setup(
-    name='oss',
+    name='oss2',
     version=version,
     description='Aliyun OSS (Object Storage Service) SDK',
-    packages=['oss'],
+    packages=['oss2'],
     install_requires=['requests'],
     include_package_data=True,
-    url='http://oss.aliyun.com',
+    url='http://oss2.aliyun.com',
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',

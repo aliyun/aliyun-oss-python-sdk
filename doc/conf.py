@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# oss documentation build configuration file, created by
+# oss2 documentation build configuration file, created by
 # sphinx-quickstart on Tue Dec 01 12:00:37 2015.
 #
 # This file is execfile()d with the current directory set to its
@@ -20,7 +20,7 @@ import shlex
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 sys.path.insert(0, os.path.abspath('..'))
-import oss
+import oss2
 
 # -- General configuration ------------------------------------------------
 
@@ -51,7 +51,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'oss'
+project = u'oss2'
 copyright = u'2015, Author'
 author = u'Author'
 
@@ -227,7 +227,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-  (master_doc, 'oss.tex', u'oss Documentation',
+  (master_doc, 'oss2.tex', u'oss2 Documentation',
    u'Author', 'manual'),
 ]
 
@@ -257,7 +257,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'oss', u'oss Documentation',
+    (master_doc, 'oss2', u'oss2 Documentation',
      [author], 1)
 ]
 
@@ -271,8 +271,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  (master_doc, 'oss', u'oss Documentation',
-   author, 'oss', 'One line description of project.',
+  (master_doc, 'oss2', u'oss2 Documentation',
+   author, 'oss2', 'One line description of project.',
    'Miscellaneous'),
 ]
 

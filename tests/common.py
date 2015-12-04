@@ -2,7 +2,7 @@ import os
 import random
 import string
 
-import oss
+import oss2
 
 
 OSS_ID = os.getenv("OSS_TEST_ACCESS_KEY_ID")
@@ -17,4 +17,4 @@ def random_string(n):
 
 
 def random_bytes(n):
-    return oss.to_bytes(random_string(n))
+    return oss2.to_bytes(random_string(n))

@@ -3,18 +3,18 @@
 import unittest
 import hashlib
 
-import oss
+import oss2
 
 from common import *
 
 
 class TestIterator(unittest.TestCase):
     def setUp(self):
-        self.bucket = oss.Bucket(oss.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
+        self.bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
 
     def test_bucket_iterator(self):
-        service = oss.Service(oss.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT)
-        self.assertTrue(OSS_BUCKET in (b.name for b in oss.BucketIterator(service, max_keys=2)))
+        service = oss2.Service(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT)
+        self.assertTrue(OSS_BUCKET in (b.name for b in oss2.BucketIterator(service, max_keys=2)))
 
     def test_object_iterator(self):
         prefix = random_string(12) + '/'
@@ -34,7 +34,7 @@ class TestIterator(unittest.TestCase):
         # 验证
         objects_got = []
         dirs_got = []
-        for info in oss.ObjectIterator(self.bucket, prefix, delimiter='/', max_keys=4):
+        for info in oss2.ObjectIterator(self.bucket, prefix, delimiter='/', max_keys=4):
             if info.is_prefix():
                 dirs_got.append(info.key)
             else:
@@ -65,7 +65,7 @@ class TestIterator(unittest.TestCase):
         # 验证
         uploads_got = []
         dirs_got = []
-        for u in oss.MultipartUploadIterator(self.bucket, prefix=prefix, delimiter='/', max_uploads=2):
+        for u in oss2.MultipartUploadIterator(self.bucket, prefix=prefix, delimiter='/', max_uploads=2):
             if u.is_prefix():
                 dirs_got.append(u.key)
             else:
@@ -90,7 +90,7 @@ class TestIterator(unittest.TestCase):
 
         # 验证
         uploads_got = []
-        for u in oss.ObjectUploadIterator(self.bucket, target_object, max_uploads=5):
+        for u in oss2.ObjectUploadIterator(self.bucket, target_object, max_uploads=5):
             uploads_got.append(u.upload_id)
 
         self.assertEqual(sorted(target_list), uploads_got)
@@ -111,14 +111,14 @@ class TestIterator(unittest.TestCase):
         part_list = []
         for part_number in [1, 3, 6, 7, 9, 10]:
             content = random_string(128 * 1024)
-            etag = hashlib.md5(oss.to_bytes(content)).hexdigest().upper()
-            part_list.append(oss.models.PartInfo(part_number, etag, len(content)))
+            etag = hashlib.md5(oss2.to_bytes(content)).hexdigest().upper()
+            part_list.append(oss2.models.PartInfo(part_number, etag, len(content)))
 
             self.bucket.upload_part(key, upload_id, part_number, content)
 
         # 验证
         parts_got = []
-        for part_info in oss.PartIterator(self.bucket, key, upload_id):
+        for part_info in oss2.PartIterator(self.bucket, key, upload_id):
             parts_got.append(part_info)
 
         self.assertEqual(len(part_list), len(parts_got))

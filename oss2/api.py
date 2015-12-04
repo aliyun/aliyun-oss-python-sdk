@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
 """
-oss.api
-~~~~~~~
+oss2.api
+~~~~~~~~
 
 这个模块包含了用于访问OSS的底层接口。
 
@@ -28,7 +28,7 @@ Bucket配置修改方法中的input参数
 
 返回值
 ------
-:class:`Service` 和 :class:`Bucket` 类的大多数方法都是返回 :class:`RequestResult <oss.models.RequestResult>`
+:class:`Service` 和 :class:`Bucket` 类的大多数方法都是返回 :class:`RequestResult <oss2.models.RequestResult>`
 及其子类。`RequestResult` 包含了HTTP响应的状态码、头部以及OSS Request ID，而它的子类则包含用户真正想要的结果。例如，
 `ListBucketsResult.buckets` 就是返回的Bucket信息列表；`GetObjectResult` 则是一个file-like object，可以调用`read()`来获取响应的
 HTTP包体。
@@ -36,7 +36,7 @@ HTTP包体。
 
 异常
 ----
-当HTTP请求失败时，即响应状态码不是2XX时，如无特殊说明都会抛出 :class:`OssError <oss.exceptions.OssError>` 异常或是其子类。
+当HTTP请求失败时，即响应状态码不是2XX时，如无特殊说明都会抛出 :class:`OssError <oss2.exceptions.OssError>` 异常或是其子类。
 
 
 .. _byte_range:
@@ -96,7 +96,7 @@ import shutil
 class _Base(object):
     def __init__(self, auth, endpoint, is_cname, session, connect_timeout):
         self.auth = auth
-        self.endpoint = _normalize_endpoint(endpoint)
+        self.endpoint = _normalize_endpoint(endpoint.strip())
         self.session = session or http.Session()
         self.timeout = connect_timeout
 
@@ -123,19 +123,19 @@ class Service(_Base):
 
     用法 ::
 
-        >>> import oss
-        >>> auth = oss.Auth('your-access-key-id', 'your-access-key-secret')
-        >>> service = oss.Service(auth, 'oss-cn-hangzhou.aliyuncs.com')
+        >>> import oss2
+        >>> auth = oss2.Auth('your-access-key-id', 'your-access-key-secret')
+        >>> service = oss2.Service(auth, oss2)
         >>> service.list_buckets()
-        <oss.models.ListBucketsResult object at 0x0299FAB0>
+        <oss2.models.ListBucketsResult object at 0x0299FAB0>
 
     :param auth: 包含了用户认证信息的Auth对象
-    :type auth: oss.Auth
+    :type auth: oss2.Auth
 
     :param str endpoint: 访问域名，如杭州区域的域名为oss-cn-hangzhou.aliyuncs.com
 
     :param session: 会话。如果是None表示新开会话，非None则复用传入的会话
-    :type session: oss.Session
+    :type session: oss2.Session
 
     :param int connect_timeout: 连接超时时间，以秒为单位。
     """
@@ -152,7 +152,7 @@ class Service(_Base):
         :param int max_keys: 每次调用最多返回的Bucket数目
 
         :return: 罗列的结果
-        :rtype: oss.models.ListBucketsResult
+        :rtype: oss2.models.ListBucketsResult
         """
         resp = self._do('GET', '', '',
                         params={'prefix': prefix,
@@ -166,21 +166,21 @@ class Bucket(_Base):
 
     用法 ::
 
-        >>> import oss
-        >>> auth = oss.Auth('your-access-key-id', 'your-access-key-secret')
-        >>> bucket = oss.Bucket(auth, 'oss-cn-beijing.aliyuncs.com', 'your-bucket')
+        >>> import oss2
+        >>> auth = oss2.Auth('your-access-key-id', 'your-access-key-secret')
+        >>> bucket = oss2.Bucket(auth, 'oss-cn-beijing.aliyuncs.com', 'your-bucket')
         >>> bucket.put_object('readme.txt', 'content of the object')
-        <oss.models.PutObjectResult object at 0x029B9930>
+        <oss2.models.PutObjectResult object at 0x029B9930>
 
     :param auth: 包含了用户认证信息的Auth对象
-    :type auth: oss.Auth
+    :type auth: oss2.Auth
 
     :param str endpoint: 访问域名或者CNAME
     :param str bucket_name: Bucket名
     :param bool is_cname: 如果endpoint是CNAME则设为True；反之，则为False。
 
     :param session: 会话。如果是None表示新开会话，非None则复用传入的会话
-    :type session: oss.Session
+    :type session: oss2.Session
 
     :param int connect_timeout: 连接超时时间，以秒为单位。
     """
@@ -215,7 +215,7 @@ class Bucket(_Base):
 
         :param headers: 需要签名的HTTP头部，如名称以x-oss-meta-开头的头部（作为用户自定义元数据）、
             Content-Type头部等。对于下载，不需要填。
-        :type headers: 可以是dict，建议是oss.CaseInsensitiveDict
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
 
         :param params: 需要签名的HTTP查询参数
 
@@ -234,7 +234,7 @@ class Bucket(_Base):
         :param str marker: 分页标志。首次调用传空串，后续使用返回值的next_marker
         :param int max_keys: 最多返回对象的个数，对象和目录的和不能超过该值
 
-        :return: :class:`ListObjectsResult <oss.models.ListObjectsResult>`
+        :return: :class:`ListObjectsResult <oss2.models.ListObjectsResult>`
         """
         resp = self.__do_object('GET', '',
                                 params={'prefix': prefix,
@@ -260,11 +260,11 @@ class Bucket(_Base):
         :type data: bytes，str或file-like object
 
         :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-meta-开头的头部等
-        :type headers: 可以是dict，建议是oss.CaseInsensitiveDict
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
 
         :param progress_callback: 用户指定的进度回调函数。可以用来实现进度条等功能。参考 :ref:`progress_callback` 。
 
-        :return: :class:`PutObjectResult <oss.models.PutObjectResult>`
+        :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), key)
 
@@ -283,11 +283,11 @@ class Bucket(_Base):
         :param str filename: 本地文件名，需要有可读权限
 
         :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-meta-开头的头部等
-        :type headers: 可以是dict，建议是oss.CaseInsensitiveDict
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
 
         :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
 
-        :return: :class:`PutObjectResult <oss.models.PutObjectResult>`
+        :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), filename)
 
@@ -307,14 +307,14 @@ class Bucket(_Base):
         :type data: str、bytes、file-like object或可迭代对象
 
         :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-开头的头部等
-        :type headers: 可以是dict，建议是oss.CaseInsensitiveDict
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
 
         :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
 
-        :return: :class:`AppendObjectResult <oss.models.AppendObjectResult>`
+        :return: :class:`AppendObjectResult <oss2.models.AppendObjectResult>`
 
-        :raises: 如果 `position` 和对象当前文件长度不一致，抛出 :class:`PositionNotEqualToLength <oss.exceptions.PositionNotEqualToLength>` ；
-                 如果当前对象不是可追加类型，抛出 :class:`ObjectNotAppendable <oss.exceptions.ObjectNotAppendable>` ；
+        :raises: 如果 `position` 和对象当前文件长度不一致，抛出 :class:`PositionNotEqualToLength <oss2.exceptions.PositionNotEqualToLength>` ；
+                 如果当前对象不是可追加类型，抛出 :class:`ObjectNotAppendable <oss2.exceptions.ObjectNotAppendable>` ；
                  还会抛出其他一些异常
         """
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), key)
@@ -344,13 +344,13 @@ class Bucket(_Base):
         :param byte_range: 指定下载范围。参见 :ref:`byte_range`
 
         :param headers: HTTP头部
-        :type headers: 可以是dict，建议是oss.CaseInsensitiveDict
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
 
         :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
 
         :return: file-like object
 
-        :raises: 如果对象不存在，则抛出 :class:`NoSuchKey <oss.exceptions.NoSuchKey>` ；还可能抛出其他异常
+        :raises: 如果对象不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
         headers = http.CaseInsensitiveDict(headers)
 
@@ -372,11 +372,11 @@ class Bucket(_Base):
         :param byte_range: 指定下载范围。参见 :ref:`byte_range`
 
         :param headers: HTTP头部
-        :type headers: 可以是dict，建议是oss.CaseInsensitiveDict
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
 
         :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
 
-        :return: 如果对象不存在，则抛出 :class:`NoSuchKey <oss.exceptions.NoSuchKey>` ；还可能抛出其他异常
+        :return: 如果对象不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
         with open(filename, 'wb') as f:
             result = self.get_object(key, byte_range=byte_range, headers=headers, progress_callback=progress_callback)
@@ -397,11 +397,11 @@ class Bucket(_Base):
         :param key: 对象名
 
         :param headers: HTTP头部
-        :type headers: 可以是dict，建议是oss.CaseInsensitiveDict
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
 
-        :return: :class:`HeadObjectResult <oss.models.HeadObjectResults>`
+        :return: :class:`HeadObjectResult <oss2.models.HeadObjectResults>`
 
-        :raises: 如果Bucket不存在或者Object不存在，则抛出 :class:`NotFound <oss.exceptions.NotFound>`
+        :raises: 如果Bucket不存在或者Object不存在，则抛出 :class:`NotFound <oss2.exceptions.NotFound>`
         """
         resp = self.__do_object('HEAD', key, headers=headers)
         return HeadObjectResult(resp)
@@ -433,9 +433,9 @@ class Bucket(_Base):
         :param str target_key: 目标对象名
 
         :param headers: HTTP头部
-        :type headers: 可以是dict，建议是oss.CaseInsensitiveDict
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
 
-        :return: :class:`PutObjectResult <oss.models.PutObjectResult>`
+        :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         headers = http.CaseInsensitiveDict(headers)
         headers['x-oss-copy-source'] = '/' + source_bucket_name + '/' + source_key
@@ -451,9 +451,9 @@ class Bucket(_Base):
         :param str key: 对象名
 
         :param headers: HTTP头部，包含了元数据信息
-        :type headers: 可以是dict，建议是oss.CaseInsensitiveDict
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
 
-        :return: :class:`RequestResult <oss.models.RequestResults>`
+        :return: :class:`RequestResult <oss2.models.RequestResults>`
         """
         return self.copy_object(self.bucket_name, key, key, headers=headers)
 
@@ -462,7 +462,7 @@ class Bucket(_Base):
 
         :param str key: 对象名
 
-        :return: :class:`RequestResult <oss.models.RequestResult>`
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
         resp = self.__do_object('DELETE', key)
         return RequestResult(resp)
@@ -473,7 +473,7 @@ class Bucket(_Base):
         :param str key: 对象名
         :param str permission: 可以是'default'、'private'、'public-read'或'public-read-write'
 
-        :return: :class:`RequestResult <oss.models.RequestResult>`
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
         resp = self.__do_object('PUT', key, params={'acl': ''}, headers={'x-oss-object-acl': permission})
         return RequestResult(resp)
@@ -481,7 +481,7 @@ class Bucket(_Base):
     def get_object_acl(self, key):
         """获取对象的ACL。
 
-        :return: :class:`GetObjectAclResult <oss.models.GetObjectAclResult>`
+        :return: :class:`GetObjectAclResult <oss2.models.GetObjectAclResult>`
         """
         resp = self.__do_object('GET', key, params={'acl': ''})
         return self._parse_result(resp, xml_utils.parse_get_object_acl, GetObjectAclResult)
@@ -492,7 +492,7 @@ class Bucket(_Base):
         :param key_list: 对象名列表
         :type key_list: list of str
 
-        :return: :class:`BatchDeleteObjectsResult <oss.models.BatchDeleteObjectsResult>`
+        :return: :class:`BatchDeleteObjectsResult <oss2.models.BatchDeleteObjectsResult>`
         """
         data = xml_utils.to_batch_delete_objects_request(key_list, False)
         resp = self.__do_object('POST', '',
@@ -509,9 +509,9 @@ class Bucket(_Base):
         :param str key: 待上传的对象名
 
         :param headers: HTTP头部
-        :type headers: 可以是dict，建议是oss.CaseInsensitiveDict
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
 
-        :return: :class:`InitMultipartUploadResult <oss.models.InitMultipartUploadResult>`
+        :return: :class:`InitMultipartUploadResult <oss2.models.InitMultipartUploadResult>`
         """
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), key)
 
@@ -527,7 +527,7 @@ class Bucket(_Base):
         :param data: 待上传数据。
         :param progress_callback: 用户指定进度回调函数。可以用来实现进度条等功能。参考 :ref:`progress_callback` 。
 
-        :return: :class:`PutObjectResult <oss.models.PutObjectResult>`
+        :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         if progress_callback:
             data = utils.MonitoredStreamReader(data, progress_callback)
@@ -545,12 +545,12 @@ class Bucket(_Base):
 
         :param parts: PartInfo列表，按照分片号升序的方式排列。PartInfo中的part_number和etag是必填项。
             其中的etag可以从 :func:`upload_part` 的返回值中得到。
-        :type parts: list of `PartInfo <oss.models.PartInfo>`
+        :type parts: list of `PartInfo <oss2.models.PartInfo>`
 
         :param headers: HTTP头部
-        :type headers: 可以是dict，建议是oss.CaseInsensitiveDict
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
 
-        :return: :class:`PutObjectResult <oss.models.PutObjectResult>`
+        :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         data = xml_utils.to_complete_upload_request(sorted(parts, key=lambda p: p.part_number))
         resp = self.__do_object('POST', key,
@@ -565,7 +565,7 @@ class Bucket(_Base):
         :param str key: 待上传的对象名，这个对象名要和 :func:`init_multipart_upload` 的对象名一致。
         :param str upload_id: 分片上传ID
 
-        :return: :class:`RequestResult <oss.models.RequestResult>`
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
         resp = self.__do_object('DELETE', key,
                                 params={'uploadId': upload_id})
@@ -585,7 +585,7 @@ class Bucket(_Base):
         :param str upload_id_marker: 分片ID分页符。第一次调用可以不传，后续设为返回值中的 `next_upload_id_marker`
         :param int max_uploads: 一次罗列最多能够返回的条目数
 
-        :return: :class:`ListMultipartUploadsResult <oss.models.ListMultipartUploadsResult>`
+        :return: :class:`ListMultipartUploadsResult <oss2.models.ListMultipartUploadsResult>`
         """
         resp = self.__do_object('GET', '',
                                 params={'uploads': '',
@@ -605,9 +605,9 @@ class Bucket(_Base):
         :param byte_range: 指定待拷贝内容在源对象里的范围。参见 :ref:`byte_range`
 
         :param headers: HTTP头部
-        :type headers: 可以是dict，建议是oss.CaseInsensitiveDict
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
 
-        :return: :class:`PutObjectResult <oss.models.PutObjectResult>`
+        :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         headers = http.CaseInsensitiveDict(headers)
         headers['x-oss-copy-source'] = '/' + source_bucket_name + '/' + source_key
@@ -631,7 +631,7 @@ class Bucket(_Base):
         :param str marker: 分页符
         :param int max_parts: 一次最多罗列多少分片
 
-        :return: :class:`ListPartsResult <oss.models.ListPartsResult>`
+        :return: :class:`ListPartsResult <oss2.models.ListPartsResult>`
         """
         resp = self.__do_object('GET', key,
                                 params={'uploadId': upload_id,
@@ -650,9 +650,9 @@ class Bucket(_Base):
     def delete_bucket(self):
         """删除一个Bucket。只有没有任何对象，也没有任何未完成的分片上传的Bucket才能被删除。
 
-        :return: :class:`RequestResult <oss.models.RequestResult>`
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
 
-        ":raises: 如果试图删除一个非空Bucket，则抛出 :class:`BucketNotEmpty <oss.exceptions.BucketNotEmpty>`
+        ":raises: 如果试图删除一个非空Bucket，则抛出 :class:`BucketNotEmpty <oss2.exceptions.BucketNotEmpty>`
         """
         resp = self.__do_bucket('DELETE')
         return RequestResult(resp)
@@ -678,7 +678,7 @@ class Bucket(_Base):
     def get_bucket_acl(self):
         """获取Bucket的ACL。
 
-        :return: :class:`GetBucketAclResult <oss.models.GetBucketAclResult>`
+        :return: :class:`GetBucketAclResult <oss2.models.GetBucketAclResult>`
         """
         resp = self.__do_bucket('GET', params={Bucket.ACL: ''})
         return self._parse_result(resp, xml_utils.parse_get_bucket_acl, GetBucketAclResult)
@@ -686,7 +686,7 @@ class Bucket(_Base):
     def put_bucket_cors(self, input):
         """设置Bucket的CORS。
 
-        :param input: :class:`BucketCors <oss.models.BucketCors>` 对象或其他
+        :param input: :class:`BucketCors <oss2.models.BucketCors>` 对象或其他
         """
         data = self.__convert_data(BucketCors, xml_utils.to_put_bucket_cors, input)
         resp = self.__do_bucket('PUT', data=data, params={Bucket.CORS: ''})
@@ -695,7 +695,7 @@ class Bucket(_Base):
     def get_bucket_cors(self):
         """获取Bucket的CORS配置。
 
-        :return: :class:`GetBucketCorsResult <oss.models.GetBucketCorsResult>`
+        :return: :class:`GetBucketCorsResult <oss2.models.GetBucketCorsResult>`
         """
         resp = self.__do_bucket('GET', params={Bucket.CORS: ''})
         return self._parse_result(resp, xml_utils.parse_get_bucket_cors, GetBucketCorsResult)
@@ -708,7 +708,7 @@ class Bucket(_Base):
     def put_bucket_lifecycle(self, input):
         """设置对象生命周期管理的配置。
 
-        :param input: :class:`BucketLifecycle <oss.models.BucketLifecycle>` 对象或其他
+        :param input: :class:`BucketLifecycle <oss2.models.BucketLifecycle>` 对象或其他
         """
         data = self.__convert_data(BucketLifecycle, xml_utils.to_put_bucket_lifecycle, input)
         resp = self.__do_bucket('PUT', data=data, params={Bucket.LIFECYCLE: ''})
@@ -717,9 +717,9 @@ class Bucket(_Base):
     def get_bucket_lifecycle(self):
         """获取对象生命周期管理配置。
 
-        :return: :class:`GetBucketLifecycleResult <oss.models.GetBucketLifecycleResult>`
+        :return: :class:`GetBucketLifecycleResult <oss2.models.GetBucketLifecycleResult>`
 
-        :raises: 如果没有设置Lifecycle，那么抛出 :class:`NoSuchLifecycle <oss.exceptions.NoSuchLifecycle>`
+        :raises: 如果没有设置Lifecycle，那么抛出 :class:`NoSuchLifecycle <oss2.exceptions.NoSuchLifecycle>`
         """
         resp = self.__do_bucket('GET', params={Bucket.LIFECYCLE: ''})
         return self._parse_result(resp, xml_utils.parse_get_bucket_lifecycle, GetBucketLifecycleResult)
@@ -732,7 +732,7 @@ class Bucket(_Base):
     def get_bucket_location(self):
         """获取Bucket的数据中心。
 
-        :return: :class:`GetBucketLocationResult <oss.models.GetBucketLocationResult>`
+        :return: :class:`GetBucketLocationResult <oss2.models.GetBucketLocationResult>`
         """
         resp = self.__do_bucket('GET', params={Bucket.LOCATION: ''})
         return self._parse_result(resp, xml_utils.parse_get_bucket_location, GetBucketLocationResult)
@@ -740,7 +740,7 @@ class Bucket(_Base):
     def put_bucket_logging(self, input):
         """设置Bucket的日志收集功能。
 
-        :param input: :class:`BucketLogging <oss.models.BucketLogging>` 对象或其他
+        :param input: :class:`BucketLogging <oss2.models.BucketLogging>` 对象或其他
         """
         data = self.__convert_data(BucketLogging, xml_utils.to_put_bucket_logging, input)
         resp = self.__do_bucket('PUT', data=data, params={Bucket.LOGGING: ''})
@@ -749,7 +749,7 @@ class Bucket(_Base):
     def get_bucket_logging(self):
         """获取Bucket的日志功能配置。
 
-        :return: :class:`GetBucketLoggingResult <oss.models.GetBucketLoggingResult>`
+        :return: :class:`GetBucketLoggingResult <oss2.models.GetBucketLoggingResult>`
         """
         resp = self.__do_bucket('GET', params={Bucket.LOGGING: ''})
         return self._parse_result(resp, xml_utils.parse_get_bucket_logging, GetBucketLoggingResult)
@@ -762,7 +762,7 @@ class Bucket(_Base):
     def put_bucket_referer(self, input):
         """为Bucket设置防盗链。
 
-        :param input: :class:`BucketReferer <oss.models.BucketReferer>` 对象或其他
+        :param input: :class:`BucketReferer <oss2.models.BucketReferer>` 对象或其他
         """
         data = self.__convert_data(BucketReferer, xml_utils.to_put_bucket_referer, input)
         resp = self.__do_bucket('PUT', data=data, params={Bucket.REFERER: ''})
@@ -771,7 +771,7 @@ class Bucket(_Base):
     def get_bucket_referer(self):
         """获取Bucket的防盗链配置。
 
-        :return: :class:`GetBucketRefererResult <oss.models.GetBucketRefererResult>`
+        :return: :class:`GetBucketRefererResult <oss2.models.GetBucketRefererResult>`
         """
         resp = self.__do_bucket('GET', params={Bucket.REFERER: ''})
         return self._parse_result(resp, xml_utils.parse_get_bucket_referer, GetBucketRefererResult)
@@ -779,7 +779,7 @@ class Bucket(_Base):
     def put_bucket_website(self, input):
         """为Bucket配置静态网站托管功能。
 
-        :param input: :class:`BucketWebsite <oss.models.BucketWebsite>`
+        :param input: :class:`BucketWebsite <oss2.models.BucketWebsite>`
         """
         data = self.__convert_data(BucketWebsite, xml_utils.to_put_bucket_website, input)
         resp = self.__do_bucket('PUT', data=data, params={Bucket.WEBSITE: ''})
@@ -788,9 +788,9 @@ class Bucket(_Base):
     def get_bucket_website(self):
         """获取Bucket的静态网站托管配置。
 
-        :return: :class:`GetBucketWebsiteResult <oss.models.GetBucketWebsiteResult>`
+        :return: :class:`GetBucketWebsiteResult <oss2.models.GetBucketWebsiteResult>`
 
-        :raises: 如果没有设置静态网站托管，那么就抛出 :class:`NoSuchWebsite <oss.exceptions.NoSuchWebsite>`
+        :raises: 如果没有设置静态网站托管，那么就抛出 :class:`NoSuchWebsite <oss2.exceptions.NoSuchWebsite>`
         """
         resp = self.__do_bucket('GET', params={Bucket.WEBSITE: ''})
         return self._parse_result(resp, xml_utils.parse_get_bucket_websiste, GetBucketWebsiteResult)
@@ -806,7 +806,7 @@ class Bucket(_Base):
 
         :param str config: 可以是 `Bucket.ACL` 、 `Bucket.LOGGING` 等。
 
-        :return: :class:`RequestResult <oss.models.RequestResult>`
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
         return self.__do_bucket('GET', params={config: ''})
 

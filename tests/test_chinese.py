@@ -2,9 +2,9 @@
 
 import unittest
 import sys
-import oss
+import oss2
 
-from oss import to_bytes
+from oss2 import to_bytes
 
 from common import *
 
@@ -15,7 +15,7 @@ class TestChinese(unittest.TestCase):
         self.bucket = None
 
     def setUp(self):
-        self.bucket = oss.Bucket(oss.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
+        self.bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
 
     def test_unicode(self):
         key = random_string(16)
@@ -32,7 +32,7 @@ class TestChinese(unittest.TestCase):
             self.bucket.put_object(key, content)
             self.assertEqual(self.bucket.get_object(key).read(), to_bytes(content))
 
-            self.assertTrue(key in list(info.key for info in oss.ObjectIterator(self.bucket, prefix='中文')))
+            self.assertTrue(key in list(info.key for info in oss2.ObjectIterator(self.bucket, prefix='中文')))
 
             self.bucket.delete_object(key)
 
@@ -51,7 +51,7 @@ class TestChinese(unittest.TestCase):
 
             self.bucket.put_object(key, content)
             self.assertEqual(self.bucket.get_object(key).read(), content)
-            self.assertTrue(key in list(info.key for info in oss.ObjectIterator(self.bucket, prefix='中文')))
+            self.assertTrue(key in list(info.key for info in oss2.ObjectIterator(self.bucket, prefix='中文')))
 
             self.bucket.delete_object(key)
 

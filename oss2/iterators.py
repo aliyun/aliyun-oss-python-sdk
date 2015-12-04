@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
 """
-oss.iterators
-~~~~~~~~~~~~~
+oss2.iterators
+~~~~~~~~~~~~~~
 
 该模块包含了一些易于使用的迭代器，可以用来遍历Bucket、对象、分片上传等。
 """
@@ -57,9 +57,9 @@ class _BaseIterator(object):
 class BucketIterator(_BaseIterator):
     """遍历用户Bucket的迭代器。
 
-    每次迭代返回的是 :class:`SimplifiedBucketInfo <oss.models.SimplifiedBucketInfo>` 对象。
+    每次迭代返回的是 :class:`SimplifiedBucketInfo <oss2.models.SimplifiedBucketInfo>` 对象。
 
-    :param service: :class:`Service <oss.Service>` 对象
+    :param service: :class:`Service <oss2.Service>` 对象
     :param prefix: 只列举匹配该前缀的Bucket
     :param marker: 分页符。只列举Bucket名字典序在此之后的Bucket
     :param max_keys: 每次调用 `list_buckets` 时的max_keys参数。注意迭代器返回的数目可能会大于该值。
@@ -82,10 +82,10 @@ class BucketIterator(_BaseIterator):
 class ObjectIterator(_BaseIterator):
     """遍历Bucket里对象的迭代器。
 
-    每次迭代返回的是 :class:`SimplifiedObjectInfo <oss.models.SimplifiedObjectInfo>` 对象。
+    每次迭代返回的是 :class:`SimplifiedObjectInfo <oss2.models.SimplifiedObjectInfo>` 对象。
     当 `SimplifiedObjectInfo.is_prefix()` 返回True时，表明是公共前缀（目录）。
 
-    :param bucket: :class:`Bucket <oss.Bucket>` 对象
+    :param bucket: :class:`Bucket <oss2.Bucket>` 对象
     :param prefix: 只列举匹配该前缀的对象
     :param delimiter: 目录分隔符
     :param marker: 分页符
@@ -114,10 +114,10 @@ class ObjectIterator(_BaseIterator):
 class MultipartUploadIterator(_BaseIterator):
     """遍历Bucket里未完成的分片上传。
 
-    每次返回 :class:`MultipartUploadInfo <oss.models.MultipartUploadInfo>` 对象。
+    每次返回 :class:`MultipartUploadInfo <oss2.models.MultipartUploadInfo>` 对象。
     当 `MultipartUploadInfo.is_prefix()` 返回True时，表明是公共前缀（目录）。
 
-    :param bucket: :class:`Bucket <oss.Bucket>` 对象
+    :param bucket: :class:`Bucket <oss2.Bucket>` 对象
     :param prefix: 仅列举匹配该前缀的对象的分片上传
     :param delimiter: 目录分隔符
     :param key_marker: 对象名分页符
@@ -151,10 +151,10 @@ class MultipartUploadIterator(_BaseIterator):
 class ObjectUploadIterator(_BaseIterator):
     """遍历一个Object所有未完成的分片上传。
 
-    每次返回 :class:`MultipartUploadInfo <oss.models.MultipartUploadInfo>` 对象。
+    每次返回 :class:`MultipartUploadInfo <oss2.models.MultipartUploadInfo>` 对象。
     当 `MultipartUploadInfo.is_prefix()` 返回True时，表明是公共前缀（目录）。
 
-    :param bucket: :class:`Bucket <oss.Bucket>` 对象
+    :param bucket: :class:`Bucket <oss2.Bucket>` 对象
     :param key: 对象名
     :param max_uploads: 每次调用 `list_multipart_uploads` 时的max_uploads参数。注意迭代器返回的数目可能会大于该值。
     """
@@ -186,7 +186,7 @@ class ObjectUploadIterator(_BaseIterator):
 class PartIterator(_BaseIterator):
     """遍历一个分片上传会话中已经上传的分片。
 
-    :param bucket: :class:`Bucket <oss.Bucket>` 对象
+    :param bucket: :class:`Bucket <oss2.Bucket>` 对象
     :param key: 对象名
     :param upload_id: 分片上传ID
     :param marker: 分页符

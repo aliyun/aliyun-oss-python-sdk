@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-oss.models
+oss2.models
 ~~~~~~~~~~
 
 该模块包含Python SDK API接口所需要的输入参数以及返回值类型。
@@ -28,8 +28,8 @@ from .utils import gmt_to_unixtime, MonitoredStreamReader
 class PartInfo(object):
     """表示分片信息的对象。
 
-    该对象既用于 :func:`list_parts <oss.Bucket.list_parts>` 的输出，也用于 :func:`complete_multipart_upload
-    <oss.Bucket.complete_multipart_upload>` 的输入。
+    该对象既用于 :func:`list_parts <oss2.Bucket.list_parts>` 的输出，也用于 :func:`complete_multipart_upload
+    <oss2.Bucket.complete_multipart_upload>` 的输入。
 
     :param int part_number: 分片号
     :param str etag: 分片的ETag
@@ -160,7 +160,7 @@ class ListObjectsResult(RequestResult):
         #: True表示还有更多的文件可以罗列；False表示已经列举完毕。
         self.is_truncated = False
 
-        #: 下一次罗列的分页标记符，即，可以作为 :func:`list_objects <oss.Bucket.list_objects>` 的 `marker` 参数。
+        #: 下一次罗列的分页标记符，即，可以作为 :func:`list_objects <oss2.Bucket.list_objects>` 的 `marker` 参数。
         self.next_marker = ''
 
         #: 本次罗列得到的文件列表。其中元素的类型为 :class:`SimplifiedObjectInfo` 。
@@ -211,7 +211,7 @@ class GetObjectAclResult(RequestResult):
 
 
 class SimplifiedBucketInfo(object):
-    """:func:`list_buckets <oss.Service.list_objects>` 结果中的单个元素类型。"""
+    """:func:`list_buckets <oss2.Service.list_objects>` 结果中的单个元素类型。"""
     def __init__(self, name, location, creation_date):
         #: Bucket名
         self.name = name
@@ -230,7 +230,7 @@ class ListBucketsResult(RequestResult):
         #: True表示还有更多的Bucket可以罗列；False表示已经列举完毕。
         self.is_truncated = False
 
-        #: 下一次罗列的分页标记符，即，可以作为 :func:`list_buckets <oss.Service.list_buckets>` 的 `marker` 参数。
+        #: 下一次罗列的分页标记符，即，可以作为 :func:`list_buckets <oss2.Service.list_buckets>` 的 `marker` 参数。
         self.next_marker = ''
 
         #: 得到的Bucket列表，类型为 :class:`SimplifiedBucketInfo` 。

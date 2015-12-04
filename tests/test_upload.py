@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-import oss
+import oss2
 import os
 import tempfile
 import sys
@@ -12,7 +12,7 @@ from common import *
 
 class TestUpload(unittest.TestCase):
     def setUp(self):
-        self.bucket = oss.Bucket(oss.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
+        self.bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
         self.temp_files = []
 
     def tearDown(self):
@@ -34,7 +34,7 @@ class TestUpload(unittest.TestCase):
 
         pathname = self._prepare_temp_file(content)
 
-        oss.resumable_upload(self.bucket, key, pathname)
+        oss2.resumable_upload(self.bucket, key, pathname)
 
         result = self.bucket.get_object(key)
         self.assertEqual(content, result.read())
@@ -46,7 +46,7 @@ class TestUpload(unittest.TestCase):
 
         pathname = self._prepare_temp_file(content)
 
-        oss.resumable_upload(self.bucket, key, pathname, multipart_threshold=200 * 1024, part_size=None)
+        oss2.resumable_upload(self.bucket, key, pathname, multipart_threshold=200 * 1024, part_size=None)
 
         result = self.bucket.get_object(key)
         self.assertEqual(content, result.read())
@@ -66,14 +66,14 @@ class TestUpload(unittest.TestCase):
 
         pathname = self._prepare_temp_file(content)
 
-        oss.resumable_upload(self.bucket, key, pathname,
+        oss2.resumable_upload(self.bucket, key, pathname,
                              multipart_threshold=200 * 1024,
                              part_size=100*1024,
                              progress_callback=progress_callback)
         self.assertEqual(stats['previous'], len(content))
 
         stats = {'previous': -1}
-        oss.resumable_upload(self.bucket, key, pathname,
+        oss2.resumable_upload(self.bucket, key, pathname,
                              multipart_threshold=len(content) + 100,
                              progress_callback=progress_callback)
         self.assertEqual(stats['previous'], len(content))
@@ -98,13 +98,13 @@ class TestUpload(unittest.TestCase):
 
             self.bucket.upload_part(key, upload_id, part_number, content[start:end])
 
-        oss.resumable._rebuild_record(pathname, oss.resumable.make_upload_store(), self.bucket, key, upload_id, part_size)
-        oss.resumable_upload(self.bucket, key, pathname, multipart_threshold=0, part_size=100 * 1024)
+        oss2.resumable._rebuild_record(pathname, oss2.resumable.make_upload_store(), self.bucket, key, upload_id, part_size)
+        oss2.resumable_upload(self.bucket, key, pathname, multipart_threshold=0, part_size=100 * 1024)
 
         result = self.bucket.get_object(key)
         self.assertEqual(content, result.read())
 
-        self.assertEqual(len(list(oss.ObjectUploadIterator(self.bucket, key))), expected_unfinished)
+        self.assertEqual(len(list(oss2.ObjectUploadIterator(self.bucket, key))), expected_unfinished)
 
     def test_resume_empty(self):
         self.__test_resume(250 * 1024, [])
@@ -121,7 +121,7 @@ class TestUpload(unittest.TestCase):
     def __test_interrupt(self, content_size, failed_part_number,
                          expected_unfinished=0,
                          modify_record_func=None):
-        orig_upload_part = oss.Bucket.upload_part
+        orig_upload_part = oss2.Bucket.upload_part
 
         def upload_part(self, key, upload_id, part_number, data):
             if part_number == failed_part_number:
@@ -135,19 +135,19 @@ class TestUpload(unittest.TestCase):
         pathname = self._prepare_temp_file(content)
 
         from unittest.mock import patch
-        with patch.object(oss.Bucket, 'upload_part', side_effect=upload_part, autospec=True) as mock_upload_part:
+        with patch.object(oss2.Bucket, 'upload_part', side_effect=upload_part, autospec=True) as mock_upload_part:
             try:
-                oss.resumable_upload(self.bucket, key, pathname, multipart_threshold=0,
+                oss2.resumable_upload(self.bucket, key, pathname, multipart_threshold=0,
                                           part_size=100 * 1024)
             except RuntimeError:
                 pass
 
         if modify_record_func:
-            modify_record_func(oss.resumable.make_upload_store(), self.bucket.bucket_name, key, pathname)
+            modify_record_func(oss2.resumable.make_upload_store(), self.bucket.bucket_name, key, pathname)
 
-        oss.resumable_upload(self.bucket, key, pathname, multipart_threshold=0, part_size=100 * 1024)
+        oss2.resumable_upload(self.bucket, key, pathname, multipart_threshold=0, part_size=100 * 1024)
 
-        self.assertEqual(len(list(oss.ObjectUploadIterator(self.bucket, key))), expected_unfinished)
+        self.assertEqual(len(list(oss2.ObjectUploadIterator(self.bucket, key))), expected_unfinished)
 
     if sys.version_info >= (3, 3):
         def test_interrupt_empty(self):
@@ -216,12 +216,12 @@ class TestUpload(unittest.TestCase):
             old = record[key]
             record[key] = value
 
-            self.assertTrue(not oss.resumable._is_record_sane(record))
+            self.assertTrue(not oss2.resumable._is_record_sane(record))
 
             record[key] = old
 
-        self.assertTrue(oss.resumable._is_record_sane(record))
-        self.assertTrue(not oss.resumable._is_record_sane({}))
+        self.assertTrue(oss2.resumable._is_record_sane(record))
+        self.assertTrue(not oss2.resumable._is_record_sane({}))
 
         check_not_sane('upload_id', 1)
         check_not_sane('size', '123')

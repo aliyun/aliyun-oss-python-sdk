@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
 """
-oss.xml_utils
-~~~~~~~~~~~~~
+oss2.xml_utils
+~~~~~~~~~~~~~~
 
 XML处理相关。
 

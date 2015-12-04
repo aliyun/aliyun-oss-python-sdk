@@ -3,7 +3,7 @@
 import os
 import shutil
 
-import oss
+import oss2
 
 
 # 该文件展示了基本的文件上传、下载、罗列、删除用法。
@@ -11,6 +11,11 @@ import oss
 
 # 首先初始化AccessKeyId、AccessKeySecret、Endpoint等信息。
 # 通过环境变量获取，或者把诸如“<你的AccessKeyId>”替换成真实的AccessKeyId等。
+#
+# 以杭州区域为例，Endpoint可以是：
+#   http://oss-cn-hangzhou.aliyuncs.com
+#   https://oss-cn-hangzhou.aliyuncs.com
+# 分别以HTTP、HTTPS协议访问。
 access_key_id = os.getenv('OSS_TEST_ACCESS_KEY_ID', '<你的AccessKeyId>')
 access_key_secret = os.getenv('OSS_TEST_ACCESS_KEY_SECRET', '<你的AccessKeySecret>')
 bucket_name = os.getenv('OSS_TEST_BUCKET', '<你的Bucket>')
@@ -23,7 +28,7 @@ for param in (access_key_id, access_key_secret, bucket_name, endpoint):
 
 
 # 创建Bucket对象，所有Object相关的接口都可以通过Bucket对象来进行
-bucket = oss.Bucket(oss.Auth(access_key_id, access_key_secret), endpoint, bucket_name)
+bucket = oss2.Bucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name)
 
 
 # 上传一段字符串。Object名是motto.txt，内容是一段名言。
@@ -52,7 +57,7 @@ bucket.put_object_from_file('云上座右铭.txt', '本地座右铭.txt')
 
 
 # 列举Bucket下10个Object，并打印它们的最后修改时间、文件名
-for i, object_info in enumerate(oss.ObjectIterator(bucket)):
+for i, object_info in enumerate(oss2.ObjectIterator(bucket)):
     print("{0} {1}".format(object_info.last_modified, object_info.key))
 
     if i >= 9:
@@ -74,7 +79,7 @@ assert not bucket.object_exists('motto.txt')
 # 获取不存在的文件会抛出oss.exceptions.NoSuchKey异常
 try:
     bucket.get_object('云上座右铭.txt')
-except oss.exceptions.NoSuchKey:
+except oss2.exceptions.NoSuchKey:
     print('已经被删除了')
 else:
     assert False

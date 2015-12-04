@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-oss.http
+oss2.http
 ~~~~~~~~
 
 这个模块包含了HTTP Adapters。尽管OSS Python SDK内部使用requests库进行HTTP通信，但是对使用者是透明的。

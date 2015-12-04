@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-import oss
+import oss2
 import logging
 
 from common import *
@@ -13,7 +13,7 @@ class TestMultipart(unittest.TestCase):
         self.bucket = None
 
     def setUp(self):
-        self.bucket = oss.Bucket(oss.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
+        self.bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
 
     def test_multipart(self):
         key = random_string(64)
@@ -23,7 +23,7 @@ class TestMultipart(unittest.TestCase):
         upload_id = self.bucket.init_multipart_upload(key).upload_id
 
         result = self.bucket.upload_part(key, upload_id, 1, content)
-        parts.append(oss.models.PartInfo(1, result.etag))
+        parts.append(oss2.models.PartInfo(1, result.etag))
 
         self.bucket.complete_multipart_upload(key, upload_id, parts)
 
@@ -63,11 +63,11 @@ class TestMultipart(unittest.TestCase):
 
         result = self.bucket.upload_part_copy(self.bucket.bucket_name, src_object,
                                               (0, 100 * 1024 - 1), dst_object, upload_id, 1)
-        parts.append(oss.models.PartInfo(1, result.etag))
+        parts.append(oss2.models.PartInfo(1, result.etag))
 
         result = self.bucket.upload_part_copy(self.bucket.bucket_name, src_object,
                                               (100*1024, None), dst_object, upload_id, 2)
-        parts.append(oss.models.PartInfo(2, result.etag))
+        parts.append(oss2.models.PartInfo(2, result.etag))
 
         self.bucket.complete_multipart_upload(dst_object, upload_id, parts)
 

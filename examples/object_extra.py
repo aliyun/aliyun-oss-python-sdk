@@ -3,7 +3,7 @@
 import os
 from datetime import datetime
 
-import oss
+import oss2
 
 
 # 该文件展示了一些和文件相关的高级用法，如中文、设置用户自定义元数据、拷贝文件、追加上传等。
@@ -23,7 +23,7 @@ for param in (access_key_id, access_key_secret, bucket_name, endpoint):
 
 
 # 创建Bucket对象，所有Object相关的接口都可以通过Bucket对象来进行
-bucket = oss.Bucket(oss.Auth(access_key_id, access_key_secret), endpoint, bucket_name)
+bucket = oss2.Bucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name)
 
 
 # Object名、前缀名等等参数可以直接用str类型（即Python2的bytes，Python3的unicode）
