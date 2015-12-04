@@ -86,3 +86,5 @@ class TestChinese(unittest.TestCase):
         self.bucket.put_object_from_file(key2, '中文本地文件名.txt')
 
         self.assertEqual(self.bucket.get_object(key2).read(), content)
+
+        os.remove(u'中文本地文件名.txt')

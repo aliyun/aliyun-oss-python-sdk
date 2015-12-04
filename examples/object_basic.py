@@ -1,4 +1,4 @@
-note
+# -*- coding: utf-8 -*-
 
 import os
 import shutil
@@ -37,7 +37,7 @@ bucket.put_object('motto.txt', 'Never give up. - Jack Ma')
 
 # 把刚刚上传的Object下载到本地文件 “座右铭.txt” 中
 # 因为get_object()方法返回的是一个file-like object，所以我们可以直接用shutil.copyfileobj()做拷贝
-with open('本地座右铭.txt', 'wb') as f:
+with open(oss2.to_unicode('本地座右铭.txt'), 'wb') as f:
     shutil.copyfileobj(bucket.get_object('motto.txt'), f)
 
 
@@ -48,7 +48,7 @@ bucket.get_object_to_file('motto.txt', '本地文件名.txt')
 # 把本地文件 “座右铭.txt” 上传到OSS，新的Object叫做 “我的座右铭.txt”
 # 注意到，这次put_object()的第二个参数是file object；而上次上传是一个字符串。
 # put_object()能够识别不同的参数类型
-with open('本地座右铭.txt', 'rb') as f:
+with open(oss2.to_unicode('本地座右铭.txt'), 'rb') as f:
     bucket.put_object('云上座右铭.txt', f)
 
 
@@ -80,10 +80,10 @@ assert not bucket.object_exists('motto.txt')
 try:
     bucket.get_object('云上座右铭.txt')
 except oss2.exceptions.NoSuchKey:
-    print('已经被删除了')
+    print(u'已经被删除了')
 else:
     assert False
 
 #清除
-os.remove('本地文件名.txt')
-os.remove('本地座右铭.txt')
+os.remove(u'本地文件名.txt')
+os.remove(u'本地座右铭.txt')

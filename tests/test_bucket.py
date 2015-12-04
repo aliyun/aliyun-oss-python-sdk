@@ -2,6 +2,7 @@
 
 import unittest
 import datetime
+import time
 import oss2
 
 from common import *
@@ -139,6 +140,7 @@ class TestBucket(unittest.TestCase):
         cors = oss2.models.BucketCors([rule])
 
         self.bucket.put_bucket_cors(cors)
+        time.sleep(2)
 
         cors_got = self.bucket.get_bucket_cors()
         rule_got = cors_got.rules[0]
