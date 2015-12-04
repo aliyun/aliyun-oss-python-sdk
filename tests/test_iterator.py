@@ -75,7 +75,7 @@ class TestIterator(unittest.TestCase):
         self.assertEqual(sorted(dir_list), dirs_got)
 
     def test_object_upload_iterator(self):
-        # target_object是想要列举的对象，而intact_object则不是。
+        # target_object是想要列举的文件，而intact_object则不是。
         # 这里intact_object故意以target_object为前缀
         target_object = random_string(16)
         intact_object = target_object + '-' + random_string(10)

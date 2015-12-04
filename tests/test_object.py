@@ -194,7 +194,7 @@ class TestObject(unittest.TestCase):
         self.bucket.delete_object(key)
 
     def test_private_download_url(self):
-        for key in [random_string(12), u'中文对象名']:
+        for key in [random_string(12), u'中文文件名']:
             content = random_bytes(42)
 
             str_name = to_string(key)

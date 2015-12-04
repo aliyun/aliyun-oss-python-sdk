@@ -4,7 +4,7 @@
 oss2.iterators
 ~~~~~~~~~~~~~~
 
-该模块包含了一些易于使用的迭代器，可以用来遍历Bucket、对象、分片上传等。
+该模块包含了一些易于使用的迭代器，可以用来遍历Bucket、文件、分片上传等。
 """
 
 from .models import MultipartUploadInfo, SimplifiedObjectInfo
@@ -80,13 +80,13 @@ class BucketIterator(_BaseIterator):
 
 
 class ObjectIterator(_BaseIterator):
-    """遍历Bucket里对象的迭代器。
+    """遍历Bucket里文件的迭代器。
 
     每次迭代返回的是 :class:`SimplifiedObjectInfo <oss2.models.SimplifiedObjectInfo>` 对象。
     当 `SimplifiedObjectInfo.is_prefix()` 返回True时，表明是公共前缀（目录）。
 
     :param bucket: :class:`Bucket <oss2.Bucket>` 对象
-    :param prefix: 只列举匹配该前缀的对象
+    :param prefix: 只列举匹配该前缀的文件
     :param delimiter: 目录分隔符
     :param marker: 分页符
     :param max_keys: 每次调用 `list_objects` 时的max_keys参数。注意迭代器返回的数目可能会大于该值。
@@ -118,9 +118,9 @@ class MultipartUploadIterator(_BaseIterator):
     当 `MultipartUploadInfo.is_prefix()` 返回True时，表明是公共前缀（目录）。
 
     :param bucket: :class:`Bucket <oss2.Bucket>` 对象
-    :param prefix: 仅列举匹配该前缀的对象的分片上传
+    :param prefix: 仅列举匹配该前缀的文件的分片上传
     :param delimiter: 目录分隔符
-    :param key_marker: 对象名分页符
+    :param key_marker: 文件名分页符
     :param upload_id_marker: 分片上传ID分页符
     :param max_uploads: 每次调用 `list_multipart_uploads` 时的max_uploads参数。注意迭代器返回的数目可能会大于该值。
     """
@@ -155,7 +155,7 @@ class ObjectUploadIterator(_BaseIterator):
     当 `MultipartUploadInfo.is_prefix()` 返回True时，表明是公共前缀（目录）。
 
     :param bucket: :class:`Bucket <oss2.Bucket>` 对象
-    :param key: 对象名
+    :param key: 文件名
     :param max_uploads: 每次调用 `list_multipart_uploads` 时的max_uploads参数。注意迭代器返回的数目可能会大于该值。
     """
     def __init__(self, bucket, key, max_uploads=1000, max_retries=defaults.request_retries):
@@ -187,7 +187,7 @@ class PartIterator(_BaseIterator):
     """遍历一个分片上传会话中已经上传的分片。
 
     :param bucket: :class:`Bucket <oss2.Bucket>` 对象
-    :param key: 对象名
+    :param key: 文件名
     :param upload_id: 分片上传ID
     :param marker: 分页符
     :param max_parts: 每次调用 `list_parts` 时的max_parts参数。注意迭代器返回的数目可能会大于该值。

@@ -6,7 +6,7 @@ oss2.api
 
 这个模块包含了用于访问OSS的底层接口。
 
-对象上传方法中的data参数
+文件上传方法中的data参数
 ----------------------
 诸如 :func:`put_object <Bucket.put_object>` 这样的上传接口都会有 `data` 参数用于接收用户数据。`data` 可以是下述类型
     - unicode类型（对于Python3则是str类型）
@@ -47,7 +47,7 @@ HTTP包体。
 byte_range参数，表明读取数据的范围。该参数是一个二元tuple：(start, last)。这些接口会把它转换为Range头部的值，如：
     - byte_range 为 (0, 99) 转换为 'bytes=0-99'，表示读取前100个字节
     - byte_range 为 (None, 99) 转换为 'bytes=-99'，表示读取最后99个字节
-    - byte_range 为 (100, None) 转换为 'bytes=100-'，表示读取第101个字节到对象结尾的部分（包含第101个字节）
+    - byte_range 为 (100, None) 转换为 'bytes=100-'，表示读取第101个字节到文件结尾的部分（包含第101个字节）
 
 
 分页罗列
@@ -63,7 +63,7 @@ byte_range参数，表明读取数据的范围。该参数是一个二元tuple�
 上传下载进度
 -----------
 上传下载接口，诸如 `get_object` 、 `put_object` 、`resumable_upload`，都支持进度回调函数，可以用它实现进度条等功能。
-对于上传，要求待上传的对象（即 `data` 参数）是bytes或可以得到长度的file object（可以seek、tell）。
+对于上传，要求待上传的文件（即 `data` 参数）是bytes或可以得到长度的file object（可以seek、tell）。
 
 `progress_callback` 的函数原型如下::
 
@@ -210,7 +210,7 @@ class Bucket(_Base):
 
         :param method: HTTP方法，如'GET'、'PUT'、'DELETE'等
         :type method: str
-        :param key: 对象名
+        :param key: 文件名
         :param expires: 过期时间（单位：秒），链接在当前时间再过expires秒后过期
 
         :param headers: 需要签名的HTTP头部，如名称以x-oss-meta-开头的头部（作为用户自定义元数据）、
@@ -227,12 +227,12 @@ class Bucket(_Base):
         return self.auth._sign_url(req, self.bucket_name, key, expires)
 
     def list_objects(self, prefix='', delimiter='', marker='', max_keys=100):
-        """根据前缀罗列Bucket里的对象。
+        """根据前缀罗列Bucket里的文件。
 
-        :param str prefix: 只罗列文件名为该前缀的对象
+        :param str prefix: 只罗列文件名为该前缀的文件
         :param str delimiter: 分隔符。可以用来模拟目录
         :param str marker: 分页标志。首次调用传空串，后续使用返回值的next_marker
-        :param int max_keys: 最多返回对象的个数，对象和目录的和不能超过该值
+        :param int max_keys: 最多返回文件的个数，文件和目录的和不能超过该值
 
         :return: :class:`ListObjectsResult <oss2.models.ListObjectsResult>`
         """
@@ -247,14 +247,14 @@ class Bucket(_Base):
     def put_object(self, key, data,
                    headers=None,
                    progress_callback=None):
-        """上传一个普通对象。
+        """上传一个普通文件。
 
         用法 ::
             >>> bucket.put_object('readme.txt', 'content of readme.txt')
             >>> with open('local_file.txt', 'rb') as f:
             >>>     bucket.put_object('remote_file.txt', f)
 
-        :param key: 上传到OSS的对象名
+        :param key: 上传到OSS的文件名
 
         :param data: 待上传的内容。
         :type data: bytes，str或file-like object
@@ -277,9 +277,9 @@ class Bucket(_Base):
     def put_object_from_file(self, key, filename,
                              headers=None,
                              progress_callback=None):
-        """上传一个本地文件到OSS的普通对象。
+        """上传一个本地文件到OSS的普通文件。
 
-        :param str key: 上传到OSS的对象名
+        :param str key: 上传到OSS的文件名
         :param str filename: 本地文件名，需要有可读权限
 
         :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-meta-开头的头部等
@@ -297,10 +297,10 @@ class Bucket(_Base):
     def append_object(self, key, position, data,
                       headers=None,
                       progress_callback=None):
-        """追加上传一个对象。
+        """追加上传一个文件。
 
-        :param str key: 新的对象名，或已经存在的可追加对象名
-        :param int position: 追加上传一个新的对象， `position` 设为0；追加一个已经存在的可追加对象， `position` 设为对象的当前长度。
+        :param str key: 新的文件名，或已经存在的可追加文件名
+        :param int position: 追加上传一个新的文件， `position` 设为0；追加一个已经存在的可追加文件， `position` 设为文件的当前长度。
             position可以从上次追加的结果 `AppendObjectResult.next_position` 中获得。
 
         :param data: 用户数据
@@ -313,8 +313,8 @@ class Bucket(_Base):
 
         :return: :class:`AppendObjectResult <oss2.models.AppendObjectResult>`
 
-        :raises: 如果 `position` 和对象当前文件长度不一致，抛出 :class:`PositionNotEqualToLength <oss2.exceptions.PositionNotEqualToLength>` ；
-                 如果当前对象不是可追加类型，抛出 :class:`ObjectNotAppendable <oss2.exceptions.ObjectNotAppendable>` ；
+        :raises: 如果 `position` 和当前文件长度不一致，抛出 :class:`PositionNotEqualToLength <oss2.exceptions.PositionNotEqualToLength>` ；
+                 如果当前文件不是可追加类型，抛出 :class:`ObjectNotAppendable <oss2.exceptions.ObjectNotAppendable>` ；
                  还会抛出其他一些异常
         """
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), key)
@@ -332,7 +332,7 @@ class Bucket(_Base):
                    byte_range=None,
                    headers=None,
                    progress_callback=None):
-        """下载一个对象。
+        """下载一个文件。
 
         用法 ::
 
@@ -340,7 +340,7 @@ class Bucket(_Base):
             >>> print(result.read())
             'hello world'
 
-        :param key: 对象名
+        :param key: 文件名
         :param byte_range: 指定下载范围。参见 :ref:`byte_range`
 
         :param headers: HTTP头部
@@ -350,7 +350,7 @@ class Bucket(_Base):
 
         :return: file-like object
 
-        :raises: 如果对象不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
+        :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
         headers = http.CaseInsensitiveDict(headers)
 
@@ -365,10 +365,10 @@ class Bucket(_Base):
                            byte_range=None,
                            headers=None,
                            progress_callback=None):
-        """下载一个对象到本地文件。
+        """下载一个文件到本地文件。
 
-        :param key: 对象名
-        :param filename: 本地文件名。需要有写权限。
+        :param key: 文件名
+        :param filename: 本地文件名。要求父目录已经存在，且有写权限。
         :param byte_range: 指定下载范围。参见 :ref:`byte_range`
 
         :param headers: HTTP头部
@@ -376,7 +376,7 @@ class Bucket(_Base):
 
         :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
 
-        :return: 如果对象不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
+        :return: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
         with open(filename, 'wb') as f:
             result = self.get_object(key, byte_range=byte_range, headers=headers, progress_callback=progress_callback)
@@ -385,16 +385,16 @@ class Bucket(_Base):
             return result
 
     def head_object(self, key, headers=None):
-        """获取对象元信息。
+        """获取文件元信息。
 
-        HTTP响应的头部包含了对象元信息，可以通过 `RequestResult` 的 `headers` 成员获得。
+        HTTP响应的头部包含了文件元信息，可以通过 `RequestResult` 的 `headers` 成员获得。
         用法 ::
 
             >>> result = bucket.head_object('readme.txt')
             >>> print result.content_type
             'text/plain'
 
-        :param key: 对象名
+        :param key: 文件名
 
         :param headers: HTTP头部
         :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
@@ -407,12 +407,12 @@ class Bucket(_Base):
         return HeadObjectResult(resp)
 
     def object_exists(self, key):
-        """如果对象存在就返回True，否则返回False。如果Bucket不存在，或是发生其他错误，则抛出异常。"""
+        """如果文件存在就返回True，否则返回False。如果Bucket不存在，或是发生其他错误，则抛出异常。"""
 
         # 如果我们用head_object来实现的话，由于HTTP HEAD请求没有响应体，只有响应头部，这样当发生404时，
         # 我们无法区分是NoSuchBucket还是NoSuchKey错误。
         #
-        # 下面的实现是通过if-modified-since头部，把date设为当前时间1小时后，这样如果对象存在，则会返回
+        # 下面的实现是通过if-modified-since头部，把date设为当前时间1小时后，这样如果文件存在，则会返回
         # 304 (NotModified)；不存在，则会返回NoSuchKey
         date = time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.gmtime(time.time() + 60 * 60))
 
@@ -426,11 +426,11 @@ class Bucket(_Base):
             raise RuntimeError('This is impossible')
 
     def copy_object(self, source_bucket_name, source_key, target_key, headers=None):
-        """拷贝一个对象到当前Bucket。
+        """拷贝一个文件到当前Bucket。
 
         :param str source_bucket_name: 源Bucket名
-        :param str source_key: 源对象名
-        :param str target_key: 目标对象名
+        :param str source_key: 源文件名
+        :param str target_key: 目标文件名
 
         :param headers: HTTP头部
         :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
@@ -448,7 +448,7 @@ class Bucket(_Base):
 
         用户可以通过 :func:`head_object` 获得元数据信息。
 
-        :param str key: 对象名
+        :param str key: 文件名
 
         :param headers: HTTP头部，包含了元数据信息
         :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
@@ -458,9 +458,9 @@ class Bucket(_Base):
         return self.copy_object(self.bucket_name, key, key, headers=headers)
 
     def delete_object(self, key):
-        """删除一个对象。
+        """删除一个文件。
 
-        :param str key: 对象名
+        :param str key: 文件名
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
@@ -468,9 +468,9 @@ class Bucket(_Base):
         return RequestResult(resp)
 
     def put_object_acl(self, key, permission):
-        """设置对象的ACL。
+        """设置文件的ACL。
 
-        :param str key: 对象名
+        :param str key: 文件名
         :param str permission: 可以是'default'、'private'、'public-read'或'public-read-write'
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
@@ -479,7 +479,7 @@ class Bucket(_Base):
         return RequestResult(resp)
 
     def get_object_acl(self, key):
-        """获取对象的ACL。
+        """获取文件的ACL。
 
         :return: :class:`GetObjectAclResult <oss2.models.GetObjectAclResult>`
         """
@@ -487,9 +487,9 @@ class Bucket(_Base):
         return self._parse_result(resp, xml_utils.parse_get_object_acl, GetObjectAclResult)
 
     def batch_delete_objects(self, key_list):
-        """批量删除对象。
+        """批量删除文件。
 
-        :param key_list: 对象名列表
+        :param key_list: 文件名列表
         :type key_list: list of str
 
         :return: :class:`BatchDeleteObjectsResult <oss2.models.BatchDeleteObjectsResult>`
@@ -506,7 +506,7 @@ class Bucket(_Base):
 
         返回值中的 `upload_id` 以及bucket名和Object名三元组唯一对应了此次分片上传事件。
 
-        :param str key: 待上传的对象名
+        :param str key: 待上传的文件名
 
         :param headers: HTTP头部
         :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
@@ -521,7 +521,7 @@ class Bucket(_Base):
     def upload_part(self, key, upload_id, part_number, data, progress_callback=None):
         """上传一个分片。
 
-        :param str key: 待上传对象名，这个对象名要和 :func:`init_multipart_upload` 的对象名一致。
+        :param str key: 待上传文件名，这个文件名要和 :func:`init_multipart_upload` 的文件名一致。
         :param str upload_id: 分片上传ID
         :param int part_number: 分片号，最小值是1.
         :param data: 待上传数据。
@@ -538,9 +538,9 @@ class Bucket(_Base):
         return PutObjectResult(resp)
 
     def complete_multipart_upload(self, key, upload_id, parts, headers=None):
-        """完成分片上传，创建对象。
+        """完成分片上传，创建文件。
 
-        :param str key: 待上传的对象名，这个对象名要和 :func:`init_multipart_upload` 的对象名一致。
+        :param str key: 待上传的文件名，这个文件名要和 :func:`init_multipart_upload` 的文件名一致。
         :param str upload_id: 分片上传ID
 
         :param parts: PartInfo列表，按照分片号升序的方式排列。PartInfo中的part_number和etag是必填项。
@@ -562,7 +562,7 @@ class Bucket(_Base):
     def abort_multipart_upload(self, key, upload_id):
         """取消分片上传。
 
-        :param str key: 待上传的对象名，这个对象名要和 :func:`init_multipart_upload` 的对象名一致。
+        :param str key: 待上传的文件名，这个文件名要和 :func:`init_multipart_upload` 的文件名一致。
         :param str upload_id: 分片上传ID
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
@@ -579,9 +579,9 @@ class Bucket(_Base):
                                max_uploads=1000):
         """罗列正在进行中的分片上传。支持分页。
 
-        :param str prefix: 只罗列对象名为该前缀的对象的分片上传
+        :param str prefix: 只罗列匹配该前缀的文件的分片上传
         :param str delimiter: 目录分割符
-        :param str key_marker: 对象名分页符。第一次调用可以不传，后续设为返回值中的 `next_key_marker`
+        :param str key_marker: 文件名分页符。第一次调用可以不传，后续设为返回值中的 `next_key_marker`
         :param str upload_id_marker: 分片ID分页符。第一次调用可以不传，后续设为返回值中的 `next_upload_id_marker`
         :param int max_uploads: 一次罗列最多能够返回的条目数
 
@@ -600,9 +600,9 @@ class Bucket(_Base):
     def upload_part_copy(self, source_bucket_name, source_key, byte_range,
                          target_key, target_upload_id, target_part_number,
                          headers=None):
-        """分片拷贝。把一个已有对象的一部分或整体拷贝成目标对象的一个分片。
+        """分片拷贝。把一个已有文件的一部分或整体拷贝成目标文件的一个分片。
 
-        :param byte_range: 指定待拷贝内容在源对象里的范围。参见 :ref:`byte_range`
+        :param byte_range: 指定待拷贝内容在源文件里的范围。参见 :ref:`byte_range`
 
         :param headers: HTTP头部
         :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
@@ -626,7 +626,7 @@ class Bucket(_Base):
                    marker='', max_parts=1000):
         """列举已经上传的分片。支持分页。
 
-        :param str key: 对象名
+        :param str key: 文件名
         :param str upload_id: 分片上传ID
         :param str marker: 分页符
         :param int max_parts: 一次最多罗列多少分片
@@ -648,7 +648,7 @@ class Bucket(_Base):
         return RequestResult(resp)
 
     def delete_bucket(self):
-        """删除一个Bucket。只有没有任何对象，也没有任何未完成的分片上传的Bucket才能被删除。
+        """删除一个Bucket。只有没有任何文件，也没有任何未完成的分片上传的Bucket才能被删除。
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
 
@@ -706,7 +706,7 @@ class Bucket(_Base):
         return RequestResult(resp)
 
     def put_bucket_lifecycle(self, input):
-        """设置对象生命周期管理的配置。
+        """设置生命周期管理的配置。
 
         :param input: :class:`BucketLifecycle <oss2.models.BucketLifecycle>` 对象或其他
         """
@@ -715,7 +715,7 @@ class Bucket(_Base):
         return RequestResult(resp)
 
     def get_bucket_lifecycle(self):
-        """获取对象生命周期管理配置。
+        """获取生命周期管理配置。
 
         :return: :class:`GetBucketLifecycleResult <oss2.models.GetBucketLifecycleResult>`
 
@@ -725,7 +725,7 @@ class Bucket(_Base):
         return self._parse_result(resp, xml_utils.parse_get_bucket_lifecycle, GetBucketLifecycleResult)
 
     def delete_bucket_lifecycle(self):
-        """删除对象生命周期管理配置。如果Lifecycle没有设置，也返回成功。"""
+        """删除生命周期管理配置。如果Lifecycle没有设置，也返回成功。"""
         resp = self.__do_bucket('DELETE', params={Bucket.LIFECYCLE: ''})
         return RequestResult(resp)
 

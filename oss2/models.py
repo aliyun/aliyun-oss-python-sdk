@@ -26,9 +26,9 @@ from .utils import gmt_to_unixtime, MonitoredStreamReader
 
 
 class PartInfo(object):
-    """表示分片信息的对象。
+    """表示分片信息的文件。
 
-    该对象既用于 :func:`list_parts <oss2.Bucket.list_parts>` 的输出，也用于 :func:`complete_multipart_upload
+    该文件既用于 :func:`list_parts <oss2.Bucket.list_parts>` 的输出，也用于 :func:`complete_multipart_upload
     <oss2.Bucket.complete_multipart_upload>` 的输入。
 
     :param int part_number: 分片号
@@ -260,7 +260,7 @@ class ListMultipartUploadsResult(RequestResult):
         #: True表示还有更多的为完成分片上传可以罗列；False表示已经列举完毕。
         self.is_truncated = False
 
-        #: 对象名分页符
+        #: 文件名分页符
         self.next_key_marker = ''
 
         #: 分片上传ID分页符
@@ -362,8 +362,8 @@ class GetBucketWebsiteResult(RequestResult, BucketWebsite):
 class LifecycleExpiration(object):
     """过期删除操作。
 
-    :param days: 表示在对象修改后过了这么多天，就会匹配规则，从而被删除
-    :param date: 表示在该日期之后，规则就一直生效。即每天都会对符合前缀的对象执行删除操作（如，删除），而不管对象是什么时候生成的。
+    :param days: 表示在文件修改后过了这么多天，就会匹配规则，从而被删除
+    :param date: 表示在该日期之后，规则就一直生效。即每天都会对符合前缀的文件执行删除操作（如，删除），而不管文件是什么时候生成的。
         *不建议使用*
     :type date: `datetime.date`
     """
@@ -379,7 +379,7 @@ class LifecycleRule(object):
     """生命周期规则。
 
     :param id: 规则名
-    :param prefix: 只有文件名匹配该前缀的对象才适用本规则
+    :param prefix: 只有文件名匹配该前缀的文件才适用本规则
     :param expiration: 过期删除操作。
     :type expiration: :class:`LifecycleExpiration`
     :param status: 启用还是禁止该规则。可选值为 `LifecycleRule.ENABLED` 或 `LifecycleRule.DISABLED`
@@ -397,7 +397,7 @@ class LifecycleRule(object):
 
 
 class BucketLifecycle(object):
-    """Bucket的对象生命周期配置。
+    """Bucket的生命周期配置。
 
     :param rules: 规则列表，
     :type rules: list of :class:`LifecycleRule`

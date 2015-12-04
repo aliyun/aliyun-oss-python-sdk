@@ -34,10 +34,10 @@ def resumable_upload(bucket, key, filename,
     """断点上传本地文件。
 
     缺省条件下，该函数会在用户HOME目录下保存断点续传的信息。当待上传的本地文件没有发生变化，
-    且目标对象名没有变化时，会根据本地保存的信息，从断点开始上传。
+    且目标文件名没有变化时，会根据本地保存的信息，从断点开始上传。
 
     :param bucket: :class:`Bucket <oss2.Bucket>` 对象
-    :param key: 上传到用户空间的对象名
+    :param key: 上传到用户空间的文件名
     :param filename: 待上传本地文件名
     :param store: 用来保存断点信息的持久存储，参见 :class:`ResumableStore` 的接口。如不指定，则使用 `ResumableStore` 。
     :param headers: 传给 `put_object` 或 `init_multipart_upload` 的HTTP头部
@@ -75,7 +75,7 @@ class _ResumableUploader(object):
     """以断点续传方式上传文件。
 
     :param bucket: :class:`Bucket <oss2.Bucket>` 对象
-    :param key: 对象名
+    :param key: 文件名
     :param filename: 待上传的文件名
     :param size: 文件总长度
     :param store: 用来保存进度的持久化存储

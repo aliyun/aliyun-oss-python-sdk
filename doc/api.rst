@@ -82,8 +82,8 @@ Bucket权限管理
 .. automethod:: oss2.Bucket.delete_bucket_cors
 
 
-对象生命周期管理
-~~~~~~~~~~~~~~~~
+生命周期管理
+~~~~~~~~~~~
 .. automethod:: oss2.Bucket.put_bucket_lifecycle
 .. automethod:: oss2.Bucket.get_bucket_lifecycle
 .. automethod:: oss2.Bucket.delete_bucket_lifecycle

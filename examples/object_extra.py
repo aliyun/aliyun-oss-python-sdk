@@ -53,7 +53,7 @@ print(result.content_length)
 print(datetime.fromtimestamp(result.last_modified))
 
 
-# 拷贝对象（适用于小文件）。这里是把quote.txt拷贝成quote-backup.txt
+# 拷贝Object（适用于小文件）。这里是把quote.txt拷贝成quote-backup.txt
 bucket.copy_object(bucket.bucket_name, 'quote.txt', 'quote-backup.txt')
 
 

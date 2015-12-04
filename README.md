@@ -30,7 +30,7 @@ endpoint = 'http://oss-cn-hangzhou.aliyuncs.com' # 假设你的Bucket处于杭�
 auth = oss2.Auth('<你的AccessKeyId>', '<你的AccessKeySecret>')
 bucket = oss2.Bucket(auth, endpoint, '<你的Bucket名>')
 
-# 对象名（key）为storage.txt
+# Bucket中的文件名（key）为storage.txt
 key = 'story.txt'
 
 # 上传
@@ -42,7 +42,7 @@ bucket.get_object(key).read()
 # 删除
 bucket.delete_object(key)
 
-# 遍历所有对象
+# 遍历Bucket里所有文件
 for object_info in oss2.ObjectIterator(bucket):
     print(object_info.key)
 ```
