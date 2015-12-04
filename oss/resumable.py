@@ -17,6 +17,7 @@ from . import defaults
 from .models import PartInfo
 from .compat import json, stringify
 
+import errno
 import logging
 
 
@@ -38,7 +39,7 @@ def resumable_upload(bucket, key, filename,
     :param bucket: :class:`Bucket <oss.Bucket>` 对象
     :param key: 上传到用户空间的对象名
     :param filename: 待上传本地文件名
-    :param store: 用来保存断点信息的持久存储，参见 :class:`FileStore` 的接口。如不指定，则使用 `FileStore` 。
+    :param store: 用来保存断点信息的持久存储，参见 :class:`ResumableStore` 的接口。如不指定，则使用 `ResumableStore` 。
     :param headers: 传给 `put_object` 或 `init_multipart_upload` 的HTTP头部
     :param multipart_threshold: 文件长度大于该值时，则用分片上传。
     :param part_size: 指定分片上传的每个分片的大小。如不指定，则自动计算。
@@ -47,7 +48,7 @@ def resumable_upload(bucket, key, filename,
     size = os.path.getsize(filename)
 
     if size >= multipart_threshold:
-        uploader = ResumableUploader(bucket, key, filename, size, store,
+        uploader = _ResumableUploader(bucket, key, filename, size, store,
                                      part_size=part_size,
                                      headers=headers,
                                      progress_callback=progress_callback)
@@ -70,10 +71,7 @@ def determine_part_size(total_size,
         return preferred_size
 
 
-_UPLOAD_TEMP_DIR = '.py-oss-upload'
-
-
-class ResumableUploader(object):
+class _ResumableUploader(object):
     """以断点续传方式上传文件。
 
     :param bucket: :class:`Bucket <oss.Bucket>` 对象
@@ -96,7 +94,7 @@ class ResumableUploader(object):
         self.filename = filename
         self.size = size
 
-        self.store = store or FileStore(dir=_UPLOAD_TEMP_DIR)
+        self.store = store or ResumableStore()
         self.headers = headers
         self.part_size = part_size
 
@@ -151,7 +149,7 @@ class ResumableUploader(object):
     def __load_record(self):
         record = self.__store_get()
 
-        if record and not is_record_sane(record):
+        if record and not _is_record_sane(record):
             self.__store_delete()
             record = None
 
@@ -235,16 +233,31 @@ class ResumableUploader(object):
         return to_upload_map.values(), kept_parts
 
 
-class FileStore(object):
+_UPLOAD_TEMP_DIR = '.py-oss-upload'
+
+
+class ResumableStore(object):
+    """操作续传信息的类。
+
+    每次上传的信息会保存在root/dir/下面的某个文件里。
+
+    :param str root: 父目录，缺省为HOME
+    :param str dir: 自目录，缺省为_UPLOAD_TEMP_DIR
+    """
     def __init__(self, root=None, dir=None):
         root = root or os.path.expanduser('~')
-        if dir:
-            self.dir = os.path.join(root, dir)
-        else:
-            self.dir = root
+        dir = dir or _UPLOAD_TEMP_DIR
 
-        if not os.path.isdir(self.dir):
+        self.dir = os.path.join(root, dir)
+
+        if os.path.isdir(self.dir):
+            return
+
+        try:
             os.makedirs(self.dir)
+        except os.error as e:
+            if e.errno != errno.EEXIST:
+                raise
 
     @staticmethod
     def make_store_key(bucket_name, key, filename):
@@ -283,10 +296,10 @@ class FileStore(object):
 
 
 def make_upload_store():
-    return FileStore(dir=_UPLOAD_TEMP_DIR)
+    return ResumableStore(dir=_UPLOAD_TEMP_DIR)
 
 
-def rebuild_record(filename, store, bucket, key, upload_id, part_size=None):
+def _rebuild_record(filename, store, bucket, key, upload_id, part_size=None):
     abspath = os.path.abspath(filename)
     mtime = os.path.getmtime(filename)
     size = os.path.getsize(filename)
@@ -307,7 +320,7 @@ def rebuild_record(filename, store, bucket, key, upload_id, part_size=None):
     store.put(store_key, record)
 
 
-def is_record_sane(record):
+def _is_record_sane(record):
     try:
         for key in ('upload_id', 'abspath', 'key'):
             if not isinstance(record[key], str):

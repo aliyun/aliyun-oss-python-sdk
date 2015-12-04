@@ -98,7 +98,7 @@ class TestUpload(unittest.TestCase):
 
             self.bucket.upload_part(key, upload_id, part_number, content[start:end])
 
-        oss.resumable.rebuild_record(pathname, oss.resumable.make_upload_store(), self.bucket, key, upload_id, part_size)
+        oss.resumable._rebuild_record(pathname, oss.resumable.make_upload_store(), self.bucket, key, upload_id, part_size)
         oss.resumable_upload(self.bucket, key, pathname, multipart_threshold=0, part_size=100 * 1024)
 
         result = self.bucket.get_object(key)
@@ -216,12 +216,12 @@ class TestUpload(unittest.TestCase):
             old = record[key]
             record[key] = value
 
-            self.assertTrue(not oss.resumable.is_record_sane(record))
+            self.assertTrue(not oss.resumable._is_record_sane(record))
 
             record[key] = old
 
-        self.assertTrue(oss.resumable.is_record_sane(record))
-        self.assertTrue(not oss.resumable.is_record_sane({}))
+        self.assertTrue(oss.resumable._is_record_sane(record))
+        self.assertTrue(not oss.resumable._is_record_sane({}))
 
         check_not_sane('upload_id', 1)
         check_not_sane('size', '123')

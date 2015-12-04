@@ -142,7 +142,7 @@ class BatchDeleteObjectsResult(RequestResult):
         super(BatchDeleteObjectsResult, self).__init__(resp)
 
         #: 已经删除的文件名列表
-        self.object_list = []
+        self.deleted_keys = []
 
 
 class InitMultipartUploadResult(RequestResult):

@@ -180,7 +180,7 @@ def parse_batch_delete_objects(result, body):
     url_encoded = _is_url_encoding(root)
 
     for deleted_node in root.findall('Deleted'):
-        result.object_list.append(_find_object(deleted_node, 'Key', url_encoded))
+        result.deleted_keys.append(_find_object(deleted_node, 'Key', url_encoded))
 
     return result
 

@@ -103,6 +103,20 @@ class TestObject(unittest.TestCase):
         # verify
         self.assertEqual(self.bucket.get_object(src_key).read(), self.bucket.get_object(dst_key).read())
 
+    def test_get_object_iterator(self):
+        key = random_string(12)
+        content = random_bytes(1024 * 1024)
+
+        self.bucket.put_object(key, content)
+        result = self.bucket.get_object(key)
+        content_got = b''
+
+        for chunk in result:
+            content_got += chunk
+
+        self.assertEqual(len(content), len(content_got))
+        self.assertEqual(content, content_got)
+
     def test_anonymous(self):
         key = random_string(12)
         content = random_bytes(512)
@@ -154,7 +168,7 @@ class TestObject(unittest.TestCase):
             self.bucket.put_object(key, random_string(64))
 
         result = self.bucket.batch_delete_objects(object_list)
-        self.assertEqual(sorted(object_list), sorted(result.object_list))
+        self.assertEqual(sorted(object_list), sorted(result.deleted_keys))
 
         for object in object_list:
             self.assertTrue(not self.bucket.object_exists(object))

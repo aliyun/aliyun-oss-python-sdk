@@ -10,7 +10,7 @@ from .iterators import (BucketIterator, ObjectIterator,
                         MultipartUploadIterator, ObjectUploadIterator, PartIterator)
 
 
-from .resumable import resumable_upload
+from .resumable import resumable_upload, ResumableStore
 
 from .compat import to_bytes, to_string, to_unicode, urlparse, urlquote, urlunquote
 
