@@ -12,6 +12,10 @@ class TestBucket(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(TestBucket, self).__init__(*args, **kwargs)
 
+    def setUp(self):
+        self.bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
+        self.bucket.create_bucket()
+
     if OSS_CNAME:
         def test_cname_bucket(self):
             bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_CNAME, OSS_BUCKET, is_cname=True)

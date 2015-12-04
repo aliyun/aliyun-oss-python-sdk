@@ -26,6 +26,7 @@ class TestObject(unittest.TestCase):
 
     def setUp(self):
         self.bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
+        self.bucket.create_bucket()
 
     def test_object(self):
         key = random_string(12) + '.js'
@@ -123,6 +124,7 @@ class TestObject(unittest.TestCase):
 
         # 设置bucket为public-read，并确认可以上传和下载
         self.bucket.put_bucket_acl('public-read-write')
+        time.sleep(2)
 
         b = oss2.Bucket(oss2.AnonymousAuth(), OSS_ENDPOINT, OSS_BUCKET)
         b.put_object(key, content)
@@ -172,6 +174,9 @@ class TestObject(unittest.TestCase):
 
         for object in object_list:
             self.assertTrue(not self.bucket.object_exists(object))
+
+    def test_batch_delete_objects_empty(self):
+        self.assertRaises(AssertionError, self.bucket.batch_delete_objects, [])
 
     def test_append_object(self):
         key = random_string(12)

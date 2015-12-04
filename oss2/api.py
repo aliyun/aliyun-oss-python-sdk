@@ -82,7 +82,7 @@ from . import exceptions
 from . import defaults
 
 from .models import *
-from .compat import urlquote, urlparse
+from .compat import urlquote, urlparse, to_unicode
 
 import time
 import shutil
@@ -246,7 +246,7 @@ class Bucket(_Base):
 
         用法 ::
             >>> bucket.put_object('readme.txt', 'content of readme.txt')
-            >>> with open('local_file.txt', 'rb') as f:
+            >>> with open(u'local_file.txt', 'rb') as f:
             >>>     bucket.put_object('remote_file.txt', f)
 
         :param key: 上传到OSS的文件名
@@ -286,7 +286,7 @@ class Bucket(_Base):
         """
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), filename)
 
-        with open(filename, 'rb') as f:
+        with open(to_unicode(filename), 'rb') as f:
             return self.put_object(key, f, headers=headers, progress_callback=progress_callback)
 
     def append_object(self, key, position, data,
@@ -373,7 +373,7 @@ class Bucket(_Base):
 
         :return: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
-        with open(filename, 'wb') as f:
+        with open(to_unicode(filename), 'wb') as f:
             result = self.get_object(key, byte_range=byte_range, headers=headers, progress_callback=progress_callback)
             shutil.copyfileobj(result, f)
 
@@ -483,13 +483,15 @@ class Bucket(_Base):
         return self._parse_result(resp, xml_utils.parse_get_object_acl, GetObjectAclResult)
 
     def batch_delete_objects(self, key_list):
-        """批量删除文件。
+        """批量删除文件。待删除文件列表不能为空。
 
-        :param key_list: 文件名列表
+        :param key_list: 文件名列表，不能为空。
         :type key_list: list of str
 
         :return: :class:`BatchDeleteObjectsResult <oss2.models.BatchDeleteObjectsResult>`
         """
+        assert key_list
+
         data = xml_utils.to_batch_delete_objects_request(key_list, False)
         resp = self.__do_object('POST', '',
                                 data=data,
@@ -634,12 +636,17 @@ class Bucket(_Base):
                                         'max-parts': str(max_parts)})
         return self._parse_result(resp, xml_utils.parse_list_parts, ListPartsResult)
 
-    def create_bucket(self, permission):
+    def create_bucket(self, permission=None):
         """创建新的Bucket。
 
-        :param str permission: 指定Bucket的ACL，可以是'private'（推荐）、'public-read'或是'public-read-write'
+        :param str permission: 指定Bucket的ACL。可以是BUCKET_ACL_PRIVATE（推荐、缺省）、BUCKET_ACL_PUBLIC_READ或是
+            BUCKET_ACL_PUBLIC_READ_WRITE。
         """
-        resp = self.__do_bucket('PUT', headers={'x-oss-acl': permission})
+        if permission:
+            headers = {'x-oss-acl': permission}
+        else:
+            headers = None
+        resp = self.__do_bucket('PUT', headers=headers)
         return RequestResult(resp)
 
     def delete_bucket(self):

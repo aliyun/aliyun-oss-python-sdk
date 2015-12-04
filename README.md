@@ -59,9 +59,10 @@ except oss2.exceptions.NoSuchKey as e:
 ```
 
 ## 测试
-首先通过环境变量来设置测试所需的AccessKeyID、AccessKeySecret、Endpoint以及Bucket信息（以Linux系统为例）：
+首先通过环境变量来设置测试所需的AccessKeyId、AccessKeySecret、Endpoint以及Bucket信息（**请不要使用生产环境的Bucket**）。
+以Linux系统为例：
 ```bash
-$ export OSS_TEST_ACCESS_KEY_ID=<AccessKeyID>
+$ export OSS_TEST_ACCESS_KEY_ID=<AccessKeyId>
 $ export OSS_TEST_ACCESS_KEY_SECRET=<AccessKeySecret>
 $ export OSS_TEST_ENDPOINT=<endpoint>
 $ export OSS_TEST_BUCKET=<bucket>

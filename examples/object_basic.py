@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+note
 
 import os
 import shutil

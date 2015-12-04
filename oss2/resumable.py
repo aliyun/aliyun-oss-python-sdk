@@ -2,7 +2,7 @@
 
 """
 oss2.resumable
-~~~~~~~~~~~~~
+~~~~~~~~~~~~~~
 
 该模块包含了断点续传相关的函数和类。
 """
@@ -15,7 +15,7 @@ from . import exceptions
 from . import defaults
 
 from .models import PartInfo
-from .compat import json, stringify
+from .compat import json, stringify, to_unicode
 
 import errno
 import logging
@@ -54,7 +54,7 @@ def resumable_upload(bucket, key, filename,
                                      progress_callback=progress_callback)
         uploader.upload()
     else:
-        with open(filename, 'rb') as f:
+        with open(to_unicode(filename), 'rb') as f:
             bucket.put_object(key, f,
                               headers=headers,
                               progress_callback=progress_callback)
@@ -111,7 +111,7 @@ class _ResumableUploader(object):
         parts_uploaded = self.__recorded_parts(record)
         upload_id = record['upload_id']
 
-        with open(self.filename, 'rb') as f:
+        with open(to_unicode(self.filename), 'rb') as f:
             parts_to_upload, kept_parts = self.__get_parts_to_upload(f, parts_uploaded)
             parts_to_upload = sorted(parts_to_upload, key=lambda p: p.part_number)
 
@@ -274,13 +274,13 @@ class ResumableStore(object):
 
         # json.load()返回的总是unicode，对于Python2，我们将其转换
         # 为str。
-        with open(pathname, 'r') as f:
+        with open(to_unicode(pathname), 'r') as f:
             return stringify(json.load(f))
 
     def put(self, key, value):
         pathname = self.__path(key)
 
-        with open(pathname, 'w') as f:
+        with open(to_unicode(pathname), 'w') as f:
             json.dump(value, f)
 
         logging.debug('put key={0}, pathname={1}'.format(key, pathname))
@@ -324,23 +324,23 @@ def _is_record_sane(record):
     try:
         for key in ('upload_id', 'abspath', 'key'):
             if not isinstance(record[key], str):
-                logging.error('{0} is not a string: {1}, but {2}'.format(key, record[key], record[key].__class__))
+                logging.info('{0} is not a string: {1}, but {2}'.format(key, record[key], record[key].__class__))
                 return False
 
         for key in ('size', 'part_size'):
             if not isinstance(record[key], int):
-                logging.error('{0} is not an integer: {1}'.format(key, record[key]))
+                logging.info('{0} is not an integer: {1}'.format(key, record[key]))
                 return False
 
         if not isinstance(record['mtime'], int) and not isinstance(record['mtime'], float):
-            logging.error('mtime is not a float or an integer: {0}'.format(record['mtime']))
+            logging.info('mtime is not a float or an integer: {0}'.format(record['mtime']))
             return False
 
         if not isinstance(record['parts'], list):
-            logging.error('parts is not a list: {0}'.format(record['parts'].__class__.__name__))
+            logging.info('parts is not a list: {0}'.format(record['parts'].__class__.__name__))
             return False
     except KeyError as e:
-        logging.error('Key not found: {0}'.format(e.args))
+        logging.info('Key not found: {0}'.format(e.args))
         return False
 
     return True

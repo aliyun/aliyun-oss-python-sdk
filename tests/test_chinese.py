@@ -16,6 +16,7 @@ class TestChinese(unittest.TestCase):
 
     def setUp(self):
         self.bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
+        self.bucket.create_bucket()
 
     def test_unicode(self):
         key = random_string(16)
@@ -62,3 +63,26 @@ class TestChinese(unittest.TestCase):
             self.bucket.batch_delete_objects([key])
 
             self.assertTrue(not self.bucket.object_exists(key))
+
+    def test_append(self):
+        key = random_string(16) + '文件\x0D\x0E\x7F名'
+        content = random_bytes(32) + u'内容\x0D\x0E\7F是中文\x01'.encode('utf-8')
+
+        self.bucket.append_object(key, 0, content)
+        self.assertEqual(self.bucket.get_object(key).read(), content)
+
+        self.bucket.delete_object(key + 'extra')
+        self.bucket.batch_delete_objects([key])
+
+    def test_local_file(self):
+        key = random_string(16) + '文件\x0D\x0E\x7F名'
+        content = random_bytes(32) + u'内容\x0D\x0E\7F是中文\x01'.encode('utf-8')
+
+        self.bucket.put_object(key, content)
+
+        key2 = random_string(16)
+
+        self.bucket.get_object_to_file(key, '中文本地文件名.txt')
+        self.bucket.put_object_from_file(key2, '中文本地文件名.txt')
+
+        self.assertEqual(self.bucket.get_object(key2).read(), content)

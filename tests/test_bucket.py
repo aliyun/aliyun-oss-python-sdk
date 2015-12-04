@@ -14,6 +14,7 @@ class TestBucket(unittest.TestCase):
 
     def setUp(self):
         self.bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
+        self.bucket.create_bucket()
 
     def test_bucket(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
@@ -31,19 +32,23 @@ class TestBucket(unittest.TestCase):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
 
-        bucket.create_bucket('public-read')
+        bucket.create_bucket(oss2.BUCKET_ACL_PUBLIC_READ)
         result = bucket.get_bucket_acl()
-        self.assertEqual(result.acl, 'public-read')
+        self.assertEqual(result.acl, oss2.BUCKET_ACL_PUBLIC_READ)
 
-        bucket.put_bucket_acl('private')
+        # 不带参数的create_bucket不会改变Bucket ACL
+        bucket.create_bucket()
+        self.assertEqual(result.acl, oss2.BUCKET_ACL_PUBLIC_READ)
+
+        bucket.put_bucket_acl(oss2.BUCKET_ACL_PRIVATE)
         result = bucket.get_bucket_acl()
-        self.assertEqual(result.acl, 'private')
+        self.assertEqual(result.acl, oss2.BUCKET_ACL_PRIVATE)
 
         bucket.delete_bucket()
 
     def test_logging(self):
         other_bucket = oss2.Bucket(self.bucket.auth, OSS_ENDPOINT, random_string(63).lower())
-        other_bucket.create_bucket('private')
+        other_bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
 
         other_bucket.put_bucket_logging(oss2.models.BucketLogging(self.bucket.bucket_name, 'logging/'))
 
