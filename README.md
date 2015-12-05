@@ -1,4 +1,4 @@
-# Aliyun OSS SDK for Python
+# Aliyun OSS SDK for Python （试用版)
 
 ## 概述
 阿里云对象存储Python SDK 2.x版本。该版本不和上一个版本（0.x版本）兼容，包的名称为oss2，以避免和先前的版本冲突。
