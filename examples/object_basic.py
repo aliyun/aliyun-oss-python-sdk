@@ -34,15 +34,14 @@ bucket = oss2.Bucket(oss2.Auth(access_key_id, access_key_secret), endpoint, buck
 # 上传一段字符串。Object名是motto.txt，内容是一段名言。
 bucket.put_object('motto.txt', 'Never give up. - Jack Ma')
 
+# 下载到本地文件
+bucket.get_object_to_file('motto.txt', '本地文件名.txt')
+
 
 # 把刚刚上传的Object下载到本地文件 “座右铭.txt” 中
 # 因为get_object()方法返回的是一个file-like object，所以我们可以直接用shutil.copyfileobj()做拷贝
 with open(oss2.to_unicode('本地座右铭.txt'), 'wb') as f:
     shutil.copyfileobj(bucket.get_object('motto.txt'), f)
-
-
-# 也可以用一行代码来实现下载到本地文件
-bucket.get_object_to_file('motto.txt', '本地文件名.txt')
 
 
 # 把本地文件 “座右铭.txt” 上传到OSS，新的Object叫做 “我的座右铭.txt”
@@ -84,6 +83,6 @@ except oss2.exceptions.NoSuchKey:
 else:
     assert False
 
-#清除
+# 清除本地文件
 os.remove(u'本地文件名.txt')
 os.remove(u'本地座右铭.txt')

@@ -48,9 +48,9 @@ def resumable_upload(bucket, key, filename,
 
     if size >= multipart_threshold:
         uploader = _ResumableUploader(bucket, key, filename, size, store,
-                                     part_size=part_size,
-                                     headers=headers,
-                                     progress_callback=progress_callback)
+                                      part_size=part_size,
+                                      headers=headers,
+                                      progress_callback=progress_callback)
         uploader.upload()
     else:
         with open(to_unicode(filename), 'rb') as f:
@@ -114,19 +114,19 @@ class _ResumableUploader(object):
         upload_id = record['upload_id']
 
         with open(to_unicode(self.filename), 'rb') as f:
-            parts_to_upload, kept_parts = self.__get_parts_to_upload(f, parts_uploaded)
+            parts_to_upload, kept_parts = self.__get_parts_to_upload(parts_uploaded)
             parts_to_upload = sorted(parts_to_upload, key=lambda p: p.part_number)
 
             size_uploaded = sum(p.size for p in kept_parts)
 
             for part in parts_to_upload:
+                if self.progress_callback:
+                    self.progress_callback(size_uploaded, self.size, part.size)
+
                 f.seek(part.start, os.SEEK_SET)
                 result = self.bucket.upload_part(self.key, upload_id, part.part_number,
                                                  utils.SizedStreamReader(f, part.size))
                 kept_parts.append(PartInfo(part.part_number, result.etag))
-
-                if self.progress_callback:
-                    self.progress_callback(size_uploaded, self.size, part.size)
 
                 size_uploaded += part.size
 
@@ -204,7 +204,7 @@ class _ResumableUploader(object):
     def __file_changed(self, record):
         return record['mtime'] != self.mtime or record['size'] != self.size
 
-    def __get_parts_to_upload(self, f, parts_uploaded):
+    def __get_parts_to_upload(self, parts_uploaded):
         num_parts = utils.how_many(self.size, self.part_size)
         uploaded_map = {}
         to_upload_map = {}
