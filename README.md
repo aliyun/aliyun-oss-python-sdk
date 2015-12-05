@@ -2,7 +2,9 @@
 
 ## 概述
 阿里云对象存储Python SDK 2.x版本。该版本不和上一个版本（0.x版本）兼容，包的名称为oss2，以避免和先前的版本冲突。
-该版本的SDK依赖于优秀的第三方HTTP库[requests](https://github.com/kennethreitz/requests)，请按照下述安装方法进行安装。
+该版本的SDK依赖于第三方HTTP库[requests](https://github.com/kennethreitz/requests)，请按照下述安装方法进行安装。
+
+> **注意**：该版本不包含osscmd命令工具
 
 ## 运行环境
 Python 2.6，2.7，3.3，3.4，3.5
