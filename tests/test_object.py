@@ -8,7 +8,8 @@ import time
 
 import oss2
 
-from oss2.exceptions import ClientError, NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable
+from oss2.exceptions import (ClientError, RequestError,
+                             NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable)
 from oss2 import to_string
 
 from common import *
@@ -103,6 +104,25 @@ class TestObject(unittest.TestCase):
         # verify
         self.assertEqual(self.bucket.get_object(src_key).read(), self.bucket.get_object(dst_key).read())
 
+    def test_request_error(self):
+        bad_endpoint = random_string(8) + '.' + random_string(16) + '.com'
+        bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), bad_endpoint, OSS_BUCKET)
+
+        try:
+            bucket.get_bucket_acl()
+        except RequestError as e:
+            self.assertEqual(e.status, oss2.exceptions.OSS_REQUEST_ERROR_STATUS)
+            self.assertEqual(e.request_id, '')
+            self.assertEqual(e.code, '')
+            self.assertEqual(e.message, '')
+
+            self.assertTrue(e.body)
+
+    def test_timeout(self):
+        bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET,
+                             connect_timeout=0.001)
+        self.assertRaises(RequestError, bucket.get_bucket_acl)
+
     def test_get_object_iterator(self):
         key = random_string(12)
         content = random_bytes(1024 * 1024)
@@ -175,7 +195,15 @@ class TestObject(unittest.TestCase):
             self.assertTrue(not self.bucket.object_exists(object))
 
     def test_batch_delete_objects_empty(self):
-        self.assertRaises(ClientError, self.bucket.batch_delete_objects, [])
+        try:
+            self.bucket.batch_delete_objects([])
+        except ClientError as e:
+            self.assertEqual(e.status, oss2.exceptions.OSS_CLIENT_ERROR_STATUS)
+            self.assertEqual(e.request_id, '')
+            self.assertEqual(e.code, '')
+            self.assertEqual(e.message, '')
+
+            self.assertTrue(e.body)
 
     def test_append_object(self):
         key = random_string(12)

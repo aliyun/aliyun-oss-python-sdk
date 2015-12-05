@@ -13,6 +13,7 @@ import platform
 
 from . import __version__
 from .compat import to_bytes
+from .exceptions import RequestError
 
 from requests.structures import CaseInsensitiveDict
 from email.utils import formatdate
@@ -28,12 +29,15 @@ class Session(object):
         self.session = requests.Session()
 
     def do_request(self, req, timeout):
-        return Response(self.session.request(req.method, req.url,
-                                             data=req.data,
-                                             params=req.params,
-                                             headers=req.headers,
-                                             stream=True,
-                                             timeout=timeout))
+        try:
+            return Response(self.session.request(req.method, req.url,
+                                                 data=req.data,
+                                                 params=req.params,
+                                                 headers=req.headers,
+                                                 stream=True,
+                                                 timeout=timeout))
+        except requests.RequestException as e:
+            raise RequestError(e)
 
 
 class Request(object):

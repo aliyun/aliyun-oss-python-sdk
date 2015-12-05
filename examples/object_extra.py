@@ -36,8 +36,8 @@ bucket.put_object('中文文件名.txt', '中文内容')
 result = bucket.put_object('quote.txt', "Anything you're good at contributes to happiness.",
                            headers={'x-oss-meta-author': 'Russell'})
 
-# 几乎所有的result都是RequestResult的子类，携带了一些必要的信息，可以用来调试等：
-# 比如向阿里云客户提交工单时，能够提供request-id，可以极大的方便问题的排查
+# 几乎所有的result都是RequestResult的子类，携带了一些必要的信息，可以用来调试等；
+# 向阿里云客服提交工单时，能够提供request id，可以极大的方便问题的排查。
 print('http-status={0} request-id={1}'.format(result.status, result.request_id))
 
 

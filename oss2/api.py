@@ -31,11 +31,11 @@ HTTP包体。
 
 异常
 ----
-Python SDK可能会抛出三种类型的异常：
+一般来说Python SDK可能会抛出三种类型的异常，这些异常都继承于 :class:`OssError <oss2.exceptions.OssError>` ：
     - :class:`ClientError <oss2.exceptions.ClientError>` ：请求还未发送到OSS服务器就发生的错误，一般由于参数错误等引起；
     - :class:`ServerError <oss2.exceptions.ServerError>` 及其子类：OSS服务器返回非成功的状态码，如4xx或5xx；
-    - 其他异常，可能是由底层依赖的库（如requests）抛出。
-
+    - :class:`RequestError <oss2.exceptions.RequestError>` ：底层requests库抛出的异常，如DNS解析错误，超时等；
+当然，`Bucket.put_object_from_file` 和 `Bucket.get_object_to_file` 这类函数还会抛出文件相关的异常。
 
 
 .. _byte_range:
@@ -137,7 +137,7 @@ class Service(_Base):
     :param session: 会话。如果是None表示新开会话，非None则复用传入的会话
     :type session: oss2.Session
 
-    :param int connect_timeout: 连接超时时间，以秒为单位。
+    :param float connect_timeout: 连接超时时间，以秒为单位。
     """
     def __init__(self, auth, endpoint,
                  session=None,
@@ -168,7 +168,7 @@ class Bucket(_Base):
 
         >>> import oss2
         >>> auth = oss2.Auth('your-access-key-id', 'your-access-key-secret')
-        >>> bucket = oss2.Bucket(auth, 'oss-cn-hangzhou.aliyuncs.com', 'your-bucket')
+        >>> bucket = oss2.Bucket(auth, 'http://oss-cn-hangzhou.aliyuncs.com', 'your-bucket')
         >>> bucket.put_object('readme.txt', 'content of the object')
         <oss2.models.PutObjectResult object at 0x029B9930>
 
@@ -182,7 +182,7 @@ class Bucket(_Base):
     :param session: 会话。如果是None表示新开会话，非None则复用传入的会话
     :type session: oss2.Session
 
-    :param int connect_timeout: 连接超时时间，以秒为单位。
+    :param float connect_timeout: 连接超时时间，以秒为单位。
     """
 
     ACL = 'acl'
@@ -737,7 +737,7 @@ class Bucket(_Base):
         return self._parse_result(resp, xml_utils.parse_get_bucket_location, GetBucketLocationResult)
 
     def put_bucket_logging(self, input):
-        """设置Bucket的日志收集功能。
+        """设置Bucket的访问日志功能。
 
         :param input: :class:`BucketLogging <oss2.models.BucketLogging>` 对象或其他
         """
@@ -746,7 +746,7 @@ class Bucket(_Base):
         return RequestResult(resp)
 
     def get_bucket_logging(self):
-        """获取Bucket的日志功能配置。
+        """获取Bucket的访问日志功能配置。
 
         :return: :class:`GetBucketLoggingResult <oss2.models.GetBucketLoggingResult>`
         """
@@ -754,7 +754,7 @@ class Bucket(_Base):
         return self._parse_result(resp, xml_utils.parse_get_bucket_logging, GetBucketLoggingResult)
 
     def delete_bucket_logging(self):
-        """关闭Bucket的日志功能。"""
+        """关闭Bucket的访问日志功能。"""
         resp = self.__do_bucket('DELETE', params={Bucket.LOGGING: ''})
         return RequestResult(resp)
 

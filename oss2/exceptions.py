@@ -19,7 +19,11 @@ from .compat import to_string
 _OSS_ERROR_TO_EXCEPTION = {} # populated at end of module
 
 
-class ErrorBase(Exception):
+OSS_CLIENT_ERROR_STATUS = -1
+OSS_REQUEST_ERROR_STATUS = -2
+
+
+class OssError(Exception):
     def __init__(self, status, headers, body, details):
         #: HTTP 状态码
         self.status = status
@@ -43,12 +47,23 @@ class ErrorBase(Exception):
         return str(self.details)
 
 
-class ClientError(ErrorBase):
+class ClientError(OssError):
     def __init__(self, message):
-        ErrorBase.__init__(self, -1, '-', 'ClientError: ' + message, {})
+        OssError.__init__(self, OSS_CLIENT_ERROR_STATUS, {}, 'ClientError: ' + message, {})
+
+    def __str__(self):
+        return self.body
 
 
-class ServerError(ErrorBase):
+class RequestError(OssError):
+    def __init__(self, e):
+        OssError.__init__(self, OSS_REQUEST_ERROR_STATUS, {}, 'RequestError: ' + str(e), {})
+        self.exception = e
+
+    def __str__(self):
+        return self.body
+
+class ServerError(OssError):
     pass
 
 
