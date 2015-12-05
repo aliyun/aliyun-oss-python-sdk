@@ -89,12 +89,20 @@ class TestIterator(unittest.TestCase):
             target_list.append(self.bucket.init_multipart_upload(target_object).upload_id)
             intact_list.append(self.bucket.init_multipart_upload(intact_object).upload_id)
 
-        # 验证
+        # 验证：max_uploads能被分片数整除
         uploads_got = []
         for u in oss2.ObjectUploadIterator(self.bucket, target_object, max_uploads=5):
             uploads_got.append(u.upload_id)
 
         self.assertEqual(sorted(target_list), uploads_got)
+
+        # 验证：max_uploads不能被分片数整除
+        uploads_got = []
+        for u in oss2.ObjectUploadIterator(self.bucket, target_object, max_uploads=3):
+            uploads_got.append(u.upload_id)
+
+        self.assertEqual(sorted(target_list), uploads_got)
+
 
         # 清理
         for upload_id in target_list:

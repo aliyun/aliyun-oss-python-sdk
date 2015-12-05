@@ -21,13 +21,21 @@ class TestBucket(unittest.TestCase):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
 
-        bucket.create_bucket('private')
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
 
         service = oss2.Service(auth, OSS_ENDPOINT)
         result = service.list_buckets()
         next(b for b in result.buckets if b.name == bucket.bucket_name)
 
+        key = 'a.txt'
+        bucket.put_object(key, 'content')
+
+        self.assertRaises(oss2.exceptions.BucketNotEmpty, bucket.delete_bucket)
+
+        bucket.delete_object(key)
         bucket.delete_bucket()
+
+        self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.delete_bucket)
 
     def test_acl(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
@@ -44,6 +52,10 @@ class TestBucket(unittest.TestCase):
         bucket.put_bucket_acl(oss2.BUCKET_ACL_PRIVATE)
         result = bucket.get_bucket_acl()
         self.assertEqual(result.acl, oss2.BUCKET_ACL_PRIVATE)
+
+        self.bucket.put_bucket_acl(oss2.BUCKET_ACL_PUBLIC_READ_WRITE)
+        result = self.bucket.get_bucket_acl()
+        self.assertEqual(result.acl, oss2.BUCKET_ACL_PUBLIC_READ_WRITE)
 
         bucket.delete_bucket()
 
@@ -86,6 +98,10 @@ class TestBucket(unittest.TestCase):
 
         self.bucket.delete_object('index.html')
 
+        # 中文
+        self.bucket.put_bucket_website(oss2.models.BucketWebsite('index-中文.html', 'error.中文'))
+        self.bucket.get_bucket_website()
+
         # 关闭静态网站托管模式
         self.bucket.delete_bucket_website()
         self.bucket.delete_bucket_website()
@@ -119,7 +135,7 @@ class TestBucket(unittest.TestCase):
     def test_lifecycle_date(self):
         from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle
 
-        rule = LifecycleRule(random_string(10), '',
+        rule = LifecycleRule(random_string(10), '中文前缀/',
                              status=LifecycleRule.DISABLED,
                              expiration=LifecycleExpiration(date=datetime.date(2100, 12, 25)))
         lifecycle = BucketLifecycle([rule])
@@ -156,7 +172,7 @@ class TestBucket(unittest.TestCase):
         self.assertRaises(oss2.exceptions.NoSuchCors, self.bucket.get_bucket_cors)
 
     def test_referer(self):
-        referers = ['http://hello.com', 'mibrowser:home']
+        referers = ['http://hello.com', 'mibrowser:home', '中文referer']
         config = oss2.models.BucketReferer(True, referers)
 
         self.bucket.put_bucket_referer(config)
@@ -185,12 +201,6 @@ class TestBucket(unittest.TestCase):
 
         self.assertEqual(result.allow_empty_referer, True)
         self.assertEqual(result.referers[0], '阿里云')
-
-    def test_bucket_exists(self):
-        self.assertTrue(self.bucket.bucket_exists())
-
-        utopia = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, 'utopia-1a2b3c-zxcv-qwer')
-        self.assertTrue(not utopia.bucket_exists())
 
 
 if __name__ == '__main__':

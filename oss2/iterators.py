@@ -22,7 +22,7 @@ class _BaseIterator(object):
         self.entries = []
 
     def _fetch(self):
-        raise NotImplemented
+        raise NotImplemented    # pragma: no cover
 
     def __iter__(self):
         return self

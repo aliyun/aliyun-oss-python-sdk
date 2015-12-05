@@ -17,7 +17,6 @@ from . import defaults
 from .models import PartInfo
 from .compat import json, stringify, to_unicode
 
-import errno
 import logging
 
 
@@ -29,7 +28,7 @@ def resumable_upload(bucket, key, filename,
                      store=None,
                      headers=None,
                      multipart_threshold=defaults.multipart_threshold,
-                     part_size=defaults.part_size,
+                     part_size=None,
                      progress_callback=None):
     """断点上传本地文件。
 
@@ -61,7 +60,10 @@ def resumable_upload(bucket, key, filename,
 
 
 def determine_part_size(total_size,
-                        preferred_size=defaults.part_size):
+                        preferred_size=None):
+    if not preferred_size:
+        preferred_size = defaults.part_size
+
     if total_size < preferred_size:
         return total_size
 
@@ -165,7 +167,7 @@ class _ResumableUploader(object):
         if record:
             self.part_size = record['part_size']
         else:
-            self.part_size = self.part_size or determine_part_size(self.size)
+            self.part_size = determine_part_size(self.size, self.part_size)
             upload_id = self.bucket.init_multipart_upload(self.key, headers=self.headers).upload_id
             record = {'upload_id': upload_id, 'mtime': self.mtime, 'size': self.size, 'parts': [],
                       'abspath': self.abspath, 'key': self.key,
@@ -253,11 +255,7 @@ class ResumableStore(object):
         if os.path.isdir(self.dir):
             return
 
-        try:
-            os.makedirs(self.dir)
-        except os.error as e:
-            if e.errno != errno.EEXIST:
-                raise
+        utils.makedir_p(self.dir)
 
     @staticmethod
     def make_store_key(bucket_name, key, filename):

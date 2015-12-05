@@ -98,6 +98,7 @@ class _Base(object):
         self._make_url = _UrlMaker(self.endpoint, is_cname)
 
     def _do(self, method, bucket_name, key, **kwargs):
+        key = to_string(key)
         req = http.Request(method, self._make_url(bucket_name, key), **kwargs)
         self.auth._sign_request(req, bucket_name, key)
 
@@ -407,9 +408,9 @@ class Bucket(_Base):
         # 如果我们用head_object来实现的话，由于HTTP HEAD请求没有响应体，只有响应头部，这样当发生404时，
         # 我们无法区分是NoSuchBucket还是NoSuchKey错误。
         #
-        # 下面的实现是通过if-modified-since头部，把date设为当前时间1小时后，这样如果文件存在，则会返回
+        # 下面的实现是通过if-modified-since头部，把date设为当前时间24小时后，这样如果文件存在，则会返回
         # 304 (NotModified)；不存在，则会返回NoSuchKey
-        date = time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.gmtime(time.time() + 60 * 60))
+        date = http.http_date(int(time.time()) + 24 * 60 * 60)
 
         try:
             self.get_object(key, headers={'if-modified-since': date})
@@ -418,7 +419,7 @@ class Bucket(_Base):
         except exceptions.NoSuchKey:
             return False
         else:
-            raise RuntimeError('This is impossible')
+            raise RuntimeError('Impossible: client time varies too much from server?')  # pragma: no cover
 
     def copy_object(self, source_bucket_name, source_key, target_key, headers=None):
         """拷贝一个文件到当前Bucket。
@@ -658,16 +659,6 @@ class Bucket(_Base):
         """
         resp = self.__do_bucket('DELETE')
         return RequestResult(resp)
-
-    def bucket_exists(self):
-        """如果Bucket存在则返回True，反之返回False。
-        """
-        try:
-            self.get_bucket_acl()
-        except exceptions.NoSuchBucket:
-            return False
-        else:
-            return True
 
     def put_bucket_acl(self, permission):
         """设置Bucket的ACL。

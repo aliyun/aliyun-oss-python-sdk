@@ -239,10 +239,12 @@ class TestObject(unittest.TestCase):
         content = random_bytes(32)
 
         self.bucket.put_object(key, content)
-        self.assertEqual(self.bucket.get_object_acl(key).acl, 'default')
+        self.assertEqual(self.bucket.get_object_acl(key).acl, oss2.OBJECT_ACL_DEFAULT)
 
-        self.bucket.put_object_acl(key, 'private')
-        self.assertEqual(self.bucket.get_object_acl(key).acl, 'private')
+        for permission in (oss2.OBJECT_ACL_PRIVATE, oss2.OBJECT_ACL_PUBLIC_READ, oss2.OBJECT_ACL_PUBLIC_READ_WRITE,
+                           oss2.OBJECT_ACL_DEFAULT):
+            self.bucket.put_object_acl(key, permission)
+            self.assertEqual(self.bucket.get_object_acl(key).acl, permission)
 
         self.bucket.delete_object(key)
 
@@ -279,6 +281,11 @@ class TestObject(unittest.TestCase):
         # 上传内存中的内容
         stats = {'previous': -1}
         self.bucket.put_object(key, content, progress_callback=progress_callback)
+        self.assertEqual(stats['previous'], len(content))
+
+        # 追加内容
+        stats = {'previous': -1}
+        self.bucket.append_object(random_string(12), 0, content, progress_callback=progress_callback)
         self.assertEqual(stats['previous'], len(content))
 
         # 下载到文件

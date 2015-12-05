@@ -16,6 +16,7 @@ import threading
 import calendar
 import datetime
 import time
+import errno
 
 from .compat import to_string, to_bytes
 
@@ -248,9 +249,17 @@ def iso8601_to_unixtime(time_string):
 
 
 def date_to_iso8601(d):
-    return d.strftime(_ISO8601_FORMAT)
+    return d.strftime(_ISO8601_FORMAT)  # It's OK to use strftime, since _ISO8601_FORMAT is not locale dependent
 
 
 def iso8601_to_date(time_string):
     timestamp = iso8601_to_unixtime(time_string)
     return datetime.date.fromtimestamp(timestamp)
+
+
+def makedir_p(dirpath):
+    try:
+        os.makedirs(dirpath)
+    except os.error as e:
+        if e.errno != errno.EEXIST:
+            raise

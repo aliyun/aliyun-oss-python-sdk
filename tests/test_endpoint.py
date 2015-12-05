@@ -45,10 +45,10 @@ class TestBucket(unittest.TestCase):
 
     def test_whitespace(self):
         bucket = oss2.Bucket(oss2.Auth(OSS_ID, ' ' + OSS_SECRET + ' '), OSS_ENDPOINT, OSS_BUCKET)
-        self.assertTrue(bucket.bucket_exists())
+        bucket.get_bucket_acl()
 
         bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), ' ' + OSS_ENDPOINT + ' ', OSS_BUCKET)
-        self.assertTrue(bucket.bucket_exists())
+        bucket.get_bucket_acl()
 
 if __name__ == '__main__':
     unittest.main()
