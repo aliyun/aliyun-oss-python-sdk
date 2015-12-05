@@ -14,8 +14,8 @@ API文档
 .. autoclass:: oss2.Service
 .. autoclass:: oss2.Session
 
-参数说明
---------
+输入、输出和异常说明
+------------------
 
 .. automodule:: oss2.api
 
