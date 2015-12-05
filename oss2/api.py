@@ -64,7 +64,7 @@ HTTP包体。
 上传下载接口，诸如 `get_object` 、 `put_object` 、`resumable_upload`，都支持进度回调函数，可以用它实现进度条等功能。
 对于上传，要求待上传的文件（即 `data` 参数）是bytes或可以得到长度的file object（可以seek、tell）。
 
-`progress_callback` 的函数原型如下::
+`progress_callback` 的函数原型如下 ::
 
     def progress_callback(bytes_consumed, total_bytes, bytes_to_consume):
         '''进度回调函数。
@@ -77,6 +77,36 @@ HTTP包体。
 
 该进度回调函数在每次上传、下载一段数据之前调用，所以这里区分了已经消费（bytes_consumed）和即将消费（bytes_to_consume）两个量。
 一般情况下，只需使用bytes_consumed即可。在上传、下载结束时，bytes_consumed的值会等于total_bytes。
+
+
+.. _unix_time:
+
+UNIX Time
+---------
+OSS Python SDK会把从服务器获得时间戳都转换为自1970年1月1日UTC零点以来的秒数，即UNIX Time。
+参见 `UNIX Time <https://en.wikipedia.org/wiki/Unix_time>`_
+
+
+OSS中常用的时间格式有
+    - HTTP Date格式，形如 `Sat, 05 Dec 2015 11:04:39 GMT` 这样的GMT时间。
+      用在If-Modified-Since、Last-Modified这些HTTP请求、响应头里。
+    - ISO8601格式，形如 `2015-12-05T00:00:00.000Z`。
+      用在生命周期管理配置、列举Bucket结果中的创建时间、列举文件结果中的最后修改时间等处。
+
+`http_date` 函数把UNIX Time转换为HTTP Date；而 `http_to_unixtime` 则做相反的转换。如 ::
+
+    >>> import oss2, time
+    >>> unix_time = int(time.time())             # 当前UNIX Time，设其职为 1449313829
+    >>> date_str = oss2.http_date(unix_time)     # 得到 'Sat, 05 Dec 2015 11:10:29 GMT'
+    >>> oss2.http_to_unixtime(date_str)          # 得到 1449313829
+
+`iso8601_to_unixtime` 把ISO8601格式转换为UNIX Time；`date_to_iso8601` 和 `iso8601_to_date` 则在ISO8601格式的字符串和
+datetime.date之间相互转换。如 ::
+
+    >>> import oss2
+    >>> d = oss2.iso8601_to_date('2015-12-05T00:00:00.000Z')  # 得到 datetime.date(2015, 12, 5)
+    >>> date_str = oss2.date_to_iso8601(d)                    # 得到 '2015-12-05T00:00:00.000Z'
+    >>> oss2.iso8601_to_unixtime(date_str)                    # 得到 1449273600
 """
 
 from . import xml_utils
@@ -90,6 +120,7 @@ from .compat import urlquote, urlparse, to_unicode
 
 import time
 import shutil
+import oss2.utils
 
 
 class _Base(object):
@@ -414,7 +445,7 @@ class Bucket(_Base):
         #
         # 下面的实现是通过if-modified-since头部，把date设为当前时间24小时后，这样如果文件存在，则会返回
         # 304 (NotModified)；不存在，则会返回NoSuchKey
-        date = http.http_date(int(time.time()) + 24 * 60 * 60)
+        date = oss2.utils.http_date(int(time.time()) + 24 * 60 * 60)
 
         try:
             self.get_object(key, headers={'if-modified-since': date})

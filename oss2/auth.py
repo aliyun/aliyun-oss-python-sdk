@@ -7,7 +7,6 @@ import logging
 
 from . import utils
 from .compat import urlquote, to_bytes
-from .http import http_date
 
 
 class Auth(object):
@@ -27,7 +26,7 @@ class Auth(object):
         self.secret = access_key_secret.strip()
 
     def _sign_request(self, req, bucket_name, key):
-        req.headers['date'] = http_date()
+        req.headers['date'] = utils.http_date()
 
         signature = self.__make_signature(req, bucket_name, key)
         req.headers['authorization'] = "OSS {0}:{1}".format(self.id, signature)

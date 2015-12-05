@@ -5,18 +5,11 @@ oss2.models
 ~~~~~~~~~~
 
 该模块包含Python SDK API接口所需要的输入参数以及返回值类型。
-
-.. _unix_time:
-
-UNIX Time
----------
-OSS Python SDK会把从服务器获得时间戳都转换为自1970年1月1日UTC零点以来的秒数，即UNIX Time。
-参见 `UNIX Time <https://en.wikipedia.org/wiki/Unix_time>`_
-
 """
 
-from .utils import gmt_to_unixtime, MonitoredStreamReader
+from .utils import http_to_unixtime, MonitoredStreamReader
 from .exceptions import ClientError
+
 
 class PartInfo(object):
     """表示分片信息的文件。
@@ -59,7 +52,7 @@ class HeadObjectResult(RequestResult):
         self.object_type = self.headers['x-oss-object-type']
 
         #: 文件最后修改时间，类型为int。参考 :ref:`unix_time`
-        self.last_modified = gmt_to_unixtime(self.headers['last-modified'])
+        self.last_modified = http_to_unixtime(self.headers['last-modified'])
 
         #: 文件的MIME类型
         self.content_type = self.headers['content-type']

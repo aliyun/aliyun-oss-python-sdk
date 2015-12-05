@@ -6,6 +6,7 @@ oss2.utils
 
 工具函数模块。
 """
+from email.utils import formatdate
 
 import os.path
 import mimetypes
@@ -240,8 +241,18 @@ def to_unixtime(time_string, format_string):
         return int(calendar.timegm(time.strptime(time_string, format_string)))
 
 
-def gmt_to_unixtime(time_string):
-    """把GMT时间字符串转换为UNIX时间（自1970年1月1日UTC零点的秒数）"""
+def http_date(timeval=None):
+    """返回符合HTTP标准的GMT时间字符串，用strftime的格式表示就是"%a, %d %b %Y %H:%M:%S GMT"。
+    但不能使用strftime，因为strftime的结果是和locale相关的。
+    """
+    return formatdate(timeval, usegmt=True)
+
+
+def http_to_unixtime(time_string):
+    """把HTTP Date格式的字符串转换为UNIX时间（自1970年1月1日UTC零点的秒数）。
+
+    HTTP Date形如 `Sat, 05 Dec 2015 11:10:29 GMT` 。
+    """
     return to_unixtime(time_string, _GMT_FORMAT)
 
 
@@ -265,3 +276,4 @@ def makedir_p(dirpath):
     except os.error as e:
         if e.errno != errno.EEXIST:
             raise
+

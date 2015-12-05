@@ -8,16 +8,14 @@ oss2.http
 该模块中的 `Session` 、 `Request` 、`Response` 对requests的对应的类做了简单的封装。
 """
 
-import requests
 import platform
+
+import requests
+from requests.structures import CaseInsensitiveDict
 
 from . import __version__
 from .compat import to_bytes
 from .exceptions import RequestError
-
-from requests.structures import CaseInsensitiveDict
-from email.utils import formatdate
-
 
 _USER_AGENT = 'aliyun-sdk-python/{0} ({1}/{2}/{3};{4})'.format(
     __version__, platform.system(), platform.release(), platform.machine(), platform.python_version())
@@ -88,8 +86,3 @@ class Response(object):
         return self.response.iter_content(_CHUNK_SIZE)
 
 
-def http_date(timeval=None):
-    """返回符合HTTP标准的GMT时间字符串，用strftime的格式表示就是"%a, %d %b %Y %H:%M:%S GMT"。
-    但不能使用strftime，因为strftime的结果是和locale相关的。
-    """
-    return formatdate(timeval, usegmt=True)
