@@ -77,6 +77,7 @@ $ py.test                           # 如果安装了py.test
 ```
 ## 更多使用
 - [更多例子](https://github.com/aliyun/aliyun-oss-python-sdk/tree/master/examples)
+- [Python SDK API文档](http://aliyun-oss-python-sdk.readthedocs.org/en/latest/)
 - [官网Python SDK文档](https://docs.aliyun.com/#/pub/oss/sdk/python-sdk&preface)
 
 ## 联系我们
