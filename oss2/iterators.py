@@ -8,7 +8,7 @@ oss2.iterators
 """
 
 from .models import MultipartUploadInfo, SimplifiedObjectInfo
-from .exceptions import OssError
+from .exceptions import ServerError
 
 from . import defaults
 
@@ -44,8 +44,8 @@ class _BaseIterator(object):
         for i in range(self.max_retries):
             try:
                 self.is_truncated, self.next_marker = self._fetch()
-            except OssError as e:
-                if e.result.status // 100 != 5:
+            except ServerError as e:
+                if e.status // 100 != 5:
                     raise
 
                 if i == self.max_retries - 1:

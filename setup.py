@@ -18,14 +18,18 @@ if not version:
     raise RuntimeError('Cannot find version information')
 
 
+with open('README.md', 'rb') as f:
+    readme = f.read().decode('utf-8')
+
 setup(
     name='oss2',
     version=version,
     description='Aliyun OSS (Object Storage Service) SDK',
+    long_description=readme,
     packages=['oss2'],
     install_requires=['requests'],
     include_package_data=True,
-    url='http://oss2.aliyun.com',
+    url='http://oss.aliyun.com',
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',

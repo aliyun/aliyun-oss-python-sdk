@@ -84,14 +84,14 @@ class TestUtils(unittest.TestCase):
         return resp
 
     def test_make_exception(self):
-        error_body = 'bad body'
-        e = make_exception(self.__fake_response(400, error_body))
-        self.assertTrue(isinstance(e, oss2.exceptions.OssError))
-        self.assertEqual(e.result.status, 400)
-        self.assertEqual(e.result.error_body, oss2.to_bytes(error_body))
+        body = 'bad body'
+        e = make_exception(self.__fake_response(400, body))
+        self.assertTrue(isinstance(e, oss2.exceptions.ServerError))
+        self.assertEqual(e.status, 400)
+        self.assertEqual(e.body, oss2.to_bytes(body))
 
-        error_body = '<Error><Code>NoSuchKey</Code><Message>中文和控制字符&#12;</Message></Error>'
-        e = make_exception(self.__fake_response(404, error_body))
+        body = '<Error><Code>NoSuchKey</Code><Message>中文和控制字符&#12;</Message></Error>'
+        e = make_exception(self.__fake_response(404, body))
         self.assertTrue(isinstance(e, oss2.exceptions.NoSuchKey))
-        self.assertEqual(e.result.status, 404)
-        self.assertEqual(e.result.code, 'NoSuchKey')
+        self.assertEqual(e.status, 404)
+        self.assertEqual(e.code, 'NoSuchKey')

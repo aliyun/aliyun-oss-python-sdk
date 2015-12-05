@@ -7,21 +7,52 @@ oss2.exceptions
 异常类。
 """
 
-from .models import ErrorResult
+import re
+
+import xml.etree.ElementTree as ElementTree
+from xml.parsers import expat
+
+
+from .compat import to_string
+
 
 _OSS_ERROR_TO_EXCEPTION = {} # populated at end of module
 
 
-class OssError(Exception):
-    def __init__(self, result):
-        super(OssError, self).__init__()
-        self.result = result
+class ErrorBase(Exception):
+    def __init__(self, status, headers, body, details):
+        #: HTTP 状态码
+        self.status = status
+
+        #: 请求ID，用于跟踪一个OSS请求。提交工单时，最后能够提供请求ID
+        self.request_id = headers.get('x-oss-request-id', '')
+
+        #: HTTP响应体（部分）
+        self.body = body
+
+        #: 详细错误信息，是一个string到string的dict
+        self.details = details
+
+        #: OSS错误码
+        self.code = self.details.get('Code', '')
+
+        #: OSS错误信息
+        self.message = self.details.get('Message', '')
 
     def __str__(self):
-        return repr(self.result)
+        return str(self.details)
 
 
-class NotFound(OssError):
+class ClientError(ErrorBase):
+    def __init__(self, message):
+        ErrorBase.__init__(self, -1, '-', 'ClientError: ' + message, {})
+
+
+class ServerError(ErrorBase):
+    pass
+
+
+class NotFound(ServerError):
     status = 404
     code = ''
 
@@ -56,7 +87,7 @@ class NoSuchCors(NotFound):
     code = 'NoSuchCORSConfiguration'
 
 
-class Conflict(OssError):
+class Conflict(ServerError):
     status = 409
     code = ''
 
@@ -70,9 +101,9 @@ class PositionNotEqualToLength(Conflict):
     status = 409
     code = 'PositionNotEqualToLength'
 
-    def __init__(self, result):
-        super(PositionNotEqualToLength, self).__init__(result)
-        self.next_position = int(self.result.headers['x-oss-next-append-position'])
+    def __init__(self, status, headers, body, details):
+        super(PositionNotEqualToLength, self).__init__(status, headers, body, details)
+        self.next_position = int(headers['x-oss-next-append-position'])
 
 
 class ObjectNotAppendable(Conflict):
@@ -80,26 +111,28 @@ class ObjectNotAppendable(Conflict):
     code = 'ObjectNotAppendable'
 
 
-class NotModified(OssError):
+class NotModified(ServerError):
     status = 304
     code = ''
 
 
-class AccessDenied(OssError):
+class AccessDenied(ServerError):
     status = 403
     code = 'AccessDenied'
 
 
 def make_exception(resp):
-    assert resp.status // 100 != 2
-
-    result = ErrorResult(resp)
+    status = resp.status
+    headers = resp.headers
+    body = resp.read(4096)
+    details = _parse_error_body(body)
+    code = details.get('Code', '')
 
     try:
-        klass = _OSS_ERROR_TO_EXCEPTION[(result.status, result.code)]
-        return klass(result)
+        klass = _OSS_ERROR_TO_EXCEPTION[(status, code)]
+        return klass(status, headers, body, details)
     except KeyError:
-        return OssError(result)
+        return ServerError(status, headers, body, details)
 
 
 def _walk_subclasses(klass):
@@ -109,9 +142,48 @@ def _walk_subclasses(klass):
             yield subsub
 
 
-for klass in _walk_subclasses(OssError):
+for klass in _walk_subclasses(ServerError):
     status = getattr(klass, 'status', None)
     code = getattr(klass, 'code', None)
 
     if status is not None and code is not None:
         _OSS_ERROR_TO_EXCEPTION[(status, code)] = klass
+
+
+# XML parsing exceptions have changed in Python2.7 and ElementTree 1.3
+if hasattr(ElementTree, 'ParseError'):
+    ElementTreeParseError = (ElementTree.ParseError, expat.ExpatError)
+else:
+    ElementTreeParseError = (expat.ExpatError)
+
+
+def _parse_error_body(body):
+    try:
+        root = ElementTree.fromstring(body)
+        if root.tag != 'Error':
+            return {}
+
+        details = {}
+        for child in root:
+            details[child.tag] = child.text
+        return details
+    except ElementTreeParseError:
+        return _guess_error_details(body)
+
+
+def _guess_error_details(body):
+    details = {}
+    body = to_string(body)
+
+    if '<Error>' not in body or '</Error>' not in body:
+        return details
+
+    m = re.search('<Code>(.*)</Code>', body)
+    if m:
+        details['Code'] = m.group(1)
+
+    m = re.search('<Message>(.*)</Message>', body)
+    if m:
+        details['Message'] = m.group(1)
+
+    return details

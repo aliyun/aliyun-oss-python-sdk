@@ -6,7 +6,7 @@ import os
 import oss2
 
 
-# 该文件展示了一些和文件相关的高级用法，如设置用户自定义元数据、拷贝文件、追加上传等。
+# 以下代码展示了Bucket相关操作，诸如创建、删除、列举Bucket等。
 
 
 # 首先初始化AccessKeyId、AccessKeySecret、Endpoint等信息。
@@ -24,7 +24,7 @@ for param in (access_key_id, access_key_secret, bucket_name, endpoint):
 
 # 列举所有的Bucket
 #   1. 先创建一个Service对象
-#   2. 用oss.iterators.BucketIterator遍历
+#   2. 用oss2.BucketIterator遍历
 service = oss2.Service(oss2.Auth(access_key_id, access_key_secret), endpoint)
 print('\n'.join(info.name for info in oss2.BucketIterator(service)))
 
@@ -53,7 +53,7 @@ xml = '''
 bucket.put_bucket_website(xml)
 
 # 方法三：可以从本地文件读取XML配置
-# oss.compat.to_bytes()可以把unicode转换为bytes
+# oss2.to_bytes()可以把unicode转换为bytes
 with open('website_config.xml', 'wb') as f:
     f.write(oss2.to_bytes(xml))
 

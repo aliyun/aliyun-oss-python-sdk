@@ -6,7 +6,7 @@ from datetime import datetime
 import oss2
 
 
-# 该文件展示了一些和文件相关的高级用法，如中文、设置用户自定义元数据、拷贝文件、追加上传等。
+# 以下代码展示了一些和文件相关的高级用法，如中文、设置用户自定义元数据、拷贝文件、追加上传等。
 
 
 # 首先初始化AccessKeyId、AccessKeySecret、Endpoint等信息。

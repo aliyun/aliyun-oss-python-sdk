@@ -15,15 +15,8 @@ OSS Python SDK会把从服务器获得时间戳都转换为自1970年1月1日UTC
 
 """
 
-import re
-
-import xml.etree.ElementTree as ElementTree
-from xml.parsers import expat
-
-
-from .compat import to_string
 from .utils import gmt_to_unixtime, MonitoredStreamReader
-
+from .exceptions import ClientError
 
 class PartInfo(object):
     """表示分片信息的文件。
@@ -55,28 +48,7 @@ class RequestResult(object):
         self.headers = resp.headers
 
         #: 请求ID，用于跟踪一个OSS请求。提交工单时，最后能够提供请求ID
-        self.request_id = resp.headers['x-oss-request-id']
-
-
-class ErrorResult(RequestResult):
-    def __init__(self, resp):
-        super(ErrorResult, self).__init__(resp)
-
-        #: HTTP响应体的前4096个字节
-        self.error_body = resp.read(4096)
-
-        #: 错误细节。OSS错误响应是一个XML文本，表示了Key-Value对的信息。
-        #: `details` 是XML转换为dict后的结果。
-        self.details = _parse_error_body(self.error_body)
-
-        #: OSS错误码，类似于'NoSuchKey'这样的字符串
-        self.code = self.details.get('Code', '')
-
-        #: OSS错误信息。
-        self.message = self.details.get('Message', '')
-
-    def __repr__(self):
-        return repr(self.details)
+        self.request_id = resp.headers.get('x-oss-request-id', '')
 
 
 class HeadObjectResult(RequestResult):
@@ -369,7 +341,7 @@ class LifecycleExpiration(object):
     """
     def __init__(self, days=None, date=None):
         if days is not None and date is not None:
-            raise RuntimeError('days and date should not be both specified')
+            raise ClientError('days and date should not be both specified')
 
         self.days = days
         self.date = date
@@ -448,42 +420,3 @@ class GetBucketCorsResult(RequestResult, BucketCors):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         BucketCors.__init__(self)
-
-
-# XML parsing exceptions have changed in Python2.7 and ElementTree 1.3
-if hasattr(ElementTree, 'ParseError'):
-    ElementTreeParseError = (ElementTree.ParseError, expat.ExpatError)
-else:
-    ElementTreeParseError = (expat.ExpatError)
-
-
-def _parse_error_body(body):
-    try:
-        root = ElementTree.fromstring(body)
-        if root.tag != 'Error':
-            return {}
-
-        details = {}
-        for child in root:
-            details[child.tag] = child.text
-        return details
-    except ElementTreeParseError:
-        return _guess_error_details(body)
-
-
-def _guess_error_details(body):
-    details = {}
-    body = to_string(body)
-
-    if '<Error>' not in body or '</Error>' not in body:
-        return details
-
-    m = re.search('<Code>(.*)</Code>', body)
-    if m:
-        details['Code'] = m.group(1)
-
-    m = re.search('<Message>(.*)</Message>', body)
-    if m:
-        details['Message'] = m.group(1)
-
-    return details

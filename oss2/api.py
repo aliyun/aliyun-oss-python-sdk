@@ -31,7 +31,11 @@ HTTP包体。
 
 异常
 ----
-当HTTP请求失败时，即响应状态码不是2XX时，如无特殊说明都会抛出 :class:`OssError <oss2.exceptions.OssError>` 异常或是其子类。
+Python SDK可能会抛出三种类型的异常：
+    - :class:`ClientError <oss2.exceptions.ClientError>` ：请求还未发送到OSS服务器就发生的错误，一般由于参数错误等引起；
+    - :class:`ServerError <oss2.exceptions.ServerError>` 及其子类：OSS服务器返回非成功的状态码，如4xx或5xx；
+    - 其他异常，可能是由底层依赖的库（如requests）抛出。
+
 
 
 .. _byte_range:
@@ -98,7 +102,7 @@ class _Base(object):
         self._make_url = _UrlMaker(self.endpoint, is_cname)
 
     def _do(self, method, bucket_name, key, **kwargs):
-        key = to_string(key)
+        key = utils.to_string(key)
         req = http.Request(method, self._make_url(bucket_name, key), **kwargs)
         self.auth._sign_request(req, bucket_name, key)
 
@@ -419,7 +423,7 @@ class Bucket(_Base):
         except exceptions.NoSuchKey:
             return False
         else:
-            raise RuntimeError('Impossible: client time varies too much from server?')  # pragma: no cover
+            raise exceptions.ClientError('Client time varies too much from server?')  # pragma: no cover
 
     def copy_object(self, source_bucket_name, source_key, target_key, headers=None):
         """拷贝一个文件到当前Bucket。
@@ -491,7 +495,8 @@ class Bucket(_Base):
 
         :return: :class:`BatchDeleteObjectsResult <oss2.models.BatchDeleteObjectsResult>`
         """
-        assert key_list
+        if not key_list:
+            raise ClientError('key_list should not be empty')
 
         data = xml_utils.to_batch_delete_objects_request(key_list, False)
         resp = self.__do_object('POST', '',

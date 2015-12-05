@@ -55,7 +55,7 @@ try:
     result = bucket.get_object(key)
     print(result.read())
 except oss2.exceptions.NoSuchKey as e:
-    print('{0} not found: http_status={1}, request_id={2}'.format(key, e.result.status, e.result.request_id))
+    print('{0} not found: http_status={1}, request_id={2}'.format(key, e.status, e.request_id))
 ```
 
 ## 测试

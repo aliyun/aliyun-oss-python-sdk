@@ -3,13 +3,12 @@
 import unittest
 import requests
 import filecmp
-import os
 import calendar
 import time
 
 import oss2
 
-from oss2.exceptions import NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable
+from oss2.exceptions import ClientError, NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable
 from oss2 import to_string
 
 from common import *
@@ -176,7 +175,7 @@ class TestObject(unittest.TestCase):
             self.assertTrue(not self.bucket.object_exists(object))
 
     def test_batch_delete_objects_empty(self):
-        self.assertRaises(AssertionError, self.bucket.batch_delete_objects, [])
+        self.assertRaises(ClientError, self.bucket.batch_delete_objects, [])
 
     def test_append_object(self):
         key = random_string(12)

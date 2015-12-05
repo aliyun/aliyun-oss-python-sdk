@@ -19,6 +19,8 @@ import time
 import errno
 
 from .compat import to_string, to_bytes
+from .exceptions import ClientError
+
 
 _EXTRA_TYPES_MAP = {
     ".js": "application/javascript",
@@ -150,7 +152,7 @@ def _get_data_size(data):
 
         return end - current
 
-    raise RuntimeError('Cannot determine the size of data of type: {0}'.format(data.__class__.__name__))
+    raise ClientError('Cannot determine the size of data of type: {0}'.format(data.__class__.__name__))
 
 
 _CHUNK_SIZE = 8 * 1024

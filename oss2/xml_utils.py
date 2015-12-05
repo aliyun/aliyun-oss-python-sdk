@@ -29,7 +29,7 @@ from .utils import iso8601_to_unixtime, date_to_iso8601, iso8601_to_date
 def _find_tag(parent, path):
     child = parent.find(path)
     if child is None:
-        raise KeyError("parse xml: " + path + " could not be found under " + parent.tag)
+        raise RuntimeError("parse xml: " + path + " could not be found under " + parent.tag)
 
     if child.text is None:
         return ''
@@ -44,7 +44,7 @@ def _find_bool(parent, path):
     elif text == 'false':
         return False
     else:
-        raise ValueError("parse xml: value of " + path + " is not a boolean under " + parent.tag)
+        raise RuntimeError("parse xml: value of " + path + " is not a boolean under " + parent.tag)
 
 
 def _find_int(parent, path):

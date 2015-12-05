@@ -6,7 +6,7 @@ import shutil
 import oss2
 
 
-# 该文件展示了基本的文件上传、下载、罗列、删除用法。
+# 以下代码展示了基本的文件上传、下载、罗列、删除用法。
 
 
 # 首先初始化AccessKeyId、AccessKeySecret、Endpoint等信息。
@@ -75,11 +75,11 @@ bucket.batch_delete_objects(['motto.txt', '云上座右铭.txt'])
 assert not bucket.object_exists('motto.txt')
 
 
-# 获取不存在的文件会抛出oss.exceptions.NoSuchKey异常
+# 获取不存在的文件会抛出oss2.exceptions.NoSuchKey异常
 try:
     bucket.get_object('云上座右铭.txt')
-except oss2.exceptions.NoSuchKey:
-    print(u'已经被删除了')
+except oss2.exceptions.NoSuchKey as e:
+    print(u'已经被删除了：request_id={0}'.format(e.request_id))
 else:
     assert False
 
