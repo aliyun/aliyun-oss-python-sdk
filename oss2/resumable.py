@@ -61,6 +61,13 @@ def resumable_upload(bucket, key, filename,
 
 def determine_part_size(total_size,
                         preferred_size=None):
+    """确定分片大小。
+
+    :param int total_size: 总共需要上传的长度
+    :param int preferred_size: 用户期望的分片大小。如果不指定则采用defaults.part_size
+
+    :return: 分片大小
+    """
     if not preferred_size:
         preferred_size = defaults.part_size
 
@@ -68,7 +75,10 @@ def determine_part_size(total_size,
         return total_size
 
     if preferred_size * _MAX_PART_COUNT < total_size:
-        return total_size // _MAX_PART_COUNT + 1
+        if total_size % _MAX_PART_COUNT:
+            return total_size // _MAX_PART_COUNT + 1
+        else:
+            return total_size // _MAX_PART_COUNT
     else:
         return preferred_size
 

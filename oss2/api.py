@@ -471,8 +471,8 @@ class Bucket(_Base):
         """设置文件的ACL。
 
         :param str key: 文件名
-        :param str permission: 可以是OBJECT_ACL_DEFAULT、OBJECT_ACL_PRIVATE、OBJECT_ACL_PUBLIC_READ或
-            OBJECT_ACL_PUBLIC_READ_WRITE。
+        :param str permission: 可以是oss2.OBJECT_ACL_DEFAULT、oss2.OBJECT_ACL_PRIVATE、oss2.OBJECT_ACL_PUBLIC_READ或
+            oss2.OBJECT_ACL_PUBLIC_READ_WRITE。
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
@@ -645,8 +645,8 @@ class Bucket(_Base):
     def create_bucket(self, permission=None):
         """创建新的Bucket。
 
-        :param str permission: 指定Bucket的ACL。可以是BUCKET_ACL_PRIVATE（推荐、缺省）、BUCKET_ACL_PUBLIC_READ或是
-            BUCKET_ACL_PUBLIC_READ_WRITE。
+        :param str permission: 指定Bucket的ACL。可以是oss2.BUCKET_ACL_PRIVATE（推荐、缺省）、oss2.BUCKET_ACL_PUBLIC_READ或是
+            oss2.BUCKET_ACL_PUBLIC_READ_WRITE。
         """
         if permission:
             headers = {'x-oss-acl': permission}
