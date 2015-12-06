@@ -56,8 +56,8 @@ class TestUpload(unittest.TestCase):
     def test_progress(self):
         stats = {'previous': -1}
 
-        def progress_callback(bytes_consumed, total_bytes, bytes_to_consume):
-            self.assertTrue(bytes_consumed + bytes_to_consume <= total_bytes)
+        def progress_callback(bytes_consumed, total_bytes):
+            self.assertTrue(bytes_consumed <= total_bytes)
             self.assertTrue(bytes_consumed > stats['previous'])
 
             stats['previous'] = bytes_consumed
@@ -68,15 +68,15 @@ class TestUpload(unittest.TestCase):
         pathname = self._prepare_temp_file(content)
 
         oss2.resumable_upload(self.bucket, key, pathname,
-                             multipart_threshold=200 * 1024,
-                             part_size=100*1024,
-                             progress_callback=progress_callback)
+                              multipart_threshold=200 * 1024,
+                              part_size=100 * 1024,
+                              progress_callback=progress_callback)
         self.assertEqual(stats['previous'], len(content))
 
         stats = {'previous': -1}
         oss2.resumable_upload(self.bucket, key, pathname,
-                             multipart_threshold=len(content) + 100,
-                             progress_callback=progress_callback)
+                              multipart_threshold=len(content) + 100,
+                              progress_callback=progress_callback)
         self.assertEqual(stats['previous'], len(content))
 
     def __test_resume(self, content_size, uploaded_parts, expected_unfinished=0):

@@ -66,14 +66,12 @@ HTTP包体。
 
 `progress_callback` 的函数原型如下 ::
 
-    def progress_callback(bytes_consumed, total_bytes, bytes_to_consume):
+    def progress_callback(bytes_consumed, total_bytes):
         '''进度回调函数。
 
         :param int bytes_consumed: 已经消费的字节数。对于上传，就是已经上传的量；对于下载，就是已经下载的量。
         :param int total_bytes: 总长度。
-        :param int bytes_to_consume: 即将要消费的字节数。
         '''
-        pass
 
 该进度回调函数在每次上传、下载一段数据之前调用，所以这里区分了已经消费（bytes_consumed）和即将消费（bytes_to_consume）两个量。
 一般情况下，只需使用bytes_consumed即可。在上传、下载结束时，bytes_consumed的值会等于total_bytes。

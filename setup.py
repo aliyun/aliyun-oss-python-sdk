@@ -18,7 +18,7 @@ if not version:
     raise RuntimeError('Cannot find version information')
 
 
-with open('README.md', 'rb') as f:
+with open('README.rst', 'rb') as f:
     readme = f.read().decode('utf-8')
 
 setup(

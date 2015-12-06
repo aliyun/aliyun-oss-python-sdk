@@ -7,7 +7,7 @@ oss2.models
 该模块包含Python SDK API接口所需要的输入参数以及返回值类型。
 """
 
-from .utils import http_to_unixtime, MonitoredStreamReader
+from .utils import http_to_unixtime, MonitoredStreamReader, http_date
 from .exceptions import ClientError
 
 
@@ -27,6 +27,17 @@ class PartInfo(object):
         self.etag = etag
         self.size = size
         self.last_modified = last_modified
+
+
+def _hget(headers, key, converter=lambda x: x):
+    if key in headers:
+        return converter(headers[key])
+    else:
+        return None
+
+
+def _get_etag(headers):
+    return _hget(headers, 'etag', lambda x: x.strip('"'))
 
 
 class RequestResult(object):
@@ -49,19 +60,20 @@ class HeadObjectResult(RequestResult):
         super(HeadObjectResult, self).__init__(resp)
 
         #: 文件类型，可以是'Normal'、'Multipart'、'Appendable'等
-        self.object_type = self.headers['x-oss-object-type']
+        self.object_type = _hget(self.headers, 'x-oss-object-type')
 
-        #: 文件最后修改时间，类型为int。参考 :ref:`unix_time`
-        self.last_modified = http_to_unixtime(self.headers['last-modified'])
+        #: 文件最后修改时间，类型为int。参考 :ref:`unix_time` 。
+
+        self.last_modified = _hget(self.headers, 'last-modified', http_to_unixtime)
 
         #: 文件的MIME类型
-        self.content_type = self.headers['content-type']
+        self.content_type = _hget(self.headers, 'content-type')
 
-        #: 文件的大小
-        self.content_length = int(self.headers['content-length'])
+        #: Content-Length，可能是None。
+        self.content_length = _hget(self.headers, 'content-length', int)
 
         #: HTTP ETag
-        self.etag = self.headers['etag'].strip('"')
+        self.etag = _get_etag(self.headers)
 
 
 class GetObjectResult(HeadObjectResult):
@@ -85,7 +97,7 @@ class PutObjectResult(RequestResult):
         super(PutObjectResult, self).__init__(resp)
 
         #: HTTP ETag
-        self.etag = resp.headers['etag'].strip('"')
+        self.etag = _get_etag(self.headers)
 
 
 class AppendObjectResult(RequestResult):
@@ -93,13 +105,13 @@ class AppendObjectResult(RequestResult):
         super(AppendObjectResult, self).__init__(resp)
 
         #: HTTP ETag
-        self.etag = resp.headers['etag'].strip('"')
+        self.etag = _get_etag(self.headers)
 
         #: 本次追加写完成后，OSS上文件的CRC64值
-        self.crc = int(resp.headers['x-oss-hash-crc64ecma'])
+        self.crc = _hget(resp.headers, 'x-oss-hash-crc64ecma', int)
 
         #: 下次追加写的偏移
-        self.next_position = int(resp.headers['x-oss-next-append-position'])
+        self.next_position = _hget(resp.headers, 'x-oss-next-append-position', int)
 
 
 class BatchDeleteObjectsResult(RequestResult):

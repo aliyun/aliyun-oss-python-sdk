@@ -131,7 +131,7 @@ class _ResumableUploader(object):
 
             for part in parts_to_upload:
                 if self.progress_callback:
-                    self.progress_callback(size_uploaded, self.size, part.size)
+                    self.progress_callback(size_uploaded, self.size)
 
                 f.seek(part.start, os.SEEK_SET)
                 result = self.bucket.upload_part(self.key, upload_id, part.part_number,
@@ -144,7 +144,7 @@ class _ResumableUploader(object):
                 self.__store_put(record)
 
             if self.progress_callback:
-                self.progress_callback(self.size, self.size, 0)
+                self.progress_callback(self.size, self.size)
 
             self.bucket.complete_multipart_upload(self.key, upload_id, kept_parts)
             self.__store_delete()
