@@ -33,8 +33,8 @@ class TestMultipart(unittest.TestCase):
     def test_progress(self):
         stats = {'previous': -1}
 
-        def progress_callback(bytes_consumed, total_bytes, bytes_to_consume):
-            self.assertTrue(bytes_consumed + bytes_to_consume <= total_bytes)
+        def progress_callback(bytes_consumed, total_bytes):
+            self.assertTrue(bytes_consumed <= total_bytes)
             self.assertTrue(bytes_consumed > stats['previous'])
 
             stats['previous'] = bytes_consumed

@@ -157,6 +157,7 @@ class TestObject(unittest.TestCase):
 
         # 设置bucket为private，并确认上传和下载都会失败
         self.bucket.put_bucket_acl('private')
+        time.sleep(1)
 
         self.assertRaises(oss2.exceptions.AccessDenied, b.put_object, key, content)
         self.assertRaises(oss2.exceptions.AccessDenied, b.get_object, key)
@@ -296,8 +297,8 @@ class TestObject(unittest.TestCase):
     def test_progress(self):
         stats = {'previous': -1}
 
-        def progress_callback(bytes_consumed, total_bytes, bytes_to_consume):
-            self.assertTrue(bytes_consumed + bytes_to_consume <= total_bytes)
+        def progress_callback(bytes_consumed, total_bytes):
+            self.assertTrue(bytes_consumed <= total_bytes)
             self.assertTrue(bytes_consumed > stats['previous'])
 
             stats['previous'] = bytes_consumed
@@ -348,6 +349,19 @@ class TestObject(unittest.TestCase):
 
         self.assertRaises(Conflict, self.bucket.append_object, key, len(content), b'more content')
         self.assertRaises(ObjectNotAppendable, self.bucket.append_object, key, len(content), b'more content')
+
+    def test_gzip_get(self):
+        """OSS supports HTTP Compression, see https://en.wikipedia.org/wiki/HTTP_compression for details.
+        """
+        key = random_string(12) + '.txt'  # ensure our content-type is text/plain, which could be compressed
+        content = random_bytes(2048)      # ensure our content-length is larger than 1024 to trigger compression
+
+        self.bucket.put_object(key, content)
+
+        result = self.bucket.get_object(key, headers={'Accept-Encoding': 'gzip'})
+        self.assertEqual(result.read(), content)
+        self.assertTrue(result.content_length is None)
+        self.assertEqual(result.headers['Content-Encoding'], 'gzip')
 
 
 if __name__ == '__main__':

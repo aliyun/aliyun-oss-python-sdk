@@ -50,11 +50,15 @@ class TestBucket(unittest.TestCase):
         self.assertEqual(result.acl, oss2.BUCKET_ACL_PUBLIC_READ)
 
         bucket.put_bucket_acl(oss2.BUCKET_ACL_PRIVATE)
+        time.sleep(1)
+
         result = bucket.get_bucket_acl()
         self.assertEqual(result.acl, oss2.BUCKET_ACL_PRIVATE)
 
         self.bucket.put_bucket_acl(oss2.BUCKET_ACL_PUBLIC_READ_WRITE)
         result = self.bucket.get_bucket_acl()
+        time.sleep(1)
+
         self.assertEqual(result.acl, oss2.BUCKET_ACL_PUBLIC_READ_WRITE)
 
         bucket.delete_bucket()
@@ -64,6 +68,7 @@ class TestBucket(unittest.TestCase):
         other_bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
 
         other_bucket.put_bucket_logging(oss2.models.BucketLogging(self.bucket.bucket_name, 'logging/'))
+        time.sleep(1)
 
         result = other_bucket.get_bucket_logging()
         self.assertEqual(result.target_bucket, self.bucket.bucket_name)
@@ -86,6 +91,7 @@ class TestBucket(unittest.TestCase):
 
         # 设置index页面和error页面
         self.bucket.put_bucket_website(oss2.models.BucketWebsite('index.html', 'error.html'))
+        time.sleep(1)
 
         # 验证index页面和error页面
         website = self.bucket.get_bucket_website()
@@ -100,6 +106,8 @@ class TestBucket(unittest.TestCase):
 
         # 中文
         self.bucket.put_bucket_website(oss2.models.BucketWebsite('index-中文.html', 'error.中文'))
+        time.sleep(1)
+
         self.bucket.get_bucket_website()
 
         # 关闭静态网站托管模式
@@ -118,6 +126,8 @@ class TestBucket(unittest.TestCase):
         lifecycle = BucketLifecycle([rule])
 
         self.bucket.put_bucket_lifecycle(lifecycle)
+        time.sleep(1)
+
         rule_got = self.bucket.get_bucket_lifecycle().rules[0]
 
         self.assertEqual(rule.id, rule_got.id)
@@ -141,6 +151,8 @@ class TestBucket(unittest.TestCase):
         lifecycle = BucketLifecycle([rule])
 
         self.bucket.put_bucket_lifecycle(lifecycle)
+        time.sleep(1)
+
         rule_got = self.bucket.get_bucket_lifecycle().rules[0]
 
         self.assertEqual(rule_got.expiration.days, None)
@@ -176,6 +188,8 @@ class TestBucket(unittest.TestCase):
         config = oss2.models.BucketReferer(True, referers)
 
         self.bucket.put_bucket_referer(config)
+        time.sleep(1)
+
         result = self.bucket.get_bucket_referer()
 
         self.assertTrue(result.allow_empty_referer)
@@ -194,6 +208,7 @@ class TestBucket(unittest.TestCase):
                          </RefererList>
                        </RefererConfiguration>'''
         self.bucket.put_bucket_referer(xml_input)
+        time.sleep(1)
 
         resp = self.bucket._get_bucket_config(oss2.Bucket.REFERER)
         result = oss2.models.GetBucketRefererResult(resp)
