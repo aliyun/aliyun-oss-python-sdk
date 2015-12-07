@@ -88,7 +88,7 @@ class Response(object):
         return self.response.iter_content(_CHUNK_SIZE)
 
 
-# 对于具有fileno()方法的file object，会用fileno()的返回值作为Content-Length。
+# requests对于具有fileno()方法的file object，会用fileno()的返回值作为Content-Length。
 # 这对于已经读取了部分内容，或执行了seek()的file object是不正确的。
 #
 # _convert_request_body()对于支持seek()和tell() file object，确保是从
