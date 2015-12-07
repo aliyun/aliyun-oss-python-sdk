@@ -25,5 +25,4 @@
 FileObject适配器
 ~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: oss2.SizedStreamReader
-.. autoclass:: oss2.MonitoredStreamReader
+.. autoclass:: oss2.SizedFileAdapter

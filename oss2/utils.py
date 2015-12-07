@@ -6,6 +6,7 @@ oss2.utils
 
 工具函数模块。
 """
+
 from email.utils import formatdate
 
 import os.path
@@ -113,8 +114,8 @@ def is_valid_bucket_name(name):
     return set(name) <= _BUCKET_NAME_CHARS
 
 
-class SizedStreamReader(object):
-    """通过这个适配器（Adapter），可以把原先的 `file_object` 的长度限制到小于或等于 `size`。"""
+class SizedFileAdapter(object):
+    """通过这个适配器（Adapter），可以把原先的 `file_object` 的长度限制到等于 `size`。"""
     def __init__(self, file_object, size):
         self.file_object = file_object
         self.size = size
@@ -140,41 +141,124 @@ def how_many(m, n):
     return (m + n - 1) // n
 
 
+def file_object_remaining_bytes(fileobj):
+    current = fileobj.tell()
+
+    fileobj.seek(0, os.SEEK_END)
+    end = fileobj.tell()
+    fileobj.seek(current, os.SEEK_SET)
+
+    return end - current
+
+
 def _get_data_size(data):
     if hasattr(data, '__len__'):
         return len(data)
 
     if hasattr(data, 'seek') and hasattr(data, 'tell'):
-        current = data.tell()
+        return file_object_remaining_bytes(data)
 
-        data.seek(0, os.SEEK_END)
-        end = data.tell()
-        data.seek(current, os.SEEK_SET)
-
-        return end - current
-
-    raise ClientError('Cannot determine the size of data of type: {0}'.format(data.__class__.__name__))
+    return None
 
 
 _CHUNK_SIZE = 8 * 1024
 
 
-class MonitoredStreamReader(object):
+def make_progress_adapter(data, progress_callback, size=None):
+    """返回一个适配器，从而在读取 `data` ，即调用read或者对其进行迭代的时候，能够
+     调用进度回调函数。当 `size` 没有指定，且无法确定时，上传回调函数返回的总字节数为None。
+
+    :param data: 可以是bytes、file object或iterable
+    :param progress_callback: 进度回调函数，参见 :ref:`progress_callback`
+    :param size: 指定 `data` 的大小，可选
+
+    :return: 能够调用进度回调函数的适配器
+    """
+    data = to_bytes(data)
+
+    if size is None:
+        size = _get_data_size(data)
+
+    if size is None:
+        if hasattr(data, 'read'):
+            return _ProgressFileAdapter(data, progress_callback)
+        elif hasattr(data, '__iter__'):
+            return _ProgressIterableAdapter(data, progress_callback)
+        else:
+            raise ClientError('{0} is not a file object, nor an iterator'.format(data.__class__.__name__))
+    else:
+        return _SizedProgressFileAdapter(data, progress_callback, size)
+
+
+class _ProgressIterableAdapter(object):
+    def __init__(self, data, progress_callback):
+        self.iter = iter(data)
+        self.progress_callback = progress_callback
+        self.offset = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return self.next()
+
+    def next(self):
+        self.progress_callback(self.offset, None)
+
+        content = next(self.iter)
+        self.offset += len(content)
+
+        return content
+
+
+class _ProgressFileAdapter(object):
+    """通过这个适配器，可以给无法确定内容长度的 `fileobj` 加上进度监控。
+
+    :param fileobj: file-like object，只要支持read即可
+    :param progress_callback: 进度回调函数
+    """
+    def __init__(self, fileobj, progress_callback):
+        self.fileobj = fileobj
+        self.progress_callback = progress_callback
+        self.offset = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return self.next()
+
+    def next(self):
+        content = self.read(_CHUNK_SIZE)
+
+        if content:
+            return content
+        else:
+            raise StopIteration
+
+    def read(self, amt=None):
+        content = self.fileobj.read(amt)
+        if not content:
+            self.progress_callback(self.offset, None)
+        else:
+            self.progress_callback(self.offset, None)
+            self.offset += len(content)
+
+        return content
+
+
+class _SizedProgressFileAdapter(object):
     """通过这个适配器，可以给 `data` 加上进度监控。
 
-    :param data: 可以是UTF-8编码的unicode字符串、bytes或可以seek的file object
-    :param callback: 用户提供的进度报告回调，形如 callback(bytes_read, total_bytes)。
+    :param data: 可以是unicode字符串（内部会转换为UTF-8编码的bytes）、bytes或file object
+    :param progress_callback: 用户提供的进度报告回调，形如 callback(bytes_read, total_bytes)。
         其中bytes_read是已经读取的字节数；total_bytes是总的字节数。
-    :param size: `data` 的总长度，如果没有给出，则尝试调用len()或seek()和tell()获得长度。
+    :param int size: `data` 包含的字节数。
     """
-    def __init__(self, data, callback, size=None):
+    def __init__(self, data, progress_callback, size):
         self.data = to_bytes(data)
-        self.callback = callback
-
-        if size is None:
-            self.size = _get_data_size(data)
-        else:
-            self.size = size
+        self.progress_callback = progress_callback
+        self.size = size
 
         self.offset = 0
 
@@ -188,15 +272,17 @@ class MonitoredStreamReader(object):
         return self.next()
 
     def next(self):
-        if self.offset >= self.size:
-            self.callback(self.size, self.size)
+        content = self.read(_CHUNK_SIZE)
+
+        if content:
+            return content
+        else:
             raise StopIteration
 
-        return self.read(_CHUNK_SIZE)
-
     def read(self, amt=None):
+        self.progress_callback(min(self.offset, self.size), self.size)
+
         if self.offset >= self.size:
-            self.callback(self.size, self.size)
             return ''
 
         if amt is None or amt < 0:
@@ -204,33 +290,17 @@ class MonitoredStreamReader(object):
         else:
             bytes_to_read = min(amt, self.size - self.offset)
 
-        self.callback(self.offset, self.size)
-
         if isinstance(self.data, bytes):
-            content = self.__read_bytes(bytes_to_read)
+            content = self.data[self.offset:self.offset+bytes_to_read]
         else:
-            content = self.__read_file(bytes_to_read)
-
-        return content
-
-    def __read_bytes(self, bytes_to_read):
-        assert bytes_to_read is not None and bytes_to_read >= 0
-
-        content = self.data[self.offset:self.offset+bytes_to_read]
-        self.offset += bytes_to_read
-
-        return content
-
-    def __read_file(self, bytes_to_read):
-        assert bytes_to_read is not None and bytes_to_read >= 0
+            content = self.data.read(bytes_to_read)
 
         self.offset += bytes_to_read
 
-        return self.data.read(bytes_to_read)
+        return content
 
 
 _STRPTIME_LOCK = threading.Lock()
-
 
 _GMT_FORMAT = "%a, %d %b %Y %H:%M:%S GMT"
 _ISO8601_FORMAT = "%Y-%m-%dT%H:%M:%S.000Z"

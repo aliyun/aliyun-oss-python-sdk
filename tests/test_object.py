@@ -5,6 +5,7 @@ import requests
 import filecmp
 import calendar
 import time
+import os
 
 import oss2
 
@@ -85,6 +86,18 @@ class TestObject(unittest.TestCase):
 
         self.assertTrue(filecmp.cmp(filename, filename2))
 
+        # 上传本地文件的一部分到OSS
+        key_partial = random_string(12) + '-partial.txt'
+        offset = 100
+        with open(filename, 'rb') as f:
+            f.seek(offset, os.SEEK_SET)
+            self.bucket.put_object(key_partial, f)
+
+        # 检查上传后的文件
+        result = self.bucket.get_object(key_partial)
+        self.assertEqual(result.content_length, len(content) - offset)
+        self.assertEqual(result.read(), content[offset:])
+
         # 清理
         os.remove(filename)
         os.remove(filename2)
@@ -104,6 +117,37 @@ class TestObject(unittest.TestCase):
         # verify
         self.assertEqual(self.bucket.get_object(src_key).read(), self.bucket.get_object(dst_key).read())
 
+    def make_generator(self, content, chunk_size):
+        def generator():
+            offset = 0
+            while offset < len(content):
+                n = min(chunk_size, len(content) - offset)
+                yield content[offset:offset+n]
+
+                offset += n
+
+        return generator()
+
+    def test_data_generator(self):
+        key = random_string(16)
+        key2 = random_string(16)
+        content = random_bytes(1024 * 1024 + 1)
+
+        self.bucket.put_object(key, self.make_generator(content, 8192))
+        self.assertEqual(self.bucket.get_object(key).read(), content)
+
+        # test progress
+        stats = {'previous': -1}
+
+        def progress_callback(bytes_consumed, total_bytes):
+            self.assertTrue(total_bytes is None)
+            self.assertTrue(bytes_consumed > stats['previous'])
+
+            stats['previous'] = bytes_consumed
+
+        self.bucket.put_object(key2, self.make_generator(content, 8192), progress_callback=progress_callback)
+        self.assertEqual(self.bucket.get_object(key).read(), content)
+
     def test_request_error(self):
         bad_endpoint = random_string(8) + '.' + random_string(16) + '.com'
         bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), bad_endpoint, OSS_BUCKET)
@@ -116,6 +160,7 @@ class TestObject(unittest.TestCase):
             self.assertEqual(e.code, '')
             self.assertEqual(e.message, '')
 
+            self.assertTrue(str(e))
             self.assertTrue(e.body)
 
     def test_timeout(self):
@@ -205,6 +250,7 @@ class TestObject(unittest.TestCase):
             self.assertEqual(e.message, '')
 
             self.assertTrue(e.body)
+            self.assertTrue(str(e))
 
     def test_append_object(self):
         key = random_string(12)
@@ -353,8 +399,8 @@ class TestObject(unittest.TestCase):
     def test_gzip_get(self):
         """OSS supports HTTP Compression, see https://en.wikipedia.org/wiki/HTTP_compression for details.
         """
-        key = random_string(12) + '.txt'  # ensure our content-type is text/plain, which could be compressed
-        content = random_bytes(2048)      # ensure our content-length is larger than 1024 to trigger compression
+        key = random_string(12) + '.txt'    # ensure our content-type is text/plain, which could be compressed
+        content = random_bytes(1024 * 1024) # ensure our content-length is larger than 1024 to trigger compression
 
         self.bucket.put_object(key, content)
 
@@ -363,6 +409,21 @@ class TestObject(unittest.TestCase):
         self.assertTrue(result.content_length is None)
         self.assertEqual(result.headers['Content-Encoding'], 'gzip')
 
+        # test progress
+        stats = {'previous': -1}
+
+        def progress_callback(bytes_consumed, total_bytes):
+            self.assertTrue(total_bytes is None)
+            self.assertTrue(bytes_consumed > stats['previous'])
+            stats['previous'] = bytes_consumed
+
+        content_got = b''
+        result = self.bucket.get_object(key, headers={'Accept-Encoding': 'gzip'}, progress_callback=progress_callback)
+        for chunk in result:
+            content_got += chunk
+
+        self.assertEqual(len(content), len(content_got))
+        self.assertEqual(content, content_got)
 
 if __name__ == '__main__':
     unittest.main()

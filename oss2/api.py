@@ -4,9 +4,9 @@
 文件上传方法中的data参数
 ----------------------
 诸如 :func:`put_object <Bucket.put_object>` 这样的上传接口都会有 `data` 参数用于接收用户数据。`data` 可以是下述类型
-    - unicode类型（对于Python3则是str类型）
-    - 经过utf-8编码的bytes类型
-    - file-like object
+    - unicode类型（对于Python3则是str类型）：内部会自动转换为UTF-8的bytes
+    - bytes类型：不做任何转换
+    - file-like object：对于可以seek和tell的file object，从当前位置读取直到结束。其他类型，请确保当前位置是文件开始。
     - 可迭代类型，会通过chunked编码传输
 
 
@@ -298,7 +298,7 @@ class Bucket(_Base):
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), key)
 
         if progress_callback:
-            data = utils.MonitoredStreamReader(data, progress_callback)
+            data = utils.make_progress_adapter(data, progress_callback)
 
         resp = self.__do_object('PUT', key, data=data, headers=headers)
         return PutObjectResult(resp)
@@ -349,7 +349,7 @@ class Bucket(_Base):
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), key)
 
         if progress_callback:
-            data = utils.MonitoredStreamReader(data, progress_callback)
+            data = utils.make_progress_adapter(data, progress_callback)
 
         resp = self.__do_object('POST', key,
                                 data=data,
@@ -563,7 +563,7 @@ class Bucket(_Base):
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         if progress_callback:
-            data = utils.MonitoredStreamReader(data, progress_callback)
+            data = utils.make_progress_adapter(data, progress_callback)
 
         resp = self.__do_object('PUT', key,
                                 params={'uploadId': upload_id, 'partNumber': str(part_number)},
