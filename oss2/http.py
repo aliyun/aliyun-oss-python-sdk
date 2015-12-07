@@ -16,7 +16,7 @@ from requests.structures import CaseInsensitiveDict
 from . import __version__
 from .compat import to_bytes
 from .exceptions import RequestError
-from .utils import file_object_remaining_bytes, SizedStreamReader
+from .utils import file_object_remaining_bytes, SizedFileAdapter
 
 
 _USER_AGENT = 'aliyun-sdk-python/{0} ({1}/{2}/{3};{4})'.format(
@@ -100,7 +100,7 @@ def _convert_request_body(data):
         return data
 
     if hasattr(data, 'seek') and hasattr(data, 'tell'):
-        return SizedStreamReader(data, file_object_remaining_bytes(data))
+        return SizedFileAdapter(data, file_object_remaining_bytes(data))
 
     return data
 

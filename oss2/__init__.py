@@ -15,7 +15,7 @@ from .resumable import resumable_upload, ResumableStore, determine_part_size
 
 from .compat import to_bytes, to_string, to_unicode, urlparse, urlquote, urlunquote
 
-from .utils import SizedStreamReader, MonitoredStreamReader
+from .utils import SizedFileAdapter, make_progress_adapter
 from .utils import content_type_by_name, is_valid_bucket_name
 from .utils import http_date, http_to_unixtime, iso8601_to_unixtime, date_to_iso8601, iso8601_to_date
 

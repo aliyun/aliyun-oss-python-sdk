@@ -7,7 +7,7 @@ oss2.models
 该模块包含Python SDK API接口所需要的输入参数以及返回值类型。
 """
 
-from .utils import http_to_unixtime, MonitoredStreamReader, http_date
+from .utils import http_to_unixtime, make_progress_adapter, http_date
 from .exceptions import ClientError
 
 
@@ -81,7 +81,7 @@ class GetObjectResult(HeadObjectResult):
         super(GetObjectResult, self).__init__(resp)
 
         if progress_callback:
-            self.stream = MonitoredStreamReader(self.resp, progress_callback, self.content_length)
+            self.stream = make_progress_adapter(self.resp, progress_callback, self.content_length)
         else:
             self.stream = self.resp
 

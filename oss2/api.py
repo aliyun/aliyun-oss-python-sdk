@@ -298,7 +298,7 @@ class Bucket(_Base):
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), key)
 
         if progress_callback:
-            data = utils.MonitoredStreamReader(data, progress_callback)
+            data = utils.make_progress_adapter(data, progress_callback)
 
         resp = self.__do_object('PUT', key, data=data, headers=headers)
         return PutObjectResult(resp)
@@ -349,7 +349,7 @@ class Bucket(_Base):
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), key)
 
         if progress_callback:
-            data = utils.MonitoredStreamReader(data, progress_callback)
+            data = utils.make_progress_adapter(data, progress_callback)
 
         resp = self.__do_object('POST', key,
                                 data=data,
@@ -563,7 +563,7 @@ class Bucket(_Base):
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         if progress_callback:
-            data = utils.MonitoredStreamReader(data, progress_callback)
+            data = utils.make_progress_adapter(data, progress_callback)
 
         resp = self.__do_object('PUT', key,
                                 params={'uploadId': upload_id, 'partNumber': str(part_number)},

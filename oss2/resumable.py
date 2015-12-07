@@ -135,7 +135,7 @@ class _ResumableUploader(object):
 
                 f.seek(part.start, os.SEEK_SET)
                 result = self.bucket.upload_part(self.key, upload_id, part.part_number,
-                                                 utils.SizedStreamReader(f, part.size))
+                                                 utils.SizedFileAdapter(f, part.size))
                 kept_parts.append(PartInfo(part.part_number, result.etag))
 
                 size_uploaded += part.size
