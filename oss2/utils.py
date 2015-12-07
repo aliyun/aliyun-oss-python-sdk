@@ -6,6 +6,7 @@ oss2.utils
 
 工具函数模块。
 """
+
 from email.utils import formatdate
 
 import os.path
@@ -114,7 +115,7 @@ def is_valid_bucket_name(name):
 
 
 class SizedStreamReader(object):
-    """通过这个适配器（Adapter），可以把原先的 `file_object` 的长度限制到小于或等于 `size`。"""
+    """通过这个适配器（Adapter），可以把原先的 `file_object` 的长度限制到等于 `size`。"""
     def __init__(self, file_object, size):
         self.file_object = file_object
         self.size = size
@@ -140,18 +141,22 @@ def how_many(m, n):
     return (m + n - 1) // n
 
 
+def file_object_remaining_bytes(fileobj):
+    current = fileobj.tell()
+
+    fileobj.seek(0, os.SEEK_END)
+    end = fileobj.tell()
+    fileobj.seek(current, os.SEEK_SET)
+
+    return end - current
+
+
 def _get_data_size(data):
     if hasattr(data, '__len__'):
         return len(data)
 
     if hasattr(data, 'seek') and hasattr(data, 'tell'):
-        current = data.tell()
-
-        data.seek(0, os.SEEK_END)
-        end = data.tell()
-        data.seek(current, os.SEEK_SET)
-
-        return end - current
+        return file_object_remaining_bytes(data)
 
     raise ClientError('Cannot determine the size of data of type: {0}'.format(data.__class__.__name__))
 

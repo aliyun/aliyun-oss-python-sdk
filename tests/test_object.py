@@ -5,6 +5,7 @@ import requests
 import filecmp
 import calendar
 import time
+import os
 
 import oss2
 
@@ -84,6 +85,18 @@ class TestObject(unittest.TestCase):
         self.bucket.get_object_to_file(key, filename2)
 
         self.assertTrue(filecmp.cmp(filename, filename2))
+
+        # 上传本地文件的一部分到OSS
+        key_partial = random_string(12) + '-partial.txt'
+        offset = 100
+        with open(filename, 'rb') as f:
+            f.seek(offset, os.SEEK_SET)
+            self.bucket.put_object(key_partial, f)
+
+        # 检查上传后的文件
+        result = self.bucket.get_object(key_partial)
+        self.assertEqual(result.content_length, len(content) - offset)
+        self.assertEqual(result.read(), content[offset:])
 
         # 清理
         os.remove(filename)
