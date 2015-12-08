@@ -6,17 +6,9 @@ import oss2
 from common import *
 
 
-class TestMultipart(unittest.TestCase):
-    def __init__(self, *args, **kwargs):
-        super(TestMultipart, self).__init__(*args, **kwargs)
-        self.bucket = None
-
-    def setUp(self):
-        self.bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
-        self.bucket.create_bucket()
-
+class TestMultipart(OssTestCase):
     def test_multipart(self):
-        key = random_string(64)
+        key = self.random_key()
         content = random_bytes(128 * 1024)
 
         parts = []
@@ -39,7 +31,7 @@ class TestMultipart(unittest.TestCase):
 
             stats['previous'] = bytes_consumed
 
-        key = random_string(64)
+        key = self.random_key()
         content = random_bytes(128 * 1024)
 
         upload_id = self.bucket.init_multipart_upload(key).upload_id
@@ -49,8 +41,8 @@ class TestMultipart(unittest.TestCase):
         self.bucket.abort_multipart_upload(key, upload_id)
 
     def test_upload_part_copy(self):
-        src_object = random_string(64)
-        dst_object = random_string(32)
+        src_object = self.random_key()
+        dst_object = self.random_key()
 
         content = random_bytes(200 * 1024)
 

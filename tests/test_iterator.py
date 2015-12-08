@@ -9,17 +9,13 @@ from common import *
 from oss2 import to_string
 
 
-class TestIterator(unittest.TestCase):
-    def setUp(self):
-        self.bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
-        self.bucket.create_bucket()
-
+class TestIterator(OssTestCase):
     def test_bucket_iterator(self):
         service = oss2.Service(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT)
         self.assertTrue(OSS_BUCKET in (b.name for b in oss2.BucketIterator(service, max_keys=2)))
 
     def test_object_iterator(self):
-        prefix = random_string(12) + '/'
+        prefix = self.random_key('/')
         object_list = []
         dir_list = []
 
@@ -48,15 +44,16 @@ class TestIterator(unittest.TestCase):
         self.assertEqual(sorted(object_list), objects_got)
         self.assertEqual(sorted(dir_list), dirs_got)
 
+        delete_keys(self.bucket, object_list)
+
     def test_object_iterator_chinese(self):
-        p = random_string(12)
-        for prefix in [p + '中+文', p + u'中+文']:
+        for prefix in [self.random_key('中+文'), self.random_key(u'中+文')]:
             self.bucket.put_object(prefix, b'content of object')
             object_got = list(oss2.ObjectIterator(self.bucket, prefix=prefix, max_keys=1))[0].key
             self.assertEqual(to_string(prefix), object_got)
 
     def test_upload_iterator(self):
-        prefix = random_string(10) + '/'
+        prefix = self.random_key('/')
         key = prefix + random_string(16)
 
         upload_list = []
@@ -86,7 +83,7 @@ class TestIterator(unittest.TestCase):
     def test_upload_iterator_chinese(self):
         upload_list = []
 
-        p = random_string(12)
+        p = self.random_key()
         prefix_list = [p + '中文-阿+里-巴*巴', p + u'中文-四/十*大%盗']
         for prefix in prefix_list:
             upload_list.append(self.bucket.init_multipart_upload(prefix).upload_id)
@@ -101,8 +98,8 @@ class TestIterator(unittest.TestCase):
     def test_object_upload_iterator(self):
         # target_object是想要列举的文件，而intact_object则不是。
         # 这里intact_object故意以target_object为前缀
-        target_object = random_string(16)
-        intact_object = target_object + '-' + random_string(10)
+        target_object = self.random_key()
+        intact_object = self.random_key()
 
         target_list = []
         intact_list = []

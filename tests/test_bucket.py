@@ -9,15 +9,7 @@ from common import *
 from oss2 import to_string
 
 
-class TestBucket(unittest.TestCase):
-    def __init__(self, *args, **kwargs):
-        super(TestBucket, self).__init__(*args, **kwargs)
-        self.bucket = None
-
-    def setUp(self):
-        self.bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
-        self.bucket.create_bucket()
-
+class TestBucket(OssTestCase):
     def test_bucket(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
@@ -86,7 +78,7 @@ class TestBucket(unittest.TestCase):
         other_bucket.delete_bucket()
 
     def test_website(self):
-        key = random_string(12) + '/'
+        key = self.random_key('/')
         content = random_bytes(32)
 
         self.bucket.put_object('index.html', content)

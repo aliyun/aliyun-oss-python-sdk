@@ -41,6 +41,8 @@ class TestUpload(unittest.TestCase):
         self.assertEqual(content, result.read())
         self.assertEqual(result.headers['x-oss-object-type'], 'Normal')
 
+        self.bucket.delete_object(key)
+
     def test_upload_large(self):
         key = random_string(16)
         content = random_bytes(5 * 100 * 1024)
@@ -52,6 +54,8 @@ class TestUpload(unittest.TestCase):
         result = self.bucket.get_object(key)
         self.assertEqual(content, result.read())
         self.assertEqual(result.headers['x-oss-object-type'], 'Multipart')
+
+        self.bucket.delete_object(key)
 
     def test_progress(self):
         stats = {'previous': -1}
@@ -78,6 +82,8 @@ class TestUpload(unittest.TestCase):
                               multipart_threshold=len(content) + 100,
                               progress_callback=progress_callback)
         self.assertEqual(stats['previous'], len(content))
+
+        self.bucket.delete_object(key)
 
     def __test_resume(self, content_size, uploaded_parts, expected_unfinished=0):
         part_size = 100 * 1024
@@ -106,6 +112,8 @@ class TestUpload(unittest.TestCase):
         self.assertEqual(content, result.read())
 
         self.assertEqual(len(list(oss2.ObjectUploadIterator(self.bucket, key))), expected_unfinished)
+
+        self.bucket.delete_object(key)
 
     def test_resume_empty(self):
         self.__test_resume(250 * 1024, [])

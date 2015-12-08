@@ -11,8 +11,6 @@ import oss2
 
 from oss2.exceptions import (ClientError, RequestError,
                              NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable)
-from oss2 import to_string
-
 from common import *
 
 
@@ -20,17 +18,9 @@ def now():
     return int(calendar.timegm(time.gmtime()))
 
 
-class TestObject(unittest.TestCase):
-    def __init__(self, *args, **kwargs):
-        super(TestObject, self).__init__(*args, **kwargs)
-        self.bucket = None
-
-    def setUp(self):
-        self.bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
-        self.bucket.create_bucket()
-
+class TestObject(OssTestCase):
     def test_object(self):
-        key = random_string(12) + '.js'
+        key = self.random_key('.js')
         content = random_bytes(1024)
 
         self.assertRaises(NotFound, self.bucket.head_object, key)
@@ -68,7 +58,7 @@ class TestObject(unittest.TestCase):
         filename = random_string(12) + '.js'
         filename2 = random_string(12)
 
-        key = random_string(12) + '.txt'
+        key = self.random_key('.txt')
         content = random_bytes(1024 * 1024)
 
         with open(filename, 'wb') as f:
@@ -87,7 +77,7 @@ class TestObject(unittest.TestCase):
         self.assertTrue(filecmp.cmp(filename, filename2))
 
         # 上传本地文件的一部分到OSS
-        key_partial = random_string(12) + '-partial.txt'
+        key_partial = self.random_key('-partial.txt')
         offset = 100
         with open(filename, 'rb') as f:
             f.seek(offset, os.SEEK_SET)
@@ -103,8 +93,8 @@ class TestObject(unittest.TestCase):
         os.remove(filename2)
 
     def test_streaming(self):
-        src_key = random_string(12) + '.src'
-        dst_key = random_string(12) + '.dst'
+        src_key = self.random_key('.src')
+        dst_key = self.random_key('.dst')
 
         content = random_bytes(1024 * 1024)
 
@@ -129,8 +119,8 @@ class TestObject(unittest.TestCase):
         return generator()
 
     def test_data_generator(self):
-        key = random_string(16)
-        key2 = random_string(16)
+        key = self.random_key()
+        key2 = self.random_key()
         content = random_bytes(1024 * 1024 + 1)
 
         self.bucket.put_object(key, self.make_generator(content, 8192))
@@ -169,7 +159,7 @@ class TestObject(unittest.TestCase):
         self.assertRaises(RequestError, bucket.get_bucket_acl)
 
     def test_get_object_iterator(self):
-        key = random_string(12)
+        key = self.random_key()
         content = random_bytes(1024 * 1024)
 
         self.bucket.put_object(key, content)
@@ -183,7 +173,7 @@ class TestObject(unittest.TestCase):
         self.assertEqual(content, content_got)
 
     def test_anonymous(self):
-        key = random_string(12)
+        key = self.random_key()
         content = random_bytes(512)
 
         # 设置bucket为public-read，并确认可以上传和下载
@@ -208,7 +198,7 @@ class TestObject(unittest.TestCase):
         self.assertRaises(oss2.exceptions.AccessDenied, b.get_object, key)
 
     def test_range_get(self):
-        key = random_string(12)
+        key = self.random_key()
         content = random_bytes(1024)
 
         self.bucket.put_object(key, content)
@@ -229,7 +219,7 @@ class TestObject(unittest.TestCase):
     def test_batch_delete_objects(self):
         object_list = []
         for i in range(0, 5):
-            key = random_string(12)
+            key = self.random_key()
             object_list.append(key)
 
             self.bucket.put_object(key, random_string(64))
@@ -253,7 +243,7 @@ class TestObject(unittest.TestCase):
             self.assertTrue(str(e))
 
     def test_append_object(self):
-        key = random_string(12)
+        key = self.random_key()
         content1 = random_bytes(512)
         content2 = random_bytes(128)
 
@@ -273,19 +263,19 @@ class TestObject(unittest.TestCase):
         self.bucket.delete_object(key)
 
     def test_private_download_url(self):
-        for key in [random_string(12), u'中文文件名']:
+        for key in [self.random_key(), self.random_key(u'中文文件名')]:
             content = random_bytes(42)
 
-            str_name = to_string(key)
-            self.bucket.put_object(str_name, content)
-            url = self.bucket.sign_url('GET', str_name, 60)
+            self.bucket.put_object(key, content)
+            print(key)
+            url = self.bucket.sign_url('GET', key, 60)
 
             resp = requests.get(url)
             self.assertEqual(content, resp.content)
 
     def test_copy_object(self):
-        source_key = random_string(12)
-        target_key = random_string(13)
+        source_key = self.random_key()
+        target_key = self.random_key()
         content = random_bytes(36)
 
         self.bucket.put_object(source_key, content)
@@ -295,7 +285,7 @@ class TestObject(unittest.TestCase):
         self.assertEqual(content, result.read())
 
     def test_update_object_meta(self):
-        key = random_string(12) + '.txt'
+        key = self.random_key('.txt')
         content = random_bytes(36)
 
         self.bucket.put_object(key, content)
@@ -309,7 +299,7 @@ class TestObject(unittest.TestCase):
         self.assertEqual(result.headers['x-oss-meta-category'], 'novel')
 
     def test_object_acl(self):
-        key = random_string(12)
+        key = self.random_key()
         content = random_bytes(32)
 
         self.bucket.put_object(key, content)
@@ -323,7 +313,7 @@ class TestObject(unittest.TestCase):
         self.bucket.delete_object(key)
 
     def test_object_exists(self):
-        key = random_string(12)
+        key = self.random_key()
 
         self.assertTrue(not self.bucket.object_exists(key))
 
@@ -331,7 +321,7 @@ class TestObject(unittest.TestCase):
         self.assertTrue(self.bucket.object_exists(key))
 
     def test_user_meta(self):
-        key = random_string(12)
+        key = self.random_key()
 
         self.bucket.put_object(key, 'hello', headers={'x-oss-meta-key1': 'value1',
                                                       'X-Oss-Meta-Key2': 'value2'})
@@ -349,7 +339,7 @@ class TestObject(unittest.TestCase):
 
             stats['previous'] = bytes_consumed
 
-        key = random_string(12)
+        key = self.random_key()
         content = random_bytes(2 * 1024 * 1024)
 
         # 上传内存中的内容
@@ -359,7 +349,7 @@ class TestObject(unittest.TestCase):
 
         # 追加内容
         stats = {'previous': -1}
-        self.bucket.append_object(random_string(12), 0, content, progress_callback=progress_callback)
+        self.bucket.append_object(self.random_key(), 0, content, progress_callback=progress_callback)
         self.assertEqual(stats['previous'], len(content))
 
         # 下载到文件
@@ -385,7 +375,7 @@ class TestObject(unittest.TestCase):
         os.remove(filename)
 
     def test_exceptions(self):
-        key = random_string(12)
+        key = self.random_key()
         content = random_bytes(16)
 
         self.assertRaises(NotFound, self.bucket.get_object, key)
@@ -399,7 +389,7 @@ class TestObject(unittest.TestCase):
     def test_gzip_get(self):
         """OSS supports HTTP Compression, see https://en.wikipedia.org/wiki/HTTP_compression for details.
         """
-        key = random_string(12) + '.txt'    # ensure our content-type is text/plain, which could be compressed
+        key = self.random_key('.txt')       # ensure our content-type is text/plain, which could be compressed
         content = random_bytes(1024 * 1024) # ensure our content-length is larger than 1024 to trigger compression
 
         self.bucket.put_object(key, content)
