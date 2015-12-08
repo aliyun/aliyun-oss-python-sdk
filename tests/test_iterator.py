@@ -6,6 +6,7 @@ import hashlib
 import oss2
 
 from common import *
+from oss2 import to_string
 
 
 class TestIterator(unittest.TestCase):
@@ -47,6 +48,13 @@ class TestIterator(unittest.TestCase):
         self.assertEqual(sorted(object_list), objects_got)
         self.assertEqual(sorted(dir_list), dirs_got)
 
+    def test_object_iterator_chinese(self):
+        p = random_string(12)
+        for prefix in [p + '中+文', p + u'中+文']:
+            self.bucket.put_object(prefix, b'content of object')
+            object_got = list(oss2.ObjectIterator(self.bucket, prefix=prefix, max_keys=1))[0].key
+            self.assertEqual(to_string(prefix), object_got)
+
     def test_upload_iterator(self):
         prefix = random_string(10) + '/'
         key = prefix + random_string(16)
@@ -74,6 +82,21 @@ class TestIterator(unittest.TestCase):
 
         self.assertEqual(sorted(upload_list), uploads_got)
         self.assertEqual(sorted(dir_list), dirs_got)
+
+    def test_upload_iterator_chinese(self):
+        upload_list = []
+
+        p = random_string(12)
+        prefix_list = [p + '中文-阿+里-巴*巴', p + u'中文-四/十*大%盗']
+        for prefix in prefix_list:
+            upload_list.append(self.bucket.init_multipart_upload(prefix).upload_id)
+
+        uploads_got = []
+        for prefix in prefix_list:
+            listed = list(oss2.MultipartUploadIterator(self.bucket, prefix=prefix, max_uploads=1))
+            uploads_got.append(listed[0].upload_id)
+
+        self.assertEqual(sorted(upload_list), sorted(uploads_got))
 
     def test_object_upload_iterator(self):
         # target_object是想要列举的文件，而intact_object则不是。
@@ -112,30 +135,29 @@ class TestIterator(unittest.TestCase):
             self.bucket.abort_multipart_upload(intact_object, upload_id)
 
     def test_part_iterator(self):
-        key = random_string(16)
+        for key in [random_string(16), '中文+_)(*&^%$#@!前缀', u'中文+_)(*&^%$#@!前缀']:
+            upload_id = self.bucket.init_multipart_upload(key).upload_id
 
-        upload_id = self.bucket.init_multipart_upload(key).upload_id
+            # 准备分片
+            part_list = []
+            for part_number in [1, 3, 6, 7, 9, 10]:
+                content = random_string(128 * 1024)
+                etag = hashlib.md5(oss2.to_bytes(content)).hexdigest().upper()
+                part_list.append(oss2.models.PartInfo(part_number, etag, len(content)))
 
-        # 准备分片
-        part_list = []
-        for part_number in [1, 3, 6, 7, 9, 10]:
-            content = random_string(128 * 1024)
-            etag = hashlib.md5(oss2.to_bytes(content)).hexdigest().upper()
-            part_list.append(oss2.models.PartInfo(part_number, etag, len(content)))
+                self.bucket.upload_part(key, upload_id, part_number, content)
 
-            self.bucket.upload_part(key, upload_id, part_number, content)
+            # 验证
+            parts_got = []
+            for part_info in oss2.PartIterator(self.bucket, key, upload_id):
+                parts_got.append(part_info)
 
-        # 验证
-        parts_got = []
-        for part_info in oss2.PartIterator(self.bucket, key, upload_id):
-            parts_got.append(part_info)
+            self.assertEqual(len(part_list), len(parts_got))
 
-        self.assertEqual(len(part_list), len(parts_got))
+            for i in range(len(part_list)):
+                self.assertEqual(part_list[i].part_number, parts_got[i].part_number)
+                self.assertEqual(part_list[i].etag, parts_got[i].etag)
+                self.assertEqual(part_list[i].size, parts_got[i].size)
 
-        for i in range(len(part_list)):
-            self.assertEqual(part_list[i].part_number, parts_got[i].part_number)
-            self.assertEqual(part_list[i].etag, parts_got[i].etag)
-            self.assertEqual(part_list[i].size, parts_got[i].size)
-
-
+            self.bucket.abort_multipart_upload(key, upload_id)
 

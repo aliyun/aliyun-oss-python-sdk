@@ -34,10 +34,10 @@ if is_py2:
 
     def to_unicode(data):
         """把输入转换为unicode，要求输入是unicode或者utf-8编码的bytes。"""
-        if isinstance(data, unicode):
-            return data
-        else:
+        if isinstance(data, bytes):
             return data.decode('utf-8')
+        else:
+            return data
 
     def stringify(input):
         if isinstance(input, dict):
@@ -67,10 +67,10 @@ elif is_py3:
 
     def to_string(data):
         """若输入为bytes，则认为是utf-8编码，并返回str"""
-        if isinstance(data, str):
-            return data
-        else:
+        if isinstance(data, bytes):
             return data.decode('utf-8')
+        else:
+            return data
 
     def to_unicode(data):
         """把输入转换为unicode，要求输入是unicode或者utf-8编码的bytes。"""
