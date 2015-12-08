@@ -28,7 +28,7 @@ class OssError(Exception):
         #: HTTP 状态码
         self.status = status
 
-        #: 请求ID，用于跟踪一个OSS请求。提交工单时，最后能够提供请求ID
+        #: 请求ID，用于跟踪一个OSS请求。提交工单时，最好能够提供请求ID
         self.request_id = headers.get('x-oss-request-id', '')
 
         #: HTTP响应体（部分）

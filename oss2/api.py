@@ -114,7 +114,7 @@ from . import exceptions
 from . import defaults
 
 from .models import *
-from .compat import urlquote, urlparse, to_unicode
+from .compat import urlquote, urlparse, to_unicode, to_string
 
 import time
 import shutil
@@ -131,7 +131,7 @@ class _Base(object):
         self._make_url = _UrlMaker(self.endpoint, is_cname)
 
     def _do(self, method, bucket_name, key, **kwargs):
-        key = utils.to_string(key)
+        key = to_string(key)
         req = http.Request(method, self._make_url(bucket_name, key), **kwargs)
         self.auth._sign_request(req, bucket_name, key)
 
@@ -250,6 +250,7 @@ class Bucket(_Base):
 
         :return: 签名URL。
         """
+        key = to_string(key)
         req = http.Request(method, self._make_url(self.bucket_name, key),
                            headers=headers,
                            params=params)

@@ -52,7 +52,7 @@ oss2.resumable_upload(bucket, 'remote-multipart.txt', filename, multipart_thresh
 
 # 也可以直接调用分片上传接口。
 # 首先可以用帮助函数设定分片大小，设我们期望的分片大小为128KB
-total_size = len(content)
+total_size = os.path.getsize(filename)
 part_size = oss2.determine_part_size(total_size, preferred_size=128 * 1024)
 
 # 初始化分片上传，得到Upload ID。接下来的接口都要用到这个Upload ID。
