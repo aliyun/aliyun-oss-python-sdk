@@ -50,5 +50,8 @@ class TestBucket(unittest.TestCase):
         bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), ' ' + OSS_ENDPOINT + ' ', OSS_BUCKET)
         bucket.get_bucket_acl()
 
+        bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, ' ' + OSS_BUCKET + ' ')
+        bucket.get_bucket_acl()
+
 if __name__ == '__main__':
     unittest.main()
