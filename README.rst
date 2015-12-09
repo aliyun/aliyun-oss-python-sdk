@@ -68,6 +68,8 @@ Python 2.6，2.7，3.3，3.4，3.5
     for object_info in oss2.ObjectIterator(bucket):
         print(object_info.key)
 
+更多例子请参考examples目录下的代码。
+
 出错处理
 --------
 
@@ -94,7 +96,7 @@ Python 2.6，2.7，3.3，3.4，3.5
     $ export OSS_TEST_ENDPOINT=<endpoint>
     $ export OSS_TEST_BUCKET=<bucket>
 
-然后可以通过以下方式之一运行测试：
+然后通过以下方式之一运行测试：
 
 .. code-block:: bash
 

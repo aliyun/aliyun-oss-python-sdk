@@ -2,12 +2,12 @@
 
 """
 文件上传方法中的data参数
-----------------------
+------------------------
 诸如 :func:`put_object <Bucket.put_object>` 这样的上传接口都会有 `data` 参数用于接收用户数据。`data` 可以是下述类型
     - unicode类型（对于Python3则是str类型）：内部会自动转换为UTF-8的bytes
     - bytes类型：不做任何转换
     - file-like object：对于可以seek和tell的file object，从当前位置读取直到结束。其他类型，请确保当前位置是文件开始。
-    - 可迭代类型，会通过chunked编码传输
+    - 可迭代类型：对于无法探知长度的数据，要求一定是可迭代的。此时会通过Chunked Encoding传输。
 
 
 Bucket配置修改方法中的input参数
@@ -18,8 +18,8 @@ Bucket配置修改方法中的input参数
   - unicode类型（对于Python3则是str类型）
   - 经过utf-8编码的bytes类型
   - file-like object
-  - 可迭代类型，会通过chunked编码传输
-
+  - 可迭代类型，会通过Chunked Encoding传输
+也就是说 `input` 参数可以比 `data` 参数多接受第一种类型的输入。
 
 返回值
 ------
@@ -32,7 +32,7 @@ HTTP包体。
 异常
 ----
 一般来说Python SDK可能会抛出三种类型的异常，这些异常都继承于 :class:`OssError <oss2.exceptions.OssError>` ：
-    - :class:`ClientError <oss2.exceptions.ClientError>` ：请求还未发送到OSS服务器就发生的错误，一般由于参数错误等引起；
+    - :class:`ClientError <oss2.exceptions.ClientError>` ：由于用户参数错误而引发的异常；
     - :class:`ServerError <oss2.exceptions.ServerError>` 及其子类：OSS服务器返回非成功的状态码，如4xx或5xx；
     - :class:`RequestError <oss2.exceptions.RequestError>` ：底层requests库抛出的异常，如DNS解析错误，超时等；
 当然，`Bucket.put_object_from_file` 和 `Bucket.get_object_to_file` 这类函数还会抛出文件相关的异常。
@@ -62,7 +62,6 @@ HTTP包体。
 上传下载进度
 -----------
 上传下载接口，诸如 `get_object` 、 `put_object` 、`resumable_upload`，都支持进度回调函数，可以用它实现进度条等功能。
-对于上传，要求待上传的文件（即 `data` 参数）是bytes或可以得到长度的file object（可以seek、tell）。
 
 `progress_callback` 的函数原型如下 ::
 
@@ -73,17 +72,17 @@ HTTP包体。
         :param int total_bytes: 总长度。
         '''
 
-该进度回调函数在每次上传、下载一段数据之前调用，所以这里区分了已经消费（bytes_consumed）和即将消费（bytes_to_consume）两个量。
-一般情况下，只需使用bytes_consumed即可。在上传、下载结束时，bytes_consumed的值会等于total_bytes。
+其中 `total_bytes` 对于上传和下载有不同的含义：
+    - 上传：当输入是bytes或可以seek/tell的文件对象，那么它的值就是总的字节数；否则，其值为None
+    - 下载：当返回的HTTP相应中有Content-Length头部，那么它的值就是Content-Length的值；否则，其值为None
 
 
 .. _unix_time:
 
-UNIX Time
+Unix Time
 ---------
-OSS Python SDK会把从服务器获得时间戳都转换为自1970年1月1日UTC零点以来的秒数，即UNIX Time。
-参见 `UNIX Time <https://en.wikipedia.org/wiki/Unix_time>`_
-
+OSS Python SDK会把从服务器获得时间戳都转换为自1970年1月1日UTC零点以来的秒数，即Unix Time。
+参见 `Unix Time <https://en.wikipedia.org/wiki/Unix_time>`_
 
 OSS中常用的时间格式有
     - HTTP Date格式，形如 `Sat, 05 Dec 2015 11:04:39 GMT` 这样的GMT时间。
@@ -91,14 +90,19 @@ OSS中常用的时间格式有
     - ISO8601格式，形如 `2015-12-05T00:00:00.000Z`。
       用在生命周期管理配置、列举Bucket结果中的创建时间、列举文件结果中的最后修改时间等处。
 
-`http_date` 函数把UNIX Time转换为HTTP Date；而 `http_to_unixtime` 则做相反的转换。如 ::
+`http_date` 函数把Unix Time转换为HTTP Date；而 `http_to_unixtime` 则做相反的转换。如 ::
 
     >>> import oss2, time
     >>> unix_time = int(time.time())             # 当前UNIX Time，设其职为 1449313829
     >>> date_str = oss2.http_date(unix_time)     # 得到 'Sat, 05 Dec 2015 11:10:29 GMT'
     >>> oss2.http_to_unixtime(date_str)          # 得到 1449313829
 
-`iso8601_to_unixtime` 把ISO8601格式转换为UNIX Time；`date_to_iso8601` 和 `iso8601_to_date` 则在ISO8601格式的字符串和
+.. note::
+
+    生成HTTP协议所需的日期（即HTTP Date）时，请使用 `http_date` ， 不要使用 `strftime` 这样的函数。因为后者是和locale相关的。
+    比如，`strftime` 结果中可能会出现中文，而这样的格式，OSS服务器是不能识别的。
+
+`iso8601_to_unixtime` 把ISO8601格式转换为Unix Time；`date_to_iso8601` 和 `iso8601_to_date` 则在ISO8601格式的字符串和
 datetime.date之间相互转换。如 ::
 
     >>> import oss2
@@ -227,7 +231,7 @@ class Bucket(_Base):
                  session=None,
                  connect_timeout=defaults.connect_timeout):
         super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout)
-        self.bucket_name = bucket_name
+        self.bucket_name = bucket_name.strip()
 
     def sign_url(self, method, key, expires, headers=None, params=None):
         """生成签名URL。
