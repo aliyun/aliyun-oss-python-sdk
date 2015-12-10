@@ -19,7 +19,7 @@ from .exceptions import RequestError
 from .utils import file_object_remaining_bytes, SizedFileAdapter
 
 
-_USER_AGENT = 'aliyun-sdk-python/{0} ({1}/{2}/{3};{4})'.format(
+_USER_AGENT = 'aliyun-sdk-python/{0}({1}/{2}/{3};{4})'.format(
     __version__, platform.system(), platform.release(), platform.machine(), platform.python_version())
 
 
@@ -44,7 +44,8 @@ class Request(object):
     def __init__(self, method, url,
                  data=None,
                  params=None,
-                 headers=None):
+                 headers=None,
+                 app_name=''):
         self.method = method
         self.url = url
         self.data = _convert_request_body(data)
@@ -60,7 +61,10 @@ class Request(object):
             self.headers['Accept-Encoding'] = None
 
         if 'User-Agent' not in self.headers:
-            self.headers['User-Agent'] = _USER_AGENT
+            if app_name:
+                self.headers['User-Agent'] = _USER_AGENT + '/' + app_name
+            else:
+                self.headers['User-Agent'] = _USER_AGENT
 
 
 _CHUNK_SIZE = 8 * 1024
