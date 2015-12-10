@@ -126,17 +126,21 @@ import oss2.utils
 
 
 class _Base(object):
-    def __init__(self, auth, endpoint, is_cname, session, connect_timeout):
+    def __init__(self, auth, endpoint, is_cname, session, connect_timeout,
+                 app_name=''):
         self.auth = auth
         self.endpoint = _normalize_endpoint(endpoint.strip())
         self.session = session or http.Session()
         self.timeout = connect_timeout
+        self.app_name = app_name
 
         self._make_url = _UrlMaker(self.endpoint, is_cname)
 
     def _do(self, method, bucket_name, key, **kwargs):
         key = to_string(key)
-        req = http.Request(method, self._make_url(bucket_name, key), **kwargs)
+        req = http.Request(method, self._make_url(bucket_name, key),
+                           app_name=self.app_name,
+                           **kwargs)
         self.auth._sign_request(req, bucket_name, key)
 
         resp = self.session.do_request(req, timeout=self.timeout)
@@ -171,11 +175,15 @@ class Service(_Base):
     :type session: oss2.Session
 
     :param float connect_timeout: 连接超时时间，以秒为单位。
+    :param str app_name: 应用名。该参数不为空，则在User Agent中加入其值。
+        注意到，最终这个字符串是要作为HTTP Header的值传输的，所以必须要遵循HTTP标准。
     """
     def __init__(self, auth, endpoint,
                  session=None,
-                 connect_timeout=defaults.connect_timeout):
-        super(Service, self).__init__(auth, endpoint, False, session, connect_timeout)
+                 connect_timeout=defaults.connect_timeout,
+                 app_name=''):
+        super(Service, self).__init__(auth, endpoint, False, session, connect_timeout,
+                                      app_name=app_name)
 
     def list_buckets(self, prefix='', marker='', max_keys=100):
         """根据前缀罗列用户的Bucket。
@@ -216,6 +224,9 @@ class Bucket(_Base):
     :type session: oss2.Session
 
     :param float connect_timeout: 连接超时时间，以秒为单位。
+
+    :param str app_name: 应用名。该参数不为空，则在User Agent中加入其值。
+        注意到，最终这个字符串是要作为HTTP Header的值传输的，所以必须要遵循HTTP标准。
     """
 
     ACL = 'acl'
@@ -229,8 +240,10 @@ class Bucket(_Base):
     def __init__(self, auth, endpoint, bucket_name,
                  is_cname=False,
                  session=None,
-                 connect_timeout=defaults.connect_timeout):
-        super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout)
+                 connect_timeout=defaults.connect_timeout,
+                 app_name=''):
+        super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout,
+                                     app_name=app_name)
         self.bucket_name = bucket_name.strip()
 
     def sign_url(self, method, key, expires, headers=None, params=None):
