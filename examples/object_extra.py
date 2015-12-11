@@ -65,6 +65,6 @@ bucket.delete_object('logging.txt')
 result = bucket.append_object('logging.txt', 0, 'Hello OSS!\n')
 
 # 追加一行数据，偏移可以从上次响应中获得。
-# 当然，也可以通过head_object()获得当前长度，作为偏移，只是比较低效。
+# 当然，也可以通过head_object()获得当前长度作为偏移，只是比较低效。
 bucket.append_object('logging.txt', result.next_position, 'Hello Guys!\n')
 
