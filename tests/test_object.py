@@ -1,17 +1,12 @@
 # -*- coding: utf-8 -*-
 
-import unittest
 import requests
 import filecmp
 import calendar
-import time
-import os
-
-import oss2
 
 from oss2.exceptions import (ClientError, RequestError,
                              NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable)
-from common import *
+from tests.common import *
 
 
 def now():

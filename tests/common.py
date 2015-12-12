@@ -2,6 +2,7 @@ import os
 import random
 import string
 import unittest
+import time
 
 import oss2
 
@@ -50,3 +51,12 @@ class OssTestCase(unittest.TestCase):
         self.key_list.append(key)
 
         return key
+
+    def retry_assert(self, func):
+        for i in range(5):
+            if func():
+                return
+            else:
+                time.sleep(i+2)
+
+        self.assertTrue(False)
