@@ -1,11 +1,11 @@
-OSS SDK for Python �汾��¼
+OSS SDK for Python 版本记录
 ===========================
 
-Python SDK�İ汾����ѭ `Semantic Versioning <http://semver.org/>`_ ����
+Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
-Version 2.0.1
+Version 2.0.2
 -------------
 
-- �������Python SDK�����ٻ���ԭ�еĹٷ�0.x.x�汾������
-- ֻ֧��Python2.6�����ϰ汾��֧��Python 3��
-- ����requests��
+- 重新设计Python SDK，不再基于原有的官方0.x.x版本开发。
+- 只支持Python2.6及以上版本，支持Python 3。
+- 基于requests库
