@@ -1,5 +1,5 @@
-Aliyun OSS SDK for Python （试用版)
-====================================
+Aliyun OSS SDK for Python
+==========================
 
 概述
 ----
