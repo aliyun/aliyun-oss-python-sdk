@@ -153,6 +153,17 @@ def do4put(req, timeout, req_info=None, data_type=None):
     return resp
 
 
+def do4append(req, timeout, next_position=0, req_info=None, data_type=None):
+    resp = r4append(next_position)
+
+    if req_info:
+        req_info.resp = resp
+        req_info.size = get_length(req.data)
+        req_info.data = read_data(req.data, data_type)
+
+    return resp
+
+
 def do4body(req, timeout,
             req_info=None,
             data_type=_DT_BYTES,
@@ -182,6 +193,23 @@ def r4put(in_status=200, in_headers=None):
         'Connection': 'keep-alive',
         'x-oss-request-id': '566AB62E9C30F8552526DADF',
         'ETag': '"E5831D5EBC7AAF5D6C0D20259FE141D2"'
+    })
+
+    merge_headers(headers, in_headers)
+
+    return MockResponse(in_status, headers, b'')
+
+
+def r4append(next_position, in_status=200, in_headers=None):
+    headers = oss2.CaseInsensitiveDict({
+        'Server': 'AliyunOSS',
+        'Date': 'Fri, 11 Dec 2015 11:40:30 GMT',
+        'Content-Length': '0',
+        'Connection': 'keep-alive',
+        'x-oss-request-id': '566AB62E9C30F8552526DADF',
+        'ETag': '"24F7FA10676D816E0D6C6B5600000000"',
+        'x-oss-next-append-position': str(next_position),
+        'x-oss-hash-crc64ecma': '7962765905601689380'
     })
 
     merge_headers(headers, in_headers)
@@ -374,6 +402,31 @@ class TestObject(unittest.TestCase):
         result = bucket().put_object_from_file('fake-key', filename)
         self.assertEqual(result.request_id, req_info.resp.headers['x-oss-request-id'])
         self.assertEqual(content, req_info.data)
+
+    @patch('oss2.Session.do_request')
+    def test_append(self, do_request):
+        size = 8192 * 2 - 1
+        content = random_bytes(size)
+
+        do_request.return_value = r4append(size)
+
+        result = bucket().append_object('fake-key', 0, content)
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.next_position, size)
+
+    @patch('oss2.Session.do_request')
+    def test_append_with_progress(self, do_request):
+        size = 1024 * 1024
+        content = random_bytes(size)
+
+        req_info = RequestInfo()
+
+        do_request.auto_spec = True
+        do_request.side_effect = partial(do4append, next_position=size, req_info=req_info, data_type=_DT_FILE)
+
+        self.previous = -1
+        bucket().append_object('fake-key', 0, content, progress_callback=self.progress_callback)
+        self.assertEqual(self.previous, size)
 
     @patch('oss2.Session.do_request')
     def test_delete(self, do_request):
