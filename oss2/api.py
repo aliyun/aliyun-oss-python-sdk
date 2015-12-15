@@ -446,7 +446,7 @@ class Bucket(_Base):
         :param headers: HTTP头部
         :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
 
-        :return: :class:`HeadObjectResult <oss2.models.HeadObjectResults>`
+        :return: :class:`HeadObjectResult <oss2.models.HeadObjectResult>`
 
         :raises: 如果Bucket不存在或者Object不存在，则抛出 :class:`NotFound <oss2.exceptions.NotFound>`
         """

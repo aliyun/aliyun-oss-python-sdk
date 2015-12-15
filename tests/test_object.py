@@ -6,7 +6,7 @@ import calendar
 
 from oss2.exceptions import (ClientError, RequestError,
                              NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable)
-from tests.common import *
+from common import *
 
 
 def now():

@@ -10,25 +10,7 @@ import time
 from common import *
 
 
-class TestUpload(unittest.TestCase):
-    def setUp(self):
-        self.bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
-        self.bucket.create_bucket()
-        self.temp_files = []
-
-    def tearDown(self):
-        for temp_file in self.temp_files:
-            os.remove(temp_file)
-
-    def _prepare_temp_file(self, content):
-        fd, pathname = tempfile.mkstemp(suffix='test-upload')
-
-        os.write(fd, content)
-        os.close(fd)
-
-        self.temp_files.append(pathname)
-        return pathname
-
+class TestUpload(OssTestCase):
     def test_upload_small(self):
         key = random_string(16)
         content = random_bytes(100)

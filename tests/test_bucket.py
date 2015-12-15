@@ -3,7 +3,7 @@
 
 import datetime
 
-from tests.common import *
+from common import *
 from oss2 import to_string
 
 
@@ -195,6 +195,23 @@ class TestBucket(OssTestCase):
     def test_location(self):
         result = self.bucket.get_bucket_location()
         self.assertTrue(result.location)
+
+    def test_malformed_xml(self):
+        xml_input = '''<This is a bad xml></bad as I am>'''
+        self.assertRaises(oss2.exceptions.MalformedXml, self.bucket.put_bucket_lifecycle, xml_input)
+
+    def test_invalid_argument(self):
+        rule = oss2.models.CorsRule(allowed_origins=['*'],
+                                    allowed_methods=['HEAD', 'GET'],
+                                    allowed_headers=['*'],
+                                    max_age_seconds=-1)
+        cors = oss2.models.BucketCors([rule])
+
+        try:
+            self.bucket.put_bucket_cors(cors)
+        except oss2.exceptions.InvalidArgument as e:
+            self.assertEqual(e.name, 'MaxAgeSeconds')
+            self.assertEqual(e.value, '-1')
 
     def test_xml_input_output(self):
         xml_input1 = '''<?xml version="1.0" encoding="UTF-8"?>
