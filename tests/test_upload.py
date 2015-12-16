@@ -3,7 +3,6 @@
 import unittest
 import oss2
 import os
-import tempfile
 import sys
 import time
 

@@ -40,7 +40,7 @@ class TestBucket(OssTestCase):
         bucket.put_bucket_acl(oss2.BUCKET_ACL_PRIVATE)
         self.retry_assert(lambda: bucket.get_bucket_acl().acl == oss2.BUCKET_ACL_PRIVATE)
 
-        self.bucket.put_bucket_acl(oss2.BUCKET_ACL_PUBLIC_READ_WRITE)
+        bucket.put_bucket_acl(oss2.BUCKET_ACL_PUBLIC_READ_WRITE)
         self.retry_assert(lambda: bucket.get_bucket_acl().acl == oss2.BUCKET_ACL_PUBLIC_READ_WRITE)
 
         bucket.delete_bucket()

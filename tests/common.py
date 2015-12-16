@@ -3,6 +3,7 @@ import random
 import string
 import unittest
 import time
+import tempfile
 
 import oss2
 
