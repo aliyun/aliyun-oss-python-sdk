@@ -53,8 +53,8 @@ class TestBucket(unittest.TestCase):
         self.assertEqual(sorted(a, key=key), sorted(b, key=key))
 
     def assertXmlEqual(self, a, b):
-        normalized_a = minidom.parseString(a).toxml(encoding='utf-8')
-        normalized_b = minidom.parseString(b).toxml(encoding='utf-8')
+        normalized_a = minidom.parseString(to_bytes(a)).toxml(encoding='utf-8')
+        normalized_b = minidom.parseString(to_bytes(b)).toxml(encoding='utf-8')
 
         self.assertEqual(normalized_a, normalized_b)
 
@@ -84,7 +84,7 @@ class TestBucket(unittest.TestCase):
 
     @patch('oss2.Session.do_request')
     def test_get_acl(self, do_request):
-        template = b'''<?xml version="1.0" encoding="UTF-8"?>
+        template = '''<?xml version="1.0" encoding="UTF-8"?>
         <AccessControlPolicy>
             <Owner>
                 <ID>1047205513514293</ID>
@@ -96,9 +96,9 @@ class TestBucket(unittest.TestCase):
         </AccessControlPolicy>
         '''
 
-        for permission in [b'private', b'public-read', b'public-read-write']:
+        for permission in ['private', 'public-read', 'public-read-write']:
             do_request.return_value = r4get_meta(template.format(permission))
-            self.assertEqual(bucket().get_bucket_acl().acl, to_string(permission))
+            self.assertEqual(bucket().get_bucket_acl().acl, permission)
 
     @patch('oss2.Session.do_request')
     def test_put_logging(self, do_request):
@@ -107,19 +107,19 @@ class TestBucket(unittest.TestCase):
         do_request.auto_spec = True
         do_request.side_effect = partial(do4put, req_info=req_info, data_type=DT_BYTES)
 
-        template = b'<BucketLoggingStatus><LoggingEnabled><TargetBucket>fake-bucket</TargetBucket>' + \
-                   b'<TargetPrefix>{0}</TargetPrefix></LoggingEnabled></BucketLoggingStatus>'
+        template = '<BucketLoggingStatus><LoggingEnabled><TargetBucket>fake-bucket</TargetBucket>' + \
+                   '<TargetPrefix>{0}</TargetPrefix></LoggingEnabled></BucketLoggingStatus>'
 
         target_bucket_name = 'fake-bucket'
         for prefix in [u'日志+/', 'logging/', '日志+/']:
             bucket().put_bucket_logging(oss2.models.BucketLogging(target_bucket_name, prefix))
-            self.assertXmlEqual(req_info.data, template.format(to_bytes(prefix)))
+            self.assertXmlEqual(req_info.data, template.format(to_string(prefix)))
 
     @patch('oss2.Session.do_request')
     def test_get_logging(self, do_request):
         target_bucket_name = 'fake-bucket'
 
-        template = b'''<?xml version="1.0" encoding="UTF-8"?>
+        template = '''<?xml version="1.0" encoding="UTF-8"?>
         <BucketLoggingStatus>
             <LoggingEnabled>
                 <TargetBucket>fake-bucket</TargetBucket>
@@ -127,8 +127,8 @@ class TestBucket(unittest.TestCase):
             </LoggingEnabled>
         </BucketLoggingStatus>'''
 
-        for prefix in [u'日志%+/*', 'logging/', b'日志%+/*']:
-            do_request.return_value = r4get_meta(template.format(to_bytes(prefix)))
+        for prefix in [u'日志%+/*', 'logging/', '日志%+/*']:
+            do_request.return_value = r4get_meta(template.format(to_string(prefix)))
             result = bucket().get_bucket_logging()
 
             self.assertEqual(result.target_bucket, target_bucket_name)
@@ -141,20 +141,20 @@ class TestBucket(unittest.TestCase):
         do_request.auto_spec = True
         do_request.side_effect = partial(do4put, req_info=req_info, data_type=DT_BYTES)
 
-        template = b'<WebsiteConfiguration><IndexDocument><Suffix>{0}</Suffix></IndexDocument>' + \
-            b'<ErrorDocument><Key>{1}</Key></ErrorDocument></WebsiteConfiguration>'
+        template = '<WebsiteConfiguration><IndexDocument><Suffix>{0}</Suffix></IndexDocument>' + \
+            '<ErrorDocument><Key>{1}</Key></ErrorDocument></WebsiteConfiguration>'
 
         for index, error in [('index+中文.html', 'error.中文') ,(u'中-+()文.index', u'@#$%中文.error')]:
             bucket().put_bucket_website(oss2.models.BucketWebsite(index, error))
-            self.assertXmlEqual(req_info.data, template.format(to_bytes(index), to_bytes(error)))
+            self.assertXmlEqual(req_info.data, template.format(to_string(index), to_string(error)))
 
     @patch('oss2.Session.do_request')
     def test_get_website(self, do_request):
-        template = b'<WebsiteConfiguration><IndexDocument><Suffix>{0}</Suffix></IndexDocument>' + \
-            b'<ErrorDocument><Key>{1}</Key></ErrorDocument></WebsiteConfiguration>'
+        template = '<WebsiteConfiguration><IndexDocument><Suffix>{0}</Suffix></IndexDocument>' + \
+            '<ErrorDocument><Key>{1}</Key></ErrorDocument></WebsiteConfiguration>'
 
         for index, error in [('index+中文.html', 'error.中文') ,(u'中-+()文.index', u'@#$%中文.error')]:
-            do_request.return_value = r4get_meta(template.format(to_bytes(index), to_bytes(error)))
+            do_request.return_value = r4get_meta(template.format(to_string(index), to_string(error)))
 
             result = bucket().get_bucket_website()
             self.assertEqual(result.index_file, to_string(index))

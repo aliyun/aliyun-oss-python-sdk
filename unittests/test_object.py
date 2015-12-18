@@ -13,17 +13,6 @@ from mock import patch
 from common import *
 
 
-def read_file(fileobj):
-    result = b''
-
-    while True:
-        content = fileobj.read(CHUNK_SIZE)
-        if content:
-            result += content
-        else:
-            return result
-
-
 def do4put_object(req, timeout, req_info=None, data_type=None):
     return do4put(req, timeout,
                   in_headers={'ETag': '"E5831D5EBC7AAF5D6C0D20259FE141D2"'},
@@ -126,7 +115,7 @@ class TestObject(unittest.TestCase):
         self.assertEqual(result.object_type, 'Normal')
         self.assertEqual(result.content_type, resp.headers['Content-Type'])
         self.assertEqual(result.etag, resp.headers['ETag'].strip('"'))
-        self.assertEqual(result.last_modified, _MTIME)
+        self.assertEqual(result.last_modified, MTIME)
 
     @patch('oss2.Session.do_request')
     def test_object_exists(self, do_request):
@@ -161,7 +150,7 @@ class TestObject(unittest.TestCase):
         self.assertEqual(result.object_type, 'Normal')
         self.assertEqual(result.content_type, resp.headers['Content-Type'])
         self.assertEqual(result.etag, resp.headers['ETag'].strip('"'))
-        self.assertEqual(result.last_modified, _MTIME)
+        self.assertEqual(result.last_modified, MTIME)
 
     @patch('oss2.Session.do_request')
     def test_get_with_progress(self, do_request):

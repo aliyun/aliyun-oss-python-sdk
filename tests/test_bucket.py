@@ -185,12 +185,12 @@ class TestBucket(OssTestCase):
         config = oss2.models.BucketReferer(True, referers)
 
         self.bucket.put_bucket_referer(config)
-        time.sleep(1)
+        time.sleep(2)
 
         result = self.bucket.get_bucket_referer()
 
         self.assertTrue(result.allow_empty_referer)
-        self.assertEqual(sorted(to_string(r) for r in referers), sorted(result.referers))
+        self.assertEqual(sorted(to_string(r) for r in referers), sorted(to_string(r) for r in result.referers))
 
     def test_location(self):
         result = self.bucket.get_bucket_location()

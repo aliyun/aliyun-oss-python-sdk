@@ -29,8 +29,8 @@ class RequestInfo(object):
         self.size = None
 
 
-_MTIME_STRING = 'Fri, 11 Dec 2015 13:01:41 GMT'
-_MTIME = 1449838901
+MTIME_STRING = 'Fri, 11 Dec 2015 13:01:41 GMT'
+MTIME = 1449838901
 
 
 def merge_headers(dst, src):
@@ -65,7 +65,7 @@ def r4head(length, in_status=200, in_headers=None):
         'x-oss-request-id': '566AB62EB06147681C283D73',
         'Accept-Ranges': 'bytes',
         'ETag': '"E5831D5EBC7AAF5D6C0D20259FE141D2"',
-        'Last-Modified': _MTIME_STRING,
+        'Last-Modified': MTIME_STRING,
         'x-oss-object-type': 'Normal'
     })
 
@@ -107,6 +107,16 @@ def do4put(req, timeout, in_headers=None, req_info=None, data_type=None):
     return resp
 
 
+def read_file(fileobj):
+    result = b''
+
+    while True:
+        content = fileobj.read(CHUNK_SIZE)
+        if content:
+            result += content
+        else:
+            return result
+
 
 def read_data(data, data_type):
     if data_type == DT_BYTES:
@@ -128,7 +138,7 @@ class MockResponse(object):
     def __init__(self, status, headers, body):
         self.status = status
         self.headers = oss2.CaseInsensitiveDict(headers)
-        self.body = body
+        self.body = oss2.to_bytes(body)
 
         self.offset = 0
 

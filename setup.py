@@ -27,7 +27,7 @@ setup(
     description='Aliyun OSS (Object Storage Service) SDK',
     long_description=readme,
     packages=['oss2'],
-    install_requires=['requests'],
+    install_requires=['requests!=2.9.0'],
     include_package_data=True,
     url='http://oss.aliyun.com',
     classifiers=[
