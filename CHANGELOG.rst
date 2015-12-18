@@ -3,6 +3,14 @@ OSS SDK for Python 版本记录
 
 Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
+Version 2.0.4
+-------------
+
+- 修复：Object名以'/'开头时，oss server应该报InvalidObjectName，而不是报SignatureDoesNotMatch。原因是URL中对'/'也要做URL编码。
+- 修复：MANIFEST.in中改正README.rst等
+- 改变：增加了unittest目录，原先的tests作为functional test；Tox默认是跑unittest
+
+
 Version 2.0.3
 -------------
 
