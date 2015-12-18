@@ -928,7 +928,7 @@ class _UrlMaker(object):
     def __call__(self, bucket_name, key):
         self.type = _determine_endpoint_type(self.netloc, self.is_cname, bucket_name)
 
-        key = urlquote(key)
+        key = urlquote(key, '')
 
         if self.type == _ENDPOINT_TYPE_CNAME:
             return '{0}://{1}/{2}'.format(self.scheme, self.netloc, key)

@@ -88,6 +88,11 @@ class InvalidArgument(ServerError):
         self.value = details.get('ArgumentValue')
 
 
+class InvalidObjectName(ServerError):
+    status = 400
+    code = 'InvalidObjectName'
+
+
 class NoSuchBucket(NotFound):
     status = 404
     code = 'NoSuchBucket'
