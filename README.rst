@@ -102,7 +102,6 @@ Python 2.6，2.7，3.3，3.4，3.5
 
     $ python -m unittest discover tests  # 如果Python版本 >= 2.7
     $ nosetests                          # 如果安装了nose
-    $ py.test                            # 如果安装了py.test
 
 更多使用
 --------

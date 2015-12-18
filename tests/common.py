@@ -2,6 +2,8 @@ import os
 import random
 import string
 import unittest
+import time
+import tempfile
 
 import oss2
 
@@ -41,8 +43,11 @@ class OssTestCase(unittest.TestCase):
         self.bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
         self.bucket.create_bucket()
         self.key_list = []
+        self.temp_files = []
 
     def tearDown(self):
+        for temp_file in self.temp_files:
+            os.remove(temp_file)
         delete_keys(self.bucket, self.key_list)
 
     def random_key(self, suffix=''):
@@ -50,3 +55,21 @@ class OssTestCase(unittest.TestCase):
         self.key_list.append(key)
 
         return key
+
+    def _prepare_temp_file(self, content):
+        fd, pathname = tempfile.mkstemp(suffix='test-upload')
+
+        os.write(fd, content)
+        os.close(fd)
+
+        self.temp_files.append(pathname)
+        return pathname
+
+    def retry_assert(self, func):
+        for i in range(5):
+            if func():
+                return
+            else:
+                time.sleep(i+2)
+
+        self.assertTrue(False)

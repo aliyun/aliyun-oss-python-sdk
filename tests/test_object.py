@@ -1,13 +1,8 @@
 # -*- coding: utf-8 -*-
 
-import unittest
 import requests
 import filecmp
 import calendar
-import time
-import os
-
-import oss2
 
 from oss2.exceptions import (ClientError, RequestError,
                              NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable)
@@ -414,6 +409,13 @@ class TestObject(OssTestCase):
 
         self.assertEqual(len(content), len(content_got))
         self.assertEqual(content, content_got)
+
+    def test_invalid_object_name(self):
+        key = '/invalid-object-name'
+        content = random_bytes(16)
+
+        self.assertRaises(oss2.exceptions.InvalidObjectName, self.bucket.put_object, key, content)
+
 
 if __name__ == '__main__':
     unittest.main()

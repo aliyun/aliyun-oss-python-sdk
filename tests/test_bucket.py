@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 
-import unittest
+
 import datetime
-import time
-import oss2
 
 from common import *
 from oss2 import to_string
@@ -17,8 +15,8 @@ class TestBucket(OssTestCase):
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
 
         service = oss2.Service(auth, OSS_ENDPOINT)
-        result = service.list_buckets()
-        next(b for b in result.buckets if b.name == bucket.bucket_name)
+
+        self.retry_assert(lambda: bucket.bucket_name in (b.name for b in service.list_buckets().buckets))
 
         key = 'a.txt'
         bucket.put_object(key, 'content')
@@ -35,24 +33,15 @@ class TestBucket(OssTestCase):
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
 
         bucket.create_bucket(oss2.BUCKET_ACL_PUBLIC_READ)
-        result = bucket.get_bucket_acl()
-        self.assertEqual(result.acl, oss2.BUCKET_ACL_PUBLIC_READ)
-
-        # 不带参数的create_bucket不会改变Bucket ACL
         bucket.create_bucket()
-        self.assertEqual(result.acl, oss2.BUCKET_ACL_PUBLIC_READ)
+
+        self.retry_assert(lambda: bucket.get_bucket_acl().acl == oss2.BUCKET_ACL_PUBLIC_READ)
 
         bucket.put_bucket_acl(oss2.BUCKET_ACL_PRIVATE)
-        time.sleep(1)
+        self.retry_assert(lambda: bucket.get_bucket_acl().acl == oss2.BUCKET_ACL_PRIVATE)
 
-        result = bucket.get_bucket_acl()
-        self.assertEqual(result.acl, oss2.BUCKET_ACL_PRIVATE)
-
-        self.bucket.put_bucket_acl(oss2.BUCKET_ACL_PUBLIC_READ_WRITE)
-        result = self.bucket.get_bucket_acl()
-        time.sleep(1)
-
-        self.assertEqual(result.acl, oss2.BUCKET_ACL_PUBLIC_READ_WRITE)
+        bucket.put_bucket_acl(oss2.BUCKET_ACL_PUBLIC_READ_WRITE)
+        self.retry_assert(lambda: bucket.get_bucket_acl().acl == oss2.BUCKET_ACL_PUBLIC_READ_WRITE)
 
         bucket.delete_bucket()
 
@@ -60,20 +49,21 @@ class TestBucket(OssTestCase):
         other_bucket = oss2.Bucket(self.bucket.auth, OSS_ENDPOINT, random_string(63).lower())
         other_bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
 
-        for prefix in ['logging/', u'日志+/', '日志+/']:
+        def same_logging(bucket_logging, target_bucket, target_prefix):
+            return bucket_logging.target_bucket == target_bucket and bucket_logging.target_prefix == target_prefix
+
+        for prefix in [u'日志+/', 'logging/', '日志+/']:
             other_bucket.put_bucket_logging(oss2.models.BucketLogging(self.bucket.bucket_name, prefix))
             time.sleep(1)
 
-            result = other_bucket.get_bucket_logging()
-            self.assertEqual(result.target_bucket, self.bucket.bucket_name)
-            self.assertEqual(result.target_prefix, to_string(prefix))
+            self.retry_assert(lambda: same_logging(other_bucket.get_bucket_logging(),
+                                                   self.bucket.bucket_name,
+                                                   to_string(prefix)))
 
         other_bucket.delete_bucket_logging()
         other_bucket.delete_bucket_logging()
 
-        result = other_bucket.get_bucket_logging()
-        self.assertEqual(result.target_bucket, '')
-        self.assertEqual(result.target_prefix, '')
+        self.retry_assert(lambda: same_logging(other_bucket.get_bucket_logging(), '', ''))
 
         other_bucket.delete_bucket()
 
@@ -85,12 +75,12 @@ class TestBucket(OssTestCase):
 
         # 设置index页面和error页面
         self.bucket.put_bucket_website(oss2.models.BucketWebsite('index.html', 'error.html'))
-        time.sleep(1)
+
+        def same_website(website, index, error):
+            return website.index_file == index and website.error_file == error
 
         # 验证index页面和error页面
-        website = self.bucket.get_bucket_website()
-        self.assertEqual(website.index_file, 'index.html')
-        self.assertEqual(website.error_file, 'error.html')
+        self.retry_assert(lambda: same_website(self.bucket.get_bucket_website(), 'index.html', 'error.html'))
 
         # 验证读取目录会重定向到index页面
         result = self.bucket.get_object(key)
@@ -101,39 +91,53 @@ class TestBucket(OssTestCase):
         # 中文
         for index, error in [('index+中文.html', 'error.中文'), (u'index+中文.html', u'error.中文')]:
             self.bucket.put_bucket_website(oss2.models.BucketWebsite(index, error))
-            time.sleep(1)
-
-            website = self.bucket.get_bucket_website()
-            self.assertEqual(website.index_file, to_string(index))
-            self.assertEqual(website.error_file, to_string(error))
+            self.retry_assert(lambda: same_website(self.bucket.get_bucket_website(), to_string(index), to_string(error)))
 
         # 关闭静态网站托管模式
         self.bucket.delete_bucket_website()
         self.bucket.delete_bucket_website()
 
-        # 再次关闭报错
         self.assertRaises(oss2.exceptions.NoSuchWebsite, self.bucket.get_bucket_website)
+
+    @staticmethod
+    def same_lifecycle(orig_rule, bucket):
+        try:
+            rules = bucket.get_bucket_lifecycle().rules
+        except oss2.exceptions.NoSuchLifecycle:
+            return False
+
+        if not rules:
+            return False
+
+        rule_got = rules[0]
+        if orig_rule.id != rule_got.id:
+            return False
+
+        if to_string(orig_rule.prefix) != rule_got.prefix:
+            return False
+
+        if orig_rule.status != rule_got.status:
+            return False
+
+        if orig_rule.expiration.days != rule_got.expiration.days:
+            return False
+
+        if orig_rule.expiration.date != rule_got.expiration.date:
+            return False
+
+        return True
 
     def test_lifecycle_days(self):
         from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle
 
-        for prefix in ['', '中文前缀+/', u'中文前缀+/']:
+        for prefix in ['中文前缀+/', '', u'中文前缀+/']:
             rule = LifecycleRule(random_string(10), prefix,
                                  status=LifecycleRule.DISABLED,
                                  expiration=LifecycleExpiration(days=356))
             lifecycle = BucketLifecycle([rule])
 
             self.bucket.put_bucket_lifecycle(lifecycle)
-            time.sleep(1)
-
-            rule_got = self.bucket.get_bucket_lifecycle().rules[0]
-
-            self.assertEqual(rule.id, rule_got.id)
-            self.assertEqual(to_string(rule.prefix), rule_got.prefix)
-            self.assertEqual(rule.status, rule_got.status)
-
-            self.assertEqual(rule_got.expiration.days, 356)
-            self.assertEqual(rule_got.expiration.date, None)
+            self.retry_assert(lambda: self.same_lifecycle(rule, self.bucket))
 
         self.bucket.delete_bucket_lifecycle()
         self.bucket.delete_bucket_lifecycle()
@@ -149,12 +153,7 @@ class TestBucket(OssTestCase):
         lifecycle = BucketLifecycle([rule])
 
         self.bucket.put_bucket_lifecycle(lifecycle)
-        time.sleep(1)
-
-        rule_got = self.bucket.get_bucket_lifecycle().rules[0]
-
-        self.assertEqual(rule_got.expiration.days, None)
-        self.assertEqual(rule_got.expiration.date, datetime.date(2100, 12, 25))
+        self.retry_assert(lambda: self.same_lifecycle(rule, self.bucket))
 
         self.bucket.delete_bucket_lifecycle()
 
@@ -186,16 +185,33 @@ class TestBucket(OssTestCase):
         config = oss2.models.BucketReferer(True, referers)
 
         self.bucket.put_bucket_referer(config)
-        time.sleep(1)
+        time.sleep(2)
 
         result = self.bucket.get_bucket_referer()
 
         self.assertTrue(result.allow_empty_referer)
-        self.assertEqual(sorted(to_string(r) for r in referers), sorted(result.referers))
+        self.assertEqual(sorted(to_string(r) for r in referers), sorted(to_string(r) for r in result.referers))
 
     def test_location(self):
         result = self.bucket.get_bucket_location()
         self.assertTrue(result.location)
+
+    def test_malformed_xml(self):
+        xml_input = '''<This is a bad xml></bad as I am>'''
+        self.assertRaises(oss2.exceptions.MalformedXml, self.bucket.put_bucket_lifecycle, xml_input)
+
+    def test_invalid_argument(self):
+        rule = oss2.models.CorsRule(allowed_origins=['*'],
+                                    allowed_methods=['HEAD', 'GET'],
+                                    allowed_headers=['*'],
+                                    max_age_seconds=-1)
+        cors = oss2.models.BucketCors([rule])
+
+        try:
+            self.bucket.put_bucket_cors(cors)
+        except oss2.exceptions.InvalidArgument as e:
+            self.assertEqual(e.name, 'MaxAgeSeconds')
+            self.assertEqual(e.value, '-1')
 
     def test_xml_input_output(self):
         xml_input1 = '''<?xml version="1.0" encoding="UTF-8"?>

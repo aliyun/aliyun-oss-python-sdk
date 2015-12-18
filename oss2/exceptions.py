@@ -63,6 +63,7 @@ class RequestError(OssError):
     def __str__(self):
         return self.body
 
+
 class ServerError(OssError):
     pass
 
@@ -70,6 +71,26 @@ class ServerError(OssError):
 class NotFound(ServerError):
     status = 404
     code = ''
+
+
+class MalformedXml(ServerError):
+    status = 400
+    code = 'MalformedXML'
+
+
+class InvalidArgument(ServerError):
+    status = 400
+    code = 'InvalidArgument'
+
+    def __init__(self, status, headers, body, details):
+        super(InvalidArgument, self).__init__(status, headers, body, details)
+        self.name = details.get('ArgumentName')
+        self.value = details.get('ArgumentValue')
+
+
+class InvalidObjectName(ServerError):
+    status = 400
+    code = 'InvalidObjectName'
 
 
 class NoSuchBucket(NotFound):

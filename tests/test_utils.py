@@ -16,11 +16,7 @@ is_py2 = (sys.version_info[0] == 2)
 is_py3 = (sys.version_info[0] == 3)
 
 
-class TestUtils(unittest.TestCase):
-    def setUp(self):
-        self.bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
-        self.bucket.create_bucket()
-
+class TestUtils(OssTestCase):
     def test_is_ip(self):
         self.assertTrue(oss2.utils.is_ip_or_localhost('1.2.3.4'))
         self.assertTrue(oss2.utils.is_ip_or_localhost('localhost'))
@@ -75,7 +71,7 @@ class TestUtils(unittest.TestCase):
         oss2.utils.makedir_p(dirpath)
 
     def __fake_response(self, status, error_body):
-        key = random_string(16)
+        key = self.random_key()
 
         self.bucket.put_object(key, oss2.to_bytes(error_body))
         resp = self.bucket.get_object(key).resp
