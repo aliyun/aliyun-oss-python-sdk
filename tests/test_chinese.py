@@ -52,3 +52,7 @@ class TestChinese(OssTestCase):
         self.assertEqual(self.bucket.get_object(key2).read(), content)
 
         os.remove(u'中文本地文件名.txt')
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -315,3 +315,36 @@ class TestBucket(unittest.TestCase):
         self.assertEqual(rules[1].allowed_methods, ['GET'])
         self.assertEqual(rules[1].expose_headers, ['x-oss-test', 'x-oss-test1'])
         self.assertEqual(rules[1].max_age_seconds, 100)
+
+    @patch('oss2.Session.do_request')
+    def test_put_referer(self, do_request):
+        from oss2.models import BucketReferer
+
+        body = b'<RefererConfiguration><AllowEmptyReferer>true</AllowEmptyReferer>' + \
+            b'<RefererList><Referer>http://hello.com</Referer>' + \
+            b'<Referer>mibrowser:home</Referer>' + \
+            b'<Referer>阿里巴巴</Referer></RefererList></RefererConfiguration>'
+
+        req_info = RequestInfo()
+        do_request.auto_spec = True
+        do_request.side_effect = partial(do4put, req_info=req_info, data_type=DT_BYTES)
+
+        bucket().put_bucket_referer(BucketReferer(True, ['http://hello.com', 'mibrowser:home', '阿里巴巴']))
+        self.assertXmlEqual(body, req_info.data)
+
+    @patch('oss2.Session.do_request')
+    def test_get_referer(self, do_request):
+        body = b'<RefererConfiguration><AllowEmptyReferer>false</AllowEmptyReferer>' + \
+            b'<RefererList><Referer>http://hello.com</Referer>' + \
+            b'<Referer>mibrowser:home</Referer>' + \
+            b'<Referer>阿里巴巴</Referer></RefererList></RefererConfiguration>'
+
+        do_request.return_value = r4get_meta(body)
+
+        result = bucket().get_bucket_referer()
+        self.assertEqual(result.allow_empty_referer, False)
+        self.assertSortedListEqual(result.referers, ['http://hello.com', 'mibrowser:home', '阿里巴巴'])
+
+
+if __name__ == '__main__':
+    unittest.main()

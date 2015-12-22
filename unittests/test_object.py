@@ -314,3 +314,7 @@ class TestObject(unittest.TestCase):
 
         result = bucket().batch_delete_objects(key_list)
         self.assertEqual(result.deleted_keys, list(to_string(key) for key in key_list))
+
+
+if __name__ == '__main__':
+    unittest.main()

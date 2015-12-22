@@ -91,3 +91,7 @@ class TestUtils(OssTestCase):
         self.assertTrue(isinstance(e, oss2.exceptions.NoSuchKey))
         self.assertEqual(e.status, 404)
         self.assertEqual(e.code, 'NoSuchKey')
+
+
+if __name__ == '__main__':
+    unittest.main()
