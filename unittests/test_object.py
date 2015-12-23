@@ -13,7 +13,7 @@ from mock import patch
 from common import *
 
 
-def do4put_object(req, timeout, req_info=None, data_type=None):
+def do4put_object(req, timeout, req_info=None, data_type=DT_BYTES):
     return do4put(req, timeout,
                   in_headers={'ETag': '"E5831D5EBC7AAF5D6C0D20259FE141D2"'},
                   req_info=req_info,
@@ -314,6 +314,61 @@ class TestObject(unittest.TestCase):
 
         result = bucket().batch_delete_objects(key_list)
         self.assertEqual(result.deleted_keys, list(to_string(key) for key in key_list))
+
+    @patch('oss2.Session.do_request')
+    def test_copy_object(self, do_request):
+        req_info = RequestInfo()
+
+        do_request.auto_spec = True
+        do_request.side_effect = partial(do4copy, req_info=req_info)
+
+        in_headers = {'Content-Type': 'text/plain', 'x-oss-meta-key': 'value'}
+        result = bucket().update_object_meta('fake-key.js', in_headers)
+
+        self.assertEqual(req_info.req.headers['x-oss-copy-source'], '/' + BUCKET_NAME + '/fake-key.js')
+        self.assertEqual(req_info.req.headers['Content-Type'], 'text/plain')
+        self.assertEqual(req_info.req.headers['x-oss-meta-key'], 'value')
+
+        self.assertEqual(result.request_id, REQUEST_ID)
+        self.assertEqual(result.etag, ETAG)
+
+    @patch('oss2.Session.do_request')
+    def test_put_acl(self, do_request):
+        req_info = RequestInfo()
+
+        do_request.auto_spec = True
+        do_request.side_effect = partial(do4put, req_info=req_info)
+
+        for acl, expected in [(oss2.OBJECT_ACL_PRIVATE, 'private'),
+                              (oss2.OBJECT_ACL_PUBLIC_READ, 'public-read'),
+                              (oss2.OBJECT_ACL_PUBLIC_READ_WRITE, 'public-read-write'),
+                              (oss2.OBJECT_ACL_DEFAULT, 'default')]:
+            bucket().put_object_acl('fake-key', acl)
+            self.assertEqual(req_info.req.headers['x-oss-object-acl'], expected)
+
+    @patch('oss2.Session.do_request')
+    def test_get_acl(self, do_request):
+        template = '''<?xml version="1.0" encoding="UTF-8"?>
+        <AccessControlPolicy>
+          <Owner>
+            <ID>1047205513514293</ID>
+            <DisplayName>1047205513514293</DisplayName>
+          </Owner>
+          <AccessControlList>
+            <Grant>{0}</Grant>
+          </AccessControlList>
+        </AccessControlPolicy>
+        '''
+
+        for acl, expected in [(oss2.OBJECT_ACL_PRIVATE, 'private'),
+                              (oss2.OBJECT_ACL_PUBLIC_READ, 'public-read'),
+                              (oss2.OBJECT_ACL_PUBLIC_READ_WRITE, 'public-read-write'),
+                              (oss2.OBJECT_ACL_DEFAULT, 'default')]:
+            do_request.auto_spec = True
+            do_request.side_effect = partial(do4body, body=template.format(acl), content_type='application/xml')
+
+            result = bucket().get_object_acl('fake-key')
+            self.assertEqual(result.acl, expected)
 
 
 if __name__ == '__main__':

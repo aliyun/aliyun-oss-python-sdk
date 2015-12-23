@@ -30,24 +30,6 @@ def r4get_meta(body, in_status=200, in_headers=None):
     return MockResponse(in_status, headers, body)
 
 
-def do4body(req, timeout,
-            req_info=None,
-            data_type=DT_BYTES,
-            status=200,
-            body=None):
-    data = read_data(req.data, data_type)
-
-    resp = r4get_meta(body, in_status=status)
-
-    if req_info:
-        req_info.req = req
-        req_info.size = get_length(req.data)
-        req_info.data = data
-        req_info.resp = resp
-
-    return resp
-
-
 class TestBucket(unittest.TestCase):
     def assertSortedListEqual(self, a, b, key=None):
         self.assertEqual(sorted(a, key=key), sorted(b, key=key))

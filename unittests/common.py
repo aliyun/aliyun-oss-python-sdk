@@ -8,6 +8,7 @@ DT_BYTES = 0
 DT_FILE = 1
 CHUNK_SIZE = 8192
 
+BUCKET_NAME = 'my-bucket'
 
 def random_string(n):
     return ''.join(random.choice(string.ascii_lowercase) for i in range(n))
@@ -19,11 +20,12 @@ def random_bytes(n):
 
 def bucket():
     return oss2.Bucket(oss2.Auth('fake-access-key-id', 'fake-access-key-secret'),
-                                  'http://oss-cn-hangzhou.aliyuncs.com', 'my-bucket')
+                                  'http://oss-cn-hangzhou.aliyuncs.com', BUCKET_NAME)
 
 
 class RequestInfo(object):
     def __init__(self):
+        self.req = None
         self.data = None
         self.resp = None
         self.size = None
@@ -31,6 +33,10 @@ class RequestInfo(object):
 
 MTIME_STRING = 'Fri, 11 Dec 2015 13:01:41 GMT'
 MTIME = 1449838901
+REQUEST_ID = '566AB62EB06147681C283D73'
+ETAG = '7AE1A589ED6B161CAD94ACDB98206DA6'
+
+RAW_ETAG = '"' + ETAG + '"'
 
 
 def merge_headers(dst, src):
@@ -47,7 +53,7 @@ def r4delete(in_status=204, in_headers=None):
         'Date': 'Fri, 11 Dec 2015 11:40:31 GMT',
         'Content-Length': '0',
         'Connection': 'keep-alive',
-        'x-oss-request-id': '566AB62EB06147681C283D73'
+        'x-oss-request-id': REQUEST_ID
     })
 
     merge_headers(headers, in_headers)
@@ -62,9 +68,9 @@ def r4head(length, in_status=200, in_headers=None):
         'Content-Length': str(length),
         'Connection': 'keep-alive',
         'Vary': 'Accept-Encoding',
-        'x-oss-request-id': '566AB62EB06147681C283D73',
+        'x-oss-request-id': REQUEST_ID,
         'Accept-Ranges': 'bytes',
-        'ETag': '"E5831D5EBC7AAF5D6C0D20259FE141D2"',
+        'ETag': RAW_ETAG,
         'Last-Modified': MTIME_STRING,
         'x-oss-object-type': 'Normal'
     })
@@ -87,7 +93,7 @@ def r4put(in_status=200, in_headers=None):
         'Date': 'Fri, 11 Dec 2015 11:40:30 GMT',
         'Content-Length': '0',
         'Connection': 'keep-alive',
-        'x-oss-request-id': '566AB62E9C30F8552526DADF'
+        'x-oss-request-id': REQUEST_ID
     })
 
     merge_headers(headers, in_headers)
@@ -95,7 +101,28 @@ def r4put(in_status=200, in_headers=None):
     return MockResponse(in_status, headers, b'')
 
 
-def do4put(req, timeout, in_headers=None, req_info=None, data_type=None):
+def r4copy():
+    body = b'''
+    <?xml version="1.0" encoding="UTF-8"?>
+    <CopyObjectResult>
+        <ETag>"{0}"</ETag>
+        <LastModified>2015-12-12T00:36:29.000Z</LastModified>
+    </CopyObjectResult>
+    '''.format(RAW_ETAG)
+
+    headers = oss2.CaseInsensitiveDict({
+        'Server': 'AliyunOSS',
+        'Date': 'Fri, 11 Dec 2015 11:40:30 GMT',
+        'Content-Length': len(body),
+        'Connection': 'keep-alive',
+        'x-oss-request-id': REQUEST_ID,
+        'ETag': RAW_ETAG
+    })
+
+    return MockResponse(200, headers, body)
+
+
+def do4put(req, timeout, in_headers=None, req_info=None, data_type=DT_BYTES):
     resp = r4put(in_headers=in_headers)
 
     if req_info:
@@ -103,6 +130,18 @@ def do4put(req, timeout, in_headers=None, req_info=None, data_type=None):
         req_info.resp = resp
         req_info.size = get_length(req.data)
         req_info.data = read_data(req.data, data_type)
+
+    return resp
+
+
+def do4copy(req, timeout, req_info=None):
+    resp = r4copy()
+
+    if req_info:
+        req_info.req = req
+        req_info.resp = resp
+        req_info.size = get_length(req.data)
+        req_info.data = read_data(req.data, DT_BYTES)
 
     return resp
 
