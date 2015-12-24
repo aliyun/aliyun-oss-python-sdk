@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import unittest
-import tempfile
 import os
 
 import oss2
@@ -13,13 +11,6 @@ from mock import patch
 from common import *
 
 
-def do4put_object(req, timeout, req_info=None, data_type=DT_BYTES):
-    return do4put(req, timeout,
-                  in_headers={'ETag': '"E5831D5EBC7AAF5D6C0D20259FE141D2"'},
-                  req_info=req_info,
-                  data_type=data_type)
-
-
 def do4append(req, timeout, next_position=0, req_info=None, data_type=None):
     resp = r4append(next_position)
 
@@ -28,28 +19,6 @@ def do4append(req, timeout, next_position=0, req_info=None, data_type=None):
         req_info.resp = resp
         req_info.size = get_length(req.data)
         req_info.data = read_data(req.data, data_type)
-
-    return resp
-
-
-def do4body(req, timeout,
-            req_info=None,
-            data_type=DT_BYTES,
-            status=200,
-            body=None,
-            content_type=None):
-    if content_type:
-        headers = {'Content-Type': content_type}
-    else:
-        headers = None
-
-    resp = r4get(body, in_headers=headers, in_status=status)
-
-    if req_info:
-        req_info.req = req
-        req_info.size = get_length(req.data)
-        req_info.data = read_data(req.data, data_type)
-        req_info.resp = resp
 
     return resp
 
@@ -71,36 +40,7 @@ def r4append(next_position, in_status=200, in_headers=None):
     return MockResponse(in_status, headers, b'')
 
 
-class TestObject(unittest.TestCase):
-    def setUp(self):
-        self.previous = -1
-        self.temp_files = []
-
-    def tearDown(self):
-        for temp_file in self.temp_files:
-            os.remove(temp_file)
-
-    def tempname(self):
-        random_name = random_string(16)
-        self.temp_files.append(random_name)
-
-        return random_name
-
-    def make_tempfile(self, content):
-        fd, pathname = tempfile.mkstemp(suffix='test-upload')
-
-        os.write(fd, content)
-        os.close(fd)
-
-        self.temp_files.append(pathname)
-        return pathname
-
-    def progress_callback(self, bytes_consumed, total_bytes):
-        self.assertTrue(bytes_consumed <= total_bytes)
-        self.assertTrue(bytes_consumed > self.previous)
-
-        self.previous = bytes_consumed
-
+class TestObject(OssTestCase):
     @patch('oss2.Session.do_request')
     def test_head(self, do_request):
         size = 1024

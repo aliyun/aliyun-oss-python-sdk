@@ -2,6 +2,10 @@
 
 import random
 import string
+import unittest
+import tempfile
+from xml.dom import minidom
+
 import oss2
 
 DT_BYTES = 0
@@ -122,6 +126,28 @@ def r4copy():
     return MockResponse(200, headers, body)
 
 
+def do4body(req, timeout,
+            req_info=None,
+            data_type=DT_BYTES,
+            status=200,
+            body=None,
+            content_type=None):
+    if content_type:
+        headers = {'Content-Type': content_type}
+    else:
+        headers = None
+
+    resp = r4get(body, in_headers=headers, in_status=status)
+
+    if req_info:
+        req_info.req = req
+        req_info.size = get_length(req.data)
+        req_info.data = read_data(req.data, data_type)
+        req_info.resp = resp
+
+    return resp
+
+
 def do4put(req, timeout, in_headers=None, req_info=None, data_type=DT_BYTES):
     resp = r4put(in_headers=in_headers)
 
@@ -132,6 +158,22 @@ def do4put(req, timeout, in_headers=None, req_info=None, data_type=DT_BYTES):
         req_info.data = read_data(req.data, data_type)
 
     return resp
+
+
+def do4delete(req, timeout, in_headers=None, req_info=None):
+    resp = r4delete(204, in_headers)
+    if req_info:
+        req_info.req = req
+        req_info.resp = resp
+
+    return resp
+
+
+def do4put_object(req, timeout, req_info=None, data_type=DT_BYTES):
+    return do4put(req, timeout,
+                  in_headers={'ETag': '"E5831D5EBC7AAF5D6C0D20259FE141D2"'},
+                  req_info=req_info,
+                  data_type=data_type)
 
 
 def do4copy(req, timeout, req_info=None):
@@ -203,3 +245,42 @@ class MockResponse(object):
     def next(self):
         return self.read(8192)
 
+
+class OssTestCase(unittest.TestCase):
+    def setUp(self):
+        self.previous = -1
+        self.temp_files = []
+
+    def tearDown(self):
+        for temp_file in self.temp_files:
+            os.remove(temp_file)
+
+    def tempname(self):
+        random_name = random_string(16)
+        self.temp_files.append(random_name)
+
+        return random_name
+
+    def make_tempfile(self, content):
+        fd, pathname = tempfile.mkstemp(suffix='test-upload')
+
+        os.write(fd, content)
+        os.close(fd)
+
+        self.temp_files.append(pathname)
+        return pathname
+
+    def progress_callback(self, bytes_consumed, total_bytes):
+        self.assertTrue(bytes_consumed <= total_bytes)
+        self.assertTrue(bytes_consumed > self.previous)
+
+        self.previous = bytes_consumed
+
+    def assertSortedListEqual(self, a, b, key=None):
+        self.assertEqual(sorted(a, key=key), sorted(b, key=key))
+
+    def assertXmlEqual(self, a, b):
+        normalized_a = minidom.parseString(oss2.to_bytes(a)).toxml(encoding='utf-8')
+        normalized_b = minidom.parseString(oss2.to_bytes(b)).toxml(encoding='utf-8')
+
+        self.assertEqual(normalized_a, normalized_b)
