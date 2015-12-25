@@ -68,5 +68,6 @@ class TestMultipart(OssTestCase):
         self.assertEqual(len(content_got), len(content))
         self.assertEqual(content_got, content)
 
+
 if __name__ == '__main__':
     unittest.main()

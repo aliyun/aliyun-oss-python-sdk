@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import unittest
-import tempfile
 import os
 
 import oss2
@@ -13,13 +11,6 @@ from mock import patch
 from common import *
 
 
-def do4put_object(req, timeout, req_info=None, data_type=None):
-    return do4put(req, timeout,
-                  in_headers={'ETag': '"E5831D5EBC7AAF5D6C0D20259FE141D2"'},
-                  req_info=req_info,
-                  data_type=data_type)
-
-
 def do4append(req, timeout, next_position=0, req_info=None, data_type=None):
     resp = r4append(next_position)
 
@@ -28,28 +19,6 @@ def do4append(req, timeout, next_position=0, req_info=None, data_type=None):
         req_info.resp = resp
         req_info.size = get_length(req.data)
         req_info.data = read_data(req.data, data_type)
-
-    return resp
-
-
-def do4body(req, timeout,
-            req_info=None,
-            data_type=DT_BYTES,
-            status=200,
-            body=None,
-            content_type=None):
-    if content_type:
-        headers = {'Content-Type': content_type}
-    else:
-        headers = None
-
-    resp = r4get(body, in_headers=headers, in_status=status)
-
-    if req_info:
-        req_info.req = req
-        req_info.size = get_length(req.data)
-        req_info.data = read_data(req.data, data_type)
-        req_info.resp = resp
 
     return resp
 
@@ -71,36 +40,7 @@ def r4append(next_position, in_status=200, in_headers=None):
     return MockResponse(in_status, headers, b'')
 
 
-class TestObject(unittest.TestCase):
-    def setUp(self):
-        self.previous = -1
-        self.temp_files = []
-
-    def tearDown(self):
-        for temp_file in self.temp_files:
-            os.remove(temp_file)
-
-    def tempname(self):
-        random_name = random_string(16)
-        self.temp_files.append(random_name)
-
-        return random_name
-
-    def make_tempfile(self, content):
-        fd, pathname = tempfile.mkstemp(suffix='test-upload')
-
-        os.write(fd, content)
-        os.close(fd)
-
-        self.temp_files.append(pathname)
-        return pathname
-
-    def progress_callback(self, bytes_consumed, total_bytes):
-        self.assertTrue(bytes_consumed <= total_bytes)
-        self.assertTrue(bytes_consumed > self.previous)
-
-        self.previous = bytes_consumed
-
+class TestObject(OssTestCase):
     @patch('oss2.Session.do_request')
     def test_head(self, do_request):
         size = 1024
@@ -314,3 +254,62 @@ class TestObject(unittest.TestCase):
 
         result = bucket().batch_delete_objects(key_list)
         self.assertEqual(result.deleted_keys, list(to_string(key) for key in key_list))
+
+    @patch('oss2.Session.do_request')
+    def test_copy_object(self, do_request):
+        req_info = RequestInfo()
+
+        do_request.auto_spec = True
+        do_request.side_effect = partial(do4copy, req_info=req_info)
+
+        in_headers = {'Content-Type': 'text/plain', 'x-oss-meta-key': 'value'}
+        result = bucket().update_object_meta('fake-key.js', in_headers)
+
+        self.assertEqual(req_info.req.headers['x-oss-copy-source'], '/' + BUCKET_NAME + '/fake-key.js')
+        self.assertEqual(req_info.req.headers['Content-Type'], 'text/plain')
+        self.assertEqual(req_info.req.headers['x-oss-meta-key'], 'value')
+
+        self.assertEqual(result.request_id, REQUEST_ID)
+        self.assertEqual(result.etag, ETAG)
+
+    @patch('oss2.Session.do_request')
+    def test_put_acl(self, do_request):
+        req_info = RequestInfo()
+
+        do_request.auto_spec = True
+        do_request.side_effect = partial(do4put, req_info=req_info)
+
+        for acl, expected in [(oss2.OBJECT_ACL_PRIVATE, 'private'),
+                              (oss2.OBJECT_ACL_PUBLIC_READ, 'public-read'),
+                              (oss2.OBJECT_ACL_PUBLIC_READ_WRITE, 'public-read-write'),
+                              (oss2.OBJECT_ACL_DEFAULT, 'default')]:
+            bucket().put_object_acl('fake-key', acl)
+            self.assertEqual(req_info.req.headers['x-oss-object-acl'], expected)
+
+    @patch('oss2.Session.do_request')
+    def test_get_acl(self, do_request):
+        template = '''<?xml version="1.0" encoding="UTF-8"?>
+        <AccessControlPolicy>
+          <Owner>
+            <ID>1047205513514293</ID>
+            <DisplayName>1047205513514293</DisplayName>
+          </Owner>
+          <AccessControlList>
+            <Grant>{0}</Grant>
+          </AccessControlList>
+        </AccessControlPolicy>
+        '''
+
+        for acl, expected in [(oss2.OBJECT_ACL_PRIVATE, 'private'),
+                              (oss2.OBJECT_ACL_PUBLIC_READ, 'public-read'),
+                              (oss2.OBJECT_ACL_PUBLIC_READ_WRITE, 'public-read-write'),
+                              (oss2.OBJECT_ACL_DEFAULT, 'default')]:
+            do_request.auto_spec = True
+            do_request.side_effect = partial(do4body, body=template.format(acl), content_type='application/xml')
+
+            result = bucket().get_object_acl('fake-key')
+            self.assertEqual(result.acl, expected)
+
+
+if __name__ == '__main__':
+    unittest.main()

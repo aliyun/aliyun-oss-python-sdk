@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
 
-import unittest
 import datetime
 
 from mock import patch
 from functools import partial
-from xml.dom import minidom
 
-from oss2 import to_string, to_bytes
+from oss2 import to_string
 from common import *
 
 
@@ -30,34 +28,7 @@ def r4get_meta(body, in_status=200, in_headers=None):
     return MockResponse(in_status, headers, body)
 
 
-def do4body(req, timeout,
-            req_info=None,
-            data_type=DT_BYTES,
-            status=200,
-            body=None):
-    data = read_data(req.data, data_type)
-
-    resp = r4get_meta(body, in_status=status)
-
-    if req_info:
-        req_info.req = req
-        req_info.size = get_length(req.data)
-        req_info.data = data
-        req_info.resp = resp
-
-    return resp
-
-
-class TestBucket(unittest.TestCase):
-    def assertSortedListEqual(self, a, b, key=None):
-        self.assertEqual(sorted(a, key=key), sorted(b, key=key))
-
-    def assertXmlEqual(self, a, b):
-        normalized_a = minidom.parseString(to_bytes(a)).toxml(encoding='utf-8')
-        normalized_b = minidom.parseString(to_bytes(b)).toxml(encoding='utf-8')
-
-        self.assertEqual(normalized_a, normalized_b)
-
+class TestBucket(OssTestCase):
     @patch('oss2.Session.do_request')
     def test_create(self, do_request):
         resp = r4put(in_headers={'Location': '/ming-oss-share'})
@@ -116,6 +87,13 @@ class TestBucket(unittest.TestCase):
             self.assertXmlEqual(req_info.data, template.format(to_string(prefix)))
 
     @patch('oss2.Session.do_request')
+    def test_delete_logging(self, do_request):
+        do_request.return_value = r4put()
+
+        result = bucket().delete_bucket_logging()
+        self.assertEqual(result.request_id, REQUEST_ID)
+
+    @patch('oss2.Session.do_request')
     def test_get_logging(self, do_request):
         target_bucket_name = 'fake-bucket'
 
@@ -159,6 +137,13 @@ class TestBucket(unittest.TestCase):
             result = bucket().get_bucket_website()
             self.assertEqual(result.index_file, to_string(index))
             self.assertEqual(result.error_file, to_string(error))
+
+    @patch('oss2.Session.do_request')
+    def test_delete_website(self, do_request):
+        do_request.return_value = r4put()
+
+        result = bucket().delete_bucket_website()
+        self.assertEqual(result.request_id, REQUEST_ID)
 
     @patch('oss2.Session.do_request')
     def test_put_lifecycle_date(self, do_request):
@@ -253,6 +238,13 @@ class TestBucket(unittest.TestCase):
         self.assertEqual(rule.expiration.days, days)
 
     @patch('oss2.Session.do_request')
+    def test_delete_lifecycle(self, do_request):
+        do_request.return_value = r4put()
+
+        result = bucket().delete_bucket_lifecycle()
+        self.assertEqual(result.request_id, REQUEST_ID)
+
+    @patch('oss2.Session.do_request')
     def test_put_cors(self, do_request):
         import xml.etree.ElementTree as ElementTree
 
@@ -315,3 +307,52 @@ class TestBucket(unittest.TestCase):
         self.assertEqual(rules[1].allowed_methods, ['GET'])
         self.assertEqual(rules[1].expose_headers, ['x-oss-test', 'x-oss-test1'])
         self.assertEqual(rules[1].max_age_seconds, 100)
+
+    @patch('oss2.Session.do_request')
+    def test_delete_cors(self, do_request):
+        do_request.return_value = r4put()
+
+        result = bucket().delete_bucket_cors()
+        self.assertEqual(result.request_id, REQUEST_ID)
+
+    @patch('oss2.Session.do_request')
+    def test_put_referer(self, do_request):
+        from oss2.models import BucketReferer
+
+        body = b'<RefererConfiguration><AllowEmptyReferer>true</AllowEmptyReferer>' + \
+            b'<RefererList><Referer>http://hello.com</Referer>' + \
+            b'<Referer>mibrowser:home</Referer>' + \
+            b'<Referer>阿里巴巴</Referer></RefererList></RefererConfiguration>'
+
+        req_info = RequestInfo()
+        do_request.auto_spec = True
+        do_request.side_effect = partial(do4put, req_info=req_info, data_type=DT_BYTES)
+
+        bucket().put_bucket_referer(BucketReferer(True, ['http://hello.com', 'mibrowser:home', '阿里巴巴']))
+        self.assertXmlEqual(body, req_info.data)
+
+    @patch('oss2.Session.do_request')
+    def test_get_referer(self, do_request):
+        body = b'<RefererConfiguration><AllowEmptyReferer>false</AllowEmptyReferer>' + \
+            b'<RefererList><Referer>http://hello.com</Referer>' + \
+            b'<Referer>mibrowser:home</Referer>' + \
+            b'<Referer>阿里巴巴</Referer></RefererList></RefererConfiguration>'
+
+        do_request.return_value = r4get_meta(body)
+
+        result = bucket().get_bucket_referer()
+        self.assertEqual(result.allow_empty_referer, False)
+        self.assertSortedListEqual(result.referers, ['http://hello.com', 'mibrowser:home', '阿里巴巴'])
+
+    @patch('oss2.Session.do_request')
+    def test_get_location(self, do_request):
+        body = b'''<?xml version="1.0" encoding="UTF-8"?>
+        <LocationConstraint>oss-cn-hangzhou</LocationConstraint>'''
+
+        do_request.return_value = r4get_meta(body)
+
+        result = bucket().get_bucket_location()
+        self.assertEqual(result.location, 'oss-cn-hangzhou')
+
+if __name__ == '__main__':
+    unittest.main()

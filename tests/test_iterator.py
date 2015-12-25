@@ -158,3 +158,6 @@ class TestIterator(OssTestCase):
 
             self.bucket.abort_multipart_upload(key, upload_id)
 
+
+if __name__ == '__main__':
+    unittest.main()
