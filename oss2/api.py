@@ -198,7 +198,7 @@ class Service(_Base):
         resp = self._do('GET', '', '',
                         params={'prefix': prefix,
                                 'marker': marker,
-                                'max-keys': max_keys})
+                                'max-keys': str(max_keys)})
         return self._parse_result(resp, xml_utils.parse_list_buckets, ListBucketsResult)
 
 
@@ -287,7 +287,7 @@ class Bucket(_Base):
                                 params={'prefix': prefix,
                                         'delimiter': delimiter,
                                         'marker': marker,
-                                        'max-keys': max_keys,
+                                        'max-keys': str(max_keys),
                                         'encoding-type': 'url'})
         return self._parse_result(resp, xml_utils.parse_list_objects, ListObjectsResult)
 
@@ -643,7 +643,7 @@ class Bucket(_Base):
                                         'delimiter': delimiter,
                                         'key-marker': key_marker,
                                         'upload-id-marker': upload_id_marker,
-                                        'max-uploads': max_uploads,
+                                        'max-uploads': str(max_uploads),
                                         'encoding-type': 'url'})
         return self._parse_result(resp, xml_utils.parse_list_multipart_uploads, ListMultipartUploadsResult)
 

@@ -14,6 +14,7 @@ CHUNK_SIZE = 8192
 
 BUCKET_NAME = 'my-bucket'
 
+
 def random_string(n):
     return ''.join(random.choice(string.ascii_lowercase) for i in range(n))
 
@@ -25,6 +26,11 @@ def random_bytes(n):
 def bucket():
     return oss2.Bucket(oss2.Auth('fake-access-key-id', 'fake-access-key-secret'),
                                   'http://oss-cn-hangzhou.aliyuncs.com', BUCKET_NAME)
+
+
+def service():
+    return oss2.Service(oss2.Auth('fake-access-key-id', 'fake-access-key-secret'),
+                        'http://oss-cn-hangzhou.aliyuncs.com')
 
 
 class RequestInfo(object):
@@ -146,6 +152,27 @@ def do4body(req, timeout,
         req_info.resp = resp
 
     return resp
+
+
+class NonlocalObject(object):
+    def __init__(self, value):
+        self.var = value
+
+
+def make_do4body(req_infos=None, body_list=None):
+    if req_infos is None:
+        req_infos = [None] * len(body_list)
+
+    i = NonlocalObject(0)
+
+    def do4body_func(req, timeout):
+        result = do4body(req, timeout,
+                         req_info=req_infos[i.var],
+                         body=body_list[i.var])
+        i.var += 1
+        return result
+
+    return do4body_func
 
 
 def do4put(req, timeout, in_headers=None, req_info=None, data_type=DT_BYTES):
