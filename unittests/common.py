@@ -4,6 +4,8 @@ import random
 import string
 import unittest
 import tempfile
+import os
+
 from xml.dom import minidom
 
 import oss2
