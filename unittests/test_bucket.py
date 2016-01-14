@@ -319,10 +319,10 @@ class TestBucket(OssTestCase):
     def test_put_referer(self, do_request):
         from oss2.models import BucketReferer
 
-        body = b'<RefererConfiguration><AllowEmptyReferer>true</AllowEmptyReferer>' + \
-            b'<RefererList><Referer>http://hello.com</Referer>' + \
-            b'<Referer>mibrowser:home</Referer>' + \
-            b'<Referer>阿里巴巴</Referer></RefererList></RefererConfiguration>'
+        body = '<RefererConfiguration><AllowEmptyReferer>true</AllowEmptyReferer>' + \
+            '<RefererList><Referer>http://hello.com</Referer>' + \
+            '<Referer>mibrowser:home</Referer>' + \
+            '<Referer>阿里巴巴</Referer></RefererList></RefererConfiguration>'
 
         req_info = RequestInfo()
         do_request.auto_spec = True
@@ -333,10 +333,10 @@ class TestBucket(OssTestCase):
 
     @patch('oss2.Session.do_request')
     def test_get_referer(self, do_request):
-        body = b'<RefererConfiguration><AllowEmptyReferer>false</AllowEmptyReferer>' + \
-            b'<RefererList><Referer>http://hello.com</Referer>' + \
-            b'<Referer>mibrowser:home</Referer>' + \
-            b'<Referer>阿里巴巴</Referer></RefererList></RefererConfiguration>'
+        body = '<RefererConfiguration><AllowEmptyReferer>false</AllowEmptyReferer>' + \
+            '<RefererList><Referer>http://hello.com</Referer>' + \
+            '<Referer>mibrowser:home</Referer>' + \
+            '<Referer>阿里巴巴</Referer></RefererList></RefererConfiguration>'
 
         do_request.return_value = r4get_meta(body)
 

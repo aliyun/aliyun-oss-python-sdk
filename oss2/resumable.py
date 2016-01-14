@@ -27,7 +27,7 @@ _MIN_PART_SIZE = 100 * 1024
 def resumable_upload(bucket, key, filename,
                      store=None,
                      headers=None,
-                     multipart_threshold=defaults.multipart_threshold,
+                     multipart_threshold=None,
                      part_size=None,
                      progress_callback=None):
     """断点上传本地文件。
@@ -45,6 +45,7 @@ def resumable_upload(bucket, key, filename,
     :param progress_callback: 上传进度回调函数。参见 :ref:`progress_callback` 。
     """
     size = os.path.getsize(filename)
+    multipart_threshold = defaults.get(multipart_threshold, defaults.multipart_threshold)
 
     if size >= multipart_threshold:
         uploader = _ResumableUploader(bucket, key, filename, size, store,
@@ -99,7 +100,7 @@ class _ResumableUploader(object):
     def __init__(self, bucket, key, filename, size,
                  store=None,
                  headers=None,
-                 part_size=defaults.part_size,
+                 part_size=None,
                  progress_callback=None):
         self.bucket = bucket
         self.key = key
@@ -108,7 +109,7 @@ class _ResumableUploader(object):
 
         self.store = store or ResumableStore()
         self.headers = headers
-        self.part_size = part_size
+        self.part_size = defaults.get(part_size, defaults.part_size)
 
         self.abspath = os.path.abspath(filename)
         self.mtime = os.path.getmtime(filename)

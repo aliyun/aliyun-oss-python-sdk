@@ -131,7 +131,7 @@ class _Base(object):
         self.auth = auth
         self.endpoint = _normalize_endpoint(endpoint.strip())
         self.session = session or http.Session()
-        self.timeout = connect_timeout
+        self.timeout = defaults.get(connect_timeout, defaults.connect_timeout)
         self.app_name = app_name
 
         self._make_url = _UrlMaker(self.endpoint, is_cname)
@@ -180,7 +180,7 @@ class Service(_Base):
     """
     def __init__(self, auth, endpoint,
                  session=None,
-                 connect_timeout=defaults.connect_timeout,
+                 connect_timeout=None,
                  app_name=''):
         super(Service, self).__init__(auth, endpoint, False, session, connect_timeout,
                                       app_name=app_name)
@@ -240,7 +240,7 @@ class Bucket(_Base):
     def __init__(self, auth, endpoint, bucket_name,
                  is_cname=False,
                  session=None,
-                 connect_timeout=defaults.connect_timeout,
+                 connect_timeout=None,
                  app_name=''):
         super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout,
                                      app_name=app_name)

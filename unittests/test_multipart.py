@@ -13,7 +13,7 @@ UPLOAD_ID = '97BD544A65DB46F9A8735C93917A960F'
 class TestMultipart(OssTestCase):
     @patch('oss2.Session.do_request')
     def test_init(self, do_request):
-        body = b'''<?xml version="1.0" encoding="UTF-8"?>
+        body = '''<?xml version="1.0" encoding="UTF-8"?>
         <InitiateMultipartUploadResult>
           <Bucket>ming-oss-share</Bucket>
           <Key>uosvelpvgjwtxaciqtxoplnx</Key>
@@ -49,7 +49,7 @@ class TestMultipart(OssTestCase):
         parts.append(PartInfo(2, '9433E6178C51CFEC867F592F4B827B50'))
         parts.append(PartInfo(3, '5570B91F31EBB06B6BA93BA6D63BE68A'))
 
-        body = b'''<?xml version="1.0" encoding="UTF-8"?>
+        body = '''<?xml version="1.0" encoding="UTF-8"?>
         <CompleteMultipartUploadResult>
           <Location>http://ming-oss-share.oss-cn-hangzhou.aliyuncs.com/fake-key</Location>
           <Bucket>ming-oss-share</Bucket>

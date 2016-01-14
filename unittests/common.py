@@ -114,7 +114,7 @@ def r4put(in_status=200, in_headers=None):
 
 
 def r4copy():
-    body = b'''
+    body = '''
     <?xml version="1.0" encoding="UTF-8"?>
     <CopyObjectResult>
         <ETag>"{0}"</ETag>
@@ -276,7 +276,19 @@ class MockResponse(object):
 
 
 class OssTestCase(unittest.TestCase):
+    def __init__(self, *args, **kwargs):
+        super(OssTestCase, self).__init__(*args, **kwargs)
+        self.default_connect_timeout = oss2.defaults.connect_timeout
+        self.default_request_retries = oss2.defaults.request_retries
+        self.default_multipart_threshold = oss2.defaults.multipart_threshold
+        self.default_part_size = oss2.defaults.part_size
+
     def setUp(self):
+        oss2.defaults.connect_timeout = self.default_connect_timeout
+        oss2.defaults.request_retries = self.default_request_retries
+        oss2.defaults.multipart_threshold = self.default_multipart_threshold
+        oss2.defaults.part_size = self.default_part_size
+
         self.previous = -1
         self.temp_files = []
 
