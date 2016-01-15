@@ -4,6 +4,8 @@ import random
 import string
 import unittest
 import tempfile
+import os
+
 from xml.dom import minidom
 
 import oss2
@@ -13,6 +15,7 @@ DT_FILE = 1
 CHUNK_SIZE = 8192
 
 BUCKET_NAME = 'my-bucket'
+
 
 def random_string(n):
     return ''.join(random.choice(string.ascii_lowercase) for i in range(n))
@@ -25,6 +28,11 @@ def random_bytes(n):
 def bucket():
     return oss2.Bucket(oss2.Auth('fake-access-key-id', 'fake-access-key-secret'),
                                   'http://oss-cn-hangzhou.aliyuncs.com', BUCKET_NAME)
+
+
+def service():
+    return oss2.Service(oss2.Auth('fake-access-key-id', 'fake-access-key-secret'),
+                        'http://oss-cn-hangzhou.aliyuncs.com')
 
 
 class RequestInfo(object):
@@ -106,7 +114,7 @@ def r4put(in_status=200, in_headers=None):
 
 
 def r4copy():
-    body = b'''
+    body = '''
     <?xml version="1.0" encoding="UTF-8"?>
     <CopyObjectResult>
         <ETag>"{0}"</ETag>
@@ -146,6 +154,27 @@ def do4body(req, timeout,
         req_info.resp = resp
 
     return resp
+
+
+class NonlocalObject(object):
+    def __init__(self, value):
+        self.var = value
+
+
+def make_do4body(req_infos=None, body_list=None):
+    if req_infos is None:
+        req_infos = [None] * len(body_list)
+
+    i = NonlocalObject(0)
+
+    def do4body_func(req, timeout):
+        result = do4body(req, timeout,
+                         req_info=req_infos[i.var],
+                         body=body_list[i.var])
+        i.var += 1
+        return result
+
+    return do4body_func
 
 
 def do4put(req, timeout, in_headers=None, req_info=None, data_type=DT_BYTES):
@@ -247,7 +276,19 @@ class MockResponse(object):
 
 
 class OssTestCase(unittest.TestCase):
+    def __init__(self, *args, **kwargs):
+        super(OssTestCase, self).__init__(*args, **kwargs)
+        self.default_connect_timeout = oss2.defaults.connect_timeout
+        self.default_request_retries = oss2.defaults.request_retries
+        self.default_multipart_threshold = oss2.defaults.multipart_threshold
+        self.default_part_size = oss2.defaults.part_size
+
     def setUp(self):
+        oss2.defaults.connect_timeout = self.default_connect_timeout
+        oss2.defaults.request_retries = self.default_request_retries
+        oss2.defaults.multipart_threshold = self.default_multipart_threshold
+        oss2.defaults.part_size = self.default_part_size
+
         self.previous = -1
         self.temp_files = []
 

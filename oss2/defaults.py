@@ -8,8 +8,16 @@ oss2.defaults
 
 """
 
+
+def get(value, default_value):
+    if value is None:
+        return default_value
+    else:
+        return value
+
+
 #: 连接超时时间
-connect_timeout = 10
+connect_timeout = 60
 
 #: 缺省重试次数
 request_retries = 3
