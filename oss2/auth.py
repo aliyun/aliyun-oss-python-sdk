@@ -18,7 +18,7 @@ class Auth(object):
          'acl', 'uploadId', 'uploads', 'partNumber', 'group', 'link',
          'delete', 'website', 'location', 'objectInfo',
          'response-expires', 'response-content-disposition', 'cors', 'lifecycle',
-          'restore', 'qos', 'referer', 'append', 'position']
+          'restore', 'qos', 'referer', 'append', 'position', 'security-token']
     )
 
     def __init__(self, access_key_id, access_key_secret):
