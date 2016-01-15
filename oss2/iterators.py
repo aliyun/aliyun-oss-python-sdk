@@ -160,7 +160,7 @@ class ObjectUploadIterator(_BaseIterator):
     :param key: 文件名
     :param max_uploads: 每次调用 `list_multipart_uploads` 时的max_uploads参数。注意迭代器返回的数目可能会大于该值。
     """
-    def __init__(self, bucket, key, max_uploads=1000, max_retries=defaults.request_retries):
+    def __init__(self, bucket, key, max_uploads=1000, max_retries=None):
         super(ObjectUploadIterator, self).__init__('', max_retries)
         self.bucket = bucket
         self.key = key
@@ -195,7 +195,7 @@ class PartIterator(_BaseIterator):
     :param max_parts: 每次调用 `list_parts` 时的max_parts参数。注意迭代器返回的数目可能会大于该值。
     """
     def __init__(self, bucket, key, upload_id,
-                 marker='0', max_parts=1000, max_retries=defaults.request_retries):
+                 marker='0', max_parts=1000, max_retries=None):
         super(PartIterator, self).__init__(marker, max_retries)
 
         self.bucket = bucket

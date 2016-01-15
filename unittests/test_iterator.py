@@ -407,6 +407,46 @@ class TestIterator(OssTestCase):
         got = list(oss2.MultipartUploadIterator(bucket(), max_uploads=1000))
         self.assertEqual(len(got), 0)
 
+    def test_part_iterator_default_max_retries(self):
+        iter = oss2.PartIterator(bucket(), 'fake-key', 'fake-upload-id')
+        self.assertEqual(iter.max_retries, oss2.defaults.request_retries)
 
+        oss2.defaults.request_retries = 100
+        iter = oss2.PartIterator(bucket(), 'fake-key', 'fake-upload-id')
+        self.assertEqual(iter.max_retries, 100)
 
+        iter = oss2.PartIterator(bucket(), 'fake-key', 'fake-upload-id', max_retries=1)
+        self.assertEqual(iter.max_retries, 1)
 
+    def test_object_iterator_default_max_retries(self):
+        iter = oss2.ObjectIterator(bucket())
+        self.assertEqual(iter.max_retries, oss2.defaults.request_retries)
+
+        oss2.defaults.request_retries = 100
+        iter = oss2.ObjectIterator(bucket())
+        self.assertEqual(iter.max_retries, 100)
+
+        iter = oss2.ObjectIterator(bucket(), max_retries=1)
+        self.assertEqual(iter.max_retries, 1)
+
+    def test_bucket_iterator_default_max_retries(self):
+        iter = oss2.BucketIterator(service())
+        self.assertEqual(iter.max_retries, oss2.defaults.request_retries)
+
+        oss2.defaults.request_retries = 100
+        iter = oss2.BucketIterator(service())
+        self.assertEqual(iter.max_retries, 100)
+
+        iter = oss2.BucketIterator(service(), max_retries=1)
+        self.assertEqual(iter.max_retries, 1)
+
+    def test_object_upload_iterator_default_max_retries(self):
+        iter = oss2.ObjectUploadIterator(bucket(), 'fake-key')
+        self.assertEqual(iter.max_retries, oss2.defaults.request_retries)
+
+        oss2.defaults.request_retries = 100
+        iter = oss2.ObjectUploadIterator(bucket(), 'fake-key')
+        self.assertEqual(iter.max_retries, 100)
+
+        iter = oss2.ObjectUploadIterator(bucket(), 'fake-key', max_retries=1)
+        self.assertEqual(iter.max_retries, 1)

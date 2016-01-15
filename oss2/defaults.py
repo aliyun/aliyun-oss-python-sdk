@@ -17,7 +17,7 @@ def get(value, default_value):
 
 
 #: 连接超时时间
-connect_timeout = 10
+connect_timeout = 60
 
 #: 缺省重试次数
 request_retries = 3
