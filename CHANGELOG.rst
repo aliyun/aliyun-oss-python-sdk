@@ -3,6 +3,14 @@ OSS SDK for Python 版本记录
 
 Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
+Version 2.0.5
+-------------
+
+- 改变：缺省的connect timeout由10秒改为60秒。为了兼容老的requests库（版本低于2.4.0），目前connect timeout和read timeout是同一个值，为了避免
+CopyObject、UploadPartCopy因read timeout超时，故把这个超时时间设长。
+- 增加：把 `security-token` 加入到子资源中，参与签名。
+- 修复：用户可以通过设置oss2.defaults里的变量值，直接修改缺省参数
+
 Version 2.0.4
 -------------
 
