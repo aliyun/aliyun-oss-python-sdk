@@ -5,13 +5,18 @@ import string
 import unittest
 import tempfile
 import os
+import httplib
+import io
+import functools
 
 from xml.dom import minidom
 
 import oss2
 
-DT_BYTES = 0
-DT_FILE = 1
+DT_NONE = 0
+DT_BYTES = 1
+DT_FILE = 2
+
 CHUNK_SIZE = 8192
 
 BUCKET_NAME = 'my-bucket'
@@ -177,6 +182,17 @@ def make_do4body(req_infos=None, body_list=None):
     return do4body_func
 
 
+def do4response(req, timeout, req_info=None, data_type=DT_NONE, payload=None):
+    if req_info:
+        req_info.req = req
+
+        if data_type != DT_NONE:
+            req_info.size = get_length(req.data)
+            req_info.data = read_data(req.data, data_type)
+
+    return MockResponse2(payload)
+
+
 def do4put(req, timeout, in_headers=None, req_info=None, data_type=DT_BYTES):
     resp = r4put(in_headers=in_headers)
 
@@ -242,6 +258,46 @@ def get_length(data):
         return len(data)
     except TypeError:
         return None
+
+
+class MockSocket(object):
+    def __init__(self, payload):
+        self._file = io.BytesIO(payload)
+
+    def makefile(self, *args, **kwargs):
+        return self._file
+
+
+class MockResponse2(object):
+    def __init__(self, http_payload):
+        resp = httplib.HTTPResponse(MockSocket(oss2.to_bytes(http_payload)))
+        resp.begin()
+
+        self.status = resp.status
+        self.headers = oss2.CaseInsensitiveDict(resp.getheaders())
+
+        self._resp = resp
+
+    def read(self, amt=None):
+        return self._resp.read(amt)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return self.next()
+
+    def next(self):
+        return self.read(8192)
+
+
+def mock_do_request(do_request, payload, data_type=DT_NONE):
+    req_info = RequestInfo()
+
+    do_request.auto_spec = True
+    do_request.side_effect = functools.partial(do4response, req_info=req_info, payload=payload, data_type=data_type)
+
+    return req_info
 
 
 class MockResponse(object):
@@ -325,3 +381,6 @@ class OssTestCase(unittest.TestCase):
         normalized_b = minidom.parseString(oss2.to_bytes(b)).toxml(encoding='utf-8')
 
         self.assertEqual(normalized_a, normalized_b)
+
+    def assertUrlWithKey(self, url, key):
+        self.assertEqual('http://my-bucket.oss-cn-hangzhou.aliyuncs.com/' + key, url)
