@@ -504,14 +504,14 @@ class Bucket(_Base):
         """
         return self.copy_object(self.bucket_name, key, key, headers=headers)
 
-    def delete_object(self, key):
+    def delete_object(self, key, headers=None):
         """删除一个文件。
 
         :param str key: 文件名
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
-        resp = self.__do_object('DELETE', key)
+        resp = self.__do_object('DELETE', key, headers=headers)
         return RequestResult(resp)
 
     def put_object_acl(self, key, permission):
