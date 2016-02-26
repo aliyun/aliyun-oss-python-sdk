@@ -13,7 +13,17 @@ UPLOAD_ID = '97BD544A65DB46F9A8735C93917A960F'
 class TestMultipart(OssTestCase):
     @patch('oss2.Session.do_request')
     def test_init(self, do_request):
-        payload = '''HTTP/1.1 200 OK
+        request_text = '''POST /uosvelpvgjwtxaciqtxoplnx?uploads= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Content-Length: 0
+date: Sat, 12 Dec 2015 00:35:55 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:2OVoUTO7rFeeGlpXH9M6ZMuh7d8=
+'''
+        response_text = '''HTTP/1.1 200 OK
 Server: AliyunOSS
 Date: Sat, 12 Dec 2015 00:35:55 GMT
 Content-Type: application/xml
@@ -29,18 +39,29 @@ x-oss-request-id: 566B6BEB1BA604C27DD43805
 </InitiateMultipartUploadResult>
 '''
 
-        req_info = mock_do_request(do_request, payload)
-
+        req_info = mock_response(do_request, response_text)
         result = bucket().init_multipart_upload('uosvelpvgjwtxaciqtxoplnx')
 
-        self.assertEqual(req_info.req.params['uploads'], '')
-        self.assertUrlWithKey(req_info.req.url, 'uosvelpvgjwtxaciqtxoplnx')
-
+        self.assertRequest(req_info, request_text)
         self.assertEqual(result.upload_id, '97BD544A65DB46F9A8735C93917A960F')
 
     @patch('oss2.Session.do_request')
     def test_upload_part(self, do_request):
-        payload = '''HTTP/1.1 200 OK
+        content = random_bytes(1024)
+
+        request_text = '''PUT /tmmzgvvmsgesihfo?partNumber=3&uploadId=41337E94168A4E6F918C3D6CAAFADCCD HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Content-Length: 1024
+date: Sat, 12 Dec 2015 00:35:59 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:3+h0rLBaA3gPrM4iZoFSyQZn2ts=
+
+{0}'''.format(content)
+
+        response_text = '''HTTP/1.1 200 OK
 Server: AliyunOSS
 Date: Sat, 12 Dec 2015 00:35:59 GMT
 Content-Length: 0
@@ -48,21 +69,29 @@ Connection: keep-alive
 x-oss-request-id: 566B6BEF6078C0E44874A4AD
 ETag: "DF1F9DE8F39BDE03716AC8D425589A5A"'''
 
-        content = random_bytes(1024 * 1024 + 1)
-        req_info = mock_do_request(do_request, payload, data_type=DT_BYTES)
-
+        req_info = mock_response(do_request, response_text)
         result = bucket().upload_part('tmmzgvvmsgesihfo', '41337E94168A4E6F918C3D6CAAFADCCD', 3, content)
 
+        self.assertRequest(req_info, request_text)
         self.assertEqual(req_info.data, content)
-        self.assertEqual(req_info.req.params['partNumber'], '3')
-        self.assertEqual(req_info.req.params['uploadId'], '41337E94168A4E6F918C3D6CAAFADCCD')
-        self.assertUrlWithKey(req_info.req.url, 'tmmzgvvmsgesihfo')
 
         self.assertEqual(result.etag, 'DF1F9DE8F39BDE03716AC8D425589A5A')
 
     @patch('oss2.Session.do_request')
     def test_upload_part_copy(self, do_request):
-        payload = '''HTTP/1.1 200 OK
+        request_text = '''PUT /pasncdoyuvuvuiyewfsobdwn?partNumber=1&uploadId=65484B78EF3846298B8E2DC1643F8F37 HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+x-oss-copy-source: /ming-oss-share/pasncdoyuvuvmgqtkchhuosw
+Content-Length: 0
+x-oss-copy-source-range: bytes=0-102399
+date: Sat, 12 Dec 2015 00:36:25 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:wbO3Klw0f6pMPy2lBDZqNtgZ9EY='''
+
+        response_text = '''HTTP/1.1 200 OK
 Server: AliyunOSS
 Date: Sat, 12 Dec 2015 00:36:26 GMT
 Content-Type: application/xml
@@ -78,12 +107,12 @@ ETag: "4DE8075FB607DF4D13FBC480EA488EFA"
   <ETag>"4DE8075FB607DF4D13FBC480EA488EFA"</ETag>
 </CopyPartResult>'''
 
-        req_info = mock_do_request(do_request, payload)
+        req_info = mock_response(do_request, response_text)
 
-        result = bucket().upload_part_copy('fake-src-bucket', 'fake-src-key', (0, 102399), 'fake-target-key', 'fake-upload-id', 1)
+        result = bucket().upload_part_copy('ming-oss-share', 'pasncdoyuvuvmgqtkchhuosw', (0, 102399),
+                                           'pasncdoyuvuvuiyewfsobdwn', '65484B78EF3846298B8E2DC1643F8F37', 1)
 
-        self.assertEqual(req_info.req.headers['x-oss-copy-source'], '/fake-src-bucket/fake-src-key')
-        self.assertEqual(req_info.req.headers['x-oss-copy-source-range'], 'bytes=0-102399')
+        self.assertRequest(req_info, request_text)
 
         self.assertEqual(result.etag, '4DE8075FB607DF4D13FBC480EA488EFA')
         self.assertEqual(result.request_id, '566B6C09D5A340D61A73D677')
@@ -96,7 +125,19 @@ ETag: "4DE8075FB607DF4D13FBC480EA488EFA"
         parts.append(PartInfo(1, '4DE8075FB607DF4D13FBC480EA488EFA'))
         parts.append(PartInfo(2, 'AF947EC157726CEA88ED83B3C989063B'))
 
-        payload = '''HTTP/1.1 200 OK
+        request_text = '''POST /pasncdoyuvuvuiyewfsobdwn?uploadId=65484B78EF3846298B8E2DC1643F8F37 HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Content-Length: 223
+date: Sat, 12 Dec 2015 00:36:26 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:TgjWAumJAl8dDr0yqWHOyqqwrd0=
+
+<CompleteMultipartUpload><Part><PartNumber>1</PartNumber><ETag>"4DE8075FB607DF4D13FBC480EA488EFA"</ETag></Part><Part><PartNumber>2</PartNumber><ETag>"AF947EC157726CEA88ED83B3C989063B"</ETag></Part></CompleteMultipartUpload>'''
+
+        response_text = '''HTTP/1.1 200 OK
 Server: AliyunOSS
 Date: Sat, 12 Dec 2015 00:36:26 GMT
 Content-Type: application/xml
@@ -113,28 +154,34 @@ ETag: "1C787C506EABFB9B45EAAA8DB039F4B2-2"
   <ETag>"1C787C506EABFB9B45EAAA8DB039F4B2-2"</ETag>
 </CompleteMultipartUploadResult>'''
 
-        req_info = mock_do_request(do_request, payload, data_type=DT_BYTES)
+        req_info = mock_response(do_request, response_text)
 
         result = bucket().complete_multipart_upload('pasncdoyuvuvuiyewfsobdwn', '65484B78EF3846298B8E2DC1643F8F37', parts)
 
-        self.assertEqual(req_info.req.method, 'POST')
-        self.assertEqual(req_info.req.params['uploadId'], '65484B78EF3846298B8E2DC1643F8F37')
-        self.assertUrlWithKey(req_info.req.url, 'pasncdoyuvuvuiyewfsobdwn')
-
-        expected = b'''<CompleteMultipartUpload><Part><PartNumber>1</PartNumber><ETag>"4DE8075FB607DF4D13FBC480EA488EFA"</ETag></Part>''' + \
-        b'''<Part><PartNumber>2</PartNumber><ETag>"AF947EC157726CEA88ED83B3C989063B"</ETag></Part></CompleteMultipartUpload>'''
-        self.assertXmlEqual(expected, req_info.data)
-
+        self.assertRequest(req_info, request_text)
         self.assertEqual(result.etag, '1C787C506EABFB9B45EAAA8DB039F4B2-2')
 
     @patch('oss2.Session.do_request')
     def test_abort(self, do_request):
-        req_info = RequestInfo()
+        request_text = '''DELETE /uosvelpvgjwtxaciqtxoplnx?uploadId=97BD544A65DB46F9A8735C93917A960F HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Content-Length: 0
+date: Sat, 12 Dec 2015 00:35:56 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:anUcRNyx/g9BxU8xplJHn2BcRvQ='''
 
-        do_request.auto_spec = True
-        do_request.side_effect = partial(do4delete, req_info=req_info)
+        response_text = '''HTTP/1.1 204 No Content
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:56 GMT
+Content-Length: 0
+Connection: keep-alive
+x-oss-request-id: 566B6BEC1BA604C27DD438F8'''
 
-        bucket().abort_multipart_upload('fake-key', UPLOAD_ID)
+        req_info = mock_response(do_request, response_text)
+        bucket().abort_multipart_upload('uosvelpvgjwtxaciqtxoplnx', '97BD544A65DB46F9A8735C93917A960F')
 
-        self.assertEqual(req_info.req.params['uploadId'], UPLOAD_ID)
+        self.assertRequest(req_info, request_text)
 
