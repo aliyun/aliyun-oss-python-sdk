@@ -184,17 +184,20 @@ def make_do4body(req_infos=None, body_list=None):
     return do4body_func
 
 
-def do4response(req, timeout, req_info=None, data_type=DT_NONE, payload=None):
+def do4response(req, timeout, req_info=None, payload=None):
     if req_info:
         req_info.req = req
 
-        if data_type != DT_NONE:
-            req_info.size = get_length(req.data)
-            req_info.data = read_data(req.data, data_type)
-
-        if req_info.data is None:
+        if req.data is None:
             req_info.size = 0
             req_info.data = ''
+        elif isinstance(req.data, (str, unicode, bytes)):
+            req_info.size = len(req.data)
+            req_info.data = req.data
+        else:
+            req_info.size = get_length(req.data)
+            req_info.data = read_data(req.data, DT_FILE)
+
 
     return MockResponse2(payload)
 
@@ -274,13 +277,11 @@ class MockSocket(object):
         return self._file
 
 
-
-
-def mock_response(do_request, payload, data_type=DT_BYTES):
+def mock_response(do_request, payload):
     req_info = RequestInfo()
 
     do_request.auto_spec = True
-    do_request.side_effect = functools.partial(do4response, req_info=req_info, payload=payload, data_type=data_type)
+    do_request.side_effect = functools.partial(do4response, req_info=req_info, payload=payload)
 
     return req_info
 
