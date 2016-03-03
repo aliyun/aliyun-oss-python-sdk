@@ -1,6 +1,13 @@
 Aliyun OSS SDK for Python
 ==========================
 
+.. image:: https://badge.fury.io/py/oss2.svg
+    :target: https://badge.fury.io/py/oss2
+.. image:: https://travis-ci.org/aliyun/aliyun-oss-python-sdk.svg?branch=master
+    :target: https://travis-ci.org/aliyun/aliyun-oss-python-sdk
+.. image:: https://coveralls.io/repos/github/aliyun/aliyun-oss-python-sdk/badge.svg?branch=master
+    :target: https://coveralls.io/github/aliyun/aliyun-oss-python-sdk?branch=master
+
 概述
 ----
 

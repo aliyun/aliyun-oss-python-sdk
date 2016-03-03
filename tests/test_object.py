@@ -267,7 +267,6 @@ class TestObject(OssTestCase):
             content = random_bytes(42)
 
             self.bucket.put_object(key, content)
-            print(key)
             url = self.bucket.sign_url('GET', key, 60)
 
             resp = requests.get(url)

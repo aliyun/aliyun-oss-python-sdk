@@ -32,6 +32,9 @@ def delete_keys(bucket, key_list):
     for g in grouped:
         bucket.batch_delete_objects(g)
 
+def wait_meta_sync():
+    if os.environ.get('TRAVIS'):
+        time.sleep(15)
 
 class OssTestCase(unittest.TestCase):
     def __init__(self, *args, **kwargs):

@@ -15,8 +15,10 @@ class TestBucket(OssTestCase):
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
 
         service = oss2.Service(auth, OSS_ENDPOINT)
-
-        self.retry_assert(lambda: bucket.bucket_name in (b.name for b in service.list_buckets().buckets))
+        wait_meta_sync()
+        self.retry_assert(lambda: bucket.bucket_name in
+                          (b.name for b in
+                           service.list_buckets(prefix=bucket.bucket_name).buckets))
 
         key = 'a.txt'
         bucket.put_object(key, 'content')
@@ -38,9 +40,11 @@ class TestBucket(OssTestCase):
         self.retry_assert(lambda: bucket.get_bucket_acl().acl == oss2.BUCKET_ACL_PUBLIC_READ)
 
         bucket.put_bucket_acl(oss2.BUCKET_ACL_PRIVATE)
+        wait_meta_sync()
         self.retry_assert(lambda: bucket.get_bucket_acl().acl == oss2.BUCKET_ACL_PRIVATE)
 
         bucket.put_bucket_acl(oss2.BUCKET_ACL_PUBLIC_READ_WRITE)
+        wait_meta_sync()
         self.retry_assert(lambda: bucket.get_bucket_acl().acl == oss2.BUCKET_ACL_PUBLIC_READ_WRITE)
 
         bucket.delete_bucket()
@@ -54,7 +58,7 @@ class TestBucket(OssTestCase):
 
         for prefix in [u'日志+/', 'logging/', '日志+/']:
             other_bucket.put_bucket_logging(oss2.models.BucketLogging(self.bucket.bucket_name, prefix))
-            time.sleep(1)
+            wait_meta_sync()
 
             self.retry_assert(lambda: same_logging(other_bucket.get_bucket_logging(),
                                                    self.bucket.bucket_name,
@@ -165,7 +169,7 @@ class TestBucket(OssTestCase):
         cors = oss2.models.BucketCors([rule])
 
         self.bucket.put_bucket_cors(cors)
-        time.sleep(2)
+        wait_meta_sync()
 
         cors_got = self.bucket.get_bucket_cors()
         rule_got = cors_got.rules[0]
@@ -185,7 +189,7 @@ class TestBucket(OssTestCase):
         config = oss2.models.BucketReferer(True, referers)
 
         self.bucket.put_bucket_referer(config)
-        time.sleep(2)
+        wait_meta_sync()
 
         result = self.bucket.get_bucket_referer()
 
@@ -231,7 +235,7 @@ class TestBucket(OssTestCase):
 
         for input in [xml_input1, xml_input2]:
             self.bucket.put_bucket_referer(input)
-            time.sleep(1)
+            wait_meta_sync()
 
             resp = self.bucket._get_bucket_config(oss2.Bucket.REFERER)
             result = oss2.models.GetBucketRefererResult(resp)
