@@ -16,7 +16,9 @@ class TestBucket(OssTestCase):
 
         service = oss2.Service(auth, OSS_ENDPOINT)
         wait_meta_sync()
-        self.retry_assert(lambda: bucket.bucket_name in (b.name for b in service.list_buckets().buckets))
+        self.retry_assert(lambda: bucket.bucket_name in
+                          (b.name for b in
+                           service.list_buckets(prefix=bucket.bucket_name).buckets))
 
         key = 'a.txt'
         bucket.put_object(key, 'content')
