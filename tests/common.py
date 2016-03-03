@@ -33,7 +33,7 @@ def delete_keys(bucket, key_list):
         bucket.batch_delete_objects(g)
 
 def wait_meta_sync():
-    if os.environ.has_key('TRAVIS'):
+    if os.environ.get('TRAVIS'):
         time.sleep(15)
 
 class OssTestCase(unittest.TestCase):
