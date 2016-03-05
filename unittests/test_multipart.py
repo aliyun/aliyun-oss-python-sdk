@@ -59,7 +59,7 @@ User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
 Accept: */*
 authorization: OSS ZCDmm7TPZKHtx77j:3+h0rLBaA3gPrM4iZoFSyQZn2ts=
 
-{0}'''.format(content)
+{0}'''.format(oss2.to_string(content))
 
         response_text = '''HTTP/1.1 200 OK
 Server: AliyunOSS

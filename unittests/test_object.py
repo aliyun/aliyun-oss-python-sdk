@@ -254,7 +254,7 @@ x-oss-request-id: 566B6C3D6086505A0CFF0F68
 
         self.assertEqual(self.previous, len(content))
         self.assertEqual(len(content_read), len(content))
-        self.assertEqual(content_read, content)
+        self.assertEqual(content_read, oss2.to_bytes(content))
 
     @patch('oss2.Session.do_request')
     def test_get_to_file(self, do_request):
@@ -294,7 +294,7 @@ x-oss-request-id: 566B6C3D6086505A0CFF0F68
         self.assertEqual(self.previous, size)
         self.assertEqual(os.path.getsize(filename), size)
         with open(filename, 'rb') as f:
-            self.assertEqual(content, f.read())
+            self.assertEqual(oss2.to_bytes(content), f.read())
 
     @patch('oss2.Session.do_request')
     def test_put_result(self, do_request):

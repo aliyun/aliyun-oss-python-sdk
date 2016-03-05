@@ -5,7 +5,6 @@ import string
 import unittest
 import tempfile
 import os
-import httplib
 import io
 import functools
 import re
@@ -184,20 +183,26 @@ def make_do4body(req_infos=None, body_list=None):
     return do4body_func
 
 
+def is_string_type(obj):
+    if oss2.compat.is_py2:
+        return isinstance(obj, (str, bytes, unicode))
+    else:
+        return isinstance(obj, (str, bytes))
+
+
 def do4response(req, timeout, req_info=None, payload=None):
     if req_info:
         req_info.req = req
 
         if req.data is None:
+            req_info.data = b''
             req_info.size = 0
-            req_info.data = ''
-        elif isinstance(req.data, (str, unicode, bytes)):
-            req_info.size = len(req.data)
-            req_info.data = req.data
+        elif is_string_type(req.data):
+            req_info.data = oss2.to_bytes(req.data)
+            req_info.size = len(req_info.data)
         else:
-            req_info.size = get_length(req.data)
             req_info.data = read_data(req.data, DT_FILE)
-
+            req_info.size = get_length(req.data)
 
     return MockResponse2(payload)
 
@@ -354,9 +359,9 @@ class MockRequest(object):
             self.params = {}
 
         if len(fields) == 2:
-            self.body = fields[1]
+            self.body = oss2.to_bytes(fields[1])
         else:
-            self.body = ''
+            self.body = b''
 
         self.method = request_line_fields[0]
         self.headers = head_fields_to_headers(head_fields[1:])
@@ -431,7 +436,7 @@ class OssTestCase(unittest.TestCase):
     def make_tempfile(self, content):
         fd, pathname = tempfile.mkstemp(suffix='test-upload')
 
-        os.write(fd, content)
+        os.write(fd, oss2.to_bytes(content))
         os.close(fd)
 
         self.temp_files.append(pathname)
@@ -447,8 +452,8 @@ class OssTestCase(unittest.TestCase):
         self.assertEqual(sorted(a, key=key), sorted(b, key=key))
 
     def assertXmlEqual(self, a, b):
-        a = a.translate(None, '\r\n')
-        b = b.translate(None, '\r\n')
+        a = a.translate(None, b'\r\n')
+        b = b.translate(None, b'\r\n')
 
         normalized_a = minidom.parseString(oss2.to_bytes(a)).toxml(encoding='utf-8')
         normalized_b = minidom.parseString(oss2.to_bytes(b)).toxml(encoding='utf-8')
