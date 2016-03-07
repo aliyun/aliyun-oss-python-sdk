@@ -65,35 +65,34 @@ if oss2.compat.is_py2:
             auth = oss2.StsAuth(self.token.access_key_id, self.token.access_key_secret, self.token.security_token)
             self.bucket = oss2.Bucket(auth, OSS_ENDPOINT, OSS_BUCKET)
 
-        if OSS_STS_ARN and OSS_STS_ID and OSS_STS_KEY:
-            def test_object(self):
-                self.init_bucket()
+        def test_object(self):
+            self.init_bucket()
 
-                key = self.random_key()
-                content = b'hello world'
+            key = self.random_key()
+            content = b'hello world'
 
-                self.bucket.put_object(key, content)
-                self.assertEqual(self.bucket.get_object(key).read(), content)
+            self.bucket.put_object(key, content)
+            self.assertEqual(self.bucket.get_object(key).read(), content)
 
-                self.bucket.delete_object(key)
+            self.bucket.delete_object(key)
 
-            def test_bucket(self):
-                self.init_bucket()
+        def test_bucket(self):
+            self.init_bucket()
 
-                # just make sure no exception being thrown
-                self.bucket.get_bucket_referer()
+            # just make sure no exception being thrown
+            self.bucket.get_bucket_referer()
 
-            def test_url(self):
-                self.init_bucket()
+        def test_url(self):
+            self.init_bucket()
 
-                key = self.random_key()
-                content = b'Ali Baba'
+            key = self.random_key()
+            content = b'Ali Baba'
 
-                self.bucket.put_object(key, content)
-                url = self.bucket.sign_url('GET', key, 60)
+            self.bucket.put_object(key, content)
+            url = self.bucket.sign_url('GET', key, 60)
 
-                resp = requests.get(url)
-                self.assertEqual(content, resp.content)
+            resp = requests.get(url)
+            self.assertEqual(content, resp.content)
 
 
 
