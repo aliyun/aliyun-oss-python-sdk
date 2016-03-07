@@ -88,6 +88,84 @@ x-oss-hash-crc64ecma: 7962765905601689380'''.format(position + len(content))
     return request_text, response_text
 
 
+def make_get_object(content):
+        request_text = '''GET /sjbhlsgsbecvlpbf HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:53 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:PAedG7U86ZxQ2WTB+GdpSltoiTI='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:53 GMT
+Content-Type: text/plain
+Content-Length: {0}
+Connection: keep-alive
+x-oss-request-id: 566B6BE93A7B8CFD53D4BAA3
+Accept-Ranges: bytes
+ETag: "D80CF0E5BE2436514894D64B2BCFB2AE"
+Last-Modified: Sat, 12 Dec 2015 00:35:53 GMT
+x-oss-object-type: Normal
+
+{1}'''.format(len(content), to_string(content))
+
+        return request_text, response_text
+
+
+def make_put_object(content):
+    request_text = '''PUT /sjbhlsgsbecvlpbf.txt HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Content-Type: text/plain
+Content-Length: {0}
+date: Sat, 12 Dec 2015 00:35:53 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+authorization: OSS ZCDmm7TPZKHtx77j:W6whAowN4aImQ0dfbMHyFfD0t1g=
+Accept: */*
+
+{1}'''.format(len(content), to_string(content))
+
+    response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:53 GMT
+Content-Length: 0
+Connection: keep-alive
+x-oss-request-id: 566B6BE93A7B8CFD53D4BAA3
+ETag: "D80CF0E5BE2436514894D64B2BCFB2AE"'''
+
+    return request_text, response_text
+
+
+def make_append_object(position, content):
+    request_text = '''POST /sjbhlsgsbecvlpbf?position={0}&append= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Content-Length: {1}
+date: Sat, 12 Dec 2015 00:36:29 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:1njpxsTivMNvTdfYolCUefRInVY=
+
+{2}'''.format(position, len(content), to_string(content))
+
+    response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:36:29 GMT
+Content-Length: 0
+Connection: keep-alive
+x-oss-request-id: 566B6C0D1790CF586F72240B
+ETag: "24F7FA10676D816E0D6C6B5600000000"
+x-oss-next-append-position: {0}
+x-oss-hash-crc64ecma: 7962765905601689380'''.format(position + len(content))
+
+    return request_text, response_text
+
+
 class TestObject(OssTestCase):
     @patch('oss2.Session.do_request')
     def test_head(self, do_request):
