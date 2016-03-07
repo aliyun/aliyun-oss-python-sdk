@@ -103,6 +103,11 @@ Python 2.6，2.7，3.3，3.4，3.5
     $ export OSS_TEST_ENDPOINT=<endpoint>
     $ export OSS_TEST_BUCKET=<bucket>
 
+    $ export OSS_TEST_STS_ID=<AccessKeyId for testing STS>
+    $ export OSS_TEST_STS_KEY=<AccessKeySecret for testing STS>
+    $ export OSS_TEST_STS_ARN=<Role ARN for testing STS>
+
+
 然后通过以下方式之一运行测试：
 
 .. code-block:: bash

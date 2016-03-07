@@ -1,9 +1,9 @@
-__version__ = '2.0.5'
+__version__ = '2.0.6'
 
 from . import models, exceptions
 
 from .api import Service, Bucket
-from .auth import Auth, AnonymousAuth
+from .auth import Auth, AnonymousAuth, StsAuth
 from .http import Session, CaseInsensitiveDict
 
 

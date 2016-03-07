@@ -122,6 +122,26 @@ class AnonymousAuth(object):
         return req.url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in req.params.items())
 
 
+class StsAuth(object):
+    """用于STS临时凭证访问。可以通过官方STS客户端获得临时密钥（AccessKeyId、AccessKeySecret）以及临时安全令牌（SecurityToken）。
+
+    :param str access_key_id: 临时AccessKeyId
+    :param str access_key_secret: 临时AccessKeySecret
+    :param str security_token: 临时安全令牌(SecurityToken)
+    """
+    def __init__(self, access_key_id, access_key_secret, security_token):
+        self.__auth = Auth(access_key_id, access_key_secret)
+        self.__security_token = security_token
+
+    def _sign_request(self, req, bucket_name, key):
+        req.headers['x-oss-security-token'] = self.__security_token
+        self.__auth._sign_request(req, bucket_name, key)
+
+    def _sign_url(self, req, bucket_name, key, expires):
+        req.params['security-token'] = self.__security_token
+        return self.__auth._sign_url(req, bucket_name, key, expires)
+
+
 def _param_to_quoted_query(k, v):
     if v:
         return urlquote(k, '') + '=' + urlquote(v, '')
