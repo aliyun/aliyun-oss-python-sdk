@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import os
-
 import oss2
 
 from functools import partial
@@ -9,35 +8,6 @@ from oss2 import to_string
 from mock import patch
 
 from common import *
-
-
-def do4append(req, timeout, next_position=0, req_info=None, data_type=None):
-    resp = r4append(next_position)
-
-    if req_info:
-        req_info.req = req
-        req_info.resp = resp
-        req_info.size = get_length(req.data)
-        req_info.data = read_data(req.data, data_type)
-
-    return resp
-
-
-def r4append(next_position, in_status=200, in_headers=None):
-    headers = oss2.CaseInsensitiveDict({
-        'Server': 'AliyunOSS',
-        'Date': 'Fri, 11 Dec 2015 11:40:30 GMT',
-        'Content-Length': '0',
-        'Connection': 'keep-alive',
-        'x-oss-request-id': '566AB62E9C30F8552526DADF',
-        'ETag': '"24F7FA10676D816E0D6C6B5600000000"',
-        'x-oss-next-append-position': str(next_position),
-        'x-oss-hash-crc64ecma': '7962765905601689380'
-    })
-
-    merge_headers(headers, in_headers)
-
-    return MockResponse(in_status, headers, b'')
 
 
 def make_get_object(content):

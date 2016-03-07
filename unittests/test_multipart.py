@@ -7,8 +7,6 @@ from mock import patch
 
 from common import *
 
-UPLOAD_ID = '97BD544A65DB46F9A8735C93917A960F'
-
 
 class TestMultipart(OssTestCase):
     @patch('oss2.Session.do_request')

@@ -13,21 +13,6 @@ def all_tags(parent, tag):
     return [to_string(node.text) or '' for node in parent.findall(tag)]
 
 
-def r4get_meta(body, in_status=200, in_headers=None):
-    headers = oss2.CaseInsensitiveDict({
-        'Server': 'AliyunOSS',
-        'Date': 'Fri, 11 Dec 2015 11:40:31 GMT',
-        'Content-Type': 'application/xml',
-        'Content-Length': str(len(body)),
-        'Connection': 'keep-alive',
-        'x-oss-request-id': '566AB62EB06147681C283D73'
-    })
-
-    merge_headers(headers, in_headers)
-
-    return MockResponse(in_status, headers, body)
-
-
 class TestBucket(OssTestCase):
     @patch('oss2.Session.do_request')
     def test_create(self, do_request):
