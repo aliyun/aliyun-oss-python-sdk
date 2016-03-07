@@ -1,20 +1,26 @@
-# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-error
 
 import random
 import string
 import unittest
 import tempfile
 import os
+import io
+import functools
+import re
 
+import xml
 from xml.dom import minidom
 
 import oss2
 
-DT_BYTES = 0
-DT_FILE = 1
+DT_NONE = 0
+DT_BYTES = 1
+DT_FILE = 2
+
 CHUNK_SIZE = 8192
 
-BUCKET_NAME = 'my-bucket'
+BUCKET_NAME = 'ming-oss-share'
 
 
 def random_string(n):
@@ -177,6 +183,30 @@ def make_do4body(req_infos=None, body_list=None):
     return do4body_func
 
 
+def is_string_type(obj):
+    if oss2.compat.is_py2:
+        return isinstance(obj, (str, bytes, unicode))
+    else:
+        return isinstance(obj, (str, bytes))
+
+
+def do4response(req, timeout, req_info=None, payload=None):
+    if req_info:
+        req_info.req = req
+
+        if req.data is None:
+            req_info.data = b''
+            req_info.size = 0
+        elif is_string_type(req.data):
+            req_info.data = oss2.to_bytes(req.data)
+            req_info.size = len(req_info.data)
+        else:
+            req_info.data = read_data(req.data, DT_FILE)
+            req_info.size = get_length(req.data)
+
+    return MockResponse2(payload)
+
+
 def do4put(req, timeout, in_headers=None, req_info=None, data_type=DT_BYTES):
     resp = r4put(in_headers=in_headers)
 
@@ -244,6 +274,23 @@ def get_length(data):
         return None
 
 
+class MockSocket(object):
+    def __init__(self, payload):
+        self._file = io.BytesIO(payload)
+
+    def makefile(self, *args, **kwargs):
+        return self._file
+
+
+def mock_response(do_request, payload):
+    req_info = RequestInfo()
+
+    do_request.auto_spec = True
+    do_request.side_effect = functools.partial(do4response, req_info=req_info, payload=payload)
+
+    return req_info
+
+
 class MockResponse(object):
     def __init__(self, status, headers, body):
         self.status = status
@@ -273,6 +320,90 @@ class MockResponse(object):
 
     def next(self):
         return self.read(8192)
+
+
+def query_to_params(query):
+    params = {}
+    for kv_pair in query.split('&'):
+        kv = kv_pair.split('=', 1)
+        if len(kv) == 2:
+            params[kv[0]] = kv[1]
+        else:
+            params[kv[0]] = ''
+
+    return params
+
+
+def head_fields_to_headers(head_fields):
+    headers = oss2.CaseInsensitiveDict()
+    for header_kv in head_fields:
+        kv = header_kv.split(':', 1)
+        if len(kv) == 2:
+            headers[kv[0].strip()] = kv[1].strip()
+        else:
+            headers[kv[0].strip()] = ''
+
+    return headers
+
+
+class MockRequest(object):
+    def __init__(self, request_text):
+        fields = re.split('\n\n', request_text, 1)
+        head_fields = re.split('\n', fields[0])
+        request_line_fields = head_fields[0].split()
+
+        uri_query_fields = request_line_fields[1].split('?')
+        if len(uri_query_fields) == 2:
+            self.params = query_to_params(uri_query_fields[1])
+        else:
+            self.params = {}
+
+        if len(fields) == 2:
+            self.body = oss2.to_bytes(fields[1])
+        else:
+            self.body = b''
+
+        self.method = request_line_fields[0]
+        self.headers = head_fields_to_headers(head_fields[1:])
+        self.url = 'http://' + self.headers['host'] + uri_query_fields[0]
+
+
+class MockResponse2(object):
+    def __init__(self, response_text):
+        fields = re.split('\n\n', response_text, 1)
+        head_fields = re.split('\n', fields[0])
+        response_line_fields = head_fields[0].split(' ', 2)
+
+        self.status = int(response_line_fields[1])
+        self.headers = head_fields_to_headers(head_fields[1:])
+
+        if len(fields) == 2:
+            self.body = oss2.to_bytes(fields[1])
+        else:
+            self.body = b''
+
+        self.__io = io.BytesIO(self.body)
+
+    def read(self, amt=None):
+        return self.__io.read(amt)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return self.next()
+
+    def next(self):
+        return self.read(8192)
+
+
+def _is_xml(content):
+    try:
+        minidom.parseString(content)
+    except xml.parsers.expat.ExpatError:
+        return False
+    else:
+        return True
 
 
 class OssTestCase(unittest.TestCase):
@@ -305,7 +436,7 @@ class OssTestCase(unittest.TestCase):
     def make_tempfile(self, content):
         fd, pathname = tempfile.mkstemp(suffix='test-upload')
 
-        os.write(fd, content)
+        os.write(fd, oss2.to_bytes(content))
         os.close(fd)
 
         self.temp_files.append(pathname)
@@ -321,7 +452,38 @@ class OssTestCase(unittest.TestCase):
         self.assertEqual(sorted(a, key=key), sorted(b, key=key))
 
     def assertXmlEqual(self, a, b):
+        a = a.translate(None, b'\r\n')
+        b = b.translate(None, b'\r\n')
+
         normalized_a = minidom.parseString(oss2.to_bytes(a)).toxml(encoding='utf-8')
         normalized_b = minidom.parseString(oss2.to_bytes(b)).toxml(encoding='utf-8')
 
         self.assertEqual(normalized_a, normalized_b)
+
+    def assertUrlWithKey(self, url, key):
+        self.assertEqual('http://my-bucket.oss-cn-hangzhou.aliyuncs.com/' + key, url)
+
+    def assertRequest(self, req_info, request_text):
+        req = req_info.req
+
+        expected = MockRequest(request_text)
+
+        self.assertEqual(req.method, expected.method)
+        self.assertEqual(req.url, expected.url)
+
+        for k, v in expected.params.items():
+            self.assertTrue(k in req.params)
+            self.assertEqual(req.params[k], v)
+
+        if 'Content-Type' in expected.headers:
+            self.assertEqual(req.headers.get('Content-Type'), expected.headers['Content-Type'])
+
+        for k, v in expected.headers.items():
+            if k.startswith('x-oss-'):
+                self.assertEqual(req.headers.get(k), expected.headers[k])
+
+        if _is_xml(expected.body):
+            self.assertXmlEqual(req_info.data, expected.body)
+        else:
+            self.assertEqual(len(req_info.data), len(expected.body))
+            self.assertEqual(req_info.data, expected.body)

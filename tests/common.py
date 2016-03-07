@@ -14,6 +14,11 @@ OSS_ENDPOINT = os.getenv("OSS_TEST_ENDPOINT")
 OSS_BUCKET = os.getenv("OSS_TEST_BUCKET")
 OSS_CNAME = os.getenv("OSS_TEST_CNAME")
 
+OSS_STS_ID = os.getenv("OSS_TEST_STS_ID")
+OSS_STS_KEY = os.getenv("OSS_TEST_STS_KEY")
+OSS_STS_ARN = os.getenv("OSS_TEST_STS_ARN")
+OSS_STS_REGION = os.getenv("OSS_TEST_STS_REGION", "cn-hangzhou")
+
 
 def random_string(n):
     return ''.join(random.choice(string.ascii_lowercase) for i in range(n))
@@ -32,9 +37,11 @@ def delete_keys(bucket, key_list):
     for g in grouped:
         bucket.batch_delete_objects(g)
 
+
 def wait_meta_sync():
     if os.environ.get('TRAVIS'):
         time.sleep(15)
+
 
 class OssTestCase(unittest.TestCase):
     def __init__(self, *args, **kwargs):

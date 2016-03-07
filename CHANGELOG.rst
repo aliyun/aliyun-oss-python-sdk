@@ -3,6 +3,13 @@ OSS SDK for Python 版本记录
 
 Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
+Version 2.0.6
+-------------
+
+- 增加：可以通过新增的 `StsAuth` 类，进行STS临时授权
+- 增加：加入Travis CI的支持
+- 改变：对unit test进行了初步的梳理；
+
 Version 2.0.5
 -------------
 
