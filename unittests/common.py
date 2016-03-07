@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-error
+# -*- coding: utf-8 -*-
 
 import random
 import string
