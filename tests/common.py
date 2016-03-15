@@ -41,6 +41,8 @@ def delete_keys(bucket, key_list):
 def wait_meta_sync():
     if os.environ.get('TRAVIS'):
         time.sleep(15)
+    else:
+        time.sleep(1)
 
 
 class OssTestCase(unittest.TestCase):
@@ -54,6 +56,7 @@ class OssTestCase(unittest.TestCase):
     def setUp(self):
         oss2.defaults.connect_timeout = self.default_connect_timeout
         oss2.defaults.multipart_threshold = self.default_multipart_num_threads
+        oss2.defaults.multipart_num_threads = random.randint(1, 5)
 
         self.bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
         self.bucket.create_bucket()

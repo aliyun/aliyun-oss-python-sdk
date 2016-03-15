@@ -13,12 +13,14 @@ import traceback
 
 
 class TaskQueue(object):
-    def __init__(self, producer, consumers, size=1024):
+    def __init__(self, producer, consumers):
         self.__producer = producer
         self.__consumers = consumers
 
         self.__threads = []
-        self.__queue = queue.Queue(size)
+
+        # must be an infinite queue, otherwise producer may be blocked after all consumers being dead.
+        self.__queue = queue.Queue()
 
         self.__lock = threading.Lock()
         self.__exc_info = None

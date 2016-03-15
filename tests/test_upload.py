@@ -47,7 +47,7 @@ class TestUpload(OssTestCase):
         oss2.resumable_upload(self.bucket, key, pathname,
                               multipart_threshold=200 * 1024,
                               part_size=100*1024,
-                              num_threads=16)
+                              num_threads=8)
         result = self.bucket.get_object(key)
         self.assertEqual(content, result.read())
         self.assertEqual(result.headers['x-oss-object-type'], 'Multipart')
@@ -109,6 +109,9 @@ class TestUpload(OssTestCase):
         self.assertEqual(len(list(oss2.ObjectUploadIterator(self.bucket, key))), expected_unfinished)
 
         self.bucket.delete_object(key)
+
+    def test_resume_empty(self):
+        self.__test_resume(250 * 1024, [])
 
     def test_resume_empty(self):
         self.__test_resume(250 * 1024, [])

@@ -212,6 +212,7 @@ class _ResumableUploader(object):
             record = None
 
         if record and not self.__upload_exists(record['upload_id']):
+            logging.debug('{0} upload not exist, clear the record.'.format(record['upload_id']))
             self.__store_delete()
             record = None
 
@@ -224,6 +225,7 @@ class _ResumableUploader(object):
                       'abspath': self.__abspath, 'key': self.key,
                       'part_size': part_size}
 
+            logging.debug('put new record upload_id={0} part_size={1}'.format(upload_id, part_size))
             self.__store_put(record)
 
         self.__part_size = record['part_size']
