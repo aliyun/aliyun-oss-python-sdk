@@ -10,6 +10,7 @@ API文档
 
 .. autoclass:: oss2.Auth
 .. autoclass:: oss2.AnonymousAuth
+.. autoclass:: oss2.StsAuth
 .. autoclass:: oss2.Bucket
 .. autoclass:: oss2.Service
 .. autoclass:: oss2.Session

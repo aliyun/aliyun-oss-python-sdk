@@ -59,7 +59,7 @@ Python 2.6，2.7，3.3，3.4，3.5
     auth = oss2.Auth('<你的AccessKeyId>', '<你的AccessKeySecret>')
     bucket = oss2.Bucket(auth, endpoint, '<你的Bucket名>')
 
-    # Bucket中的文件名（key）为storage.txt
+    # Bucket中的文件名（key）为story.txt
     key = 'story.txt'
 
     # 上传

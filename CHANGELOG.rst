@@ -3,6 +3,13 @@ OSS SDK for Python 版本记录
 
 Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
+Version 2.1.0
+-------------
+
+- 增加：可以通过 `defaults.connection_pool_size` 来设置连接池的最大连接数。
+- 增加：可以通过 `resumable_upload` 函数的 `num_threads` 参数指定并发的线程数，来进行并发上传。
+- 修复：修复一些文档的Bug
+
 Version 2.0.6
 -------------
 
