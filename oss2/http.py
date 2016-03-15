@@ -13,7 +13,7 @@ import platform
 import requests
 from requests.structures import CaseInsensitiveDict
 
-from . import __version__
+from . import __version__, defaults
 from .compat import to_bytes
 from .exceptions import RequestError
 from .utils import file_object_remaining_bytes, SizedFileAdapter
@@ -27,6 +27,9 @@ class Session(object):
     """属于同一个Session的请求共享一组连接池，如有可能也会重用HTTP连接。"""
     def __init__(self):
         self.session = requests.Session()
+
+        self.session.mount('http://', requests.adapters.HTTPAdapter(pool_connections=defaults.connection_pool_size))
+        self.session.mount('https://', requests.adapters.HTTPAdapter(pool_connections=defaults.connection_pool_size))
 
     def do_request(self, req, timeout):
         try:

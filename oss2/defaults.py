@@ -30,3 +30,7 @@ multipart_num_threads = 1
 
 #: 缺省分片大小
 part_size = 10 * 1024 * 1024
+
+
+#: 每个Session连接池大小
+connection_pool_size = 10
