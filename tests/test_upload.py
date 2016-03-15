@@ -38,12 +38,26 @@ class TestUpload(OssTestCase):
 
         self.bucket.delete_object(key)
 
+    def test_concurrency(self):
+        key = random_string(16)
+        content = random_bytes(64 * 100 * 1024)
+
+        pathname = self._prepare_temp_file(content)
+
+        oss2.resumable_upload(self.bucket, key, pathname,
+                              multipart_threshold=200 * 1024,
+                              part_size=100*1024,
+                              num_threads=16)
+        result = self.bucket.get_object(key)
+        self.assertEqual(content, result.read())
+        self.assertEqual(result.headers['x-oss-object-type'], 'Multipart')
+
     def test_progress(self):
         stats = {'previous': -1}
 
         def progress_callback(bytes_consumed, total_bytes):
             self.assertTrue(bytes_consumed <= total_bytes)
-            self.assertTrue(bytes_consumed > stats['previous'])
+            self.assertTrue(bytes_consumed >= stats['previous'])
 
             stats['previous'] = bytes_consumed
 
