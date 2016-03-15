@@ -15,5 +15,5 @@ class TestResumable(unittest.TestCase):
         size = (oss2.defaults.part_size + 1) * n
         part_size = oss2.determine_part_size(size)
 
-        self.assertLessEqual(n * part_size, size)
-        self.assertLess(oss2.defaults.part_size, part_size)
+        self.assertTrue(n * part_size <= size)
+        self.assertTrue(oss2.defaults.part_size < part_size)
