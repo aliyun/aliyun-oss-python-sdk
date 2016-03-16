@@ -16,8 +16,12 @@ from . import defaults
 
 from .models import PartInfo
 from .compat import json, stringify, to_unicode
+from .task_queue import TaskQueue
+
 
 import logging
+import functools
+import threading
 
 
 _MAX_PART_COUNT = 10000
@@ -29,7 +33,8 @@ def resumable_upload(bucket, key, filename,
                      headers=None,
                      multipart_threshold=None,
                      part_size=None,
-                     progress_callback=None):
+                     progress_callback=None,
+                     num_threads=None):
     """断点上传本地文件。
 
     缺省条件下，该函数会在用户HOME目录下保存断点续传的信息。当待上传的本地文件没有发生变化，
@@ -43,6 +48,7 @@ def resumable_upload(bucket, key, filename,
     :param multipart_threshold: 文件长度大于该值时，则用分片上传。
     :param part_size: 指定分片上传的每个分片的大小。如不指定，则自动计算。
     :param progress_callback: 上传进度回调函数。参见 :ref:`progress_callback` 。
+    :param num_threads: 并发上传的线程数，如不指定则使用 `oss2.defaults.multipart_threshold` 。
     """
     size = os.path.getsize(filename)
     multipart_threshold = defaults.get(multipart_threshold, defaults.multipart_threshold)
@@ -51,7 +57,8 @@ def resumable_upload(bucket, key, filename,
         uploader = _ResumableUploader(bucket, key, filename, size, store,
                                       part_size=part_size,
                                       headers=headers,
-                                      progress_callback=progress_callback)
+                                      progress_callback=progress_callback,
+                                      num_threads=num_threads)
         uploader.upload()
     else:
         with open(to_unicode(filename), 'rb') as f:
@@ -101,63 +108,96 @@ class _ResumableUploader(object):
                  store=None,
                  headers=None,
                  part_size=None,
-                 progress_callback=None):
+                 progress_callback=None,
+                 num_threads=None):
         self.bucket = bucket
         self.key = key
         self.filename = filename
         self.size = size
 
-        self.store = store or ResumableStore()
-        self.headers = headers
-        self.part_size = defaults.get(part_size, defaults.part_size)
+        self.__store = store or ResumableStore()
+        self.__headers = headers
+        self.__part_size = defaults.get(part_size, defaults.part_size)
 
-        self.abspath = os.path.abspath(filename)
-        self.mtime = os.path.getmtime(filename)
+        self.__abspath = os.path.abspath(filename)
+        self.__mtime = os.path.getmtime(filename)
 
-        self.progress_callback = progress_callback
+        # protect self.__progress_callback
+        self.__plock = threading.Lock()
+        self.__progress_callback = progress_callback
 
-        self.store_key = self.store.make_store_key(bucket.bucket_name, key, self.abspath)
+        self.__num_threads = defaults.get(num_threads, defaults.multipart_num_threads)
+        self.__store_key = self.__store.make_store_key(bucket.bucket_name, key, self.__abspath)
+
+        self.__upload_id = None
+
+        # protect below fields
+        self.__lock = threading.Lock()
+        self.__record = None
+        self.__size_uploaded = 0
+        self.__parts = None
 
     def upload(self):
-        record = self.__load_record()
+        self.__load_record()
+        parts_uploaded = self.__recorded_parts()
 
-        parts_uploaded = self.__recorded_parts(record)
-        upload_id = record['upload_id']
+        parts_to_upload, self.__parts = self.__get_parts_to_upload(parts_uploaded)
+        parts_to_upload = sorted(parts_to_upload, key=lambda p: p.part_number)
 
+        self.__size_uploaded = sum(p.size for p in self.__parts)
+
+        q = TaskQueue(functools.partial(self.__producer, parts_to_upload=parts_to_upload),
+                      [self.__consumer] * self.__num_threads)
+        q.run()
+
+        self.__report_progress(self.size)
+
+        self.bucket.complete_multipart_upload(self.key, self.__upload_id, self.__parts)
+        self.__store_delete()
+
+    def __producer(self, q, parts_to_upload=None):
+        for part in parts_to_upload:
+            q.put(part)
+
+    def __consumer(self, q):
+        while True:
+            part = q.get()
+            if part is None:
+                break
+
+            self.__upload_part(part)
+
+    def __upload_part(self, part):
         with open(to_unicode(self.filename), 'rb') as f:
-            parts_to_upload, kept_parts = self.__get_parts_to_upload(parts_uploaded)
-            parts_to_upload = sorted(parts_to_upload, key=lambda p: p.part_number)
+            self.__report_progress(self.__size_uploaded)
 
-            size_uploaded = sum(p.size for p in kept_parts)
+            f.seek(part.start, os.SEEK_SET)
+            result = self.bucket.upload_part(self.key, self.__upload_id, part.part_number,
+                                             utils.SizedFileAdapter(f, part.size))
 
-            for part in parts_to_upload:
-                if self.progress_callback:
-                    self.progress_callback(size_uploaded, self.size)
+            self.__finish_part(PartInfo(part.part_number, result.etag, size=part.size))
 
-                f.seek(part.start, os.SEEK_SET)
-                result = self.bucket.upload_part(self.key, upload_id, part.part_number,
-                                                 utils.SizedFileAdapter(f, part.size))
-                kept_parts.append(PartInfo(part.part_number, result.etag))
+    def __finish_part(self, part_info):
+        with self.__lock:
+            self.__parts.append(part_info)
+            self.__size_uploaded += part_info.size
 
-                size_uploaded += part.size
+            self.__record['parts'].append({'part_number': part_info.part_number, 'etag': part_info.etag})
+            self.__store_put(self.__record)
 
-                record['parts'].append({'part_number': part.part_number, 'etag': result.etag})
-                self.__store_put(record)
-
-            if self.progress_callback:
-                self.progress_callback(self.size, self.size)
-
-            self.bucket.complete_multipart_upload(self.key, upload_id, kept_parts)
-            self.__store_delete()
+    def __report_progress(self, uploaded_size):
+        if self.__progress_callback:
+            with self.__plock:
+                self.__progress_callback(uploaded_size, self.size)
 
     def __store_get(self):
-        return self.store.get(self.store_key)
+        return self.__store.get(self.__store_key)
 
     def __store_put(self, record):
-        return self.store.put(self.store_key, record)
+        return self.__store.put(self.__store_key, record)
 
     def __store_delete(self):
-        return self.store.delete(self.store_key)
+        return self.__store.delete(self.__store_key)
 
     def __load_record(self):
         record = self.__store_get()
@@ -172,33 +212,37 @@ class _ResumableUploader(object):
             record = None
 
         if record and not self.__upload_exists(record['upload_id']):
+            logging.debug('{0} upload not exist, clear the record.'.format(record['upload_id']))
             self.__store_delete()
             record = None
 
         if record:
-            self.part_size = record['part_size']
+            self.__record = record
         else:
-            self.part_size = determine_part_size(self.size, self.part_size)
-            upload_id = self.bucket.init_multipart_upload(self.key, headers=self.headers).upload_id
-            record = {'upload_id': upload_id, 'mtime': self.mtime, 'size': self.size, 'parts': [],
-                      'abspath': self.abspath, 'key': self.key,
-                      'part_size': self.part_size}
+            part_size = determine_part_size(self.size, self.__part_size)
+            upload_id = self.bucket.init_multipart_upload(self.key, headers=self.__headers).upload_id
+            record = {'upload_id': upload_id, 'mtime': self.__mtime, 'size': self.size, 'parts': [],
+                      'abspath': self.__abspath, 'key': self.key,
+                      'part_size': part_size}
 
+            logging.debug('put new record upload_id={0} part_size={1}'.format(upload_id, part_size))
             self.__store_put(record)
 
-        return record
+        self.__part_size = record['part_size']
+        self.__upload_id = record['upload_id']
+        self.__record = record
 
-    def __recorded_parts(self, record):
-        last_part_number = utils.how_many(self.size, self.part_size)
+    def __recorded_parts(self):
+        last_part_number = utils.how_many(self.size, self.__part_size)
 
         parts_uploaded = []
 
-        for p in record['parts']:
+        for p in self.__record['parts']:
             part_info = PartInfo(int(p['part_number']), p['etag'])
             if part_info.part_number == last_part_number:
-                part_info.size = self.size % self.part_size
+                part_info.size = self.size % self.__part_size
             else:
-                part_info.size = self.part_size
+                part_info.size = self.__part_size
 
             parts_uploaded.append(part_info)
 
@@ -213,10 +257,10 @@ class _ResumableUploader(object):
             return True
 
     def __file_changed(self, record):
-        return record['mtime'] != self.mtime or record['size'] != self.size
+        return record['mtime'] != self.__mtime or record['size'] != self.size
 
     def __get_parts_to_upload(self, parts_uploaded):
-        num_parts = utils.how_many(self.size, self.part_size)
+        num_parts = utils.how_many(self.size, self.__part_size)
         uploaded_map = {}
         to_upload_map = {}
 
@@ -225,11 +269,11 @@ class _ResumableUploader(object):
 
         for i in range(num_parts):
             if i == num_parts - 1:
-                start = i * self.part_size
+                start = i * self.__part_size
                 end = self.size
             else:
-                start = i * self.part_size
-                end = self.part_size + start
+                start = i * self.__part_size
+                end = self.__part_size + start
 
             to_upload_map[i + 1] = _PartToUpload(i + 1, start, end)
 

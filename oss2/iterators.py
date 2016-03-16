@@ -188,6 +188,8 @@ class ObjectUploadIterator(_BaseIterator):
 class PartIterator(_BaseIterator):
     """遍历一个分片上传会话中已经上传的分片。
 
+    每次返回 :class:`PartInfo <oss2.models.PartInfo>` 对象。
+
     :param bucket: :class:`Bucket <oss2.Bucket>` 对象
     :param key: 文件名
     :param upload_id: 分片上传ID

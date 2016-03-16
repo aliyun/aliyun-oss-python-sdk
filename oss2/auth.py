@@ -125,6 +125,9 @@ class AnonymousAuth(object):
 class StsAuth(object):
     """用于STS临时凭证访问。可以通过官方STS客户端获得临时密钥（AccessKeyId、AccessKeySecret）以及临时安全令牌（SecurityToken）。
 
+    注意到临时凭证会在一段时间后过期，在此之前需要重新获取临时凭证，并更新 :class:`Bucket <oss2.Bucket>` 的 `auth` 成员变量为新
+    的 `StsAuth` 实例。
+
     :param str access_key_id: 临时AccessKeyId
     :param str access_key_secret: 临时AccessKeySecret
     :param str security_token: 临时安全令牌(SecurityToken)
