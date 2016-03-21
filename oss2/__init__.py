@@ -11,7 +11,7 @@ from .iterators import (BucketIterator, ObjectIterator,
                         MultipartUploadIterator, ObjectUploadIterator, PartIterator)
 
 
-from .resumable import resumable_upload, ResumableStore, determine_part_size
+from .resumable import resumable_upload, resumable_download, ResumableStore, determine_part_size
 
 from .compat import to_bytes, to_string, to_unicode, urlparse, urlquote, urlunquote
 

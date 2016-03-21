@@ -108,12 +108,11 @@ Python 2.6，2.7，3.3，3.4，3.5
     $ export OSS_TEST_STS_ARN=<Role ARN for testing STS>
 
 
-然后通过以下方式之一运行测试：
+然后通过以下方式运行测试：
 
 .. code-block:: bash
 
-    $ python -m unittest discover tests  # 如果Python版本 >= 2.7
-    $ nosetests                          # 如果安装了nose
+    $ nosetests                          # 请先安装nose
 
 更多使用
 --------

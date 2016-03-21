@@ -347,3 +347,10 @@ def makedir_p(dirpath):
         if e.errno != errno.EEXIST:
             raise
 
+
+def silently_remove(filename):
+    try:
+        os.remove(filename)
+    except OSError as e:
+        if e.errno != errno.ENOENT:
+            raise

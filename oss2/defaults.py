@@ -34,3 +34,13 @@ part_size = 10 * 1024 * 1024
 
 #: 每个Session连接池大小
 connection_pool_size = 10
+
+
+#: 对于断点下载，如果OSS文件大小大于该值就进行并行下载（multiget）
+multiget_threshold = 100 * 1024 * 1024
+
+#: 并行下载（multiget）缺省线程数
+multiget_num_threads = 4
+
+#: 并行下载（multiget）的缺省分片大小
+multiget_part_size = 10 * 1024 * 1024
