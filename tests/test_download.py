@@ -13,9 +13,6 @@ from functools import partial
 
 from common import *
 
-import logging
-logging.basicConfig(format="%(levelname)s %(funcName)s %(thread)d %(message)s", level=logging.INFO)
-
 
 def modify_one(store, store_key, r, key=None, value=None):
     r[key] = value
@@ -74,18 +71,21 @@ class TestDownload(OssTestCase):
         self.__test_normal(512 * 1024 - 1)
 
     def __test_resume(self, file_size, failed_parts, modify_func_record=None):
+        total = NonlocalObject(0)
+
         orig_download_part = oss2.resumable._ResumableDownloader._ResumableDownloader__download_part
 
-        def fail_download_part(self, part, failed_parts=None):
+        def mock_download_part(self, part, failed_parts=None):
             if part.part_number in failed_parts:
                 raise RuntimeError("Fail download_part for part: {0}".format(part.part_number))
             else:
+                total.var += 1
                 orig_download_part(self, part)
 
         key, filename, content = self.__prepare(file_size)
 
         with patch.object(oss2.resumable._ResumableDownloader, '_ResumableDownloader__download_part',
-                          side_effect=partial(fail_download_part, failed_parts=failed_parts),
+                          side_effect=partial(mock_download_part, failed_parts=failed_parts),
                           autospec=True):
             self.assertRaises(RuntimeError, oss2.resumable_download, self.bucket, key, filename)
 
@@ -97,8 +97,12 @@ class TestDownload(OssTestCase):
         self.assertTrue(os.path.exists(tmp_file))
         self.assertTrue(not os.path.exists(filename))
 
-        oss2.resumable_download(self.bucket, key, filename)
+        with patch.object(oss2.resumable._ResumableDownloader, '_ResumableDownloader__download_part',
+                          side_effect=partial(mock_download_part, failed_parts=[]),
+                          autospec=True):
+            oss2.resumable_download(self.bucket, key, filename)
 
+        self.assertEqual(total.var, oss2.utils.how_many(file_size, oss2.defaults.multiget_part_size))
         self.assertTrue(not os.path.exists(tmp_file))
         self.assertFileContent(filename, content)
 
@@ -382,6 +386,32 @@ class TestDownload(OssTestCase):
         oss2.resumable_download(self.bucket, key, filename, progress_callback=progress_callback)
 
         self.assertEqual(stats['previous'], file_size)
+
+    def test_parameters(self):
+        oss2.defaults.multiget_threshold = 1
+        oss2.defaults.multiget_part_size = 100
+        oss2.defaults.multiget_num_threads = 5
+
+        context = {}
+
+        orig_download = oss2.resumable._ResumableDownloader.download
+
+        def mock_download(downloader):
+            context['part_size'] = downloader._ResumableDownloader__part_size
+            context['num_threads'] = downloader._ResumableDownloader__num_threads
+
+            raise RuntimeError()
+
+        file_size = 123 * 3 + 1
+        key, filename, content = self.__prepare(file_size)
+
+        with patch.object(oss2.resumable._ResumableDownloader, 'download',
+                          side_effect=mock_download, autospec=True):
+            self.assertRaises(RuntimeError, oss2.resumable_download, self.bucket, key, filename,
+                              part_size=123, num_threads=3)
+
+        self.assertEqual(context['part_size'], 123)
+        self.assertEqual(context['num_threads'], 3)
 
     def test_relpath_and_abspath(self):
         """测试绝对、相对路径"""
