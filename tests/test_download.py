@@ -260,6 +260,18 @@ class TestDownload(OssTestCase):
 
         self.__test_insane_record(400, delete_record)
 
+    def test_insane_record_not_json(self):
+        oss2.defaults.multiget_threshold = 1
+        oss2.defaults.multiget_part_size = 128
+        oss2.defaults.multiget_num_threads = 3
+
+        def corrupt_record(store, store_key, r):
+            pathname = store._ResumableStoreBase__path(store_key)
+            with open(oss2.to_unicode(pathname), 'w') as f:
+                f.write('hello}')
+
+        self.__test_insane_record(400, corrupt_record)
+
     def test_remote_changed_before_start(self):
         """在开始下载之前，OSS上的文件就已经被修改了"""
         oss2.defaults.multiget_threshold = 1
@@ -370,22 +382,24 @@ class TestDownload(OssTestCase):
     def test_progress(self):
         oss2.defaults.multiget_threshold = 1
         oss2.defaults.multiget_part_size = 100
-        oss2.defaults.multiget_num_threads = 5
+        oss2.defaults.multiget_num_threads = 1
 
-        stats = {'previous': -1}
+        stats = {'previous': -1, 'called':0}
 
         def progress_callback(bytes_consumed, total_bytes):
             self.assertTrue(bytes_consumed <= total_bytes)
-            self.assertTrue(bytes_consumed >= stats['previous'])
+            self.assertTrue(bytes_consumed > stats['previous'])
 
             stats['previous'] = bytes_consumed
+            stats['called'] += 1
 
-        file_size = 1024 * 1024
+        file_size = 100 * 5 + 1
         key, filename, content = self.__prepare(file_size)
 
         oss2.resumable_download(self.bucket, key, filename, progress_callback=progress_callback)
 
         self.assertEqual(stats['previous'], file_size)
+        self.assertEqual(stats['called'], oss2.utils.how_many(file_size, oss2.defaults.multiget_part_size) + 1)
 
     def test_parameters(self):
         oss2.defaults.multiget_threshold = 1

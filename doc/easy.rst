@@ -16,11 +16,11 @@
 .. autoclass:: oss2.PartIterator
 
 
-断点续传上传
-~~~~~~~~~~~~
+断点续传（上传、下载）
+~~~~~~~~~~~~~~~~~~~
 
 .. autofunction:: oss2.resumable_upload
-
+.. autofunction:: oss2.resumable_download
 
 FileObject适配器
 ~~~~~~~~~~~~~~~~~~

@@ -55,26 +55,30 @@ class TestUpload(OssTestCase):
         self.assertEqual(result.headers['x-oss-object-type'], 'Multipart')
 
     def test_progress(self):
-        stats = {'previous': -1}
+        stats = {'previous': -1, 'ncalled': 0}
 
         def progress_callback(bytes_consumed, total_bytes):
             self.assertTrue(bytes_consumed <= total_bytes)
-            self.assertTrue(bytes_consumed >= stats['previous'])
+            self.assertTrue(bytes_consumed > stats['previous'])
 
             stats['previous'] = bytes_consumed
+            stats['ncalled'] += 1
 
         key = random_string(16)
         content = random_bytes(5 * 100 * 1024 + 100)
 
         pathname = self._prepare_temp_file(content)
 
+        part_size = 100 * 1024
         oss2.resumable_upload(self.bucket, key, pathname,
                               multipart_threshold=200 * 1024,
-                              part_size=100 * 1024,
-                              progress_callback=progress_callback)
+                              part_size=part_size,
+                              progress_callback=progress_callback,
+                              num_threads=1)
         self.assertEqual(stats['previous'], len(content))
+        self.assertEqual(stats['ncalled'], oss2.utils.how_many(len(content), part_size) + 1)
 
-        stats = {'previous': -1}
+        stats = {'previous': -1, 'ncalled': 0}
         oss2.resumable_upload(self.bucket, key, pathname,
                               multipart_threshold=len(content) + 100,
                               progress_callback=progress_callback)

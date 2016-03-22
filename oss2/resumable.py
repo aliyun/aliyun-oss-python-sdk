@@ -108,6 +108,8 @@ def resumable_download(bucket, key, filename,
 
     :param store: 用来保存断点信息的持久存储，可以指定断点信息所在的目录。
     :type store: `ResumableDownloadStore`
+
+    :raises: 如果OSS文件不存在，则抛出 :class:`NotFound <oss2.exceptions.NotFound>` ；也有可能抛出其他因下载文件而产生的异常。
     """
 
     multiget_threshold = defaults.get(multiget_threshold, defaults.multiget_threshold)
@@ -250,7 +252,7 @@ class _ResumableDownloader(_ResumableOperation):
 
         parts_to_download = self.__get_parts_to_download()
 
-        # create tmp file is not exists
+        # create tmp file if it is does not exist
         open(self.__tmp_file, 'a').close()
 
         q = TaskQueue(functools.partial(self.__producer, parts_to_download=parts_to_download),
@@ -275,6 +277,8 @@ class _ResumableDownloader(_ResumableOperation):
             self.__download_part(part)
 
     def __download_part(self, part):
+        self._report_progress(self.__finished_size)
+
         with open(self.__tmp_file, 'rb+') as f:
             f.seek(part.start, os.SEEK_SET)
 
@@ -466,7 +470,7 @@ class _ResumableUploader(_ResumableOperation):
             part_size = determine_part_size(self.size, self.__part_size)
             upload_id = self.bucket.init_multipart_upload(self.key, headers=self.__headers).upload_id
             record = {'upload_id': upload_id, 'mtime': self.__mtime, 'size': self.size, 'parts': [],
-                      'abspath': self._abspath, 'key': self.key,
+                      'abspath': self._abspath, 'bucket': self.bucket.bucket_name, 'key': self.key,
                       'part_size': part_size}
 
             logging.debug('put new record upload_id={0} part_size={1}'.format(upload_id, part_size))
@@ -542,8 +546,15 @@ class _ResumableStoreBase(object):
 
         # json.load()返回的总是unicode，对于Python2，我们将其转换
         # 为str。
-        with open(to_unicode(pathname), 'r') as f:
-            return stringify(json.load(f))
+
+        try:
+            with open(to_unicode(pathname), 'r') as f:
+                content = json.load(f)
+        except ValueError:
+            os.remove(pathname)
+            return None
+        else:
+            return stringify(content)
 
     def put(self, key, value):
         pathname = self.__path(key)
