@@ -360,8 +360,8 @@ def silently_remove(filename):
 def force_rename(src, dst):
     try:
         os.rename(src, dst)
-    except WindowsError as e:
-        if e.winerror == 183:
+    except OSError as e:
+        if e.errno == errno.EEXIST:
             silently_remove(dst)
             os.rename(src, dst)
         else:

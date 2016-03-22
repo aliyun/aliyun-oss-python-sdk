@@ -107,7 +107,7 @@ class TestDownload(OssTestCase):
         self.assertFileContent(filename, content)
 
     def test_resume_hole_start(self):
-        """最后一个part失败"""
+        """第一个part失败"""
 
         oss2.defaults.multiget_threshold = 1
         oss2.defaults.multiget_part_size = 500
@@ -125,7 +125,7 @@ class TestDownload(OssTestCase):
         self.__test_resume(500 * 10 + 16, [11])
 
     def test_resume_hole_mid(self):
-        """最后一个part失败"""
+        """中间part失败"""
 
         oss2.defaults.multiget_threshold = 1
         oss2.defaults.multiget_part_size = 500
