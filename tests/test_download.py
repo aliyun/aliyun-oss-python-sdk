@@ -6,6 +6,7 @@ import os
 import sys
 import time
 import copy
+import tempfile
 
 from mock import patch
 from functools import partial
@@ -31,8 +32,8 @@ class TestDownload(OssTestCase):
 
         return key, filename, content
 
-    def __record(self, key, filename):
-        store = oss2.resumable.make_download_store()
+    def __record(self, key, filename, store=None):
+        store = store or oss2.resumable.make_download_store()
         store_key = store.make_store_key(self.bucket.bucket_name, key, os.path.abspath(filename))
         return store.get(store_key)
 
@@ -278,7 +279,7 @@ class TestDownload(OssTestCase):
         old_context = {}
         new_context = {}
 
-        def mock_download_part(self, part, part_number=None):
+        def mock_download_part(downloader, part, part_number=None):
             if part.part_number == part_number:
                 r = self.__record(key, filename)
 
@@ -286,9 +287,9 @@ class TestDownload(OssTestCase):
                 old_context['etag'] = r['etag']
                 old_context['content'] = random_bytes(file_size)
 
-                self.bucket.put_object(key, context['content'])
+                self.bucket.put_object(key, old_context['content'])
 
-                orig_download_part(self, part)
+                orig_download_part(downloader, part)
 
         def mock_rename(src, dst):
             r = self.__record(key, filename)
@@ -301,11 +302,151 @@ class TestDownload(OssTestCase):
         with patch.object(oss2.resumable._ResumableDownloader, '_ResumableDownloader__download_part',
                           side_effect=partial(mock_download_part, part_number=5),
                           autospec=True):
-            self.assertRaises(RuntimeError, oss2.resumable_download, self.bucket, key, filename)
+            self.assertRaises(oss2.exceptions.PreconditionFailed, oss2.resumable_download, self.bucket, key, filename)
 
-        with patch.object(os.rename, side_effect=mock_rename):
+        with patch.object(os, 'rename', side_effect=mock_rename):
             oss2.resumable_download(self.bucket, key, filename)
 
         self.assertTrue(new_context['tmp_suffix'] != old_context['tmp_suffix'])
         self.assertTrue(new_context['etag'] != old_context['etag'])
 
+    def test_two_downloaders(self):
+        """两个downloader同时跑，但是store的目录不一样。"""
+
+        oss2.defaults.multiget_threshold = 1
+        oss2.defaults.multiget_part_size = 100
+        oss2.defaults.multiget_num_threads = 2
+
+        store1 = oss2.make_download_store()
+        store2 = oss2.make_download_store(dir='.another-py-oss-download')
+
+        file_size = 1000
+        key, filename, content = self.__prepare(file_size)
+
+        context1a = {}
+        context1b = {}
+        context2 = {}
+
+        def mock_rename(src, dst, ctx=None, store=None):
+            r = self.__record(key, filename, store=store)
+
+            ctx['tmp_suffix'] = r['tmp_suffix']
+            ctx['etag'] = r['etag']
+            ctx['mtime'] = r['mtime']
+
+            raise RuntimeError('intentional')
+
+        with patch.object(os, 'rename', side_effect=partial(mock_rename, ctx=context1a, store=store1), autospect=True):
+            self.assertRaises(RuntimeError, oss2.resumable_download, self.bucket, key, filename, store=store1)
+
+        with patch.object(os, 'rename', side_effect=partial(mock_rename, ctx=context1b, store=store1), autospect=True):
+            self.assertRaises(RuntimeError, oss2.resumable_download, self.bucket, key, filename, store=store1)
+
+        with patch.object(os, 'rename', side_effect=partial(mock_rename, ctx=context2, store=store2), autospect=True):
+            self.assertRaises(RuntimeError, oss2.resumable_download, self.bucket, key, filename, store=store2)
+
+        self.assertEqual(context1a['tmp_suffix'], context1b['tmp_suffix'])
+        self.assertEqual(context1a['etag'], context1b['etag'])
+        self.assertEqual(context1a['mtime'], context1b['mtime'])
+
+        self.assertNotEqual(context1a['tmp_suffix'], context2['tmp_suffix'])
+        self.assertEqual(context1a['etag'], context2['etag'])
+        self.assertEqual(context1a['mtime'], context2['mtime'])
+
+        self.assertTrue(os.path.exists(filename + context1a['tmp_suffix']))
+        self.assertTrue(os.path.exists(filename + context2['tmp_suffix']))
+
+        oss2.resumable_download(self.bucket, key, filename, store=store1)
+        self.assertTrue(not os.path.exists(filename + context1a['tmp_suffix']))
+        self.assertTrue(os.path.exists(filename + context2['tmp_suffix']))
+
+        oss2.resumable_download(self.bucket, key, filename, store=store2)
+        self.assertTrue(not os.path.exists(filename + context2['tmp_suffix']))
+
+    def test_progress(self):
+        oss2.defaults.multiget_threshold = 1
+        oss2.defaults.multiget_part_size = 100
+        oss2.defaults.multiget_num_threads = 5
+
+        stats = {'previous': -1}
+
+        def progress_callback(bytes_consumed, total_bytes):
+            self.assertTrue(bytes_consumed <= total_bytes)
+            self.assertTrue(bytes_consumed >= stats['previous'])
+
+            stats['previous'] = bytes_consumed
+
+        file_size = 1024 * 1024
+        key, filename, content = self.__prepare(file_size)
+
+        oss2.resumable_download(self.bucket, key, filename, progress_callback=progress_callback)
+
+        self.assertEqual(stats['previous'], file_size)
+
+    def test_relpath_and_abspath(self):
+        """测试绝对、相对路径"""
+        # testing steps:
+        #    1. first use abspath, and fail one part
+        #    2. then use relpath to continue
+
+        if os.name == 'nt':
+            os.chdir('C:\\')
+
+        oss2.defaults.multiget_threshold = 1
+        oss2.defaults.multiget_part_size = 100
+        oss2.defaults.multiget_num_threads = 5
+
+        fd, abspath = tempfile.mkstemp()
+        os.close(fd)
+
+        relpath = os.path.relpath(abspath)
+
+        self.assertNotEqual(abspath, relpath)
+
+        file_size = 1000
+        key = self.random_key()
+        content = random_bytes(file_size)
+
+        self.bucket.put_object(key, content)
+
+        orig_download_part = oss2.resumable._ResumableDownloader._ResumableDownloader__download_part
+        orig_rename = os.rename
+
+        context1 = {}
+        context2 = {}
+
+        def mock_download_part(downloader, part, part_number=None):
+            if part.part_number == part_number:
+                r = self.__record(key, abspath)
+
+                context1['abspath'] = r['abspath']
+                context1['tmp_suffix'] = r['tmp_suffix']
+
+                raise RuntimeError("Fail download_part for part: {0}".format(part_number))
+            else:
+                orig_download_part(downloader, part)
+
+        def mock_rename(src, dst):
+            r = self.__record(key, relpath)
+
+            context2['abspath'] = r['abspath']
+            context2['tmp_suffix'] = r['tmp_suffix']
+
+            orig_rename(src, dst)
+
+        with patch.object(oss2.resumable._ResumableDownloader, '_ResumableDownloader__download_part',
+                          side_effect=partial(mock_download_part, part_number=3),
+                          autospec=True):
+            self.assertRaises(RuntimeError, oss2.resumable_download, self.bucket, key, abspath)
+
+        with patch.object(os, 'rename', side_effect=mock_rename):
+            oss2.resumable_download(self.bucket, key, relpath)
+
+        self.assertEqual(context1['abspath'], context2['abspath'])
+        self.assertEqual(context1['tmp_suffix'], context2['tmp_suffix'])
+
+        oss2.utils.silently_remove(abspath)
+
+
+if __name__ == '__main__':
+    unittest.main()

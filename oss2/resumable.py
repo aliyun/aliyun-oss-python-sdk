@@ -40,7 +40,11 @@ def resumable_upload(bucket, key, filename,
                      num_threads=None):
     """断点上传本地文件。
 
-    缺省条件下，该函数会在用户HOME目录下保存断点续传的信息。当待上传的本地文件没有发生变化，
+    实现中采用分片上传方式上传本地文件，缺省的并发数是 `oss2.defaults.multipart_num_threads` ，并且在
+    本地磁盘保存已经上传的分片信息。如果因为某种原因上传被中断，下次上传同样的文件，即源文件和目标文件路径都
+    一样，就只会上传缺失的分片。
+
+    缺省条件下，该函数会在用户 `HOME` 目录下保存断点续传的信息。当待上传的本地文件没有发生变化，
     且目标文件名没有变化时，会根据本地保存的信息，从断点开始上传。
 
     :param bucket: :class:`Bucket <oss2.Bucket>` 对象
@@ -51,7 +55,7 @@ def resumable_upload(bucket, key, filename,
     :param multipart_threshold: 文件长度大于该值时，则用分片上传。
     :param part_size: 指定分片上传的每个分片的大小。如不指定，则自动计算。
     :param progress_callback: 上传进度回调函数。参见 :ref:`progress_callback` 。
-    :param num_threads: 并发上传的线程数，如不指定则使用 `oss2.defaults.multipart_threshold` 。
+    :param num_threads: 并发上传的线程数，如不指定则使用 `oss2.defaults.multipart_num_threads` 。
     """
     size = os.path.getsize(filename)
     multipart_threshold = defaults.get(multipart_threshold, defaults.multipart_threshold)
@@ -74,7 +78,38 @@ def resumable_download(bucket, key, filename,
                        multiget_threshold=None,
                        part_size=None,
                        progress_callback=None,
-                       num_threads=None):
+                       num_threads=None,
+                       store=None):
+    """断点下载。
+
+    实现的方法是：
+        #. 在本地创建一个临时文件，文件名由原始文件名加上一个随机的后缀组成；
+        #. 通过指定请求的 `Range` 头按照范围并发读取OSS文件，并写入到临时文件里对应的位置；
+        #. 全部完成之后，把临时文件重名为目标文件 （即 `filename` ）
+
+    在上述过程中，断点信息，即已经完成的范围，会保存在磁盘上。因为某种原因下载中断，后续如果下载
+    同样的文件，也就是源文件和目标文件一样，就会先读取断点信息，然后只下载缺失的部分。
+
+    缺省设置下，断点信息保存在 `HOME` 目录的一个子目录下。可以通过 `store` 参数更改保存位置。
+
+    使用该函数应注意如下细节：
+        #. 对同样的源文件、目标文件，避免多个程序（线程）同时调用该函数。因为断点信息会在磁盘上互相覆盖，或临时文件名会冲突。
+        #. 避免使用太小的范围（分片），即 `part_size` 不宜过小，建议大于或等于 `oss2.defaults.multiget_part_size` 。
+        #. 如果目标文件已经存在，那么该函数会覆盖此文件。
+
+
+    :param bucket: :class:`Bucket <oss2.Bucket>` 对象。
+    :param str key: 待下载的远程文件名。
+    :param str filename: 本地的目标文件名。
+    :param int multiget_threshold: 文件长度大于该值时，则使用断点下载。
+    :param int part_size: 指定期望的分片大小，即每个请求获得的字节数，实际的分片大小可能有所不同。
+    :param progress_callback: 下载进度回调函数。参见 :ref:`progress_callback` 。
+    :param num_threads: 并发下载的线程数，如不指定则使用 `oss2.defaults.multiget_num_threads` 。
+
+    :param store: 用来保存断点信息的持久存储，可以指定断点信息所在的目录。
+    :type store: `ResumableDownloadStore`
+    """
+
     multiget_threshold = defaults.get(multiget_threshold, defaults.multiget_threshold)
 
     result = bucket.head_object(key)
@@ -82,7 +117,8 @@ def resumable_download(bucket, key, filename,
         downloader = _ResumableDownloader(bucket, key, filename, _ObjectInfo.make(result),
                                           part_size=part_size,
                                           progress_callback=progress_callback,
-                                          num_threads=num_threads)
+                                          num_threads=num_threads,
+                                          store=store)
         downloader.download()
     else:
         bucket.get_object_to_file(key, filename,
@@ -90,6 +126,51 @@ def resumable_download(bucket, key, filename,
 
 
 _MAX_MULTIGET_PART_COUNT = 100
+
+
+def determine_part_size(total_size,
+                        preferred_size=None):
+    """确定分片上传是分片的大小。
+
+    :param int total_size: 总共需要上传的长度
+    :param int preferred_size: 用户期望的分片大小。如果不指定则采用defaults.part_size
+
+    :return: 分片大小
+    """
+    if not preferred_size:
+        preferred_size = defaults.part_size
+
+    return _determine_part_size_internal(total_size, preferred_size, _MAX_PART_COUNT)
+
+
+def _determine_part_size_internal(total_size, preferred_size, max_count):
+    if total_size < preferred_size:
+        return total_size
+
+    if preferred_size * max_count < total_size:
+        if total_size % max_count:
+            return total_size // max_count + 1
+        else:
+            return total_size // max_count
+    else:
+        return preferred_size
+
+
+def _split_to_parts(total_size, part_size):
+    parts = []
+    num_parts = utils.how_many(total_size, part_size)
+
+    for i in range(num_parts):
+        if i == num_parts - 1:
+            start = i * part_size
+            end = total_size
+        else:
+            start = i * part_size
+            end = part_size + start
+
+        parts.append(_PartToProcess(i + 1, start, end))
+
+    return parts
 
 
 class _ResumableOperation(object):
@@ -104,6 +185,7 @@ class _ResumableOperation(object):
 
         self.__store = store
         self.__record_key = self.__store.make_store_key(bucket.bucket_name, key, self._abspath)
+        logging.info('key is {0}'.format(self.__record_key))
 
         # protect self.__progress_callback
         self.__plock = threading.Lock()
@@ -124,21 +206,20 @@ class _ResumableOperation(object):
                 self.__progress_callback(consumed_size, self.size)
 
 
-def _split_to_parts(total_size, part_size):
-    parts = []
-    num_parts = utils.how_many(total_size, part_size)
+class _ObjectInfo(object):
+    def __init__(self):
+        self.size = None
+        self.etag = None
+        self.mtime = None
 
-    for i in range(num_parts):
-        if i == num_parts - 1:
-            start = i * part_size
-            end = total_size
-        else:
-            start = i * part_size
-            end = part_size + start
+    @staticmethod
+    def make(head_object_result):
+        objectInfo = _ObjectInfo()
+        objectInfo.size = head_object_result.content_length
+        objectInfo.etag = head_object_result.etag
+        objectInfo.mtime = head_object_result.last_modified
 
-        parts.append(_PartToProcess(i + 1, start, end))
-
-    return parts
+        return objectInfo
 
 
 class _ResumableDownloader(_ResumableOperation):
@@ -176,7 +257,7 @@ class _ResumableDownloader(_ResumableOperation):
                       [self.__consumer] * self.__num_threads)
         q.run()
 
-        os.rename(self.__tmp_file, self.filename)
+        utils.force_rename(self.__tmp_file, self.filename)
 
         self._report_progress(self.size)
         self._del_record()
@@ -210,9 +291,6 @@ class _ResumableDownloader(_ResumableOperation):
         if record and not self.is_record_sane(record):
             self._del_record()
             record = None
-
-        # TODO: if all parts have been uploaded, return here.
-        # TODO: what if md5 conflict
 
         if record and self.__is_remote_changed(record):
             utils.silently_remove(self.filename + record['tmp_suffix'])
@@ -282,50 +360,6 @@ class _ResumableDownloader(_ResumableOperation):
 
     def __gen_tmp_suffix(self):
         return '.tmp-' + ''.join(random.choice(string.ascii_lowercase) for i in range(12))
-
-
-def determine_part_size(total_size,
-                        preferred_size=None):
-    """确定分片大小。
-
-    :param int total_size: 总共需要上传的长度
-    :param int preferred_size: 用户期望的分片大小。如果不指定则采用defaults.part_size
-
-    :return: 分片大小
-    """
-    if not preferred_size:
-        preferred_size = defaults.part_size
-
-    return _determine_part_size_internal(total_size, preferred_size, _MAX_PART_COUNT)
-
-
-def _determine_part_size_internal(total_size, preferred_size, max_count):
-    if total_size < preferred_size:
-        return total_size
-
-    if preferred_size * max_count < total_size:
-        if total_size % max_count:
-            return total_size // max_count + 1
-        else:
-            return total_size // max_count
-    else:
-        return preferred_size
-
-
-class _ObjectInfo(object):
-    def __init__(self):
-        self.size = None
-        self.etag = None
-        self.mtime = None
-
-    @staticmethod
-    def make(head_object_result):
-        objectInfo = _ObjectInfo()
-        objectInfo.size = head_object_result.content_length
-        objectInfo.etag = head_object_result.etag
-        objectInfo.mtime = head_object_result.last_modified
-
-        return objectInfo
 
 
 class _ResumableUploader(_ResumableOperation):
@@ -529,39 +563,54 @@ class _ResumableStoreBase(object):
         return os.path.join(self.dir, key)
 
 
-class ResumableStore(_ResumableStoreBase):
-    """操作断点上传信息的类。
+def _normalize_path(path):
+    return os.path.normpath(os.path.normcase(path))
 
-    每次上传的信息会保存在root/dir/下面的某个文件里。
+
+class ResumableStore(_ResumableStoreBase):
+    """保存断点上传断点信息的类。
+
+    每次上传的信息会保存在 `root/dir/` 下面的某个文件里。
 
     :param str root: 父目录，缺省为HOME
-    :param str dir: 自目录，缺省为_UPLOAD_TEMP_DIR
+    :param str dir: 子目录，缺省为 `_UPLOAD_TEMP_DIR`
     """
     def __init__(self, root=None, dir=None):
         super(ResumableStore, self).__init__(root or os.path.expanduser('~'), dir or _UPLOAD_TEMP_DIR)
 
     @staticmethod
     def make_store_key(bucket_name, key, filename):
+        filepath = _normalize_path(filename)
+
         oss_pathname = 'oss://{0}/{1}'.format(bucket_name, key)
-        return utils.md5_string(oss_pathname) + '-' + utils.md5_string(filename)
+        return utils.md5_string(oss_pathname) + '-' + utils.md5_string(filepath)
 
 
 class ResumableDownloadStore(_ResumableStoreBase):
+    """保存断点下载断点信息的类。
+
+    每次下载的断点信息会保存在 `root/dir/` 下面的某个文件里。
+
+    :param str root: 父目录，缺省为HOME
+    :param str dir: 子目录，缺省为 `_DOWNLOAD_TEMP_DIR`
+    """
     def __init__(self, root=None, dir=None):
         super(ResumableDownloadStore, self).__init__(root or os.path.expanduser('~'), dir or _DOWNLOAD_TEMP_DIR)
 
     @staticmethod
     def make_store_key(bucket_name, key, filename):
+        filepath = _normalize_path(filename)
+
         oss_pathname = 'oss://{0}/{1}'.format(bucket_name, key)
-        return utils.md5_string(oss_pathname) + '-' + utils.md5_string(filename) + '-download'
+        return utils.md5_string(oss_pathname) + '-' + utils.md5_string(filepath) + '-download'
 
 
-def make_upload_store():
-    return ResumableStore()
+def make_upload_store(root=None, dir=None):
+    return ResumableStore(root=root, dir=dir)
 
 
-def make_download_store():
-    return ResumableDownloadStore()
+def make_download_store(root=None, dir=None):
+    return ResumableDownloadStore(root=root, dir=dir)
 
 
 def _rebuild_record(filename, store, bucket, key, upload_id, part_size=None):

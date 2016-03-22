@@ -44,7 +44,9 @@ class OssError(Exception):
         self.message = self.details.get('Message', '')
 
     def __str__(self):
-        return str(self.details)
+        error = {'status': self.status,
+                 'details': self.details}
+        return str(error)
 
 
 class ClientError(OssError):
@@ -52,7 +54,9 @@ class ClientError(OssError):
         OssError.__init__(self, OSS_CLIENT_ERROR_STATUS, {}, 'ClientError: ' + message, {})
 
     def __str__(self):
-        return self.body
+        error = {'status': self.status,
+                 'details': self.body}
+        return str(error)
 
 
 class RequestError(OssError):
@@ -61,7 +65,9 @@ class RequestError(OssError):
         self.exception = e
 
     def __str__(self):
-        return self.body
+        error = {'status': self.status,
+                 'details': self.body}
+        return str(error)
 
 
 class ServerError(OssError):
@@ -145,6 +151,11 @@ class PositionNotEqualToLength(Conflict):
 class ObjectNotAppendable(Conflict):
     status = 409
     code = 'ObjectNotAppendable'
+
+
+class PreconditionFailed(ServerError):
+    status = 412
+    code = 'PreconditionFailed'
 
 
 class NotModified(ServerError):
