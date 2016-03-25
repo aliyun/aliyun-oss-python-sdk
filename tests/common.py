@@ -4,6 +4,7 @@ import string
 import unittest
 import time
 import tempfile
+import errno
 
 import oss2
 
@@ -38,6 +39,11 @@ def delete_keys(bucket, key_list):
         bucket.batch_delete_objects(g)
 
 
+class NonlocalObject(object):
+    def __init__(self, value):
+        self.var = value
+
+
 def wait_meta_sync():
     if os.environ.get('TRAVIS'):
         time.sleep(15)
@@ -53,10 +59,17 @@ class OssTestCase(unittest.TestCase):
         self.default_connect_timeout = oss2.defaults.connect_timeout
         self.default_multipart_num_threads = oss2.defaults.multipart_threshold
 
+        self.default_multiget_threshold = 1024 * 1024
+        self.default_multiget_part_size = 100 * 1024
+
     def setUp(self):
         oss2.defaults.connect_timeout = self.default_connect_timeout
         oss2.defaults.multipart_threshold = self.default_multipart_num_threads
         oss2.defaults.multipart_num_threads = random.randint(1, 5)
+
+        oss2.defaults.multiget_threshold = self.default_multiget_threshold
+        oss2.defaults.multiget_part_size = self.default_multiget_part_size
+        oss2.defaults.multiget_num_threads = random.randint(1, 5)
 
         self.bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
         self.bucket.create_bucket()
@@ -65,7 +78,8 @@ class OssTestCase(unittest.TestCase):
 
     def tearDown(self):
         for temp_file in self.temp_files:
-            os.remove(temp_file)
+            oss2.utils.silently_remove(temp_file)
+
         delete_keys(self.bucket, self.key_list)
 
     def random_key(self, suffix=''):
@@ -73,6 +87,12 @@ class OssTestCase(unittest.TestCase):
         self.key_list.append(key)
 
         return key
+
+    def random_filename(self):
+        filename = random_string(16)
+        self.temp_files.append(filename)
+
+        return filename
 
     def _prepare_temp_file(self, content):
         fd, pathname = tempfile.mkstemp(suffix='test-upload')
@@ -91,3 +111,9 @@ class OssTestCase(unittest.TestCase):
                 time.sleep(i+2)
 
         self.assertTrue(False)
+
+    def assertFileContent(self, filename, content):
+        with open(filename, 'rb') as f:
+            read = f.read()
+            self.assertEqual(len(read), len(content))
+            self.assertEqual(read, content)

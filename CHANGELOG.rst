@@ -6,9 +6,11 @@ Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则�
 Version 2.1.0
 -------------
 
-- 增加：可以通过 `defaults.connection_pool_size` 来设置连接池的最大连接数。
-- 增加：可以通过 `resumable_upload` 函数的 `num_threads` 参数指定并发的线程数，来进行并发上传。
-- 修复：修复一些文档的Bug
+- 增加：可以通过 `oss2.defaults.connection_pool_size` 来设置连接池的最大连接数。
+- 增加：可以通过 `oss2.resumable_upload` 函数的 `num_threads` 参数指定并发的线程数，来进行并发上传。
+- 增加：提供断点下载函数 `oss2.resumable_download` 。
+- 修复：保存断点信息的文件名应该由“规则化”的本地文件名生成；当断点信息文件格式不是json时，删除断点信息文件。
+- 修复：修复一些文档的Bug。
 
 Version 2.0.6
 -------------

@@ -8,6 +8,8 @@ import time
 
 from common import *
 
+from mock import patch
+
 
 class TestUpload(OssTestCase):
     def test_upload_small(self):
@@ -53,26 +55,30 @@ class TestUpload(OssTestCase):
         self.assertEqual(result.headers['x-oss-object-type'], 'Multipart')
 
     def test_progress(self):
-        stats = {'previous': -1}
+        stats = {'previous': -1, 'ncalled': 0}
 
         def progress_callback(bytes_consumed, total_bytes):
             self.assertTrue(bytes_consumed <= total_bytes)
-            self.assertTrue(bytes_consumed >= stats['previous'])
+            self.assertTrue(bytes_consumed > stats['previous'])
 
             stats['previous'] = bytes_consumed
+            stats['ncalled'] += 1
 
         key = random_string(16)
         content = random_bytes(5 * 100 * 1024 + 100)
 
         pathname = self._prepare_temp_file(content)
 
+        part_size = 100 * 1024
         oss2.resumable_upload(self.bucket, key, pathname,
                               multipart_threshold=200 * 1024,
-                              part_size=100 * 1024,
-                              progress_callback=progress_callback)
+                              part_size=part_size,
+                              progress_callback=progress_callback,
+                              num_threads=1)
         self.assertEqual(stats['previous'], len(content))
+        self.assertEqual(stats['ncalled'], oss2.utils.how_many(len(content), part_size) + 1)
 
-        stats = {'previous': -1}
+        stats = {'previous': -1, 'ncalled': 0}
         oss2.resumable_upload(self.bucket, key, pathname,
                               multipart_threshold=len(content) + 100,
                               progress_callback=progress_callback)
@@ -113,9 +119,6 @@ class TestUpload(OssTestCase):
     def test_resume_empty(self):
         self.__test_resume(250 * 1024, [])
 
-    def test_resume_empty(self):
-        self.__test_resume(250 * 1024, [])
-
     def test_resume_continuous(self):
         self.__test_resume(500 * 1024, [1, 2])
 
@@ -141,13 +144,10 @@ class TestUpload(OssTestCase):
 
         pathname = self._prepare_temp_file(content)
 
-        from unittest.mock import patch
         with patch.object(oss2.Bucket, 'upload_part', side_effect=upload_part, autospec=True) as mock_upload_part:
-            try:
-                oss2.resumable_upload(self.bucket, key, pathname, multipart_threshold=0,
-                                          part_size=100 * 1024)
-            except RuntimeError:
-                pass
+            self.assertRaises(RuntimeError, oss2.resumable_upload, self.bucket, key, pathname,
+                              multipart_threshold=0,
+                              part_size=100 * 1024)
 
         if modify_record_func:
             modify_record_func(oss2.resumable.make_upload_store(), self.bucket.bucket_name, key, pathname)
@@ -156,48 +156,45 @@ class TestUpload(OssTestCase):
 
         self.assertEqual(len(list(oss2.ObjectUploadIterator(self.bucket, key))), expected_unfinished)
 
-    if sys.version_info >= (3, 3):
-        def test_interrupt_empty(self):
-            self.__test_interrupt(310 * 1024, 1)
+    def test_interrupt_empty(self):
+        self.__test_interrupt(310 * 1024, 1)
 
-        def test_interrupt_mid(self):
-            self.__test_interrupt(510 * 1024, 3)
+    def test_interrupt_mid(self):
+        self.__test_interrupt(510 * 1024, 3)
 
-        def test_interrupt_last(self):
-            self.__test_interrupt(500 * 1024 - 1, 5)
+    def test_interrupt_last(self):
+        self.__test_interrupt(500 * 1024 - 1, 5)
 
-        def test_record_bad_size(self):
-            self.__test_interrupt(500 * 1024, 3,
-                                  modify_record_func=self.__make_corrupt_record('size', 'hello'),
-                                  expected_unfinished=1)
+    def test_record_bad_size(self):
+        self.__test_interrupt(500 * 1024, 3,
+                              modify_record_func=self.__make_corrupt_record('size', 'hello'),
+                              expected_unfinished=1)
 
-        def test_record_no_such_upload_id(self):
-            self.__test_interrupt(500 * 1024, 3,
-                                  modify_record_func=self.__make_corrupt_record('upload_id', 'ABCD1234'),
-                                  expected_unfinished=1)
+    def test_record_no_such_upload_id(self):
+        self.__test_interrupt(500 * 1024, 3,
+                              modify_record_func=self.__make_corrupt_record('upload_id', 'ABCD1234'),
+                              expected_unfinished=1)
 
-        def test_file_changed_mtime(self):
-            def change_mtime(store, bucket_name, key, pathname):
-                time.sleep(2)
-                os.utime(pathname, (time.time(), time.time()))
+    def test_file_changed_mtime(self):
+        def change_mtime(store, bucket_name, key, pathname):
+            time.sleep(2)
+            os.utime(pathname, (time.time(), time.time()))
 
-            self.__test_interrupt(500 * 1024, 3,
-                                  modify_record_func=change_mtime,
-                                  expected_unfinished=1)
+        self.__test_interrupt(500 * 1024, 3,
+                              modify_record_func=change_mtime,
+                              expected_unfinished=1)
 
-        def test_file_changed_size(self):
-            def change_size(store, bucket_name, key, pathname):
-                mtime = os.path.getmtime(pathname)
+    def test_file_changed_size(self):
+        def change_size(store, bucket_name, key, pathname):
+            mtime = os.path.getmtime(pathname)
 
-                with open(pathname, 'w') as f:
-                    f.write('hello world')
+            with open(pathname, 'w') as f:
+                f.write('hello world')
 
-                os.utime(pathname, (mtime, mtime))
-            self.__test_interrupt(500 * 1024, 3,
-                                  modify_record_func=change_size,
-                                  expected_unfinished=1)
-    else:
-        print('skip error injection cases for Python version < 3.3')
+            os.utime(pathname, (mtime, mtime))
+        self.__test_interrupt(500 * 1024, 3,
+                              modify_record_func=change_size,
+                              expected_unfinished=1)
 
     def __make_corrupt_record(self, name, value):
         def corrupt_record(store, bucket_name, key, pathname):

@@ -347,3 +347,22 @@ def makedir_p(dirpath):
         if e.errno != errno.EEXIST:
             raise
 
+
+def silently_remove(filename):
+    """删除文件，如果文件不存在也不报错。"""
+    try:
+        os.remove(filename)
+    except OSError as e:
+        if e.errno != errno.ENOENT:
+            raise
+
+
+def force_rename(src, dst):
+    try:
+        os.rename(src, dst)
+    except OSError as e:
+        if e.errno == errno.EEXIST:
+            silently_remove(dst)
+            os.rename(src, dst)
+        else:
+            raise
