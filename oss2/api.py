@@ -122,6 +122,7 @@ from .compat import urlquote, urlparse, to_unicode, to_string
 
 import time
 import shutil
+import contextlib
 import oss2.utils
 
 
@@ -488,7 +489,9 @@ class Bucket(_Base):
         headers['x-oss-copy-source'] = '/' + source_bucket_name + '/' + source_key
 
         resp = self.__do_object('PUT', target_key, headers=headers)
-        return PutObjectResult(resp)
+
+        with contextlib.closing(resp):
+            return PutObjectResult(resp)
 
     def update_object_meta(self, key, headers):
         """更改Object的元数据信息，包括Content-Type这类标准的HTTP头部，以及以x-oss-meta-开头的自定义元数据。
@@ -607,7 +610,9 @@ class Bucket(_Base):
                                 params={'uploadId': upload_id},
                                 data=data,
                                 headers=headers)
-        return PutObjectResult(resp)
+
+        with contextlib.closing(resp):
+            return PutObjectResult(resp)
 
     def abort_multipart_upload(self, key, upload_id):
         """取消分片上传。
@@ -670,7 +675,9 @@ class Bucket(_Base):
                                 params={'uploadId': target_upload_id,
                                         'partNumber': str(target_part_number)},
                                 headers=headers)
-        return PutObjectResult(resp)
+
+        with contextlib.closing(resp):
+            return PutObjectResult(resp)
 
     def list_parts(self, key, upload_id,
                    marker='', max_parts=1000):

@@ -28,8 +28,9 @@ class Session(object):
     def __init__(self):
         self.session = requests.Session()
 
-        self.session.mount('http://', requests.adapters.HTTPAdapter(pool_connections=defaults.connection_pool_size))
-        self.session.mount('https://', requests.adapters.HTTPAdapter(pool_connections=defaults.connection_pool_size))
+        psize = defaults.connection_pool_size
+        self.session.mount('http://', requests.adapters.HTTPAdapter(pool_connections=psize, pool_maxsize=psize))
+        self.session.mount('https://', requests.adapters.HTTPAdapter(pool_connections=psize, pool_maxsize=psize))
 
     def do_request(self, req, timeout):
         try:
@@ -93,6 +94,9 @@ class Response(object):
 
     def __iter__(self):
         return self.response.iter_content(_CHUNK_SIZE)
+
+    def close(self):
+        self.response.close()
 
 
 # requests对于具有fileno()方法的file object，会用fileno()的返回值作为Content-Length。

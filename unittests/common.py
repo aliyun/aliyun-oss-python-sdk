@@ -396,6 +396,9 @@ class MockResponse2(object):
     def next(self):
         return self.read(8192)
 
+    def close(self):
+        pass
+
 
 def _is_xml(content):
     try:

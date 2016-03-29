@@ -54,6 +54,9 @@ class RequestResult(object):
         #: 请求ID，用于跟踪一个OSS请求。提交工单时，最后能够提供请求ID
         self.request_id = resp.headers.get('x-oss-request-id', '')
 
+    def close(self):
+        self.resp.close()
+
 
 class HeadObjectResult(RequestResult):
     def __init__(self, resp):
