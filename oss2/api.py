@@ -488,6 +488,7 @@ class Bucket(_Base):
         headers['x-oss-copy-source'] = '/' + source_bucket_name + '/' + source_key
 
         resp = self.__do_object('PUT', target_key, headers=headers)
+
         return PutObjectResult(resp)
 
     def update_object_meta(self, key, headers):
@@ -607,6 +608,7 @@ class Bucket(_Base):
                                 params={'uploadId': upload_id},
                                 data=data,
                                 headers=headers)
+
         return PutObjectResult(resp)
 
     def abort_multipart_upload(self, key, upload_id):
@@ -670,6 +672,7 @@ class Bucket(_Base):
                                 params={'uploadId': target_upload_id,
                                         'partNumber': str(target_part_number)},
                                 headers=headers)
+
         return PutObjectResult(resp)
 
     def list_parts(self, key, upload_id,

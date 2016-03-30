@@ -85,7 +85,7 @@ def resumable_download(bucket, key, filename,
     实现的方法是：
         #. 在本地创建一个临时文件，文件名由原始文件名加上一个随机的后缀组成；
         #. 通过指定请求的 `Range` 头按照范围并发读取OSS文件，并写入到临时文件里对应的位置；
-        #. 全部完成之后，把临时文件重名为目标文件 （即 `filename` ）
+        #. 全部完成之后，把临时文件重命名为目标文件 （即 `filename` ）
 
     在上述过程中，断点信息，即已经完成的范围，会保存在磁盘上。因为某种原因下载中断，后续如果下载
     同样的文件，也就是源文件和目标文件一样，就会先读取断点信息，然后只下载缺失的部分。
@@ -293,6 +293,10 @@ class _ResumableDownloader(_ResumableOperation):
         record = self._get_record()
 
         if record and not self.is_record_sane(record):
+            self._del_record()
+            record = None
+
+        if record and not os.path.exists(self.filename + record['tmp_suffix']):
             self._del_record()
             record = None
 

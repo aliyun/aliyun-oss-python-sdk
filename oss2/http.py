@@ -28,8 +28,9 @@ class Session(object):
     def __init__(self):
         self.session = requests.Session()
 
-        self.session.mount('http://', requests.adapters.HTTPAdapter(pool_connections=defaults.connection_pool_size))
-        self.session.mount('https://', requests.adapters.HTTPAdapter(pool_connections=defaults.connection_pool_size))
+        psize = defaults.connection_pool_size
+        self.session.mount('http://', requests.adapters.HTTPAdapter(pool_connections=psize, pool_maxsize=psize))
+        self.session.mount('https://', requests.adapters.HTTPAdapter(pool_connections=psize, pool_maxsize=psize))
 
     def do_request(self, req, timeout):
         try:

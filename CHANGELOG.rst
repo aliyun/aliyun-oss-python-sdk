@@ -3,6 +3,13 @@ OSS SDK for Python 版本记录
 
 Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
+Version 2.1.1
+-------------
+
+- 修复：issue #28。
+- 修复：正确的设置连接池大小。
+
+
 Version 2.1.0
 -------------
 

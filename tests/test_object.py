@@ -3,6 +3,7 @@
 import requests
 import filecmp
 import calendar
+import contextlib
 
 from oss2.exceptions import (ClientError, RequestError,
                              NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable)

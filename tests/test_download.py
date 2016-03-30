@@ -281,7 +281,7 @@ class TestDownload(OssTestCase):
         self.__test_insane_record(400, partial(modify_one, key='size', value=1024), old_tmp_exists=False)
         self.__test_insane_record(400, partial(modify_one, key='mtime', value=1024), old_tmp_exists=False)
 
-    def test_remote_changed_during_upload(self):
+    def test_remote_changed_during_download(self):
         oss2.defaults.multiget_threshold = 1
         oss2.defaults.multiget_part_size = 100
         oss2.defaults.multiget_num_threads = 2
@@ -490,6 +490,37 @@ class TestDownload(OssTestCase):
         self.assertEqual(context1['tmp_suffix'], context2['tmp_suffix'])
 
         oss2.utils.silently_remove(abspath)
+
+    def test_tmp_file_removed(self):
+        oss2.defaults.multiget_threshold = 1
+        oss2.defaults.multiget_part_size = 100
+        oss2.defaults.multiget_num_threads = 5
+
+        orig_download_part = oss2.resumable._ResumableDownloader._ResumableDownloader__download_part
+
+        file_size = 123 * 3 + 1
+        key, filename, content = self.__prepare(file_size)
+
+        context = {}
+
+        def mock_download_part(downloader, part, part_number=None):
+            if part.part_number == part_number:
+                r = self.__record(key, filename)
+                context['tmpfile'] = filename + r['tmp_suffix']
+
+                raise RuntimeError("Fail download_part for part: {0}".format(part_number))
+            else:
+                orig_download_part(downloader, part)
+
+        with patch.object(oss2.resumable._ResumableDownloader, '_ResumableDownloader__download_part',
+                          side_effect=partial(mock_download_part, part_number=2),
+                          autospec=True):
+            self.assertRaises(RuntimeError, oss2.resumable_download, self.bucket, key, filename)
+
+        os.remove(context['tmpfile'])
+
+        oss2.resumable_download(self.bucket, key, filename)
+        self.assertFileContent(filename, content)
 
 
 if __name__ == '__main__':
