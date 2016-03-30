@@ -95,9 +95,6 @@ class Response(object):
     def __iter__(self):
         return self.response.iter_content(_CHUNK_SIZE)
 
-    def close(self):
-        self.response.close()
-
 
 # requests对于具有fileno()方法的file object，会用fileno()的返回值作为Content-Length。
 # 这对于已经读取了部分内容，或执行了seek()的file object是不正确的。

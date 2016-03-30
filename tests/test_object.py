@@ -421,17 +421,6 @@ class TestObject(OssTestCase):
 
         self.assertRaises(oss2.exceptions.InvalidObjectName, self.bucket.put_object, key, content)
 
-    def test_close(self):
-        key = self.random_key()
-        content = random_bytes(512)
-
-        self.bucket.put_object(key, content)
-
-        result = self.bucket.get_object(key)
-        with contextlib.closing(result):
-            pass
-
-        self.assertEqual(len(result.read()), 0)
 
 if __name__ == '__main__':
     unittest.main()
