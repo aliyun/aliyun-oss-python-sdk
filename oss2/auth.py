@@ -18,7 +18,8 @@ class Auth(object):
          'acl', 'uploadId', 'uploads', 'partNumber', 'group', 'link',
          'delete', 'website', 'location', 'objectInfo',
          'response-expires', 'response-content-disposition', 'cors', 'lifecycle',
-          'restore', 'qos', 'referer', 'append', 'position', 'security-token']
+         'restore', 'qos', 'referer', 'append', 'position', 'security-token',
+         'live', 'comp', 'status', 'vod', 'startTime', 'endTime']
     )
 
     def __init__(self, access_key_id, access_key_secret):
@@ -107,6 +108,28 @@ class Auth(object):
         else:
             return k
 
+    def _sign_rtmp_url(self, url, bucket_name, channel_id, expires, params):
+        expiration_time = int(time.time()) + expires
+
+        canonicalized_resource = "/%s/%s" % (bucket_name, channel_id)
+        canonicalized_params = ''
+        if params:
+            for k in params:
+                if k != "OSSAccessKeyId" and k != "Signature" and k!= "Expires" and k!= "SecurityToken":
+                    canonicalized_params += '%s:%s\n' % (k, params[k])
+
+        p = params if params else {}
+        string_to_sign = str(expiration_time) + "\n" + canonicalized_params + canonicalized_resource
+        logging.debug('string_to_sign={0}'.format(string_to_sign))
+
+        h = hmac.new(to_bytes(self.secret), to_bytes(string_to_sign), hashlib.sha1)
+        signature = utils.b64encode_as_string(h.digest())
+
+        p['OSSAccessKeyId'] = self.id
+        p['Expires'] = str(expiration_time)
+        p['Signature'] = signature
+
+        return url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in p.items())
 
 class AnonymousAuth(object):
     """用于匿名访问。
