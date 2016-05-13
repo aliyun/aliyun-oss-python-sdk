@@ -425,3 +425,229 @@ class GetBucketCorsResult(RequestResult, BucketCors):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         BucketCors.__init__(self)
+
+
+class LiveChannelInfoTarget(object):
+    """Live channel中的Target节点，包含目标协议的一些参数。
+
+    :param type: 协议，目前仅支持HLS。
+    :type type: str
+
+    :param frag_duration: HLS协议下生成的ts文件的期望时长，单位为秒。
+    :type frag_duration: int
+
+    :param frag_count: HLS协议下m3u8文件里ts文件的数量。
+    :type frag_count: int"""
+
+    def __init__(self,
+            type = 'HLS',
+            frag_duration = 5,
+            frag_count = 3,
+            playlist_name = ''):
+        self.type = type
+        self.frag_duration = frag_duration
+        self.frag_count = frag_count
+        self.playlist_name = playlist_name
+
+
+class LiveChannelInfo(object):
+    """Live channel（直播频道）配置。
+
+    :param status: 直播频道的状态，合法的值为"enabled"和"disabled"。
+    :type type: str
+
+    :param description: 直播频道的描述信息，最长为128字节。
+    :type description: str
+
+    :param modified: 直播频道的最后修改时间，这个字段仅在ListLiveChannel时使用。
+    :type modified: str
+
+    :param target: 直播频道的推流目标节点，包含目标协议相关的参数。
+    :type class:`LiveChannelInfoTarget <oss2.models.LiveChannelInfoTarget>`"""
+
+    def __init__(self,
+            status = 'enabled',
+            description = '',
+            target = None,
+            modified = None,
+            id = None):
+        self.status = status
+        self.description = description
+        self.target = target
+        self.modified = modified
+        self.id = id
+
+
+class LiveChannelList(object):
+    """List直播频道的结果。
+
+    :param prefix: List直播频道使用的前缀。
+    :type prefix: str
+
+    :param marker: List直播频道使用的marker。
+    :type marker: str
+
+    :param max_keys: List时返回的最多的直播频道的条数。
+    :type max_keys: int
+
+    :param is_truncated: 本次List是否列举完所有的直播频道
+    :type is_truncated: bool
+
+    :param next_marker: 下一次List直播频道使用的marker。
+    :type marker: str
+
+    :param channels: List返回的直播频道列表
+    :type channels: list"""
+
+    def __init__(self,
+            prefix = '',
+            marker = '',
+            max_keys = 100,
+            is_truncated = False,
+            next_marker = ''):
+        self.prefix = prefix
+        self.marker = marker
+        self.max_keys = max_keys
+        self.is_truncated = is_truncated
+        self.next_marker = next_marker
+        self.channels = []
+
+
+class LiveChannelStatVideo(object):
+    """LiveStat中的Video节点。
+
+    :param width: 视频的宽度。
+    :type width: int
+
+    :param height: 视频的高度。
+    :type height: int
+
+    :param frame_rate: 帧率。
+    :type frame_rate: int
+
+    :param codec: 编码方式。
+    :type codec: str
+
+    :param bandwidth: 码率。
+    :type bandwidth: int"""
+
+    def __init__(self,
+            width = 0,
+            height = 0,
+            frame_rate = 0,
+            codec = '',
+            bandwidth = 0):
+        self.width = width
+        self.height = height
+        self.frame_rate = frame_rate
+        self.codec = codec
+        self.bandwidth = bandwidth
+
+
+class LiveChannelStatAudio(object):
+    """LiveStat中的Audio节点。
+
+    :param codec: 编码方式。
+    :type codec: str
+
+    :param sample_rate: 采样率。
+    :type sample_rate: int
+
+    :param bandwidth: 码率。
+    :type bandwidth: int"""
+
+    def __init__(self,
+            codec = '',
+            sample_rate = 0,
+            bandwidth = 0):
+        self.codec = codec
+        self.sample_rate = sample_rate
+        self.bandwidth = bandwidth
+
+
+class LiveChannelStat(object):
+    """LiveStat结果。
+
+    :param status: 直播状态。
+    :type codec: str
+
+    :param remote_addr: 客户端的地址。
+    :type remote_addr: str
+
+    :param connected_time: 本次推流开始时间。
+    :type connected_time: str
+
+    :param video: 视频描述信息。
+    :type video: class:`LiveChannelStatVideo <oss2.models.LiveChannelStatVideo>`
+
+    :param audio: 音频描述信息。
+    :type audio: class:`LiveChannelStatAudio <oss2.models.LiveChannelStatAudio>`"""
+
+    def __init__(self,
+            status = '',
+            remote_addr = '',
+            connected_time = '',
+            video = None,
+            audio = None):
+        self.status = status
+        self.remote_addr = remote_addr
+        self.connected_time = connected_time
+        self.video = video
+        self.audio = audio
+
+
+class LiveRecord(object):
+    """直播频道中的推流记录信息
+
+    :param start_time: 本次推流开始时间。
+    :type start_time: str
+
+    :param end_time: 本次推流结束时间。
+    :type end_time: str
+
+    :param remote_addr: 推流时客户端的地址。
+    :type remote_addr: str"""
+
+    def __init__(self,
+            start_time = '',
+            end_time = '',
+            remote_addr = ''):
+        self.start_time = start_time
+        self.end_time = end_time
+        self.remote_addr = remote_addr
+
+
+class LiveChannelHistory(object):
+    """直播频道下的推流记录。"""
+
+    def __init__(self):
+        self.records = []
+
+
+class CreateLiveChannelResult(RequestResult, LiveChannelInfo):
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        LiveChannelInfo.__init__(self)
+
+
+class GetLiveChannelResult(RequestResult, LiveChannelInfo):
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        LiveChannelInfo.__init__(self)
+
+
+class ListLiveChannelResult(RequestResult, LiveChannelList):
+    def __init__(self, resp):
+       RequestResult.__init__(self, resp)
+       LiveChannelList.__init__(self)
+
+
+class GetLiveChannelStatResult(RequestResult, LiveChannelStat):
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        LiveChannelStat.__init__(self)
+
+class GetLiveChannelHistoryResult(RequestResult, LiveChannelHistory):
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        LiveChannelHistory.__init__(self)

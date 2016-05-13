@@ -129,6 +129,11 @@ class NoSuchCors(NotFound):
     code = 'NoSuchCORSConfiguration'
 
 
+class NoSuchLiveChannel(NotFound):
+    status = 404
+    code = 'NoSuchLiveChannel'
+
+
 class Conflict(ServerError):
     status = 409
     code = ''
@@ -151,6 +156,16 @@ class PositionNotEqualToLength(Conflict):
 class ObjectNotAppendable(Conflict):
     status = 409
     code = 'ObjectNotAppendable'
+
+
+class ChannelStillLive(Conflict):
+    status = 409
+    code = 'ChannelStillLive'
+
+
+class LiveChannelDisabled(Conflict):
+    status = 409
+    code = 'LiveChannelDisabled'
 
 
 class PreconditionFailed(ServerError):

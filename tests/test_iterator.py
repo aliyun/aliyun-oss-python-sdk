@@ -159,6 +159,30 @@ class TestIterator(OssTestCase):
 
             self.bucket.abort_multipart_upload(key, upload_id)
 
+    def test_live_channel_iterator(self):
+        prefix = self.random_key()
+        channel_id_list = []
+
+        channel_target = oss2.models.LiveChannelInfoTarget(playlist_name = 'test.m3u8')
+        channel_info = oss2.models.LiveChannelInfo(target = channel_target)
+        # 准备频道
+        for i in range(20):
+            channel_id_list.append(prefix + random_string(16))
+            self.bucket.create_live_channel(channel_id_list[-1], channel_info)
+
+        # 验证
+        live_channel_got = []
+        for info in oss2.LiveChannelIterator(self.bucket, prefix, max_keys=4):
+            live_channel_got.append(info.id)
+
+            result = self.bucket.get_live_channel(info.id)
+            self.assertEqual(result.description, info.description)
+
+        self.assertEqual(sorted(channel_id_list), live_channel_got)
+
+        for live_channel in channel_id_list:
+            self.bucket.delete_live_channel(live_channel)
+
 
 if __name__ == '__main__':
     unittest.main()
