@@ -236,6 +236,10 @@ class Bucket(_Base):
     LOGGING = 'logging'
     REFERER = 'referer'
     WEBSITE = 'website'
+    LIVE = 'live'
+    COMP = 'comp'
+    STATUS = 'status'
+    VOD = 'vod'
 
     def __init__(self, auth, endpoint, bucket_name,
                  is_cname=False,
@@ -272,6 +276,23 @@ class Bucket(_Base):
                            headers=headers,
                            params=params)
         return self.auth._sign_url(req, self.bucket_name, key, expires)
+
+    def sign_rtmp_url(self, publish_url, channel_id, expires, params=None):
+        """生成RTMP推流的签名URL。
+
+        常见的用法是生成加签的URL以供授信用户向OSS推RTMP流。
+
+            >>> bucket.sign_rtmp_url('test_channel', 3600, params = {'use_id': '00001', 'device_id': 'AE9789798BC01'})
+            'http://your-bucket.oss-cn-hangzhou.aliyuncs.com/test_channel?OSSAccessKeyId=9uYePR6lL468aEUp&Expires=1462787071&use_id=00001&Signature=jprQLI0kGdcvmIvkm5rTx5LFkJ4%3D&device_id=AE9789798BC01'
+
+        :param publish_url: 创建直播频道得到的推流地址
+        :param channel_id: 直播频道的名称
+        :param expires: 过期时间（单位：秒），链接在当前时间再过expires秒后过期
+        :param params: 需要签名的HTTP查询参数
+
+        :return: 签名URL。
+        """
+        return self.auth._sign_rtmp_url(publish_url, self.bucket_name, channel_id, expires, params)
 
     def list_objects(self, prefix='', delimiter='', marker='', max_keys=100):
         """根据前缀罗列Bucket里的文件。
@@ -847,6 +868,94 @@ class Bucket(_Base):
     def delete_bucket_website(self):
         """关闭Bucket的静态网站托管功能。"""
         resp = self.__do_bucket('DELETE', params={Bucket.WEBSITE: ''})
+        return RequestResult(resp)
+
+    def create_live_channel(self, channel_id, input):
+        """创建推流直播频道
+
+        :param str channel_id: 要创建的live channel的名称
+        :param input: LiveChannelInfo类型，包含了live channel中的描述信息
+
+        :return: :class:`CreateLiveChannelResult <oss2.models.CreateLiveChannelResult>`
+        """
+        data = self.__convert_data(LiveChannelInfo, xml_utils.to_create_live_channel, input)
+        resp = self.__do_object('PUT', channel_id, data=data, params={Bucket.LIVE: ''})
+        return self._parse_result(resp, xml_utils.parse_create_live_channel, CreateLiveChannelResult)
+
+    def delete_live_channel(self, channel_id):
+        """删除推流直播频道
+
+        :param str channel_id: 要删除的live channel的名称
+        """
+        resp = self.__do_object('DELETE', channel_id, params={Bucket.LIVE: ''})
+        return RequestResult(resp)
+
+    def get_live_channel(self, channel_id):
+        """获取直播频道配置
+
+        :param str channel_id: 要获取的live channel的名称
+
+        :return: :class:`GetLiveChannelResult <oss2.models.GetLiveChannelResult>`
+        """
+        resp = self.__do_object('GET', channel_id, params={Bucket.LIVE: ''})
+        return self._parse_result(resp, xml_utils.parse_get_live_channel, GetLiveChannelResult)
+
+    def list_live_channel(self, prefix='', marker='', max_keys=100):
+        """列举出Bucket下所有符合条件的live channel
+
+        param: str prefix: list时channel_id的公共前缀
+        param: str marker: list时指定的起始标记
+        param: int max_keys: 本次list返回live channel的最大个数
+
+        return: :class:`ListLiveChannelResult <oss2.models.ListLiveChannelResult>`
+        """
+        resp = self.__do_bucket('GET', params={Bucket.LIVE: '',
+                                               'prefix': prefix,
+                                               'marker': marker,
+                                               'max-keys': str(max_keys)})
+        return self._parse_result(resp, xml_utils.parse_list_live_channel, ListLiveChannelResult)
+
+    def get_live_channel_stat(self, channel_id):
+        """获取live channel当前推流的状态
+
+        param str channel_id: 要获取推流状态的live channel的名称
+
+        return: :class:`GetLiveChannelStatResult <oss2.models.GetLiveChannelStatResult>`
+        """
+        resp = self.__do_object('GET', channel_id, params={Bucket.LIVE: '', Bucket.COMP: 'stat'})
+        return self._parse_result(resp, xml_utils.parse_live_channel_stat, GetLiveChannelStatResult)
+
+    def put_live_channel_status(self, channel_id, status):
+        """更改live channel的status，仅能在“enabled”和“disabled”两种状态中更改
+
+        param str channel_id: 要更改status的live channel的名称
+        param str status: live channel的目标status
+        """
+        resp = self.__do_object('PUT', channel_id, params={Bucket.LIVE: '', Bucket.STATUS: status})
+        return RequestResult(resp)
+
+    def get_live_channel_history(self, channel_id):
+        """获取live channel中最近的最多十次的推流记录，记录中包含推流的起止时间和远端的地址
+
+        param str channel_id: 要获取最近推流记录的live channel的名称
+
+        return: :class:`GetLiveChannelHistoryResult <oss2.models.GetLiveChannelHistoryResult>`
+        """
+        resp = self.__do_object('GET', channel_id, params={Bucket.LIVE: '', Bucket.COMP: 'history'})
+        return self._parse_result(resp, xml_utils.parse_live_channel_history, GetLiveChannelHistoryResult)
+
+    def post_vod_playlist(self, channel_id, playlist_name, start_time = 0, end_time = 0):
+        """根据指定的playlist name以及startTime和endTime生成一个点播的播放列表
+
+        param str channel_id: 要生成点播列表的live channel的名称
+        param str playlist_name: 要生成点播列表m3u8文件的名称
+        param int start_time: 点播的起始时间，为UNIX时间戳
+        param int end_time: 点播的结束时间，为UNIX时间戳
+        """
+        key = channel_id + "/" + playlist_name
+        resp = self.__do_object('POST', key, params={Bucket.VOD: '',
+                                                            'startTime': str(start_time),
+                                                            'endTime': str(end_time)})
         return RequestResult(resp)
 
     def _get_bucket_config(self, config):

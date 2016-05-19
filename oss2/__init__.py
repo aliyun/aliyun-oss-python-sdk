@@ -8,7 +8,8 @@ from .http import Session, CaseInsensitiveDict
 
 
 from .iterators import (BucketIterator, ObjectIterator,
-                        MultipartUploadIterator, ObjectUploadIterator, PartIterator)
+                        MultipartUploadIterator, ObjectUploadIterator,
+                        PartIterator, LiveChannelIterator)
 
 
 from .resumable import resumable_upload, resumable_download, ResumableStore, ResumableDownloadStore, determine_part_size
