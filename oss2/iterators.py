@@ -213,3 +213,29 @@ class PartIterator(_BaseIterator):
 
         return result.is_truncated, result.next_marker
 
+
+class LiveChannelIterator(_BaseIterator):
+    """遍历Bucket里文件的迭代器。
+
+    每次迭代返回的是 :class:`LiveChannelInfo <oss2.models.LiveChannelInfo>` 对象。
+
+    :param bucket: :class:`Bucket <oss2.Bucket>` 对象
+    :param prefix: 只列举匹配该前缀的文件
+    :param marker: 分页符
+    :param max_keys: 每次调用 `list_live_channel` 时的max_keys参数。注意迭代器返回的数目可能会大于该值。
+    """
+    def __init__(self, bucket, prefix='', marker='', max_keys=100, max_retries=None):
+        super(LiveChannelIterator, self).__init__(marker, max_retries)
+
+        self.bucket = bucket
+        self.prefix = prefix
+        self.max_keys = max_keys
+
+    def _fetch(self):
+        result = self.bucket.list_live_channel(prefix=self.prefix,
+                                               marker=self.next_marker,
+                                               max_keys=self.max_keys)
+        self.entries = result.channels
+
+        return result.is_truncated, result.next_marker
+

@@ -18,7 +18,8 @@ class Auth(object):
          'acl', 'uploadId', 'uploads', 'partNumber', 'group', 'link',
          'delete', 'website', 'location', 'objectInfo',
          'response-expires', 'response-content-disposition', 'cors', 'lifecycle',
-          'restore', 'qos', 'referer', 'append', 'position', 'security-token']
+         'restore', 'qos', 'referer', 'append', 'position', 'security-token',
+         'live', 'comp', 'status', 'vod', 'startTime', 'endTime']
     )
 
     def __init__(self, access_key_id, access_key_secret):
@@ -107,6 +108,31 @@ class Auth(object):
         else:
             return k
 
+    def _sign_rtmp_url(self, url, bucket_name, channel_name, playlist_name, expires, params):
+        expiration_time = int(time.time()) + expires
+
+        canonicalized_resource = "/%s/%s" % (bucket_name, channel_name)
+        canonicalized_params = ''
+        if params:
+            items = params.items()
+            items.sort()
+            for k,v in items:
+                if k != "OSSAccessKeyId" and k != "Signature" and k!= "Expires" and k!= "SecurityToken":
+                    canonicalized_params += '%s:%s\n' % (k, v)
+
+        p = params if params else {}
+        string_to_sign = str(expiration_time) + "\n" + canonicalized_params + canonicalized_resource
+        logging.debug('string_to_sign={0}'.format(string_to_sign))
+        
+        h = hmac.new(to_bytes(self.secret), to_bytes(string_to_sign), hashlib.sha1)
+        signature = utils.b64encode_as_string(h.digest())
+
+        p['OSSAccessKeyId'] = self.id
+        p['Expires'] = str(expiration_time)
+        p['Signature'] = signature
+
+        return url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in p.items())
+    
 
 class AnonymousAuth(object):
     """用于匿名访问。
@@ -120,7 +146,10 @@ class AnonymousAuth(object):
 
     def _sign_url(self, req, bucket_name, key, expires):
         return req.url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in req.params.items())
-
+    
+    def _sign_rtmp_url(self, url, bucket_name, channel_name, playlist_name, expires, params):
+        return url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in params.items())
+        
 
 class StsAuth(object):
     """用于STS临时凭证访问。可以通过官方STS客户端获得临时密钥（AccessKeyId、AccessKeySecret）以及临时安全令牌（SecurityToken）。
@@ -143,6 +172,10 @@ class StsAuth(object):
     def _sign_url(self, req, bucket_name, key, expires):
         req.params['security-token'] = self.__security_token
         return self.__auth._sign_url(req, bucket_name, key, expires)
+    
+    def _sign_rtmp_url(self, url, bucket_name, channel_name, playlist_name, expires, params):
+        params['security-token'] = self.__security_token
+        return self.__auth._sign_rtmp_url(url, bucket_name, channel_name, playlist_name, expires, params)
 
 
 def _param_to_quoted_query(k, v):
@@ -150,4 +183,3 @@ def _param_to_quoted_query(k, v):
         return urlquote(k, '') + '=' + urlquote(v, '')
     else:
         return urlquote(k, '')
-
