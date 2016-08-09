@@ -277,13 +277,9 @@ class Bucket(_Base):
                            params=params)
         return self.auth._sign_url(req, self.bucket_name, key, expires)
 
-    def sign_rtmp_url(self, channel_name, playlist_name, expires, params=None):
+    def sign_rtmp_url(self, channel_name, playlist_name, expires):
         """生成RTMP推流的签名URL。
-
         常见的用法是生成加签的URL以供授信用户向OSS推RTMP流。
-
-            >>> bucket.sign_rtmp_url('test_channel', 3600, params = {'use_id': '00001', 'device_id': 'AE9789798BC01'})
-            'http://your-bucket.oss-cn-hangzhou.aliyuncs.com/test_channel?OSSAccessKeyId=9uYePR6lL468aEUp&Expires=1462787071&use_id=00001&Signature=jprQLI0kGdcvmIvkm5rTx5LFkJ4%3D&device_id=AE9789798BC01'
 
         :param channel_name: 直播频道的名称
         :param expires: 过期时间（单位：秒），链接在当前时间再过expires秒后过期
@@ -293,7 +289,7 @@ class Bucket(_Base):
         :return: 签名URL。
         """        
         url = self._make_url(self.bucket_name, 'live').replace('http://', 'rtmp://').replace('https://', 'rtmp://') + '/' + channel_name
-        params = params if params else {}
+        params = {}
         params['playlistName'] = playlist_name
         return self.auth._sign_rtmp_url(url, self.bucket_name, channel_name, playlist_name, expires, params)
 
