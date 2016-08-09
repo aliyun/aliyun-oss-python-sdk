@@ -409,8 +409,6 @@ class TestObject(OssTestCase):
         content_got = b''
         result = self.bucket.get_object(key, headers={'Accept-Encoding': 'gzip'}, progress_callback=progress_callback)
         content_got = result.read()
-        #for chunk in result:
-        #    content_got += chunk
 
         self.assertEqual(len(content), len(content_got))
         self.assertEqual(content, content_got)
