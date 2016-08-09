@@ -118,7 +118,7 @@ class TestLiveChannel(OssTestCase):
         prefix1 = random_string(5)
         channel_target = oss2.models.LiveChannelInfoTarget(playlist_name = 'test.m3u8')
         channel_info = oss2.models.LiveChannelInfo(target = channel_target)
-        for index in xrange(0, 200):
+        for index in range(200):
             channel_name_list.append(prefix1 + self._get_fixed_number(10, index))
             bucket.create_live_channel(channel_name_list[index], channel_info)
 

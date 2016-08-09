@@ -112,16 +112,21 @@ class Auth(object):
         expiration_time = int(time.time()) + expires
 
         canonicalized_resource = "/%s/%s" % (bucket_name, channel_name)
-        canonicalized_params = ''
+        canonicalized_params = []
+        
         if params:
             items = params.items()
-            items.sort()
             for k,v in items:
                 if k != "OSSAccessKeyId" and k != "Signature" and k!= "Expires" and k!= "SecurityToken":
-                    canonicalized_params += '%s:%s\n' % (k, v)
-
+                    canonicalized_params.append((k, v))
+                    
+        canonicalized_params.sort(key=lambda e: e[0]) 
+        canon_params_str = ''
+        for k, v in canonicalized_params:
+            canon_params_str += '%s:%s\n' % (k, v)
+        
         p = params if params else {}
-        string_to_sign = str(expiration_time) + "\n" + canonicalized_params + canonicalized_resource
+        string_to_sign = str(expiration_time) + "\n" + canon_params_str + canonicalized_resource
         logging.debug('string_to_sign={0}'.format(string_to_sign))
         
         h = hmac.new(to_bytes(self.secret), to_bytes(string_to_sign), hashlib.sha1)
