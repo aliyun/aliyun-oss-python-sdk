@@ -10,15 +10,15 @@ import oss2
 
 
 # 首先初始化AccessKeyId、AccessKeySecret、Endpoint等信息。
-# 通过环境变量获取，或者把诸如“<你的AccessKeyId>”替换成真实的AccessKeyId等。
+# 通过环境变量获取，或者把诸如“<您的AccessKeyId>”替换成真实的AccessKeyId等。
 #
 # 以杭州区域为例，Endpoint是：
 #   http://oss-cn-shenzhen.aliyuncs.com 或
 #   https://oss-cn-shenzhen.aliyuncs.com
-access_key_id = os.getenv('OSS_TEST_ACCESS_KEY_ID', '<你的AccessKeyId>')
-access_key_secret = os.getenv('OSS_TEST_ACCESS_KEY_SECRET', '<你的AccessKeySecret>')
-bucket_name = os.getenv('OSS_TEST_BUCKET', '<你的Bucket>')
-endpoint = os.getenv('OSS_TEST_ENDPOINT', '<你的访问域名>')
+access_key_id = os.getenv('OSS_TEST_ACCESS_KEY_ID', '<您的AccessKeyId>')
+access_key_secret = os.getenv('OSS_TEST_ACCESS_KEY_SECRET', '<您的AccessKeySecret>')
+bucket_name = os.getenv('OSS_TEST_BUCKET', '<您的Bucket>')
+endpoint = os.getenv('OSS_TEST_ENDPOINT', '<您的访问域名>')
 
 
 # 确认上面的参数都填写正确了
