@@ -24,8 +24,8 @@ from .models import (SimplifiedObjectInfo,
                      LiveChannelInfoTarget,
                      LiveChannelInfo,
                      LiveRecord,
-                     LiveChannelStatVideo,
-                     LiveChannelStatAudio)
+                     LiveChannelVideoStat,
+                     LiveChannelAudioStat)
 
 from .compat import urlunquote, to_unicode, to_string
 from .utils import iso8601_to_unixtime, date_to_iso8601, iso8601_to_date
@@ -304,18 +304,19 @@ def parse_live_channel_stat(result, body):
     root = ElementTree.fromstring(body)
 
     result.status = _find_tag(root, 'Status')
-    if root.find('RemoteAddr'):
+    if root.find('RemoteAddr') is not None:
         result.remote_addr = _find_tag(root, 'RemoteAddr')
-        result.connected_time = int(_find_tag(root, 'ConnectedTime'))
+    if root.find('ConnectedTime') is not None:
+        result.connected_time = iso8601_to_date(_find_tag(root, 'ConnectedTime'))
 
     video_node = root.find('Video')
     audio_node = root.find('Audio')
 
     if video_node is not None:
-        result.video = LiveChannelStatVideo()
+        result.video = LiveChannelVideoStat()
         parse_stat_video(video_node, result.video)
     if audio_node is not None:
-        result.audio = LiveChannelStatAudio()
+        result.audio = LiveChannelAudioStat()
         parse_stat_audio(audio_node, result.audio)
 
     return result

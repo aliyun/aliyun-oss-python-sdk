@@ -513,7 +513,7 @@ class LiveChannelList(object):
         self.channels = []
 
 
-class LiveChannelStatVideo(object):
+class LiveChannelVideoStat(object):
     """LiveStat中的Video节点。
 
     :param width: 视频的宽度。
@@ -544,7 +544,7 @@ class LiveChannelStatVideo(object):
         self.bandwidth = bandwidth
 
 
-class LiveChannelStatAudio(object):
+class LiveChannelAudioStat(object):
     """LiveStat中的Audio节点。
 
     :param codec: 编码方式。
@@ -578,10 +578,10 @@ class LiveChannelStat(object):
     :type connected_time: str
 
     :param video: 视频描述信息。
-    :type video: class:`LiveChannelStatVideo <oss2.models.LiveChannelStatVideo>`
+    :type video: class:`LiveChannelVideoStat <oss2.models.LiveChannelVideoStat>`
 
     :param audio: 音频描述信息。
-    :type audio: class:`LiveChannelStatAudio <oss2.models.LiveChannelStatAudio>`"""
+    :type audio: class:`LiveChannelAudioStat <oss2.models.LiveChannelAudioStat>`"""
 
     def __init__(self,
             status = '',

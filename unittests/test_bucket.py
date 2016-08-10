@@ -738,11 +738,9 @@ x-oss-server-time: 118
 
         channel_target = oss2.models.LiveChannelInfoTarget(playlist_name="test.m3u8")
         channel_info = oss2.models.LiveChannelInfo(target=channel_target)
-        result = bucket().create_live_channel("lc", channel_info)
+        bucket().create_live_channel("lc", channel_info)
         
         self.assertRequest(req_info, request_text)
-        self.assertIsNotNone(result.play_url)
-        self.assertIsNotNone(result.publish_url)
 
     @patch('oss2.Session.do_request')
     def test_get_live_channel_stat(self, do_request):
