@@ -235,7 +235,7 @@ class TestLiveChannel(OssTestCase):
         channel_info = oss2.models.LiveChannelInfo(target = channel_target)
         bucket.create_live_channel(channel_name, channel_info)
 
-        # publish rtmp stream here, generate some ts file on oss.
+        # push rtmp stream here, then generate some ts files on oss.
 
         end_time = int(time.time()) - 60
         start_time = end_time - 3600
