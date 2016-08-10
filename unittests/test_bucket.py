@@ -701,5 +701,190 @@ x-oss-request-id: 566B6BDD68248CE14F729DC0
         self.assertRequest(req_info, request_text)
         self.assertEqual(result.location, 'oss-cn-hangzhou')
 
+    @patch('oss2.Session.do_request')
+    def test_create_live_channel(self, do_request):
+        request_text = '''PUT /lc?live= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Accept: */*
+User-Agent: aliyun-sdk-python/2.1.1(Windows/7/AMD64;2.7.10)
+date: Tue, 09 Aug 2016 11:25:01 GMT
+authorization: OSS 2NeLUvmJFYbrj2Eb:ljTfGW1yYoTGQN7Tl9gU36kJcxQ=
+Content-Length: 217
+
+<LiveChannelConfiguration><Description /><Status>enabled</Status><Target><Type>HLS</Type><FragDuration>5</FragDuration><FragCount>3</FragCount><PlaylistName>test.m3u8</PlaylistName></Target></LiveChannelConfiguration>'''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Tue, 09 Aug 2016 11:25:01 GMT
+Content-Type: application/xml
+Content-Length: 437
+Connection: keep-alive
+x-oss-request-id: 57A9BD8D2FADF35D13CD7E5E
+x-oss-server-time: 118
+
+<?xml version="1.0" encoding="UTF-8"?>
+<CreateLiveChannelResult>
+  <PublishUrls>
+    <Url>rtmp://ming-oss-share.oss-cn-hangzhou.aliyuncs.com/live/lc</Url>
+  </PublishUrls>
+  <PlayUrls>
+    <Url>http://ming-oss-share.oss-cn-hangzhou.aliyuncs.com/lc/test.m3u8</Url>
+  </PlayUrls>
+</CreateLiveChannelResult>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        channel_target = oss2.models.LiveChannelInfoTarget(playlist_name="test.m3u8")
+        channel_info = oss2.models.LiveChannelInfo(target=channel_target)
+        result = bucket().create_live_channel("lc", channel_info)
+        
+        self.assertRequest(req_info, request_text)
+        self.assertIsNotNone(result.play_url)
+        self.assertIsNotNone(result.publish_url)
+
+    @patch('oss2.Session.do_request')
+    def test_get_live_channel_stat(self, do_request):
+        from oss2.utils import iso8601_to_date
+        from oss2.models import LiveChannelAudioStat, LiveChannelVideoStat
+        
+        request_text = '''GET /lc?comp=stat&live= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Accept: */*
+User-Agent: aliyun-sdk-python/2.1.1(Windows/7/AMD64;2.7.10)
+date: Tue, 09 Aug 2016 11:51:30 GMT
+authorization: OSS 2NeLUvmJFYbrj2Eb:BQCNOYdGglcAbhdHhqTfVNtLBow='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Tue, 09 Aug 2016 11:51:30 GMT
+Content-Type: application/xml
+Content-Length: 100
+Connection: keep-alive
+x-oss-request-id: 57A9C3C27FBF67E9BE686908
+x-oss-server-time: 1
+
+<?xml version="1.0" encoding="UTF-8"?>
+<LiveChannelStat>
+  <Status>Live</Status>
+  <ConnectedTime>2016-08-08T05:59:28.000Z</ConnectedTime>
+  <RemoteAddr>8.8.8.8:57186</RemoteAddr>
+  <Video>
+    <Width>1280</Width>
+    <Height>536</Height>
+    <FrameRate>24</FrameRate>
+    <Bandwidth>214146</Bandwidth>
+    <Codec>H264</Codec>
+  </Video>
+  <Audio>
+    <Bandwidth>11444</Bandwidth>
+    <SampleRate>22050</SampleRate>
+    <Codec>AAC</Codec>
+  </Audio>
+</LiveChannelStat>
+'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().get_live_channel_stat('lc')
+        
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.status, 'Live')
+        self.assertEqual(result.connected_time, iso8601_to_date('2016-08-08T05:59:28.000Z'))
+        self.assertEqual(result.remote_addr, '8.8.8.8:57186')
+        video = LiveChannelVideoStat(1280, 536, 24, 'H264', 214146)
+        self.assertEqual(result.video.bandwidth, video.bandwidth)
+        self.assertEqual(result.video.codec, video.codec)
+        self.assertEqual(result.video.frame_rate, video.frame_rate)
+        self.assertEqual(result.video.height, video.height)
+        self.assertEqual(result.video.width, video.width)
+        audio = LiveChannelAudioStat('AAC', 22050, 11444)
+        self.assertEqual(result.audio.bandwidth, audio.bandwidth)
+        self.assertEqual(result.audio.codec, audio.codec)
+        self.assertEqual(result.audio.sample_rate, audio.sample_rate)
+
+    @patch('oss2.Session.do_request')
+    def test_get_live_channel_history(self, do_request):
+        from oss2.models import LiveRecord
+                
+        request_text = '''GET /lc?comp=history&live= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Accept: */*
+User-Agent: aliyun-sdk-python/2.1.1(Windows/7/AMD64;2.7.10)
+date: Tue, 09 Aug 2016 12:24:13 GMT
+authorization: OSS 2NeLUvmJFYbrj2Eb:j9Fb7RinrXTyyX7FKtP5QAK0FZs='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Tue, 09 Aug 2016 12:24:13 GMT
+Content-Type: application/xml
+Content-Length: 62
+Connection: keep-alive
+x-oss-request-id: 57A9CB6DF3D45CE477C0227B
+x-oss-server-time: 1
+
+<?xml version="1.0" encoding="UTF-8"?>
+<LiveChannelHistory>
+  <LiveRecord>
+    <StartTime>2016-08-06T05:59:28.000Z</StartTime>
+    <EndTime>2016-08-06T06:02:43.000Z</EndTime>
+    <RemoteAddr>8.8.8.8:57186</RemoteAddr>
+  </LiveRecord>
+  <LiveRecord>
+    <StartTime>2016-08-06T06:16:20.000Z</StartTime>
+    <EndTime>2016-08-06T06:16:25.000Z</EndTime>
+    <RemoteAddr>1.1.1.1:57365</RemoteAddr>
+  </LiveRecord>
+</LiveChannelHistory>
+'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().get_live_channel_history('lc')
+        
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(len(result.records), 2)
+        lr = LiveRecord('2016-08-06T05:59:28.000Z', '2016-08-06T06:02:43.000Z', '8.8.8.8:57186')
+        self.assertEqual(result.records[0].start_time, lr.start_time)
+        self.assertEqual(result.records[0].end_time, lr.end_time)
+        self.assertEqual(result.records[0].remote_addr, lr.remote_addr)
+        lr = LiveRecord('2016-08-06T06:16:20.000Z', '2016-08-06T06:16:25.000Z', '1.1.1.1:57365')
+        self.assertEqual(result.records[1].start_time, lr.start_time)
+        self.assertEqual(result.records[1].end_time, lr.end_time)
+        self.assertEqual(result.records[1].remote_addr, lr.remote_addr)
+
+    @patch('oss2.Session.do_request')
+    def test_post_vod_playlist(self, do_request):                
+        request_text = '''POST /lc%2Ftest.m3u8?vod=&endTime=1470792140&startTime=1470788540 HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Accept: */*
+User-Agent: aliyun-sdk-python/2.1.1(Windows/7/AMD64;2.7.10)
+date: Wed, 10 Aug 2016 01:23:20 GMT
+authorization: OSS 2NeLUvmJFYbrj2Eb:OifxZSHuzeR/Lp3hFJAqBw3VNy8=
+Content-Length: 0'''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Wed, 06 Apr 2016 06:00:21 GMT
+Content-Length: 0
+Content-Type: application/xml
+Connection: keep-alive
+x-oss-request-id: 5704A5F5B9247571DF000031
+x-oss-server-time: 21
+'''
+
+        req_info = mock_response(do_request, response_text)
+        
+        bucket().post_vod_playlist('lc', 'test.m3u8', 1470788540, 1470792140)
+        self.assertRequest(req_info, request_text)
+
+
 if __name__ == '__main__':
     unittest.main()
