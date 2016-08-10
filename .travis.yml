@@ -9,7 +9,8 @@ install:
 - pip install requests nose nose-cov python-coveralls aliyun-python-sdk-sts
 - pip install --upgrade mock
 script:
-- if [ -n "$OSS_TEST_ACCESS_KEY_ID" ]; then nosetests tests unittests --with-cov; fi
+- nosetests unittests/ --with-cov
+- if [ -n "$OSS_TEST_ACCESS_KEY_ID" ]; then nosetests tests/ --with-cov; fi
 after_success:
 - coveralls
 env:
