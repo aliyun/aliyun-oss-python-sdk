@@ -2,12 +2,11 @@
 
 import os
 import oss2
+import unittest
+import unittests
 
 from functools import partial
-from oss2 import to_string
 from mock import patch
-
-from common import *
 
 
 def make_get_object(content):
@@ -32,7 +31,7 @@ ETag: "D80CF0E5BE2436514894D64B2BCFB2AE"
 Last-Modified: Sat, 12 Dec 2015 00:35:53 GMT
 x-oss-object-type: Normal
 
-{1}'''.format(len(content), to_string(content))
+{1}'''.format(len(content), oss2.to_string(content))
 
         return request_text, response_text
 
@@ -49,7 +48,7 @@ User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
 authorization: OSS ZCDmm7TPZKHtx77j:W6whAowN4aImQ0dfbMHyFfD0t1g=
 Accept: */*
 
-{1}'''.format(len(content), to_string(content))
+{1}'''.format(len(content), oss2.to_string(content))
 
     response_text = '''HTTP/1.1 200 OK
 Server: AliyunOSS
@@ -73,7 +72,7 @@ User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
 Accept: */*
 authorization: OSS ZCDmm7TPZKHtx77j:1njpxsTivMNvTdfYolCUefRInVY=
 
-{2}'''.format(position, len(content), to_string(content))
+{2}'''.format(position, len(content), oss2.to_string(content))
 
     response_text = '''HTTP/1.1 200 OK
 Server: AliyunOSS
@@ -88,7 +87,7 @@ x-oss-hash-crc64ecma: 7962765905601689380'''.format(position + len(content))
     return request_text, response_text
 
 
-class TestObject(OssTestCase):
+class TestObject(unittests.common.OssTestCase):
     @patch('oss2.Session.do_request')
     def test_head(self, do_request):
         request_text = '''HEAD /apbmntxqtvxjzini HTTP/1.1
@@ -112,9 +111,9 @@ ETag: "0CF031A5EB9351746195B20B86FD3F68"
 Last-Modified: Sat, 12 Dec 2015 00:35:54 GMT
 x-oss-object-type: Normal'''
 
-        req_info = mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
 
-        result = bucket().head_object('apbmntxqtvxjzini')
+        result = unittests.common.bucket().head_object('apbmntxqtvxjzini')
 
         self.assertRequest(req_info, request_text)
 
@@ -149,9 +148,9 @@ ETag: "5EB63BBBE01EEED093CB22BB8F5ACDC3"
 Last-Modified: Sat, 12 Dec 2015 00:37:17 GMT
 x-oss-object-type: Normal'''
 
-        req_info = mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
 
-        self.assertTrue(bucket().object_exists('sbowspxjhmccpmesjqcwagfw'))
+        self.assertTrue(unittests.common.bucket().object_exists('sbowspxjhmccpmesjqcwagfw'))
         self.assertRequest(req_info, request_text)
 
     @patch('oss2.Session.do_request')
@@ -183,19 +182,19 @@ x-oss-request-id: 566B6C3D6086505A0CFF0F68
   <Key>sbowspxjhmccpmesjqcwagfw</Key>
 </Error>'''
 
-        req_info = mock_response(do_request, response_text)
-        self.assertTrue(not bucket().object_exists('sbowspxjhmccpmesjqcwagfw'))
+        req_info = unittests.common.mock_response(do_request, response_text)
+        self.assertTrue(not unittests.common.bucket().object_exists('sbowspxjhmccpmesjqcwagfw'))
         self.assertRequest(req_info, request_text)
 
     @patch('oss2.Session.do_request')
     def test_get(self, do_request):
-        content = random_bytes(1023)
+        content = unittests.common.random_bytes(1023)
 
         request_text, response_text = make_get_object(content)
 
-        req_info = mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
 
-        result = bucket().get_object('sjbhlsgsbecvlpbf')
+        result = unittests.common.bucket().get_object('sjbhlsgsbecvlpbf')
 
         self.assertRequest(req_info, request_text)
 
@@ -210,17 +209,17 @@ x-oss-request-id: 566B6C3D6086505A0CFF0F68
 
     @patch('oss2.Session.do_request')
     def test_get_with_progress(self, do_request):
-        content = random_bytes(1024 * 1024 + 1)
+        content = unittests.common.random_bytes(1024 * 1024 + 1)
 
         request_text, response_text = make_get_object(content)
-        req_info = mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
 
         self.previous = -1
-        result = bucket().get_object('sjbhlsgsbecvlpbf', progress_callback=self.progress_callback)
+        result = unittests.common.bucket().get_object('sjbhlsgsbecvlpbf', progress_callback=self.progress_callback)
 
         self.assertRequest(req_info, request_text)
 
-        content_read = read_file(result)
+        content_read = unittests.common.read_file(result)
 
         self.assertEqual(self.previous, len(content))
         self.assertEqual(len(content_read), len(content))
@@ -228,14 +227,14 @@ x-oss-request-id: 566B6C3D6086505A0CFF0F68
 
     @patch('oss2.Session.do_request')
     def test_get_to_file(self, do_request):
-        content = random_bytes(1023)
+        content = unittests.common.random_bytes(1023)
 
         request_text, response_text = make_get_object(content)
-        req_info = mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
 
         filename = self.tempname()
 
-        result = bucket().get_object_to_file('sjbhlsgsbecvlpbf', filename)
+        result = unittests.common.bucket().get_object_to_file('sjbhlsgsbecvlpbf', filename)
 
         self.assertRequest(req_info, request_text)
 
@@ -249,15 +248,15 @@ x-oss-request-id: 566B6C3D6086505A0CFF0F68
     @patch('oss2.Session.do_request')
     def test_get_to_file_with_progress(self, do_request):
         size = 1024 * 1024 + 1
-        content = random_bytes(size)
+        content = unittests.common.random_bytes(size)
 
         request_text, response_text = make_get_object(content)
-        req_info = mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
 
         filename = self.tempname()
 
         self.previous = -1
-        bucket().get_object_to_file('sjbhlsgsbecvlpbf', filename, progress_callback=self.progress_callback)
+        unittests.common.bucket().get_object_to_file('sjbhlsgsbecvlpbf', filename, progress_callback=self.progress_callback)
 
         self.assertRequest(req_info, request_text)
 
@@ -271,9 +270,9 @@ x-oss-request-id: 566B6C3D6086505A0CFF0F68
         content = b'dummy content'
         request_text, response_text = make_put_object(content)
 
-        req_info = mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
 
-        result = bucket().put_object('sjbhlsgsbecvlpbf.txt', content)
+        result = unittests.common.bucket().put_object('sjbhlsgsbecvlpbf.txt', content)
 
         self.assertRequest(req_info, request_text)
 
@@ -283,12 +282,12 @@ x-oss-request-id: 566B6C3D6086505A0CFF0F68
 
     @patch('oss2.Session.do_request')
     def test_put_bytes(self, do_request):
-        content = random_bytes(1024 * 1024 - 1)
+        content = unittests.common.random_bytes(1024 * 1024 - 1)
 
         request_text, response_text = make_put_object(content)
-        req_info = mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
 
-        bucket().put_object('sjbhlsgsbecvlpbf.txt', content)
+        unittests.common.bucket().put_object('sjbhlsgsbecvlpbf.txt', content)
 
         self.assertRequest(req_info, request_text)
 
@@ -296,12 +295,12 @@ x-oss-request-id: 566B6C3D6086505A0CFF0F68
     def test_put_bytes_with_progress(self, do_request):
         self.previous = -1
 
-        content = random_bytes(1024 * 1024 - 1)
+        content = unittests.common.random_bytes(1024 * 1024 - 1)
 
         request_text, response_text = make_put_object(content)
-        req_info = mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
 
-        bucket().put_object('sjbhlsgsbecvlpbf.txt', content, progress_callback=self.progress_callback)
+        unittests.common.bucket().put_object('sjbhlsgsbecvlpbf.txt', content, progress_callback=self.progress_callback)
 
         self.assertRequest(req_info, request_text)
         self.assertEqual(self.previous, len(content))
@@ -309,13 +308,13 @@ x-oss-request-id: 566B6C3D6086505A0CFF0F68
     @patch('oss2.Session.do_request')
     def test_put_from_file(self, do_request):
         size = 512 * 2 - 1
-        content = random_bytes(size)
+        content = unittests.common.random_bytes(size)
         filename = self.make_tempfile(content)
 
         request_text, response_text = make_put_object(content)
-        req_info = mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
 
-        result = bucket().put_object_from_file('sjbhlsgsbecvlpbf.txt', filename)
+        result = unittests.common.bucket().put_object_from_file('sjbhlsgsbecvlpbf.txt', filename)
 
         self.assertRequest(req_info, request_text)
         self.assertEqual(result.request_id, '566B6BE93A7B8CFD53D4BAA3')
@@ -324,12 +323,12 @@ x-oss-request-id: 566B6C3D6086505A0CFF0F68
     @patch('oss2.Session.do_request')
     def test_append(self, do_request):
         size = 8192 * 2 - 1
-        content = random_bytes(size)
+        content = unittests.common.random_bytes(size)
 
         request_text, response_text = make_append_object(0, content)
-        req_info = mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
 
-        result = bucket().append_object('sjbhlsgsbecvlpbf', 0, content)
+        result = unittests.common.bucket().append_object('sjbhlsgsbecvlpbf', 0, content)
 
         self.assertRequest(req_info, request_text)
         self.assertEqual(result.status, 200)
@@ -340,14 +339,14 @@ x-oss-request-id: 566B6C3D6086505A0CFF0F68
     @patch('oss2.Session.do_request')
     def test_append_with_progress(self, do_request):
         size = 1024 * 1024
-        content = random_bytes(size)
+        content = unittests.common.random_bytes(size)
 
         request_text, response_text = make_append_object(0, content)
-        req_info = mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
 
         self.previous = -1
 
-        result = bucket().append_object('sjbhlsgsbecvlpbf', 0, content, progress_callback=self.progress_callback)
+        result = unittests.common.bucket().append_object('sjbhlsgsbecvlpbf', 0, content, progress_callback=self.progress_callback)
 
         self.assertRequest(req_info, request_text)
         self.assertEqual(self.previous, size)
@@ -372,16 +371,16 @@ Content-Length: 0
 Connection: keep-alive
 x-oss-request-id: 566B6C0D8CDE4E975D730BEF'''
 
-        req_info = mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
 
-        result = bucket().delete_object('sjbhlsgsbecvlpbf')
+        result = unittests.common.bucket().delete_object('sjbhlsgsbecvlpbf')
 
         self.assertRequest(req_info, request_text)
         self.assertEqual(result.request_id, '566B6C0D8CDE4E975D730BEF')
         self.assertEqual(result.status, 204)
 
     def test_batch_delete_empty(self):
-        self.assertRaises(oss2.exceptions.ClientError, bucket().batch_delete_objects, [])
+        self.assertRaises(oss2.exceptions.ClientError, unittests.common.bucket().batch_delete_objects, [])
 
     @patch('oss2.Session.do_request')
     def test_batch_delete(self, do_request):
@@ -416,14 +415,14 @@ x-oss-request-id: 566B6BE9229E6BA1F6F538DE
     <Key>world</Key>
 </Deleted>
 </DeleteResult>'''
-        req_info = mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
 
         key_list = ['hello', 'world']
 
-        result = bucket().batch_delete_objects(key_list)
+        result = unittests.common.bucket().batch_delete_objects(key_list)
 
         self.assertRequest(req_info, request_text)
-        self.assertEqual(result.deleted_keys, list(to_string(key) for key in key_list))
+        self.assertEqual(result.deleted_keys, list(oss2.to_string(key) for key in key_list))
 
     @patch('oss2.Session.do_request')
     def test_copy_object(self, do_request):
@@ -455,10 +454,10 @@ ETag: "164F32EF262006C5EE6C8D1AA30DD2CD"
   <LastModified>2015-12-12T00:37:53.000Z</LastModified>
 </CopyObjectResult>'''
 
-        req_info = mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
 
         in_headers = {'Content-Type': 'text/plain', 'x-oss-meta-category': 'novel'}
-        result = bucket().update_object_meta('zyfpyqqqxjthdwxkhypziizm.js', in_headers)
+        result = unittests.common.bucket().update_object_meta('zyfpyqqqxjthdwxkhypziizm.js', in_headers)
 
         self.assertRequest(req_info, request_text)
         self.assertEqual(result.request_id, '566B6C611BA604C27DD51F8F')
@@ -466,16 +465,16 @@ ETag: "164F32EF262006C5EE6C8D1AA30DD2CD"
 
     @patch('oss2.Session.do_request')
     def test_put_acl(self, do_request):
-        req_info = RequestInfo()
+        req_info = unittests.common.RequestInfo()
 
         do_request.auto_spec = True
-        do_request.side_effect = partial(do4put, req_info=req_info)
+        do_request.side_effect = partial(unittests.common.do4put, req_info=req_info)
 
         for acl, expected in [(oss2.OBJECT_ACL_PRIVATE, 'private'),
                               (oss2.OBJECT_ACL_PUBLIC_READ, 'public-read'),
                               (oss2.OBJECT_ACL_PUBLIC_READ_WRITE, 'public-read-write'),
                               (oss2.OBJECT_ACL_DEFAULT, 'default')]:
-            bucket().put_object_acl('fake-key', acl)
+            unittests.common.bucket().put_object_acl('fake-key', acl)
             self.assertEqual(req_info.req.headers['x-oss-object-acl'], expected)
 
     @patch('oss2.Session.do_request')
@@ -497,9 +496,9 @@ ETag: "164F32EF262006C5EE6C8D1AA30DD2CD"
                               (oss2.OBJECT_ACL_PUBLIC_READ_WRITE, 'public-read-write'),
                               (oss2.OBJECT_ACL_DEFAULT, 'default')]:
             do_request.auto_spec = True
-            do_request.side_effect = partial(do4body, body=template.format(acl), content_type='application/xml')
+            do_request.side_effect = partial(unittests.common.do4body, body=template.format(acl), content_type='application/xml')
 
-            result = bucket().get_object_acl('fake-key')
+            result = unittests.common.bucket().get_object_acl('fake-key')
             self.assertEqual(result.acl, expected)
 
 

@@ -277,6 +277,7 @@ class TestLiveChannel(OssTestCase):
                          + "?playlistName=" + playlist_name)
         
         self.assertRaises(oss2.exceptions.AccessDenied, bucket.delete_live_channel, 'test-live-chan')
+    
 
 if __name__ == '__main__':
     unittest.main()
