@@ -6,7 +6,7 @@ from mock import patch
 from functools import partial
 
 from oss2 import to_string
-from common import *
+from unittests.common import *
 
 
 def all_tags(parent, tag):

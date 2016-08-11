@@ -5,7 +5,7 @@ import time
 
 from oss2.task_queue import TaskQueue
 from functools import partial
-from common import NonlocalObject
+from unittests.common import NonlocalObject
 
 
 class TestTaskQueue(unittest.TestCase):

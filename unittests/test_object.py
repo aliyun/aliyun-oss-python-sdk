@@ -7,7 +7,7 @@ from functools import partial
 from oss2 import to_string
 from mock import patch
 
-from common import *
+from unittests.common import *
 
 
 def make_get_object(content):
