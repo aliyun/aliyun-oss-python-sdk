@@ -501,6 +501,34 @@ ETag: "164F32EF262006C5EE6C8D1AA30DD2CD"
             result = unittests.common.bucket().get_object_acl('fake-key')
             self.assertEqual(result.acl, expected)
 
+    # for ci
+    def test_oss_utils_negative(self):
+        try:
+            oss2.utils.makedir_p('/')
+            self.assertTrue(False)
+        except:
+            pass
+        
+        try:
+            oss2.utils.silently_remove('/')
+            self.assertTrue(False)
+        except:
+            pass
+        
+        try:
+            oss2.utils.force_rename('/', '/')
+            self.assertTrue(False)
+        except:
+            pass
+        
+        oss2.utils.makedir_p('xyz')
+        oss2.utils.makedir_p('zyz')
+        try:
+            oss2.utils.force_rename('xyz', 'zyx')
+            self.assertTrue(False)
+        except:
+            pass
+            
 
 if __name__ == '__main__':
     unittest.main()
