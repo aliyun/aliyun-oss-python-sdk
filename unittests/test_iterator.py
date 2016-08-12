@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from mock import patch
-from common import *
+from unittests.common import *
 
 from oss2.models import SimplifiedBucketInfo, SimplifiedObjectInfo
 from oss2 import to_string

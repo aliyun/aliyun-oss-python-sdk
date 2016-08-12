@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
 
+import unittest
 import datetime
 
 from mock import patch
 from functools import partial
 
-from oss2 import to_string
-from unittests.common import *
-
+import oss2
+import unittests
 
 def all_tags(parent, tag):
-    return [to_string(node.text) or '' for node in parent.findall(tag)]
+    return [oss2.to_string(node.text) or '' for node in parent.findall(tag)]
 
 
-class TestBucket(OssTestCase):
+class TestBucket(unittests.common.OssTestCase):
     @patch('oss2.Session.do_request')
     def test_create(self, do_request):
         request_text = '''PUT / HTTP/1.1
@@ -35,8 +35,8 @@ Connection: keep-alive
 x-oss-request-id: 566B6BCF6078C0E4487474E1
 Location: /ming-oss-share'''
 
-        req_info = mock_response(do_request, response_text)
-        bucket().create_bucket(oss2.BUCKET_ACL_PRIVATE)
+        req_info = unittests.common.mock_response(do_request, response_text)
+        unittests.common.bucket().create_bucket(oss2.BUCKET_ACL_PRIVATE)
 
         self.assertRequest(req_info, request_text)
 
@@ -66,8 +66,8 @@ Connection: keep-alive
 x-oss-request-id: 566B6C0AE36A00D566765067
 Location: /ming-oss-share'''
 
-            req_info = mock_response(do_request, response_text)
-            bucket().put_bucket_acl(acl_defined)
+            req_info = unittests.common.mock_response(do_request, response_text)
+            unittests.common.bucket().put_bucket_acl(acl_defined)
 
             self.assertRequest(req_info, request_text)
 
@@ -102,8 +102,8 @@ x-oss-request-id: 566B6BD1B1119B6F747154A3
   </AccessControlList>
 </AccessControlPolicy>'''.format(permission)
 
-            req_info = mock_response(do_request, response_text)
-            result = bucket().get_bucket_acl()
+            req_info = unittests.common.mock_response(do_request, response_text)
+            result = unittests.common.bucket().get_bucket_acl()
 
             self.assertRequest(req_info, request_text)
             self.assertEqual(result.acl, permission)
@@ -130,9 +130,9 @@ Connection: keep-alive
 x-oss-request-id: 566B6BDED5A340D61A739262'''
 
         for prefix in [u'日志+/', 'logging/', '日志+/']:
-            req_info = mock_response(do_request, response_text)
-            bucket().put_bucket_logging(oss2.models.BucketLogging('ming-xxx-share', prefix))
-            self.assertRequest(req_info, request_text.format(to_string(prefix)))
+            req_info = unittests.common.mock_response(do_request, response_text)
+            unittests.common.bucket().put_bucket_logging(oss2.models.BucketLogging('ming-xxx-share', prefix))
+            self.assertRequest(req_info, request_text.format(oss2.to_string(prefix)))
 
     @patch('oss2.Session.do_request')
     def test_delete_logging(self, do_request):
@@ -153,8 +153,8 @@ Content-Length: 0
 Connection: keep-alive
 x-oss-request-id: 566B6BE2B713DE5875F08177'''
 
-        req_info = mock_response(do_request, response_text)
-        result = bucket().delete_bucket_logging()
+        req_info = unittests.common.mock_response(do_request, response_text)
+        result = unittests.common.bucket().delete_bucket_logging()
 
         self.assertRequest(req_info, request_text)
         self.assertEqual(result.request_id, '566B6BE2B713DE5875F08177')
@@ -187,12 +187,12 @@ x-oss-request-id: 566B6BDFD5A340D61A739420
 </BucketLoggingStatus>'''
 
         for prefix in [u'日志%+/*', 'logging/', '日志%+/*']:
-            req_info = mock_response(do_request, response_text.format(to_string(prefix)))
-            result = bucket().get_bucket_logging()
+            req_info = unittests.common.mock_response(do_request, response_text.format(oss2.to_string(prefix)))
+            result = unittests.common.bucket().get_bucket_logging()
 
             self.assertRequest(req_info, request_text)
             self.assertEqual(result.target_bucket, 'ming-xxx-share')
-            self.assertEqual(result.target_prefix, to_string(prefix))
+            self.assertEqual(result.target_prefix, oss2.to_string(prefix))
 
     @patch('oss2.Session.do_request')
     def test_put_website(self, do_request):
@@ -216,10 +216,10 @@ Connection: keep-alive
 x-oss-request-id: 566B6BE31BA604C27DD429E8'''
 
         for index, error in [('index+中文.html', 'error.中文') ,(u'中-+()文.index', u'@#$%中文.error')]:
-            req_info = mock_response(do_request, response_text)
-            bucket().put_bucket_website(oss2.models.BucketWebsite(index, error))
+            req_info = unittests.common.mock_response(do_request, response_text)
+            unittests.common.bucket().put_bucket_website(oss2.models.BucketWebsite(index, error))
 
-            self.assertRequest(req_info, request_text.format(to_string(index), to_string(error)))
+            self.assertRequest(req_info, request_text.format(oss2.to_string(index), oss2.to_string(error)))
 
     @patch('oss2.Session.do_request')
     def test_get_website(self, do_request):
@@ -251,14 +251,14 @@ x-oss-request-id: 566B6BE5FFDB697977D52407
 </WebsiteConfiguration>'''
 
         for index, error in [('index+中文.html', 'error.中文') ,(u'中-+()文.index', u'@#$%中文.error')]:
-            req_info = mock_response(do_request, response_text.format(to_string(index), to_string(error)))
+            req_info = unittests.common.mock_response(do_request, response_text.format(oss2.to_string(index), oss2.to_string(error)))
 
-            result = bucket().get_bucket_website()
+            result = unittests.common.bucket().get_bucket_website()
 
             self.assertRequest(req_info, request_text)
 
-            self.assertEqual(result.index_file, to_string(index))
-            self.assertEqual(result.error_file, to_string(error))
+            self.assertEqual(result.index_file, oss2.to_string(index))
+            self.assertEqual(result.error_file, oss2.to_string(error))
 
     @patch('oss2.Session.do_request')
     def test_delete_website(self, do_request):
@@ -279,8 +279,8 @@ Content-Length: 0
 Connection: keep-alive
 x-oss-request-id: 566B6BE7B1119B6F7471769A'''
 
-        req_info = mock_response(do_request, response_text)
-        result = bucket().delete_bucket_website()
+        req_info = unittests.common.mock_response(do_request, response_text)
+        result = unittests.common.bucket().delete_bucket_website()
 
         self.assertRequest(req_info, request_text)
         self.assertEqual(result.request_id, '566B6BE7B1119B6F7471769A')
@@ -313,11 +313,11 @@ x-oss-request-id: 566B6BD9B295345D15740F1F'''
         status = 'Disabled'
         date = '2015-12-25T00:00:00.000Z'
 
-        req_info = mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
         rule = LifecycleRule(id, prefix,
                              status=LifecycleRule.DISABLED,
                              expiration=LifecycleExpiration(date=datetime.date(2015, 12, 25)))
-        bucket().put_bucket_lifecycle(BucketLifecycle([rule]))
+        unittests.common.bucket().put_bucket_lifecycle(BucketLifecycle([rule]))
 
         self.assertRequest(req_info, request_text.format(id, prefix, status, date))
 
@@ -344,7 +344,7 @@ Content-Length: 0
 Connection: keep-alive
 x-oss-request-id: 566B6BDB1BA604C27DD419B8'''
 
-        req_info = mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
 
         id = '中文ID'
         prefix = '中文前缀'
@@ -354,7 +354,7 @@ x-oss-request-id: 566B6BDB1BA604C27DD419B8'''
         rule = LifecycleRule(id, prefix,
                              status=LifecycleRule.ENABLED,
                              expiration=LifecycleExpiration(days=days))
-        bucket().put_bucket_lifecycle(BucketLifecycle([rule]))
+        unittests.common.bucket().put_bucket_lifecycle(BucketLifecycle([rule]))
 
         self.assertRequest(req_info, request_text.format(id, prefix, status, days))
 
@@ -396,8 +396,8 @@ x-oss-request-id: 566B6BDA010B7A4314D1614A
         status = LifecycleRule.DISABLED
         date = datetime.date(2015, 12, 25)
 
-        req_info = mock_response(do_request, response_text.format(id, prefix, status, '2015-12-25T00:00:00.000Z'))
-        result = bucket().get_bucket_lifecycle()
+        req_info = unittests.common.mock_response(do_request, response_text.format(id, prefix, status, '2015-12-25T00:00:00.000Z'))
+        result = unittests.common.bucket().get_bucket_lifecycle()
 
         self.assertRequest(req_info, request_text)
 
@@ -446,8 +446,8 @@ x-oss-request-id: 566B6BDB1BA604C27DD419B0
         status = LifecycleRule.ENABLED
         days = 356
 
-        req_info = mock_response(do_request, response_text.format(id, prefix, status, days))
-        result = bucket().get_bucket_lifecycle()
+        req_info = unittests.common.mock_response(do_request, response_text.format(id, prefix, status, days))
+        result = unittests.common.bucket().get_bucket_lifecycle()
 
         self.assertRequest(req_info, request_text)
 
@@ -477,8 +477,8 @@ Content-Length: 0
 Connection: keep-alive
 x-oss-request-id: 566B6BDD770DFE490473A0F1'''
 
-        req_info = mock_response(do_request, response_text)
-        result = bucket().delete_bucket_lifecycle()
+        req_info = unittests.common.mock_response(do_request, response_text)
+        result = unittests.common.bucket().delete_bucket_lifecycle()
 
         self.assertRequest(req_info, request_text)
         self.assertEqual(result.request_id, '566B6BDD770DFE490473A0F1')
@@ -506,14 +506,14 @@ Content-Length: 0
 Connection: keep-alive
 x-oss-request-id: 566B6BD7D9816D686F72A86A'''
 
-        req_info = mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
 
         rule = oss2.models.CorsRule(allowed_origins=['*'],
                                     allowed_methods=['HEAD', 'GET'],
                                     allowed_headers=['*'],
                                     max_age_seconds=1000)
 
-        bucket().put_bucket_cors(oss2.models.BucketCors([rule]))
+        unittests.common.bucket().put_bucket_cors(oss2.models.BucketCors([rule]))
 
         self.assertRequest(req_info ,request_text)
 
@@ -564,9 +564,9 @@ x-oss-request-id: 566B6BD927A4046E9C725566
     </CORSRule>
 </CORSConfiguration>'''
 
-        req_info = mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
 
-        rules = bucket().get_bucket_cors().rules
+        rules = unittests.common.bucket().get_bucket_cors().rules
 
         self.assertRequest(req_info, request_text)
 
@@ -598,9 +598,9 @@ Content-Length: 0
 Connection: keep-alive
 x-oss-request-id: 566B6BD927A4046E9C725578'''
 
-        req_info = mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
 
-        result = bucket().delete_bucket_cors()
+        result = unittests.common.bucket().delete_bucket_cors()
 
         self.assertRequest(req_info, request_text)
         self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
@@ -628,9 +628,9 @@ Content-Length: 0
 Connection: keep-alive
 x-oss-request-id: 566B6BE244ABFA2608E5A8AD'''
 
-        req_info = mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
 
-        bucket().put_bucket_referer(BucketReferer(True, ['http://hello.com', 'mibrowser:home', '阿里巴巴']))
+        unittests.common.bucket().put_bucket_referer(BucketReferer(True, ['http://hello.com', 'mibrowser:home', '阿里巴巴']))
 
         self.assertRequest(req_info, request_text.format('阿里巴巴'))
 
@@ -663,9 +663,9 @@ x-oss-request-id: 566B6BE3BCD1D4FE65D449A2
   </RefererList>
 </RefererConfiguration>'''.format('阿里巴巴')
 
-        req_info = mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
 
-        result = bucket().get_bucket_referer()
+        result = unittests.common.bucket().get_bucket_referer()
 
         self.assertRequest(req_info, request_text)
 
@@ -694,9 +694,9 @@ x-oss-request-id: 566B6BDD68248CE14F729DC0
 <?xml version="1.0" encoding="UTF-8"?>
 <LocationConstraint>oss-cn-hangzhou</LocationConstraint>'''
 
-        req_info = mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
 
-        result = bucket().get_bucket_location()
+        result = unittests.common.bucket().get_bucket_location()
 
         self.assertRequest(req_info, request_text)
         self.assertEqual(result.location, 'oss-cn-hangzhou')
@@ -734,11 +734,11 @@ x-oss-server-time: 118
   </PlayUrls>
 </CreateLiveChannelResult>'''
 
-        req_info = mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
 
         channel_target = oss2.models.LiveChannelInfoTarget(playlist_name="test.m3u8")
         channel_info = oss2.models.LiveChannelInfo(target=channel_target)
-        bucket().create_live_channel("lc", channel_info)
+        unittests.common.bucket().create_live_channel("lc", channel_info)
         
         self.assertRequest(req_info, request_text)
 
@@ -785,9 +785,9 @@ x-oss-server-time: 1
 </LiveChannelStat>
 '''
 
-        req_info = mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
 
-        result = bucket().get_live_channel_stat('lc')
+        result = unittests.common.bucket().get_live_channel_stat('lc')
         
         self.assertRequest(req_info, request_text)
         self.assertEqual(result.status, 'Live')
@@ -841,9 +841,9 @@ x-oss-server-time: 1
 </LiveChannelHistory>
 '''
 
-        req_info = mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
 
-        result = bucket().get_live_channel_history('lc')
+        result = unittests.common.bucket().get_live_channel_history('lc')
         
         self.assertRequest(req_info, request_text)
         self.assertEqual(len(result.records), 2)
@@ -878,11 +878,12 @@ x-oss-request-id: 5704A5F5B9247571DF000031
 x-oss-server-time: 21
 '''
 
-        req_info = mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
         
-        bucket().post_vod_playlist('lc', 'test.m3u8', 1470788540, 1470792140)
+        unittests.common.bucket().post_vod_playlist('lc', 'test.m3u8', 1470788540, 1470792140)
         self.assertRequest(req_info, request_text)
 
 
 if __name__ == '__main__':
     unittest.main()
+    

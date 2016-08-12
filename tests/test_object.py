@@ -3,7 +3,6 @@
 import requests
 import filecmp
 import calendar
-import contextlib
 
 from oss2.exceptions import (ClientError, RequestError,
                              NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable)
@@ -409,8 +408,7 @@ class TestObject(OssTestCase):
 
         content_got = b''
         result = self.bucket.get_object(key, headers={'Accept-Encoding': 'gzip'}, progress_callback=progress_callback)
-        for chunk in result:
-            content_got += chunk
+        content_got = result.read()
 
         self.assertEqual(len(content), len(content_got))
         self.assertEqual(content, content_got)

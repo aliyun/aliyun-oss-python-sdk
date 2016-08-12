@@ -5,7 +5,7 @@ import oss2
 from functools import partial
 from mock import patch
 
-from common import *
+from unittests.common import *
 
 
 class TestMultipart(OssTestCase):

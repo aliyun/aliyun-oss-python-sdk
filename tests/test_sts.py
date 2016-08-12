@@ -94,5 +94,12 @@ if oss2.compat.is_py2:
             resp = requests.get(url)
             self.assertEqual(content, resp.content)
 
-
-
+        def test_rtmp(self):
+            channel_name = 'test-sign-rtmp-url'
+            
+            self.init_bucket()
+            
+            self.bucket.list_live_channel()
+            
+            url = self.bucket.sign_rtmp_url(channel_name, 'test.m3u8', 3600)
+            self.assertTrue('security-token=' in url)

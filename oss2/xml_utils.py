@@ -20,7 +20,12 @@ from .models import (SimplifiedObjectInfo,
                      MultipartUploadInfo,
                      LifecycleRule,
                      LifecycleExpiration,
-                     CorsRule)
+                     CorsRule,
+                     LiveChannelInfoTarget,
+                     LiveChannelInfo,
+                     LiveRecord,
+                     LiveChannelVideoStat,
+                     LiveChannelAudioStat)
 
 from .compat import urlunquote, to_unicode, to_string
 from .utils import iso8601_to_unixtime, date_to_iso8601, iso8601_to_date
@@ -83,6 +88,8 @@ def _add_node_list(parent, tag, entries):
 def _add_text_child(parent, tag, text):
     ElementTree.SubElement(parent, tag).text = to_unicode(text)
 
+def _add_node_child(parent, tag):
+    return ElementTree.SubElement(parent, tag)
 
 def parse_list_objects(result, body):
     root = ElementTree.fromstring(body)
@@ -229,6 +236,106 @@ def parse_get_bucket_websiste(result, body):
     return result
 
 
+def parse_create_live_channel(result, body):
+    root = ElementTree.fromstring(body)
+
+    result.play_url = _find_tag(root, 'PlayUrls/Url')
+    result.publish_url = _find_tag(root, 'PublishUrls/Url')
+
+    return result
+
+
+def parse_get_live_channel(result, body):
+    root = ElementTree.fromstring(body)
+
+    result.status = _find_tag(root, 'Status')
+    result.description = _find_tag(root, 'Description')
+
+    target = LiveChannelInfoTarget()
+    target.type = _find_tag(root, 'Target/Type')
+    target.frag_duration = _find_tag(root, 'Target/FragDuration')
+    target.frag_count = _find_tag(root, 'Target/FragCount')
+    target.playlist_name = _find_tag(root, 'Target/PlaylistName')
+
+    result.target = target
+
+    return result
+
+
+def parse_list_live_channel(result, body):
+    root = ElementTree.fromstring(body)
+
+    result.prefix = _find_tag(root, 'Prefix')
+    result.marker = _find_tag(root, 'Marker')
+    result.max_keys = _find_int(root, 'MaxKeys')
+    result.is_truncated = _find_bool(root, 'IsTruncated')
+    result.next_marker = _find_tag(root, 'NextMarker')
+
+    channels = root.findall('LiveChannel')
+    for channel in channels:
+        tmp = LiveChannelInfo()
+        tmp.name = _find_tag(channel, 'Name')
+        tmp.description = _find_tag(channel, 'Description')
+        tmp.status = _find_tag(channel, 'Status')
+        tmp.modified = _find_tag(channel, 'LastModified')
+        tmp.play_url = _find_tag(channel, 'PlayUrls/Url')
+        tmp.publish_url = _find_tag(channel, 'PublishUrls/Url')
+
+        result.channels.append(tmp)
+
+    return result
+
+
+def parse_stat_video(video_node, video):
+    video.width = _find_int(video_node, 'Width')
+    video.height = _find_int(video_node, 'Height')
+    video.frame_rate = _find_int(video_node, 'FrameRate')
+    video.bandwidth = _find_int(video_node, 'Bandwidth')
+    video.codec = _find_tag(video_node, 'Codec')
+
+
+def parse_stat_audio(audio_node, audio):
+    audio.bandwidth = _find_int(audio_node, 'Bandwidth')
+    audio.sample_rate = _find_int(audio_node, 'SampleRate')
+    audio.codec = _find_tag(audio_node, 'Codec')
+
+
+def parse_live_channel_stat(result, body):
+    root = ElementTree.fromstring(body)
+
+    result.status = _find_tag(root, 'Status')
+    if root.find('RemoteAddr') is not None:
+        result.remote_addr = _find_tag(root, 'RemoteAddr')
+    if root.find('ConnectedTime') is not None:
+        result.connected_time = iso8601_to_date(_find_tag(root, 'ConnectedTime'))
+
+    video_node = root.find('Video')
+    audio_node = root.find('Audio')
+
+    if video_node is not None:
+        result.video = LiveChannelVideoStat()
+        parse_stat_video(video_node, result.video)
+    if audio_node is not None:
+        result.audio = LiveChannelAudioStat()
+        parse_stat_audio(audio_node, result.audio)
+
+    return result
+
+
+def parse_live_channel_history(result, body):
+    root = ElementTree.fromstring(body)
+
+    records = root.findall('LiveRecord')
+    for record in records:
+        tmp = LiveRecord()
+        tmp.start_time = _find_tag(record, 'StartTime')
+        tmp.end_time = _find_tag(record, 'EndTime')
+        tmp.remote_addr = _find_tag(record, 'RemoteAddr')
+        result.records.append(tmp)
+
+    return result
+
+
 def parse_lifecycle_expiration(expiration_node):
     if expiration_node is None:
         return None
@@ -368,5 +475,19 @@ def to_put_bucket_cors(bucket_cors):
 
         if rule.max_age_seconds is not None:
             _add_text_child(rule_node, 'MaxAgeSeconds', str(rule.max_age_seconds))
+
+    return _node_to_string(root)
+
+def to_create_live_channel(live_channel):
+    root = ElementTree.Element('LiveChannelConfiguration')
+
+    _add_text_child(root, 'Description', live_channel.description)
+    _add_text_child(root, 'Status', live_channel.status)
+    target_node = _add_node_child(root, 'Target')
+
+    _add_text_child(target_node, 'Type', live_channel.target.type)
+    _add_text_child(target_node, 'FragDuration', str(live_channel.target.frag_duration))
+    _add_text_child(target_node, 'FragCount', str(live_channel.target.frag_count))
+    _add_text_child(target_node, 'PlaylistName', str(live_channel.target.playlist_name))
 
     return _node_to_string(root)
