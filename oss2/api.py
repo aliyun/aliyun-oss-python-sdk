@@ -93,7 +93,7 @@ OSS中常用的时间格式有
 `http_date` 函数把Unix Time转换为HTTP Date；而 `http_to_unixtime` 则做相反的转换。如 ::
 
     >>> import oss2, time
-    >>> unix_time = int(time.time())             # 当前UNIX Time，设其职为 1449313829
+    >>> unix_time = int(time.time())             # 当前UNIX Time，设其值为 1449313829
     >>> date_str = oss2.http_date(unix_time)     # 得到 'Sat, 05 Dec 2015 11:10:29 GMT'
     >>> oss2.http_to_unixtime(date_str)          # 得到 1449313829
 
@@ -948,8 +948,8 @@ class Bucket(_Base):
 
         param str channel_name: 要生成点播列表的live channel的名称
         param str playlist_name: 要生成点播列表m3u8文件的名称
-        param int start_time: 点播的起始时间，为UNIX时间戳
-        param int end_time: 点播的结束时间，为UNIX时间戳
+        param int start_time: 点播的起始时间，Unix Time格式，可以使用int(time.time())获取
+        param int end_time: 点播的结束时间，Unix Time格式，可以使用int(time.time())获取
         """
         key = channel_name + "/" + playlist_name
         resp = self.__do_object('POST', key, params={Bucket.VOD: '',

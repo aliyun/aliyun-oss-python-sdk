@@ -454,28 +454,41 @@ class LiveChannelInfo(object):
     """Live channel（直播频道）配置。
 
     :param status: 直播频道的状态，合法的值为"enabled"和"disabled"。
-    :type type: str
+    :type status: str
 
     :param description: 直播频道的描述信息，最长为128字节。
     :type description: str
 
-    :param modified: 直播频道的最后修改时间，这个字段仅在ListLiveChannel时使用。
-    :type modified: str
-
     :param target: 直播频道的推流目标节点，包含目标协议相关的参数。
-    :type class:`LiveChannelInfoTarget <oss2.models.LiveChannelInfoTarget>`"""
+    :type class:`LiveChannelInfoTarget <oss2.models.LiveChannelInfoTarget>`
 
+    :param last_modified: 直播频道的最后修改时间，这个字段仅在`ListLiveChannel`时使用。
+    :type last_modified: int, 参考 :ref:`unix_time`。
+    
+    :param name: 直播频道的名称。
+    :type name: str
+        
+    :param play_url: 播放地址。
+    :type play_url: str
+        
+    :param publish_url: 推流地址。
+    :type publish_url: str"""
+    
     def __init__(self,
             status = 'enabled',
             description = '',
             target = None,
-            modified = None,
-            name = None):
+            last_modified = None,
+            name = None,
+            play_url = None,
+            publish_url = None):
         self.status = status
         self.description = description
         self.target = target
-        self.modified = modified
+        self.last_modified = last_modified
         self.name = name
+        self.play_url = play_url
+        self.publish_url = publish_url
 
 
 class LiveChannelList(object):
@@ -497,7 +510,7 @@ class LiveChannelList(object):
     :type marker: str
 
     :param channels: List返回的直播频道列表
-    :type channels: list"""
+    :type channels: list，类型为 :class:`LiveChannelInfo`"""
 
     def __init__(self,
             prefix = '',
@@ -575,7 +588,7 @@ class LiveChannelStat(object):
     :type remote_addr: str
 
     :param connected_time: 本次推流开始时间。
-    :type connected_time: str
+    :type connected_time: int, unix time
 
     :param video: 视频描述信息。
     :type video: class:`LiveChannelVideoStat <oss2.models.LiveChannelVideoStat>`
@@ -600,10 +613,10 @@ class LiveRecord(object):
     """直播频道中的推流记录信息
 
     :param start_time: 本次推流开始时间。
-    :type start_time: str
+    :type start_time: int，参考 :ref:`unix_time`。
 
     :param end_time: 本次推流结束时间。
-    :type end_time: str
+    :type end_time: int， 参考 :ref:`unix_time`。
 
     :param remote_addr: 推流时客户端的地址。
     :type remote_addr: str"""

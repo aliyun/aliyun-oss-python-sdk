@@ -94,7 +94,6 @@ def _add_node_child(parent, tag):
 def parse_list_objects(result, body):
     root = ElementTree.fromstring(body)
     url_encoded = _is_url_encoding(root)
-
     result.is_truncated = _find_bool(root, 'IsTruncated')
     if result.is_truncated:
         result.next_marker = _find_object(root, 'NextMarker', url_encoded)
@@ -269,7 +268,9 @@ def parse_list_live_channel(result, body):
     result.marker = _find_tag(root, 'Marker')
     result.max_keys = _find_int(root, 'MaxKeys')
     result.is_truncated = _find_bool(root, 'IsTruncated')
-    result.next_marker = _find_tag(root, 'NextMarker')
+    
+    if result.is_truncated:
+        result.next_marker = _find_tag(root, 'NextMarker')
 
     channels = root.findall('LiveChannel')
     for channel in channels:
@@ -277,7 +278,7 @@ def parse_list_live_channel(result, body):
         tmp.name = _find_tag(channel, 'Name')
         tmp.description = _find_tag(channel, 'Description')
         tmp.status = _find_tag(channel, 'Status')
-        tmp.modified = _find_tag(channel, 'LastModified')
+        tmp.last_modified = iso8601_to_unixtime(_find_tag(channel, 'LastModified'))
         tmp.play_url = _find_tag(channel, 'PlayUrls/Url')
         tmp.publish_url = _find_tag(channel, 'PublishUrls/Url')
 
@@ -307,7 +308,7 @@ def parse_live_channel_stat(result, body):
     if root.find('RemoteAddr') is not None:
         result.remote_addr = _find_tag(root, 'RemoteAddr')
     if root.find('ConnectedTime') is not None:
-        result.connected_time = iso8601_to_date(_find_tag(root, 'ConnectedTime'))
+        result.connected_time = iso8601_to_unixtime(_find_tag(root, 'ConnectedTime'))
 
     video_node = root.find('Video')
     audio_node = root.find('Audio')
@@ -328,8 +329,8 @@ def parse_live_channel_history(result, body):
     records = root.findall('LiveRecord')
     for record in records:
         tmp = LiveRecord()
-        tmp.start_time = _find_tag(record, 'StartTime')
-        tmp.end_time = _find_tag(record, 'EndTime')
+        tmp.start_time = iso8601_to_unixtime(_find_tag(record, 'StartTime'))
+        tmp.end_time = iso8601_to_unixtime(_find_tag(record, 'EndTime'))
         tmp.remote_addr = _find_tag(record, 'RemoteAddr')
         result.records.append(tmp)
 

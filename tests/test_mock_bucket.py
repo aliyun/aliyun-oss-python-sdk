@@ -743,8 +743,86 @@ x-oss-server-time: 118
         self.assertRequest(req_info, request_text)
 
     @patch('oss2.Session.do_request')
+    def test_list_live_channel(self, do_request):
+        from oss2.utils import iso8601_to_unixtime
+        
+        request_text = '''GET /?live= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Accept: */*
+User-Agent: aliyun-sdk-python/2.1.1(Windows/7/AMD64;2.7.10)
+date: Tue, 09 Aug 2016 11:51:30 GMT
+authorization: OSS 2NeLUvmJFYbrj2Eb:BQCNOYdGglcAbhdHhqTfVNtLBow='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Tue, 09 Aug 2016 11:51:30 GMT
+Content-Type: application/xml
+Content-Length: 100
+Connection: keep-alive
+x-oss-request-id: 57A9C3C27FBF67E9BE686908
+x-oss-server-time: 1
+
+<?xml version="1.0" encoding="UTF-8"?>
+<ListLiveChannelResult>
+  <Prefix>test</Prefix>
+  <Marker></Marker>
+  <MaxKeys>2</MaxKeys>
+  <IsTruncated>true</IsTruncated>
+  <NextMarker>test3</NextMarker>
+  <LiveChannel>
+    <Name>test1</Name>
+    <Description>test1</Description>
+    <Status>enabled</Status>
+    <LastModified>2016-04-01T07:04:00.000Z</LastModified>
+    <PublishUrls>
+      <Url>rtmp://ming-oss-share.oss-cn-hangzhou.aliyuncs.com/live/test1</Url>
+    </PublishUrls>
+    <PlayUrls>
+      <Url>http://ming-oss-share.oss-cn-hangzhou.aliyuncs.com/test1/playlist.m3u8</Url>
+    </PlayUrls>
+  </LiveChannel>
+  <LiveChannel>
+    <Name>test2</Name>
+    <Description>test2</Description>
+    <Status>disabled</Status>
+    <LastModified>2016-04-01T08:04:50.000Z</LastModified>
+    <PublishUrls>
+      <Url>rtmp://ming-oss-share.oss-cn-hangzhou.aliyuncs.com/live/test2</Url>
+    </PublishUrls>
+    <PlayUrls>
+      <Url>http://ming-oss-share.oss-cn-hangzhou.aliyuncs.com/test2/playlist.m3u8</Url>
+    </PlayUrls>
+  </LiveChannel>
+</ListLiveChannelResult>'''
+
+        req_info = unittests.common.mock_response(do_request, response_text)
+        result = unittests.common.bucket().list_live_channel('test', '', 2)
+        self.assertRequest(req_info, request_text)
+        
+        self.assertEqual(result.prefix, 'test')
+        self.assertEqual(result.marker, '')
+        self.assertEqual(result.max_keys, 2)
+        self.assertEqual(result.is_truncated, True)
+        self.assertEqual(result.next_marker, 'test3')
+        self.assertEqual(len(result.channels), 2)
+        self.assertEqual(result.channels[0].name, 'test1')
+        self.assertEqual(result.channels[0].description, 'test1')
+        self.assertEqual(result.channels[0].status, 'enabled')
+        self.assertEqual(result.channels[0].last_modified, iso8601_to_unixtime('2016-04-01T07:04:00.000Z'))
+        self.assertEqual(result.channels[0].publish_url, 'rtmp://ming-oss-share.oss-cn-hangzhou.aliyuncs.com/live/test1')
+        self.assertEqual(result.channels[0].play_url, 'http://ming-oss-share.oss-cn-hangzhou.aliyuncs.com/test1/playlist.m3u8')
+        self.assertEqual(result.channels[1].name, 'test2')
+        self.assertEqual(result.channels[1].description, 'test2')
+        self.assertEqual(result.channels[1].status, 'disabled')
+        self.assertEqual(result.channels[1].last_modified, iso8601_to_unixtime('2016-04-01T08:04:50.000Z'))
+        self.assertEqual(result.channels[1].publish_url, 'rtmp://ming-oss-share.oss-cn-hangzhou.aliyuncs.com/live/test2')
+        self.assertEqual(result.channels[1].play_url, 'http://ming-oss-share.oss-cn-hangzhou.aliyuncs.com/test2/playlist.m3u8')
+
+    @patch('oss2.Session.do_request')
     def test_get_live_channel_stat(self, do_request):
-        from oss2.utils import iso8601_to_date
+        from oss2.utils import iso8601_to_unixtime
         from oss2.models import LiveChannelAudioStat, LiveChannelVideoStat
         
         request_text = '''GET /lc?comp=stat&live= HTTP/1.1
@@ -791,7 +869,7 @@ x-oss-server-time: 1
         
         self.assertRequest(req_info, request_text)
         self.assertEqual(result.status, 'Live')
-        self.assertEqual(result.connected_time, iso8601_to_date('2016-08-08T05:59:28.000Z'))
+        self.assertEqual(result.connected_time, iso8601_to_unixtime('2016-08-08T05:59:28.000Z'))
         self.assertEqual(result.remote_addr, '8.8.8.8:57186')
         video = LiveChannelVideoStat(1280, 536, 24, 'H264', 214146)
         self.assertEqual(result.video.bandwidth, video.bandwidth)
@@ -807,6 +885,7 @@ x-oss-server-time: 1
     @patch('oss2.Session.do_request')
     def test_get_live_channel_history(self, do_request):
         from oss2.models import LiveRecord
+        from oss2.utils import iso8601_to_unixtime
                 
         request_text = '''GET /lc?comp=history&live= HTTP/1.1
 Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
@@ -847,11 +926,15 @@ x-oss-server-time: 1
         
         self.assertRequest(req_info, request_text)
         self.assertEqual(len(result.records), 2)
-        lr = LiveRecord('2016-08-06T05:59:28.000Z', '2016-08-06T06:02:43.000Z', '8.8.8.8:57186')
+        lr = LiveRecord(iso8601_to_unixtime('2016-08-06T05:59:28.000Z'),
+                        iso8601_to_unixtime('2016-08-06T06:02:43.000Z'),
+                        '8.8.8.8:57186')
         self.assertEqual(result.records[0].start_time, lr.start_time)
         self.assertEqual(result.records[0].end_time, lr.end_time)
         self.assertEqual(result.records[0].remote_addr, lr.remote_addr)
-        lr = LiveRecord('2016-08-06T06:16:20.000Z', '2016-08-06T06:16:25.000Z', '1.1.1.1:57365')
+        lr = LiveRecord(iso8601_to_unixtime('2016-08-06T06:16:20.000Z'), 
+                        iso8601_to_unixtime('2016-08-06T06:16:25.000Z'),
+                        '1.1.1.1:57365')
         self.assertEqual(result.records[1].start_time, lr.start_time)
         self.assertEqual(result.records[1].end_time, lr.end_time)
         self.assertEqual(result.records[1].remote_addr, lr.remote_addr)
