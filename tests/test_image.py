@@ -29,12 +29,12 @@ class TestImage(OssTestCase):
     def __check(self, image_key, image_height, image_width, image_size, image_format):
         result = self.bucket.get_object(image_key, process='image/info')
         json_content = result.read()        
-        decoded_json = json.loads(json_content);
+        decoded_json = json.loads(oss2.to_unicode(json_content))
         
-        self.assertEqual(int(decoded_json['ImageHeight']['value']), image_height);
-        self.assertEqual(int(decoded_json['ImageWidth']['value']), image_width);
-        self.assertEqual(int(decoded_json['FileSize']['value']), image_size);
-        self.assertEqual(decoded_json['Format']['value'], image_format);
+        self.assertEqual(int(decoded_json['ImageHeight']['value']), image_height)
+        self.assertEqual(int(decoded_json['ImageWidth']['value']), image_width)
+        self.assertEqual(int(decoded_json['FileSize']['value']), image_size)
+        self.assertEqual(decoded_json['Format']['value'], image_format)
     
     def test_resize(self):
         style = "image/resize,m_fixed,w_100,h_100"  # 缩放
