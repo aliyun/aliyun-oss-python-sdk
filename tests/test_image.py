@@ -10,7 +10,7 @@ from common import *
 
 class TestImage(OssTestCase):
     def __prepare(self):
-        original_image = 'example.jpg'
+        original_image = 'tests/example.jpg'
         new_image = self.random_key('.jpg')
         
         self.bucket.put_object_from_file(original_image, original_image)
@@ -18,16 +18,16 @@ class TestImage(OssTestCase):
         return original_image, new_image
     
     def __test(self, original_image, new_image, image_style):
-        original_image_content = self.bucket.get_object(original_image, params={'x-oss-process': image_style})
+        original_image_content = self.bucket.get_object(original_image, process=image_style)
         self.bucket.put_object(new_image, original_image_content)
         
     def __test_to_file(self, original_image, new_image, image_style):
-        self.bucket.get_object_to_file(original_image, new_image,  params={'x-oss-process': image_style})
+        self.bucket.get_object_to_file(original_image, new_image, process=image_style)
         self.bucket.put_object_from_file(new_image, new_image)
         oss2.utils.silently_remove(new_image)
         
     def __check(self, image_key, image_height, image_width, image_size, image_format):
-        result = self.bucket.get_object(image_key, params={'x-oss-process': 'image/info'})
+        result = self.bucket.get_object(image_key, process='image/info')
         json_content = result.read()        
         decoded_json = json.loads(json_content);
         
