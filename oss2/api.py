@@ -398,7 +398,8 @@ class Bucket(_Base):
     def get_object(self, key,
                    byte_range=None,
                    headers=None,
-                   progress_callback=None):
+                   progress_callback=None,
+                   params=None):
         """下载一个文件。
 
         用法 ::
@@ -425,13 +426,14 @@ class Bucket(_Base):
         if range_string:
             headers['range'] = range_string
 
-        resp = self.__do_object('GET', key, headers=headers)
+        resp = self.__do_object('GET', key, headers=headers, params=params)
         return GetObjectResult(resp, progress_callback=progress_callback)
 
     def get_object_to_file(self, key, filename,
                            byte_range=None,
                            headers=None,
-                           progress_callback=None):
+                           progress_callback=None,
+                           params=None):
         """下载一个文件到本地文件。
 
         :param key: 文件名
@@ -446,7 +448,8 @@ class Bucket(_Base):
         :return: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
         with open(to_unicode(filename), 'wb') as f:
-            result = self.get_object(key, byte_range=byte_range, headers=headers, progress_callback=progress_callback)
+            result = self.get_object(key, byte_range=byte_range, headers=headers, progress_callback=progress_callback,
+                                     params=params)
             shutil.copyfileobj(result, f)
 
             return result
