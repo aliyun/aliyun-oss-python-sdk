@@ -28,7 +28,7 @@ class TestImage(OssTestCase):
         
     def __check(self, image_key, image_height, image_width, image_size, image_format):
         result = self.bucket.get_object(image_key, process='image/info')
-        json_content = result.read()        
+        json_content = result.read()
         decoded_json = json.loads(oss2.to_unicode(json_content))
         
         self.assertEqual(int(decoded_json['ImageHeight']['value']), image_height)
@@ -58,7 +58,7 @@ class TestImage(OssTestCase):
         self.__check(new_image, 400, 267, 21509, 'jpg')
         
     def test_sharpen(self):
-        style = "image/sharpen,100";  # 锐化
+        style = "image/sharpen,100"  # 锐化
         
         original_image, new_image = self.__prepare()
         self.__test(original_image, new_image, style)
