@@ -330,7 +330,7 @@ x-oss-request-id: 566B6C3D6086505A0CFF0F68
         request_text, response_text = make_append_object(0, content)
         req_info = mock_response(do_request, response_text)
 
-        result = bucket().append_object('sjbhlsgsbecvlpbf', 0, content, initCrc=0)
+        result = bucket().append_object('sjbhlsgsbecvlpbf', 0, content, init_crc=0)
 
         self.assertRequest(req_info, request_text)
         self.assertEqual(result.status, 200)
@@ -366,7 +366,7 @@ x-oss-request-id: 566B6C3D6086505A0CFF0F68
 
         result = bucket().append_object('sjbhlsgsbecvlpbf', 0, content, 
                                         progress_callback=self.progress_callback,
-                                        initCrc=0)
+                                        init_crc=0)
 
         self.assertRequest(req_info, request_text)
         self.assertEqual(self.previous, size)

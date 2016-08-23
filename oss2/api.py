@@ -375,7 +375,7 @@ class Bucket(_Base):
     def append_object(self, key, position, data,
                       headers=None,
                       progress_callback=None,
-                      initCrc=None):
+                      init_crc=None):
         """追加上传一个文件。
 
         :param str key: 新的文件名，或已经存在的可追加文件名
@@ -401,8 +401,8 @@ class Bucket(_Base):
         if progress_callback:
             data = utils.make_progress_adapter(data, progress_callback)
         
-        if self.enable_crc and initCrc is not None:
-            data = utils.make_crc_adapter(data, initCrc)
+        if self.enable_crc and init_crc is not None:
+            data = utils.make_crc_adapter(data, init_crc)
 
         resp = self.__do_object('POST', key,
                                 data=data,
@@ -410,7 +410,7 @@ class Bucket(_Base):
                                 params={'append': '', 'position': str(position)})
         result =  AppendObjectResult(resp)
     
-        if self.enable_crc and initCrc is not None:
+        if self.enable_crc and init_crc is not None:
             utils.check_crc('append', data.get_crc(), result.crc)
             
         return result

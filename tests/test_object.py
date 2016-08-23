@@ -38,8 +38,8 @@ class TestObject(OssTestCase):
         get_result = self.bucket.get_object(key)
         self.assertEqual(get_result.read(), content)
         assert_result(get_result)
-        self.assertIsNotNone(get_result.get_client_crc())
-        self.assertIsNotNone(get_result.get_oss_crc())
+        self.assertTrue(get_result.get_client_crc() is not None)
+        self.assertTrue(get_result.get_oss_crc() is not None)
         self.assertTrue(get_result.get_client_crc() == get_result.get_oss_crc())
 
         head_result = self.bucket.head_object(key)
@@ -102,9 +102,9 @@ class TestObject(OssTestCase):
         src = self.bucket.get_object(src_key)
         result = self.bucket.put_object(dst_key, src)
 
-        # verify
-        self.assertIsNotNone(src.get_client_crc())
-        self.assertIsNotNone(src.get_client_crc())
+        # verify        
+        self.assertTrue(src.get_client_crc() is not None)
+        self.assertTrue(src.get_oss_crc() is not None)  
         self.assertEqual(src.get_client_crc(), src.get_oss_crc())
         self.assertEqual(result.crc, src.get_oss_crc())
         self.assertEqual(self.bucket.get_object(src_key).read(), self.bucket.get_object(dst_key).read())
@@ -254,9 +254,9 @@ class TestObject(OssTestCase):
         content1 = random_bytes(512)
         content2 = random_bytes(128)
 
-        result = self.bucket.append_object(key, 0, content1, initCrc=0)
+        result = self.bucket.append_object(key, 0, content1, init_crc=0)
         self.assertEqual(result.next_position, len(content1))
-        self.assertIsNotNone(result.crc)
+        self.assertTrue(result.crc is not None)
 
         try:
             self.bucket.append_object(key, 0, content2)
@@ -265,9 +265,9 @@ class TestObject(OssTestCase):
         else:
             self.assertTrue(False)
         
-        result = self.bucket.append_object(key, len(content1), content2, initCrc=result.crc)
+        result = self.bucket.append_object(key, len(content1), content2, init_crc=result.crc)
         self.assertEqual(result.next_position, len(content1) + len(content2))
-        self.assertIsNotNone(result.crc)
+        self.assertTrue(result.crc is not None)
 
         self.bucket.delete_object(key)
 
@@ -437,12 +437,12 @@ class TestObject(OssTestCase):
         # put
         put_result = bucket.put_object(key, content)
         self.assertFalse(hasattr(put_result, 'get_crc'))
-        self.assertIsNotNone(put_result.crc)
+        self.assertTrue(put_result.crc is not None)
         
         # get 
         get_result = bucket.get_object(key)
         self.assertEqual(get_result.read(), content)
-        self.assertIsNone(get_result.get_client_crc())
+        self.assertTrue(get_result.get_client_crc() is None)
         self.assertTrue(get_result.get_oss_crc())
         
         bucket.delete_object(key)
@@ -450,11 +450,11 @@ class TestObject(OssTestCase):
         # append
         append_result = bucket.append_object(key, 0, content)
         self.assertFalse(hasattr(append_result, 'get_crc'))
-        self.assertIsNotNone(append_result.crc)
+        self.assertTrue(append_result.crc is not None)
         
         append_result = bucket.append_object(key, len(content), content)
         self.assertFalse(hasattr(append_result, 'get_crc'))
-        self.assertIsNotNone(append_result.crc)
+        self.assertTrue(append_result.crc is not None)
         
         bucket.delete_object(key)
         
@@ -471,10 +471,10 @@ class TestObject(OssTestCase):
 
     def test_invalid_crc(self):
         key = self.random_key()
-        content1 = random_bytes(512)
+        content = random_bytes(512)
 
         try:
-            self.bucket.append_object(key, 0, content1, initCrc=1)
+            self.bucket.append_object(key, 0, content, init_crc=1)
         except oss2.exceptions.CrcError as e:
             self.assertEqual(e.status, -3)
             self.assertTrue(e.body.startswith('CrcError: the crc of'))
