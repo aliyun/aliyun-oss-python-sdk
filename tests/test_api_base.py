@@ -20,20 +20,20 @@ class TestApiBase(OssTestCase):
 
     def test_https(self):
         bucket_name = random_string(63)
-        bucket = oss2.Bucket(oss2.AnonymousAuth(), 'https://oss-cn-hangzhou.aliyuncs.com', bucket_name)
+        bucket = oss2.Bucket(oss2.AnonymousAuth(), OSS_ENDPOINT.replace('http://', 'https://'), bucket_name)
         self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.get_object, 'hello.txt')
 
     # 只是为了测试，请不要用IP访问OSS，除非你是在VPC环境下。
     def test_ip(self):
         bucket_name = random_string(63)
-        ip = socket.gethostbyname('oss-cn-hangzhou.aliyuncs.com')
+        ip = socket.gethostbyname(OSS_ENDPOINT.replace('https://', '').replace('http://', ''))
 
         bucket = oss2.Bucket(oss2.AnonymousAuth(), ip, bucket_name)
         self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.get_object, 'hello.txt')
 
     def test_invalid_bucket_name(self):
         bucket_name = random_string(64)
-        bucket = oss2.Bucket(oss2.AnonymousAuth(), 'http://oss-cn-hangzhou.aliyuncs.com', bucket_name)
+        bucket = oss2.Bucket(oss2.AnonymousAuth(), OSS_ENDPOINT, bucket_name)
         self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.get_object, 'hello.txt')
 
     def test_whitespace(self):
