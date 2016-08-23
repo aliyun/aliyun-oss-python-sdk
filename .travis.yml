@@ -6,7 +6,7 @@ python:
 - 3.4
 - 3.5
 install:
-- pip install requests nose nose-cov python-coveralls aliyun-python-sdk-sts
+- pip install crcmod requests nose nose-cov python-coveralls aliyun-python-sdk-sts
 - pip install --upgrade mock
 script:
 - nosetests unittests/ --with-cov

@@ -65,7 +65,8 @@ Date: Sat, 12 Dec 2015 00:35:59 GMT
 Content-Length: 0
 Connection: keep-alive
 x-oss-request-id: 566B6BEF6078C0E44874A4AD
-ETag: "DF1F9DE8F39BDE03716AC8D425589A5A"'''
+x-oss-hash-crc64ecma: {0}
+ETag: "DF1F9DE8F39BDE03716AC8D425589A5A"'''.format(calc_crc(content))
 
         req_info = mock_response(do_request, response_text)
         result = bucket().upload_part('tmmzgvvmsgesihfo', '41337E94168A4E6F918C3D6CAAFADCCD', 3, content)

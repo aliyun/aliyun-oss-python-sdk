@@ -16,6 +16,7 @@ class TestMultipart(OssTestCase):
 
         result = self.bucket.upload_part(key, upload_id, 1, content)
         parts.append(oss2.models.PartInfo(1, result.etag))
+        self.assertIsNotNone(result.crc)
 
         self.bucket.complete_multipart_upload(key, upload_id, parts)
 
