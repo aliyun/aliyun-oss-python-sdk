@@ -372,8 +372,8 @@ class _BytesAndFileAdapter(object):
 
 class Crc64(object):
 
-    _POLY = 0x142F0E1EBA9EA3693L
-    _XOROUT = 0XFFFFFFFFFFFFFFFFL
+    _POLY = 0x142F0E1EBA9EA3693
+    _XOROUT = 0XFFFFFFFFFFFFFFFF
     
     def __init__(self, init_crc=0):
         self.crc64 = crcmod.Crc(self._POLY, initCrc=init_crc, rev=True, xorOut=self._XOROUT)
