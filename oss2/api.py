@@ -398,7 +398,8 @@ class Bucket(_Base):
     def get_object(self, key,
                    byte_range=None,
                    headers=None,
-                   progress_callback=None):
+                   progress_callback=None,
+                   process=None):
         """下载一个文件。
 
         用法 ::
@@ -415,6 +416,8 @@ class Bucket(_Base):
 
         :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
 
+        :param process: oss文件处理，如图像服务等。指定后process，返回的内容为处理后的文件。
+        
         :return: file-like object
 
         :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
@@ -424,14 +427,19 @@ class Bucket(_Base):
         range_string = _make_range_string(byte_range)
         if range_string:
             headers['range'] = range_string
-
-        resp = self.__do_object('GET', key, headers=headers)
+        
+        params = None
+        if process: 
+            params={'x-oss-process': process}
+        
+        resp = self.__do_object('GET', key, headers=headers, params=params)
         return GetObjectResult(resp, progress_callback=progress_callback)
 
     def get_object_to_file(self, key, filename,
                            byte_range=None,
                            headers=None,
-                           progress_callback=None):
+                           progress_callback=None,
+                           process=None):
         """下载一个文件到本地文件。
 
         :param key: 文件名
@@ -442,11 +450,14 @@ class Bucket(_Base):
         :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
 
         :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
+    
+        :param process: oss文件处理，如图像服务等。指定后process，返回的内容为处理后的文件。
 
         :return: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
         with open(to_unicode(filename), 'wb') as f:
-            result = self.get_object(key, byte_range=byte_range, headers=headers, progress_callback=progress_callback)
+            result = self.get_object(key, byte_range=byte_range, headers=headers, progress_callback=progress_callback,
+                                     process=process)
             shutil.copyfileobj(result, f)
 
             return result
