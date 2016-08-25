@@ -475,9 +475,9 @@ class TestObject(OssTestCase):
 
         try:
             self.bucket.append_object(key, 0, content, init_crc=1)
-        except oss2.exceptions.CrcError as e:
+        except oss2.exceptions.InconsistentError as e:
             self.assertEqual(e.status, -3)
-            self.assertTrue(e.body.startswith('CrcError: the crc of'))
+            self.assertTrue(e.body.startswith('InconsistentError: the crc of'))
         else:
             self.assertTrue(False)
 

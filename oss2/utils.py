@@ -22,7 +22,7 @@ import errno
 import crcmod
 
 from .compat import to_string, to_bytes
-from .exceptions import ClientError, CrcError
+from .exceptions import ClientError, InconsistentError
 
 
 _EXTRA_TYPES_MAP = {
@@ -221,7 +221,7 @@ def _crc_callback(crc, data):
     
 def check_crc(operation, client_crc, oss_crc):
     if client_crc != oss_crc:
-        raise CrcError('the crc of {0} between client and oss is not inconsistent'.format(operation))
+        raise InconsistentError('the crc of {0} between client and oss is not inconsistent'.format(operation))
 
 def _invoke_crc_updater(crc_callback, __crc_calculator, content):
     if crc_callback:
