@@ -77,17 +77,17 @@ class HeadObjectResult(RequestResult):
 
 
 class GetObjectResult(HeadObjectResult):
-    def __init__(self, resp, progress_callback=None, crc_callback=None):
+    def __init__(self, resp, progress_callback=None, crc_enabled=False):
         super(GetObjectResult, self).__init__(resp)
-        self.crc_callback = crc_callback
+        self.__crc_enabled = crc_enabled
         
         if progress_callback:
             self.stream = make_progress_adapter(self.resp, progress_callback, self.content_length)
         else:
             self.stream = self.resp
         
-        self.crc = _hget(self.headers, 'x-oss-hash-crc64ecma', int)
-        if self.crc_callback:
+        self.__crc = _hget(self.headers, 'x-oss-hash-crc64ecma', int)
+        if self.__crc_enabled:
             self.stream = make_crc_adapter(self.stream)
             
     def read(self, amt=None):
@@ -96,14 +96,16 @@ class GetObjectResult(HeadObjectResult):
     def __iter__(self):
         return iter(self.stream)
     
-    def get_client_crc(self):
-        if self.crc_callback:
-            return self.stream.get_crc()
+    @property
+    def client_crc(self):
+        if self.__crc_enabled:
+            return self.stream.crc
         else:
             return None
     
-    def get_oss_crc(self):
-        return self.crc
+    @property
+    def oss_crc(self):
+        return self.__crc
 
 
 class PutObjectResult(RequestResult):

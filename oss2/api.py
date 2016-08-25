@@ -348,7 +348,7 @@ class Bucket(_Base):
         result = PutObjectResult(resp)
         
         if self.enable_crc:
-            utils.check_crc('put', data.get_crc(), result.crc)
+            utils.check_crc('put', data.crc, result.crc)
             
         return result
 
@@ -411,7 +411,7 @@ class Bucket(_Base):
         result =  AppendObjectResult(resp)
     
         if self.enable_crc and init_crc is not None:
-            utils.check_crc('append', data.get_crc(), result.crc)
+            utils.check_crc('append', data.crc, result.crc)
             
         return result
 
@@ -644,7 +644,7 @@ class Bucket(_Base):
         result = PutObjectResult(resp)
     
         if self.enable_crc:
-            utils.check_crc('put', data.get_crc(), result.crc)
+            utils.check_crc('put', data.crc, result.crc)
         
         return result
 

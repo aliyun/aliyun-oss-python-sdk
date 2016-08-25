@@ -276,7 +276,7 @@ def get_length(data):
 def calc_crc(data):
     crc = oss2.utils.Crc64()
     crc.update(data)
-    return crc.get_crc_value()
+    return crc.crc_value()
 
 
 class MockSocket(object):
