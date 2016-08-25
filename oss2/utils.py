@@ -205,42 +205,36 @@ def make_crc_adapter(data, init_crc=0):
     if hasattr(data, '__len__') or (hasattr(data, 'seek') and hasattr(data, 'tell')):
         return _BytesAndFileAdapter(data, 
                                     size=_get_data_size(data), 
-                                    crc_callback=_crc_callback, 
-                                    init_crc=init_crc)
+                                    crc_callback=Crc64(init_crc))
     # file-like object
     elif hasattr(data, 'read'): 
-        return _FileLikeAdapter(data, crc_callback=_crc_callback, init_crc=init_crc)
+        return _FileLikeAdapter(data, crc_callback=Crc64(init_crc))
     # iterator
     elif hasattr(data, '__iter__'):
-        return _IterableAdapter(data, crc_callback=_crc_callback, init_crc=init_crc)
+        return _IterableAdapter(data, crc_callback=Crc64(init_crc))
     else:
         raise ClientError('{0} is not a file object, nor an iterator'.format(data.__class__.__name__))
 
-def _crc_callback(crc, data):
-    crc.update(data)
     
 def check_crc(operation, client_crc, oss_crc):
     if client_crc != oss_crc:
         raise InconsistentError('the crc of {0} between client and oss is not inconsistent'.format(operation))
 
-def _invoke_crc_updater(crc_callback, __crc_calculator, content):
+def _invoke_crc_callback(crc_callback, content):
     if crc_callback:
-        crc_callback(__crc_calculator, content)
+        crc_callback(content)
 
 def _invoke_progress_callback(progress_callback, consumed_bytes, total_bytes):
     if progress_callback:
         progress_callback(consumed_bytes, total_bytes)
 
 class _IterableAdapter(object):
-    def __init__(self, data, progress_callback=None, crc_callback=None, init_crc=0):
+    def __init__(self, data, progress_callback=None, crc_callback=None):
         self.iter = iter(data)
         self.progress_callback = progress_callback
         self.offset = 0
         
         self.crc_callback = crc_callback
-        self.__crc_calculator = None
-        if crc_callback:
-            self.__crc_calculator = Crc64(init_crc)
 
     def __iter__(self):
         return self
@@ -254,13 +248,13 @@ class _IterableAdapter(object):
         content = next(self.iter)
         self.offset += len(content)
                 
-        _invoke_crc_updater(self.crc_callback, self.__crc_calculator, content)
+        _invoke_crc_callback(self.crc_callback, content)
 
         return content
     
     @property
     def crc(self):
-        return self.__crc_calculator.crc_value()
+        return self.crc_callback.crc
 
 class _FileLikeAdapter(object):
     """通过这个适配器，可以给无法确定内容长度的 `fileobj` 加上进度监控。
@@ -268,15 +262,12 @@ class _FileLikeAdapter(object):
     :param fileobj: file-like object，只要支持read即可
     :param progress_callback: 进度回调函数
     """
-    def __init__(self, fileobj, progress_callback=None, crc_callback=None, init_crc=0):
+    def __init__(self, fileobj, progress_callback=None, crc_callback=None):
         self.fileobj = fileobj
         self.progress_callback = progress_callback
         self.offset = 0
         
         self.crc_callback = crc_callback
-        self.__crc_calculator = None
-        if crc_callback:
-            self.__crc_calculator = Crc64(init_crc)
 
     def __iter__(self):
         return self
@@ -301,13 +292,13 @@ class _FileLikeAdapter(object):
                 
             self.offset += len(content)
                                    
-            _invoke_crc_updater(self.crc_callback, self.__crc_calculator, content)
+            _invoke_crc_callback(self.crc_callback, content)
 
         return content
     
     @property
     def crc(self):
-        return self.__crc_calculator.crc_value()
+        return self.crc_callback.crc
     
 class _BytesAndFileAdapter(object):
     """通过这个适配器，可以给 `data` 加上进度监控。
@@ -317,16 +308,13 @@ class _BytesAndFileAdapter(object):
         其中bytes_read是已经读取的字节数；total_bytes是总的字节数。
     :param int size: `data` 包含的字节数。
     """
-    def __init__(self, data, progress_callback=None, size=None, crc_callback=None, init_crc=0):
+    def __init__(self, data, progress_callback=None, size=None, crc_callback=None):
         self.data = to_bytes(data)
         self.progress_callback = progress_callback
         self.size = size
         self.offset = 0
         
         self.crc_callback = crc_callback
-        self.__crc_calculator = None
-        if crc_callback:
-            self.__crc_calculator = Crc64(init_crc)
 
     def __len__(self):
         return self.size
@@ -369,13 +357,13 @@ class _BytesAndFileAdapter(object):
             
         _invoke_progress_callback(self.progress_callback, min(self.offset, self.size), self.size)
 
-        _invoke_crc_updater(self.crc_callback, self.__crc_calculator, content)
+        _invoke_crc_callback(self.crc_callback, content)
 
         return content
     
     @property
     def crc(self):
-        return self.__crc_calculator.crc_value()
+        return self.crc_callback.crc
 
 class Crc64(object):
 
@@ -385,10 +373,14 @@ class Crc64(object):
     def __init__(self, init_crc=0):
         self.crc64 = crcmod.Crc(self._POLY, initCrc=init_crc, rev=True, xorOut=self._XOROUT)
 
+    def __call__(self, data):
+        self.update(data)
+    
     def update(self, data):
         self.crc64.update(data)
     
-    def crc_value(self):
+    @property
+    def crc(self):
         return self.crc64.crcValue
 
 
