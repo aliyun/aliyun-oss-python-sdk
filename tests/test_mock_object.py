@@ -56,7 +56,8 @@ Date: Sat, 12 Dec 2015 00:35:53 GMT
 Content-Length: 0
 Connection: keep-alive
 x-oss-request-id: 566B6BE93A7B8CFD53D4BAA3
-ETag: "D80CF0E5BE2436514894D64B2BCFB2AE"'''
+x-oss-hash-crc64ecma: {0}
+ETag: "D80CF0E5BE2436514894D64B2BCFB2AE"'''.format(unittests.common.calc_crc(content))
 
     return request_text, response_text
 
@@ -82,7 +83,7 @@ Connection: keep-alive
 x-oss-request-id: 566B6C0D1790CF586F72240B
 ETag: "24F7FA10676D816E0D6C6B5600000000"
 x-oss-next-append-position: {0}
-x-oss-hash-crc64ecma: 7962765905601689380'''.format(position + len(content))
+x-oss-hash-crc64ecma: {1}'''.format(position + len(content), unittests.common.calc_crc(content))
 
     return request_text, response_text
 
@@ -334,7 +335,7 @@ x-oss-request-id: 566B6C3D6086505A0CFF0F68
         self.assertEqual(result.status, 200)
         self.assertEqual(result.next_position, size)
         self.assertEqual(result.etag, '24F7FA10676D816E0D6C6B5600000000')
-        self.assertEqual(result.crc, 7962765905601689380)
+        self.assertEqual(result.crc, unittests.common.calc_crc(content))
 
     @patch('oss2.Session.do_request')
     def test_append_with_progress(self, do_request):

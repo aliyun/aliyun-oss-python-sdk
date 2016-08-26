@@ -7,7 +7,7 @@ oss2.models
 该模块包含Python SDK API接口所需要的输入参数以及返回值类型。
 """
 
-from .utils import http_to_unixtime, make_progress_adapter, http_date
+from .utils import http_to_unixtime, make_progress_adapter, make_crc_adapter
 from .exceptions import ClientError
 
 
@@ -77,19 +77,35 @@ class HeadObjectResult(RequestResult):
 
 
 class GetObjectResult(HeadObjectResult):
-    def __init__(self, resp, progress_callback=None):
+    def __init__(self, resp, progress_callback=None, crc_enabled=False):
         super(GetObjectResult, self).__init__(resp)
-
+        self.__crc_enabled = crc_enabled
+        
         if progress_callback:
             self.stream = make_progress_adapter(self.resp, progress_callback, self.content_length)
         else:
             self.stream = self.resp
-
+        
+        self.__crc = _hget(self.headers, 'x-oss-hash-crc64ecma', int)
+        if self.__crc_enabled:
+            self.stream = make_crc_adapter(self.stream)
+            
     def read(self, amt=None):
         return self.stream.read(amt)
 
     def __iter__(self):
         return iter(self.stream)
+    
+    @property
+    def client_crc(self):
+        if self.__crc_enabled:
+            return self.stream.crc
+        else:
+            return None
+    
+    @property
+    def server_crc(self):
+        return self.__crc
 
 
 class PutObjectResult(RequestResult):
@@ -98,6 +114,9 @@ class PutObjectResult(RequestResult):
 
         #: HTTP ETag
         self.etag = _get_etag(self.headers)
+        
+        #: 文件上传后，OSS上文件的CRC64值
+        self.crc = _hget(resp.headers, 'x-oss-hash-crc64ecma', int)
 
 
 class AppendObjectResult(RequestResult):

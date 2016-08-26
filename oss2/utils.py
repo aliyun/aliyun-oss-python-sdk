@@ -19,9 +19,10 @@ import calendar
 import datetime
 import time
 import errno
+import crcmod
 
 from .compat import to_string, to_bytes
-from .exceptions import ClientError
+from .exceptions import ClientError, InconsistentError
 
 
 _EXTRA_TYPES_MAP = {
@@ -181,20 +182,59 @@ def make_progress_adapter(data, progress_callback, size=None):
 
     if size is None:
         if hasattr(data, 'read'):
-            return _ProgressFileAdapter(data, progress_callback)
+            return _FileLikeAdapter(data, progress_callback)
         elif hasattr(data, '__iter__'):
-            return _ProgressIterableAdapter(data, progress_callback)
+            return _IterableAdapter(data, progress_callback)
         else:
             raise ClientError('{0} is not a file object, nor an iterator'.format(data.__class__.__name__))
     else:
-        return _SizedProgressFileAdapter(data, progress_callback, size)
+        return _BytesAndFileAdapter(data, progress_callback, size)
 
 
-class _ProgressIterableAdapter(object):
-    def __init__(self, data, progress_callback):
+def make_crc_adapter(data, init_crc=0):
+    """返回一个适配器，从而在读取 `data` ，即调用read或者对其进行迭代的时候，能够计算CRC。
+
+    :param data: 可以是bytes、file object或iterable
+    :param init_crc: 初始CRC值，可选
+
+    :return: 能够调用计算CRC函数的适配器
+    """
+    data = to_bytes(data)
+
+    # bytes or file object
+    if hasattr(data, '__len__') or (hasattr(data, 'seek') and hasattr(data, 'tell')):
+        return _BytesAndFileAdapter(data, 
+                                    size=_get_data_size(data), 
+                                    crc_callback=Crc64(init_crc))
+    # file-like object
+    elif hasattr(data, 'read'): 
+        return _FileLikeAdapter(data, crc_callback=Crc64(init_crc))
+    # iterator
+    elif hasattr(data, '__iter__'):
+        return _IterableAdapter(data, crc_callback=Crc64(init_crc))
+    else:
+        raise ClientError('{0} is not a file object, nor an iterator'.format(data.__class__.__name__))
+
+    
+def check_crc(operation, client_crc, oss_crc):
+    if client_crc != oss_crc:
+        raise InconsistentError('the crc of {0} between client and oss is not inconsistent'.format(operation))
+
+def _invoke_crc_callback(crc_callback, content):
+    if crc_callback:
+        crc_callback(content)
+
+def _invoke_progress_callback(progress_callback, consumed_bytes, total_bytes):
+    if progress_callback:
+        progress_callback(consumed_bytes, total_bytes)
+
+class _IterableAdapter(object):
+    def __init__(self, data, progress_callback=None, crc_callback=None):
         self.iter = iter(data)
         self.progress_callback = progress_callback
         self.offset = 0
+        
+        self.crc_callback = crc_callback
 
     def __iter__(self):
         return self
@@ -202,25 +242,32 @@ class _ProgressIterableAdapter(object):
     def __next__(self):
         return self.next()
 
-    def next(self):
-        self.progress_callback(self.offset, None)
+    def next(self):            
+        _invoke_progress_callback(self.progress_callback, self.offset, None)
 
         content = next(self.iter)
         self.offset += len(content)
+                
+        _invoke_crc_callback(self.crc_callback, content)
 
         return content
+    
+    @property
+    def crc(self):
+        return self.crc_callback.crc
 
-
-class _ProgressFileAdapter(object):
+class _FileLikeAdapter(object):
     """通过这个适配器，可以给无法确定内容长度的 `fileobj` 加上进度监控。
 
     :param fileobj: file-like object，只要支持read即可
     :param progress_callback: 进度回调函数
     """
-    def __init__(self, fileobj, progress_callback):
+    def __init__(self, fileobj, progress_callback=None, crc_callback=None):
         self.fileobj = fileobj
         self.progress_callback = progress_callback
         self.offset = 0
+        
+        self.crc_callback = crc_callback
 
     def __iter__(self):
         return self
@@ -239,15 +286,21 @@ class _ProgressFileAdapter(object):
     def read(self, amt=None):
         content = self.fileobj.read(amt)
         if not content:
-            self.progress_callback(self.offset, None)
+            _invoke_progress_callback(self.progress_callback, self.offset, None) 
         else:
-            self.progress_callback(self.offset, None)
+            _invoke_progress_callback(self.progress_callback, self.offset, None)
+                
             self.offset += len(content)
+                                   
+            _invoke_crc_callback(self.crc_callback, content)
 
         return content
-
-
-class _SizedProgressFileAdapter(object):
+    
+    @property
+    def crc(self):
+        return self.crc_callback.crc
+    
+class _BytesAndFileAdapter(object):
     """通过这个适配器，可以给 `data` 加上进度监控。
 
     :param data: 可以是unicode字符串（内部会转换为UTF-8编码的bytes）、bytes或file object
@@ -255,15 +308,22 @@ class _SizedProgressFileAdapter(object):
         其中bytes_read是已经读取的字节数；total_bytes是总的字节数。
     :param int size: `data` 包含的字节数。
     """
-    def __init__(self, data, progress_callback, size):
+    def __init__(self, data, progress_callback=None, size=None, crc_callback=None):
         self.data = to_bytes(data)
         self.progress_callback = progress_callback
         self.size = size
-
         self.offset = 0
+        
+        self.crc_callback = crc_callback
 
     def __len__(self):
         return self.size
+    
+    # for python 2.x
+    def __bool__(self):
+        return True
+    # for python 3.x
+    __nonzero__=__bool__
 
     def __iter__(self):
         return self
@@ -280,8 +340,6 @@ class _SizedProgressFileAdapter(object):
             raise StopIteration
 
     def read(self, amt=None):
-        self.progress_callback(min(self.offset, self.size), self.size)
-
         if self.offset >= self.size:
             return ''
 
@@ -296,8 +354,34 @@ class _SizedProgressFileAdapter(object):
             content = self.data.read(bytes_to_read)
 
         self.offset += bytes_to_read
+            
+        _invoke_progress_callback(self.progress_callback, min(self.offset, self.size), self.size)
+
+        _invoke_crc_callback(self.crc_callback, content)
 
         return content
+    
+    @property
+    def crc(self):
+        return self.crc_callback.crc
+
+class Crc64(object):
+
+    _POLY = 0x142F0E1EBA9EA3693
+    _XOROUT = 0XFFFFFFFFFFFFFFFF
+    
+    def __init__(self, init_crc=0):
+        self.crc64 = crcmod.Crc(self._POLY, initCrc=init_crc, rev=True, xorOut=self._XOROUT)
+
+    def __call__(self, data):
+        self.update(data)
+    
+    def update(self, data):
+        self.crc64.update(data)
+    
+    @property
+    def crc(self):
+        return self.crc64.crcValue
 
 
 _STRPTIME_LOCK = threading.Lock()

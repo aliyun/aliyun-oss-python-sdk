@@ -127,12 +127,13 @@ import oss2.utils
 
 class _Base(object):
     def __init__(self, auth, endpoint, is_cname, session, connect_timeout,
-                 app_name=''):
+                 app_name='', enable_crc=True):
         self.auth = auth
         self.endpoint = _normalize_endpoint(endpoint.strip())
         self.session = session or http.Session()
         self.timeout = defaults.get(connect_timeout, defaults.connect_timeout)
         self.app_name = app_name
+        self.enable_crc = enable_crc
 
         self._make_url = _UrlMaker(self.endpoint, is_cname)
 
@@ -245,9 +246,11 @@ class Bucket(_Base):
                  is_cname=False,
                  session=None,
                  connect_timeout=None,
-                 app_name=''):
+                 app_name='',
+                 enable_crc=True):
         super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout,
-                                     app_name=app_name)
+                                     app_name, enable_crc)
+                
         self.bucket_name = bucket_name.strip()
 
     def sign_url(self, method, key, expires, headers=None, params=None):
@@ -337,9 +340,17 @@ class Bucket(_Base):
 
         if progress_callback:
             data = utils.make_progress_adapter(data, progress_callback)
+        
+        if self.enable_crc:
+            data = utils.make_crc_adapter(data)
 
         resp = self.__do_object('PUT', key, data=data, headers=headers)
-        return PutObjectResult(resp)
+        result = PutObjectResult(resp)
+        
+        if self.enable_crc:
+            utils.check_crc('put', data.crc, result.crc)
+            
+        return result
 
     def put_object_from_file(self, key, filename,
                              headers=None,
@@ -363,7 +374,8 @@ class Bucket(_Base):
 
     def append_object(self, key, position, data,
                       headers=None,
-                      progress_callback=None):
+                      progress_callback=None,
+                      init_crc=None):
         """追加上传一个文件。
 
         :param str key: 新的文件名，或已经存在的可追加文件名
@@ -388,12 +400,20 @@ class Bucket(_Base):
 
         if progress_callback:
             data = utils.make_progress_adapter(data, progress_callback)
+        
+        if self.enable_crc and init_crc is not None:
+            data = utils.make_crc_adapter(data, init_crc)
 
         resp = self.__do_object('POST', key,
                                 data=data,
                                 headers=headers,
                                 params={'append': '', 'position': str(position)})
-        return AppendObjectResult(resp)
+        result =  AppendObjectResult(resp)
+    
+        if self.enable_crc and init_crc is not None:
+            utils.check_crc('append', data.crc, result.crc)
+            
+        return result
 
     def get_object(self, key,
                    byte_range=None,
@@ -433,7 +453,7 @@ class Bucket(_Base):
             params={'x-oss-process': process}
         
         resp = self.__do_object('GET', key, headers=headers, params=params)
-        return GetObjectResult(resp, progress_callback=progress_callback)
+        return GetObjectResult(resp, progress_callback, self.enable_crc)
 
     def get_object_to_file(self, key, filename,
                            byte_range=None,
@@ -614,11 +634,19 @@ class Bucket(_Base):
         """
         if progress_callback:
             data = utils.make_progress_adapter(data, progress_callback)
+        
+        if self.enable_crc:
+            data = utils.make_crc_adapter(data)
 
         resp = self.__do_object('PUT', key,
                                 params={'uploadId': upload_id, 'partNumber': str(part_number)},
                                 data=data)
-        return PutObjectResult(resp)
+        result = PutObjectResult(resp)
+    
+        if self.enable_crc:
+            utils.check_crc('put', data.crc, result.crc)
+        
+        return result
 
     def complete_multipart_upload(self, key, upload_id, parts, headers=None):
         """完成分片上传，创建文件。

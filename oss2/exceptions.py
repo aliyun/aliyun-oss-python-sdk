@@ -21,7 +21,7 @@ _OSS_ERROR_TO_EXCEPTION = {} # populated at end of module
 
 OSS_CLIENT_ERROR_STATUS = -1
 OSS_REQUEST_ERROR_STATUS = -2
-
+OSS_INCONSISTENT_ERROR_STATUS = -3
 
 class OssError(Exception):
     def __init__(self, status, headers, body, details):
@@ -63,6 +63,16 @@ class RequestError(OssError):
     def __init__(self, e):
         OssError.__init__(self, OSS_REQUEST_ERROR_STATUS, {}, 'RequestError: ' + str(e), {})
         self.exception = e
+
+    def __str__(self):
+        error = {'status': self.status,
+                 'details': self.body}
+        return str(error)
+
+
+class InconsistentError(OssError):
+    def __init__(self, message):
+        OssError.__init__(self, OSS_INCONSISTENT_ERROR_STATUS, {}, 'InconsistentError: ' + message, {})
 
     def __str__(self):
         error = {'status': self.status,

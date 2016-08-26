@@ -38,6 +38,9 @@ class TestObject(OssTestCase):
         get_result = self.bucket.get_object(key)
         self.assertEqual(get_result.read(), content)
         assert_result(get_result)
+        self.assertTrue(get_result.client_crc is not None)
+        self.assertTrue(get_result.server_crc is not None)
+        self.assertTrue(get_result.client_crc == get_result.server_crc)
 
         head_result = self.bucket.head_object(key)
         assert_result(head_result)
@@ -97,9 +100,13 @@ class TestObject(OssTestCase):
 
         # 获取OSS上的文件，一边读取一边写入到另外一个OSS文件
         src = self.bucket.get_object(src_key)
-        self.bucket.put_object(dst_key, src)
+        result = self.bucket.put_object(dst_key, src)
 
-        # verify
+        # verify        
+        self.assertTrue(src.client_crc is not None)
+        self.assertTrue(src.server_crc is not None)  
+        self.assertEqual(src.client_crc, src.server_crc)
+        self.assertEqual(result.crc, src.server_crc)
         self.assertEqual(self.bucket.get_object(src_key).read(), self.bucket.get_object(dst_key).read())
 
     def make_generator(self, content, chunk_size):
@@ -247,8 +254,9 @@ class TestObject(OssTestCase):
         content1 = random_bytes(512)
         content2 = random_bytes(128)
 
-        result = self.bucket.append_object(key, 0, content1)
+        result = self.bucket.append_object(key, 0, content1, init_crc=0)
         self.assertEqual(result.next_position, len(content1))
+        self.assertTrue(result.crc is not None)
 
         try:
             self.bucket.append_object(key, 0, content2)
@@ -256,9 +264,10 @@ class TestObject(OssTestCase):
             self.assertEqual(e.next_position, len(content1))
         else:
             self.assertTrue(False)
-
-        result = self.bucket.append_object(key, len(content1), content2)
+        
+        result = self.bucket.append_object(key, len(content1), content2, init_crc=result.crc)
         self.assertEqual(result.next_position, len(content1) + len(content2))
+        self.assertTrue(result.crc is not None)
 
         self.bucket.delete_object(key)
 
@@ -418,6 +427,59 @@ class TestObject(OssTestCase):
         content = random_bytes(16)
 
         self.assertRaises(oss2.exceptions.InvalidObjectName, self.bucket.put_object, key, content)
+
+    def test_disable_crc(self): 
+        key = self.random_key('.txt')
+        content = random_bytes(1024 * 100)
+        
+        bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET, enable_crc=False)
+        
+        # put
+        put_result = bucket.put_object(key, content)
+        self.assertFalse(hasattr(put_result, 'get_crc'))
+        self.assertTrue(put_result.crc is not None)
+        
+        # get 
+        get_result = bucket.get_object(key)
+        self.assertEqual(get_result.read(), content)
+        self.assertTrue(get_result.client_crc is None)
+        self.assertTrue(get_result.server_crc)
+        
+        bucket.delete_object(key)
+        
+        # append
+        append_result = bucket.append_object(key, 0, content)
+        self.assertFalse(hasattr(append_result, 'get_crc'))
+        self.assertTrue(append_result.crc is not None)
+        
+        append_result = bucket.append_object(key, len(content), content)
+        self.assertFalse(hasattr(append_result, 'get_crc'))
+        self.assertTrue(append_result.crc is not None)
+        
+        bucket.delete_object(key)
+        
+        # multipart
+        upload_id = bucket.init_multipart_upload(key).upload_id
+
+        parts = []
+        result = bucket.upload_part(key, upload_id, 1, content)
+        parts.append(oss2.models.PartInfo(1, result.etag))
+        result = bucket.upload_part(key, upload_id, 2, content)
+        parts.append(oss2.models.PartInfo(2, result.etag))
+
+        bucket.complete_multipart_upload(key, upload_id, parts)
+
+    def test_invalid_crc(self):
+        key = self.random_key()
+        content = random_bytes(512)
+
+        try:
+            self.bucket.append_object(key, 0, content, init_crc=1)
+        except oss2.exceptions.InconsistentError as e:
+            self.assertEqual(e.status, -3)
+            self.assertTrue(e.body.startswith('InconsistentError: the crc of'))
+        else:
+            self.assertTrue(False)
 
 
 if __name__ == '__main__':
