@@ -3,6 +3,15 @@ OSS SDK for Python 版本记录
 
 Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
+Version 2.2.0
+-------------
+
+- 依赖：增加新的依赖： `crcmod`
+- 增加：上传、下载增加了CRC64校验，缺省打开
+- 增加：`RTMP` 直播推流相关接口
+- 增加：`bucket.get_object_meta()` 接口，用来更为快速的获取文件基本信息
+- 修复：`bucket.object_exists()` 接口采用 `bucket.get_object_meta()` 来实现，避免因镜像回源造成的 issue #39
+
 Version 2.1.1
 -------------
 

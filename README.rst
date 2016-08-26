@@ -14,11 +14,11 @@ Aliyun OSS SDK for Python
 阿里云对象存储Python SDK 2.x版本。该版本不和上一个版本（0.x版本）兼容，包的名称为oss2，以避免和先前的版本冲突。
 
 
-该版本的SDK依赖于第三方HTTP库 `requests <https://github.com/kennethreitz/requests>`_ ，请按照下述安装方法进行安装。
+该版本的SDK依赖于第三方HTTP库 `requests <https://github.com/kennethreitz/requests>`_ 以及 `crcmod`。 请按照下述安装方法进行安装。
 
 .. note::
 
-    该版本不包含osscmd命令行工具
+    该版本不包含 `osscmd` 命令行工具
 
 运行环境
 --------
