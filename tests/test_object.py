@@ -39,8 +39,8 @@ class TestObject(OssTestCase):
         self.assertEqual(get_result.read(), content)
         assert_result(get_result)
         self.assertTrue(get_result.client_crc is not None)
-        self.assertTrue(get_result.oss_crc is not None)
-        self.assertTrue(get_result.client_crc == get_result.oss_crc)
+        self.assertTrue(get_result.server_crc is not None)
+        self.assertTrue(get_result.client_crc == get_result.server_crc)
 
         head_result = self.bucket.head_object(key)
         assert_result(head_result)
@@ -104,9 +104,9 @@ class TestObject(OssTestCase):
 
         # verify        
         self.assertTrue(src.client_crc is not None)
-        self.assertTrue(src.oss_crc is not None)  
-        self.assertEqual(src.client_crc, src.oss_crc)
-        self.assertEqual(result.crc, src.oss_crc)
+        self.assertTrue(src.server_crc is not None)  
+        self.assertEqual(src.client_crc, src.server_crc)
+        self.assertEqual(result.crc, src.server_crc)
         self.assertEqual(self.bucket.get_object(src_key).read(), self.bucket.get_object(dst_key).read())
 
     def make_generator(self, content, chunk_size):
@@ -443,7 +443,7 @@ class TestObject(OssTestCase):
         get_result = bucket.get_object(key)
         self.assertEqual(get_result.read(), content)
         self.assertTrue(get_result.client_crc is None)
-        self.assertTrue(get_result.oss_crc)
+        self.assertTrue(get_result.server_crc)
         
         bucket.delete_object(key)
         

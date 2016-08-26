@@ -104,7 +104,7 @@ class GetObjectResult(HeadObjectResult):
             return None
     
     @property
-    def oss_crc(self):
+    def server_crc(self):
         return self.__crc
 
 
