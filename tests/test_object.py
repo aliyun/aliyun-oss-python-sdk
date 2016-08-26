@@ -322,6 +322,10 @@ class TestObject(OssTestCase):
 
     def test_object_exists(self):
         key = self.random_key()
+        
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+        self.assertRaises(NoSuchBucket, bucket.object_exists, key)
 
         self.assertTrue(not self.bucket.object_exists(key))
 

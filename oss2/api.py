@@ -507,7 +507,7 @@ class Bucket(_Base):
     def get_object_meta(self, key):
         """获取文件基本元信息，包括该Object的ETag、Size（文件大小）、LastModified，并不返回其内容。
 
-        HTTP响应的头部包含了文件基本元信息，可以通过 `RequestResult` 的 `last_modified`，`content_length`,`etag` 成员获得。
+        HTTP响应的头部包含了文件基本元信息，可以通过 `GetObjectMetaResult` 的 `last_modified`，`content_length`,`etag` 成员获得。
 
         :param key: 文件名
 

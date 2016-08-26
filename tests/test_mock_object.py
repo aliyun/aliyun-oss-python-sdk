@@ -182,7 +182,38 @@ x-oss-request-id: 566B6C3D6086505A0CFF0F68
         req_info = unittests.common.mock_response(do_request, response_text)
         self.assertTrue(not unittests.common.bucket().object_exists('sbowspxjhmccpmesjqcwagfw'))
         self.assertRequest(req_info, request_text)
-        
+    
+    @patch('oss2.Session.do_request')
+    def test_object_exists_exception(self, do_request):
+        request_text = '''GET /sbowspxjhmccpmesjqcwagfw?objectMeta HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:37:17 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:wopWcmMd/70eNKYOc9M6ZA21yY8='''     
+
+        response_text = '''HTTP/1.1 404 Not Found
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:37:17 GMT
+Content-Type: application/xml
+Content-Length: 287
+Connection: keep-alive
+x-oss-request-id: 566B6C3D6086505A0CFF0F68
+
+<?xml version="1.0" encoding="UTF-8"?>
+<Error>
+  <Code>NoSuchBucket</Code>
+  <Message>The specified bucket does not exist.</Message>
+  <RequestId>566B6C3D6086505A0CFF0F68</RequestId>
+  <HostId>ming-oss-share.oss-cn-hangzhou.aliyuncs.com</HostId>
+  <Bucket>ming-oss-share</Bucket>
+</Error>'''
+
+        unittests.common.mock_response(do_request, response_text)
+        self.assertRaises(oss2.exceptions.NoSuchBucket, unittests.common.bucket().object_exists, 'sbowspxjhmccpmesjqcwagfw')
+    
     @patch('oss2.Session.do_request')
     def test_get_object_meta(self, do_request):
         request_text = '''GET /sbowspxjhmccpmesjqcwagfw?objectMeta HTTP/1.1
