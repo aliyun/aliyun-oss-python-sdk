@@ -503,6 +503,20 @@ class Bucket(_Base):
         """
         resp = self.__do_object('HEAD', key, headers=headers)
         return HeadObjectResult(resp)
+    
+    def get_object_meta(self, key):
+        """获取文件基本元信息，包括该Object的ETag、Size（文件大小）、LastModified，并不返回其内容。
+
+        HTTP响应的头部包含了文件基本元信息，可以通过 `GetObjectMetaResult` 的 `last_modified`，`content_length`,`etag` 成员获得。
+
+        :param key: 文件名
+
+        :return: :class:`GetObjectMetaResult <oss2.models.GetObjectMetaResult>`
+
+        :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
+        """
+        resp = self.__do_object('GET', key, params={'objectMeta': ''})
+        return GetObjectMetaResult(resp)
 
     def object_exists(self, key):
         """如果文件存在就返回True，否则返回False。如果Bucket不存在，或是发生其他错误，则抛出异常。"""
@@ -510,18 +524,19 @@ class Bucket(_Base):
         # 如果我们用head_object来实现的话，由于HTTP HEAD请求没有响应体，只有响应头部，这样当发生404时，
         # 我们无法区分是NoSuchBucket还是NoSuchKey错误。
         #
-        # 下面的实现是通过if-modified-since头部，把date设为当前时间24小时后，这样如果文件存在，则会返回
-        # 304 (NotModified)；不存在，则会返回NoSuchKey
-        date = oss2.utils.http_date(int(time.time()) + 24 * 60 * 60)
+        # 2.2.0之前的实现是通过get_object的if-modified-since头部，把date设为当前时间24小时后，这样如果文件存在，则会返回
+        # 304 (NotModified)；不存在，则会返回NoSuchKey。get_object会受回源的影响，如果配置会404回源，get_object会判断错误。
+        # 
+        # 目前的实现是通过get_object_meta判断文件是否存在。
 
         try:
-            self.get_object(key, headers={'if-modified-since': date})
-        except exceptions.NotModified:
-            return True
+            self.get_object_meta(key)
         except exceptions.NoSuchKey:
             return False
-        else:
-            raise exceptions.ClientError('Client time varies too much from server?')  # pragma: no cover
+        except:
+            raise
+        
+        return True
 
     def copy_object(self, source_bucket_name, source_key, target_key, headers=None):
         """拷贝一个文件到当前Bucket。

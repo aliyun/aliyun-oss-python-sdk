@@ -129,26 +129,23 @@ x-oss-object-type: Normal'''
 
     @patch('oss2.Session.do_request')
     def test_object_exists_true(self, do_request):
-        request_text = '''GET /sbowspxjhmccpmesjqcwagfw HTTP/1.1
+        request_text = '''GET /sbowspxjhmccpmesjqcwagfw?objectMeta HTTP/1.1
 Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
 Accept-Encoding: identity
 Connection: keep-alive
-if-modified-since: Sun, 13 Dec 2015 00:37:17 GMT
 date: Sat, 12 Dec 2015 00:37:17 GMT
 User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
 Accept: */*
 authorization: OSS ZCDmm7TPZKHtx77j:wopWcmMd/70eNKYOc9M6ZA21yY8='''
 
-        response_text = '''HTTP/1.1 304 Not Modified
-Server: AliyunOSS
-Date: Sat, 12 Dec 2015 00:37:17 GMT
-Content-Type: application/octet-stream
-Connection: keep-alive
+        response_text = '''HTTP/1.1 200 OK
 x-oss-request-id: 566B6C3D010B7A4314D2253D
-Accept-Ranges: bytes
-ETag: "5EB63BBBE01EEED093CB22BB8F5ACDC3"
+Date: Sat, 12 Dec 2015 00:37:17 GMT
+ETag: "5B3C1A2E053D763E1B002CC607C5A0FE"
 Last-Modified: Sat, 12 Dec 2015 00:37:17 GMT
-x-oss-object-type: Normal'''
+Content-Length: 344606
+Connection: keep-alive
+Server: AliyunOSS'''
 
         req_info = mock_response(do_request, response_text)
 
@@ -157,15 +154,14 @@ x-oss-object-type: Normal'''
 
     @patch('oss2.Session.do_request')
     def test_object_exists_false(self, do_request):
-        request_text = '''GET /sbowspxjhmccpmesjqcwagfw HTTP/1.1
+        request_text = '''GET /sbowspxjhmccpmesjqcwagfw?objectMeta HTTP/1.1
 Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
 Accept-Encoding: identity
 Connection: keep-alive
-if-modified-since: Sun, 13 Dec 2015 00:37:17 GMT
 date: Sat, 12 Dec 2015 00:37:17 GMT
 User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
 Accept: */*
-authorization: OSS ZCDmm7TPZKHtx77j:wopWcmMd/70eNKYOc9M6ZA21yY8='''
+authorization: OSS ZCDmm7TPZKHtx77j:wopWcmMd/70eNKYOc9M6ZA21yY8='''     
 
         response_text = '''HTTP/1.1 404 Not Found
 Server: AliyunOSS

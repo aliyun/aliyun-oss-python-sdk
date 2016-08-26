@@ -4,7 +4,7 @@ import requests
 import filecmp
 import calendar
 
-from oss2.exceptions import (ClientError, RequestError,
+from oss2.exceptions import (ClientError, RequestError, NoSuchBucket,
                              NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable)
 from common import *
 
@@ -322,6 +322,10 @@ class TestObject(OssTestCase):
 
     def test_object_exists(self):
         key = self.random_key()
+        
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+        self.assertRaises(NoSuchBucket, bucket.object_exists, key)
 
         self.assertTrue(not self.bucket.object_exists(key))
 
@@ -337,6 +341,28 @@ class TestObject(OssTestCase):
         headers = self.bucket.get_object(key).headers
         self.assertEqual(headers['x-oss-meta-key1'], 'value1')
         self.assertEqual(headers['x-oss-meta-key2'], 'value2')
+        
+    def test_get_object_meta(self):
+        key = self.random_key()
+        content = 'hello'
+        
+        # bucket no exist
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+        
+        self.assertRaises(NoSuchBucket, bucket.get_object_meta, key)
+        
+        # object no exist
+        self.assertRaises(NoSuchKey, self.bucket.get_object_meta, key)
+
+        self.bucket.put_object(key, content)
+        
+        # get meta normal
+        result = self.bucket.get_object_meta(key)
+
+        self.assertTrue(result.last_modified > 1472128796)
+        self.assertEqual(result.content_length, len(content))
+        self.assertEqual(result.etag, '5D41402ABC4B2A76B9719D911017C592')
 
     def test_progress(self):
         stats = {'previous': -1}
