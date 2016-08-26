@@ -76,6 +76,20 @@ class HeadObjectResult(RequestResult):
         self.etag = _get_etag(self.headers)
 
 
+class GetObjectMetaResult(RequestResult):
+    def __init__(self, resp):
+        super(GetObjectMetaResult, self).__init__(resp)
+
+        #: 文件最后修改时间，类型为int。参考 :ref:`unix_time` 。
+        self.last_modified = _hget(self.headers, 'last-modified', http_to_unixtime)
+
+        #: Content-Length，文件大小，类型为int。
+        self.content_length = _hget(self.headers, 'content-length', int)
+
+        #: HTTP ETag
+        self.etag = _get_etag(self.headers)
+
+
 class GetObjectResult(HeadObjectResult):
     def __init__(self, resp, progress_callback=None, crc_enabled=False):
         super(GetObjectResult, self).__init__(resp)

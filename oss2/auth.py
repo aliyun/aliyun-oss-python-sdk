@@ -16,7 +16,7 @@ class Auth(object):
         ['response-content-type', 'response-content-language',
          'response-cache-control', 'logging', 'response-content-encoding',
          'acl', 'uploadId', 'uploads', 'partNumber', 'group', 'link',
-         'delete', 'website', 'location', 'objectInfo',
+         'delete', 'website', 'location', 'objectInfo', 'objectMeta',
          'response-expires', 'response-content-disposition', 'cors', 'lifecycle',
          'restore', 'qos', 'referer', 'append', 'position', 'security-token',
          'live', 'comp', 'status', 'vod', 'startTime', 'endTime', 'x-oss-process']
