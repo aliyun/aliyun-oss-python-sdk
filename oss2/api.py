@@ -551,7 +551,7 @@ class Bucket(_Base):
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         headers = http.CaseInsensitiveDict(headers)
-        headers['x-oss-copy-source'] = ('/' + source_bucket_name + '/' + source_key).encode('utf-8')
+        headers['x-oss-copy-source'] = utils.to_bytes('/' + source_bucket_name + '/' + source_key)
 
         resp = self.__do_object('PUT', target_key, headers=headers)
 
