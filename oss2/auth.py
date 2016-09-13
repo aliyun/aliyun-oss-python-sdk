@@ -71,7 +71,7 @@ class Auth(object):
         for k, v in headers.items():
             lower_key = k.lower()
             if lower_key.startswith('x-oss-'):
-                canon_headers.append((lower_key, v))
+                canon_headers.append((lower_key, v if hasattr(v, 'encode') else v.decode('utf-8')))
 
         canon_headers.sort(key=lambda x: x[0])
 
