@@ -42,6 +42,11 @@ content = oss2.to_bytes(random_string(1024 * 1024))
 with open(filename, 'wb') as fileobj:
     fileobj.write(content)
 
+
+"""
+断点续传上传
+"""
+
 # 断点续传一：因为文件比较小（小于oss2.defaults.multipart_threshold），
 # 所以实际上用的是oss2.Bucket.put_object
 oss2.resumable_upload(bucket, 'remote-normal.txt', filename)
@@ -49,6 +54,10 @@ oss2.resumable_upload(bucket, 'remote-normal.txt', filename)
 # 断点续传二：为了展示的需要，我们指定multipart_threshold可选参数，确保使用分片上传
 oss2.resumable_upload(bucket, 'remote-multipart.txt', filename, multipart_threshold=100 * 1024)
 
+
+"""
+分片上传
+"""
 
 # 也可以直接调用分片上传接口。
 # 首先可以用帮助函数设定分片大小，设我们期望的分片大小为128KB
