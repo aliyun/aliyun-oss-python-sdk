@@ -46,11 +46,15 @@ API文档
 ~~~~
 .. automethod:: oss2.Bucket.list_objects
 
-获取文件信息
-~~~~~~~~~~~~
+获取、更改文件信息
+~~~~~~~~~~~~~~~
 
 .. automethod:: oss2.Bucket.head_object
 .. automethod:: oss2.Bucket.object_exists
+.. automethod:: oss2.Bucket.put_object_acl
+.. automethod:: oss2.Bucket.get_object_acl
+.. automethod:: oss2.Bucket.update_object_meta
+.. automethod:: oss2.Bucket.get_object_meta
 
 
 分片上传
@@ -72,7 +76,6 @@ API文档
 
 .. automethod:: oss2.Bucket.create_bucket
 .. automethod:: oss2.Bucket.delete_bucket
-.. automethod:: oss2.Bucket.bucket_exists
 .. automethod:: oss2.Bucket.get_bucket_location
 
 Bucket权限管理
@@ -115,3 +118,15 @@ Bucket权限管理
 .. automethod:: oss2.Bucket.get_bucket_website
 .. automethod:: oss2.Bucket.delete_bucket_website
 
+
+RTPM推流操作
+-----------
+
+.. automethod:: oss2.Bucket.create_live_channel
+.. automethod:: oss2.Bucket.delete_live_channel
+.. automethod:: oss2.Bucket.get_live_channel
+.. automethod:: oss2.Bucket.list_live_channel
+.. automethod:: oss2.Bucket.get_live_channel_stat
+.. automethod:: oss2.Bucket.put_live_channel_status
+.. automethod:: oss2.Bucket.get_live_channel_history
+.. automethod:: oss2.Bucket.post_vod_playlist
