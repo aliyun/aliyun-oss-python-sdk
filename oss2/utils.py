@@ -220,13 +220,16 @@ def check_crc(operation, client_crc, oss_crc):
     if client_crc != oss_crc:
         raise InconsistentError('the crc of {0} between client and oss is not inconsistent'.format(operation))
 
+
 def _invoke_crc_callback(crc_callback, content):
     if crc_callback:
         crc_callback(content)
 
+
 def _invoke_progress_callback(progress_callback, consumed_bytes, total_bytes):
     if progress_callback:
         progress_callback(consumed_bytes, total_bytes)
+
 
 class _IterableAdapter(object):
     def __init__(self, data, progress_callback=None, crc_callback=None):
@@ -255,6 +258,7 @@ class _IterableAdapter(object):
     @property
     def crc(self):
         return self.crc_callback.crc
+
 
 class _FileLikeAdapter(object):
     """通过这个适配器，可以给无法确定内容长度的 `fileobj` 加上进度监控。
@@ -299,7 +303,8 @@ class _FileLikeAdapter(object):
     @property
     def crc(self):
         return self.crc_callback.crc
-    
+
+
 class _BytesAndFileAdapter(object):
     """通过这个适配器，可以给 `data` 加上进度监控。
 
@@ -364,6 +369,7 @@ class _BytesAndFileAdapter(object):
     @property
     def crc(self):
         return self.crc_callback.crc
+
 
 class Crc64(object):
 
