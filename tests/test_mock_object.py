@@ -377,6 +377,39 @@ Server: AliyunOSS'''
         self.assertRequest(req_info, request_text)
         self.assertEqual(result.request_id, '566B6BE93A7B8CFD53D4BAA3')
         self.assertEqual(result.etag, 'D80CF0E5BE2436514894D64B2BCFB2AE')
+    
+    @patch('oss2.Session.do_request')
+    def test_put_without_crc_in_response(self, do_request):
+        content = b'dummy content'
+        request_text = '''PUT /sjbhlsgsbecvlpbf.txt HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Content-Type: text/plain
+Content-Length: {0}
+date: Sat, 12 Dec 2015 00:35:53 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+authorization: OSS ZCDmm7TPZKHtx77j:W6whAowN4aImQ0dfbMHyFfD0t1g=
+Accept: */*
+
+{1}'''.format(len(content), oss2.to_string(content))
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:53 GMT
+Content-Length: 0
+Connection: keep-alive
+x-oss-request-id: 566B6BE93A7B8CFD53D4BAA3
+ETag: "D80CF0E5BE2436514894D64B2BCFB2AE"'''
+
+        req_info = unittests.common.mock_response(do_request, response_text)
+
+        result = unittests.common.bucket().put_object('sjbhlsgsbecvlpbf.txt', content)
+
+        self.assertRequest(req_info, request_text)
+
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.request_id, '566B6BE93A7B8CFD53D4BAA3')
+        self.assertEqual(result.etag, 'D80CF0E5BE2436514894D64B2BCFB2AE')
 
     @patch('oss2.Session.do_request')
     def test_append(self, do_request):
@@ -410,6 +443,41 @@ Server: AliyunOSS'''
         self.assertEqual(self.previous, size)
         self.assertEqual(result.next_position, size)
 
+    @patch('oss2.Session.do_request')
+    def test_append_without_crc_in_response(self, do_request):
+        size = 8192
+        position = 0
+        content = unittests.common.random_bytes(size)
+        request_text = '''POST /sjbhlsgsbecvlpbf?position={0}&append= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Content-Length: {1}
+date: Sat, 12 Dec 2015 00:36:29 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:1njpxsTivMNvTdfYolCUefRInVY=
+
+{2}'''.format(position, len(content), oss2.to_string(content))
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:36:29 GMT
+Content-Length: 0
+Connection: keep-alive
+x-oss-request-id: 566B6C0D1790CF586F72240B
+ETag: "24F7FA10676D816E0D6C6B5600000000"
+x-oss-next-append-position: {0}'''.format(position + len(content), unittests.common.calc_crc(content))
+        
+        req_info = unittests.common.mock_response(do_request, response_text)
+
+        result = unittests.common.bucket().append_object('sjbhlsgsbecvlpbf', position, content, init_crc=0)
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.next_position, size)
+        self.assertEqual(result.etag, '24F7FA10676D816E0D6C6B5600000000')
+        
     @patch('oss2.Session.do_request')
     def test_delete(self, do_request):
         request_text = '''DELETE /sjbhlsgsbecvlpbf HTTP/1.1
