@@ -635,7 +635,7 @@ class Bucket(_Base):
         resp = self.__do_object('POST', key, params={'uploads': ''}, headers=headers)
         return self._parse_result(resp, xml_utils.parse_init_multipart_upload, InitMultipartUploadResult)
 
-    def upload_part(self, key, upload_id, part_number, data, progress_callback=None):
+    def upload_part(self, key, upload_id, part_number, data, progress_callback=None, headers=None):
         """上传一个分片。
 
         :param str key: 待上传文件名，这个文件名要和 :func:`init_multipart_upload` 的文件名一致。
@@ -643,6 +643,9 @@ class Bucket(_Base):
         :param int part_number: 分片号，最小值是1.
         :param data: 待上传数据。
         :param progress_callback: 用户指定进度回调函数。可以用来实现进度条等功能。参考 :ref:`progress_callback` 。
+
+        :param headers: 用户指定的HTTP头部。可以指定Content-MD5头部等
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
 
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
@@ -654,6 +657,7 @@ class Bucket(_Base):
 
         resp = self.__do_object('PUT', key,
                                 params={'uploadId': upload_id, 'partNumber': str(part_number)},
+                                headers=headers,
                                 data=data)
         result = PutObjectResult(resp)
     
