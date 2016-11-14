@@ -23,6 +23,7 @@ OSS_CLIENT_ERROR_STATUS = -1
 OSS_REQUEST_ERROR_STATUS = -2
 OSS_INCONSISTENT_ERROR_STATUS = -3
 
+
 class OssError(Exception):
     def __init__(self, status, headers, body, details):
         #: HTTP 状态码
@@ -102,6 +103,11 @@ class InvalidArgument(ServerError):
         super(InvalidArgument, self).__init__(status, headers, body, details)
         self.name = details.get('ArgumentName')
         self.value = details.get('ArgumentValue')
+
+
+class InvalidDigest(ServerError):
+    status = 400
+    code = 'InvalidDigest'
 
 
 class InvalidObjectName(ServerError):

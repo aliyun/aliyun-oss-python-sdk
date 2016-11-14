@@ -7,14 +7,19 @@ from common import *
 
 
 class TestMultipart(OssTestCase):
-    def test_multipart(self):
+    def do_multipart_internal(self, do_md5):
         key = self.random_key()
         content = random_bytes(128 * 1024)
 
         parts = []
         upload_id = self.bucket.init_multipart_upload(key).upload_id
 
-        result = self.bucket.upload_part(key, upload_id, 1, content)
+        if do_md5:
+            headers = {'Content-Md5': oss2.utils.content_md5(content)}
+        else:
+            headers = None
+
+        result = self.bucket.upload_part(key, upload_id, 1, content, headers=headers)
         parts.append(oss2.models.PartInfo(1, result.etag))
         self.assertTrue(result.crc is not None)
 
@@ -22,6 +27,24 @@ class TestMultipart(OssTestCase):
 
         result = self.bucket.get_object(key)
         self.assertEqual(content, result.read())
+
+    def test_multipart(self):
+        self.do_multipart_internal(False)
+
+    def test_upload_part_content_md5_good(self):
+        self.do_multipart_internal(True)
+
+    def test_upload_part_content_md5_bad(self):
+        key = self.random_key()
+        content = random_bytes(128 * 1024)
+
+        parts = []
+        upload_id = self.bucket.init_multipart_upload(key).upload_id
+
+        # construct a bad Content-Md5 by using 'content + content's Content-Md5
+        headers = {'Content-Md5': oss2.utils.content_md5(content + content)}
+
+        self.assertRaises(oss2.exceptions.InvalidDigest, self.bucket.upload_part, key, upload_id, 1, content, headers=headers)
 
     def test_progress(self):
         stats = {'previous': -1}
