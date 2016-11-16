@@ -1,6 +1,6 @@
 __version__ = '2.2.2'
 
-from . import models, exceptions
+from . import models, exceptions, config
 
 from .api import Service, Bucket
 from .auth import Auth, AnonymousAuth, StsAuth

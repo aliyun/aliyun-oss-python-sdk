@@ -14,6 +14,7 @@ import requests
 from requests.structures import CaseInsensitiveDict
 
 from . import __version__, defaults
+from . import config
 from .compat import to_bytes
 from .exceptions import RequestError
 from .utils import file_object_remaining_bytes, SizedFileAdapter
@@ -39,7 +40,9 @@ class Session(object):
                                                  params=req.params,
                                                  headers=req.headers,
                                                  stream=True,
-                                                 timeout=timeout))
+                                                 timeout=timeout,
+                                                 proxies=config.proxies
+                                                 ))
         except requests.RequestException as e:
             raise RequestError(e)
 

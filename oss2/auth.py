@@ -71,7 +71,7 @@ class Auth(object):
         for k, v in headers.items():
             lower_key = k.lower()
             if lower_key.startswith('x-oss-'):
-                canon_headers.append((lower_key, v))
+                canon_headers.append((lower_key, utils.to_string(v)))
 
         canon_headers.sort(key=lambda x: x[0])
 
