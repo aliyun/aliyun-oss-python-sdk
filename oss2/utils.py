@@ -15,6 +15,7 @@ import socket
 import hashlib
 import base64
 import threading
+import locale
 import calendar
 import datetime
 import time
@@ -398,7 +399,14 @@ _ISO8601_FORMAT = "%Y-%m-%dT%H:%M:%S.000Z"
 
 def to_unixtime(time_string, format_string):
     with _STRPTIME_LOCK:
-        return int(calendar.timegm(time.strptime(time_string, format_string)))
+        time_locale = locale.setlocale(locale.LC_TIME)
+        if time_locale.find('en') != 0 and time_locale != 'C':
+            locale.setlocale(locale.LC_TIME, 'en_US')
+            unixtime = int(calendar.timegm(time.strptime(time_string, format_string)))
+            locale.setlocale(locale.LC_TIME, time_locale)
+        else:
+            unixtime = int(calendar.timegm(time.strptime(time_string, format_string)))
+        return unixtime
 
 
 def http_date(timeval=None):
