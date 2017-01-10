@@ -66,13 +66,14 @@ def resumable_upload(bucket, key, filename,
                                       headers=headers,
                                       progress_callback=progress_callback,
                                       num_threads=num_threads)
-        uploader.upload()
+        result = uploader.upload()
     else:
         with open(to_unicode(filename), 'rb') as f:
-            bucket.put_object(key, f,
+            result = bucket.put_object(key, f,
                               headers=headers,
                               progress_callback=progress_callback)
-
+    
+    return result
 
 def resumable_download(bucket, key, filename,
                        multiget_threshold=None,
@@ -420,8 +421,10 @@ class _ResumableUploader(_ResumableOperation):
 
         self._report_progress(self.size)
 
-        self.bucket.complete_multipart_upload(self.key, self.__upload_id, self.__finished_parts)
+        result = self.bucket.complete_multipart_upload(self.key, self.__upload_id, self.__finished_parts)
         self._del_record()
+        
+        return result
 
     def __producer(self, q, parts_to_upload=None):
         for part in parts_to_upload:
