@@ -18,7 +18,10 @@ class TestUpload(OssTestCase):
 
         pathname = self._prepare_temp_file(content)
 
-        oss2.resumable_upload(self.bucket, key, pathname)
+        result = oss2.resumable_upload(self.bucket, key, pathname)
+        self.assertTrue(result is not None)
+        self.assertTrue(result.etag is not None)
+        self.assertTrue(result.request_id is not None)
 
         result = self.bucket.get_object(key)
         self.assertEqual(content, result.read())
@@ -32,7 +35,10 @@ class TestUpload(OssTestCase):
 
         pathname = self._prepare_temp_file(content)
 
-        oss2.resumable_upload(self.bucket, key, pathname, multipart_threshold=200 * 1024, part_size=None)
+        result = oss2.resumable_upload(self.bucket, key, pathname, multipart_threshold=200 * 1024, part_size=None)
+        self.assertTrue(result is not None)
+        self.assertTrue(result.etag is not None)
+        self.assertTrue(result.request_id is not None)
 
         result = self.bucket.get_object(key)
         self.assertEqual(content, result.read())

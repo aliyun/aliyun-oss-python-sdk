@@ -82,10 +82,10 @@ class Response(object):
 
     def read(self, amt=None):
         if amt is None:
-            content = b''
+            content_list = []
             for chunk in self.response.iter_content(_CHUNK_SIZE):
-                content += chunk
-            return content
+                content_list.append(chunk)
+            return b''.join(content_list)
         else:
             try:
                 return next(self.response.iter_content(amt))

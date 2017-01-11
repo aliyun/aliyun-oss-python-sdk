@@ -292,6 +292,17 @@ class TestObject(OssTestCase):
         result = self.bucket.get_object(target_key)
         self.assertEqual(content, result.read())
 
+    def test_copy_object_source_with_escape(self):
+        source_key = '阿里云/加油/:?;@&=+$, /<>{}[]|/'
+        target_key = self.random_key()
+        content = random_bytes(36)
+
+        self.bucket.put_object(source_key, content)
+        self.bucket.copy_object(self.bucket.bucket_name, source_key, target_key)
+
+        result = self.bucket.get_object(target_key)
+        self.assertEqual(content, result.read())
+
     def test_update_object_meta(self):
         key = self.random_key('.txt')
         content = random_bytes(36)
