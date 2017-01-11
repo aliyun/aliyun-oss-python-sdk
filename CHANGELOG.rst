@@ -3,6 +3,14 @@ OSS SDK for Python 版本记录
 
 Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
+Version 2.2.3
+-------------
+
+- 修复：`bucket.resumable_upload` 的返回值从null修正为PutObjectResult
+- 修复：优化 `Response.read` 的字符串拼接方式，提高 `bucket.get_object` 的效率 issue #39
+- 修复：`bucket.copy_object` 对source key进行url编码
+
+
 Version 2.2.2
 -------------
 
