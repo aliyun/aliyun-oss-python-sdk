@@ -114,6 +114,13 @@ Python 2.6，2.7，3.3，3.4，3.5
 
     $ nosetests                          # 请先安装nose
 
+
+如果需要测试V2版本的签名，可以设置：
+
+.. code-blocks:: bash
+
+    $ export OSS_TEST_AUTH_VERSION=v2
+
 更多使用
 --------
 - `更多例子 <https://github.com/aliyun/aliyun-oss-python-sdk/tree/master/examples>`_

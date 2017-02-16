@@ -188,3 +188,171 @@ def _param_to_quoted_query(k, v):
         return urlquote(k, '') + '=' + urlquote(v, '')
     else:
         return urlquote(k, '')
+
+
+def v2_uri_encode(raw_text):
+    raw_text = to_bytes(raw_text)
+
+    res = ''
+    for b in raw_text:
+        if isinstance(b, int):
+            c = chr(b)
+        else:
+            c = b
+
+        if (c >= 'A' and c <= 'Z') or (c >= 'a' and c <= 'z')\
+            or (c >= '0' and c <= '9') or c in ['_', '-', '~', '.']:
+            res += c
+        else:
+            res += "%{0:02X}".format(ord(c))
+
+    return res
+
+
+_DEFAULT_ADDITIONAL_HEADERS = {
+    'range',
+    'if-modified-since'
+}
+
+
+class AuthV2(object):
+    def __init__(self, access_key_id, access_key_secret):
+        #: AccessKeyId
+        self.id = access_key_id.strip()
+
+        #: AccessKeySecret
+        self.secret = access_key_secret.strip()
+
+    def _sign_request(self, req, bucket_name, key, in_additional_headers=None):
+        """Insert Authorization header into a request.
+
+        :param req: authorization information will be added into this request's Authorization HTTP header
+        :type req: oss2.http.Request
+
+        :param bucket_name: bucket name
+        :param key: object key
+        :param in_additional_headers: a list of additional header names to be included in signature calculation
+        """
+        if in_additional_headers is None:
+            additional_headers = self.__get_additional_headers(req, _DEFAULT_ADDITIONAL_HEADERS)
+        else:
+            additional_headers = self.__get_additional_headers(req, in_additional_headers)
+
+        req.headers['date'] = utils.http_date()
+
+        signature = self.__make_signature(req, bucket_name, key, additional_headers)
+
+        if additional_headers:
+            req.headers['authorization'] = "OSS2 AccessKeyId:{0},AdditionalHeaders:{1},Signature:{2}"\
+                .format(self.id, ';'.join(additional_headers), signature)
+        else:
+            req.headers['authorization'] = "OSS2 AccessKeyId:{0},Signature:{1}".format(self.id, signature)
+
+    def _sign_url(self, req, bucket_name, key, expires, in_additional_headers=None):
+        """Return a signed URL.
+
+        :param req: the request to be signed
+        :type req: oss2.http.Request
+
+        :param bucket_name: bucket name
+        :param key: object key
+        :param int expires: the signed request will be timed out after `expires` seconds.
+        :param in_additional_headers: a list of additional header names to be included in signature calculation
+
+        :return: a signed URL
+        """
+
+        if in_additional_headers is None:
+            additional_headers = {}
+        else:
+            additional_headers = self.__get_additional_headers(req, in_additional_headers)
+
+        expiration_time = int(time.time()) + expires
+
+        req.headers['date'] = str(expiration_time)  # re-use __make_signature by setting the 'date' header
+
+        req.params['x-oss-signature-version'] = 'OSS2'
+        req.params['x-oss-expires'] = str(expiration_time)
+        req.params['x-oss-access-key-id'] = self.id
+
+        signature = self.__make_signature(req, bucket_name, key, additional_headers)
+
+        req.params['x-oss-signature'] = signature
+
+        return req.url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in req.params.items())
+
+    def __make_signature(self, req, bucket_name, key, additional_headers):
+        string_to_sign = self.__get_string_to_sign(req, bucket_name, key, additional_headers)
+
+        logging.info('string_to_sign={0}'.format(string_to_sign))
+
+        h = hmac.new(to_bytes(self.secret), to_bytes(string_to_sign), hashlib.sha256)
+        return utils.b64encode_as_string(h.digest())
+
+    def __get_additional_headers(self, req, in_additional_headers):
+        # we add a header into additional_headers only if it is already in req's headers.
+
+        additional_headers = {h.lower() for h in in_additional_headers}
+        keys_in_header = {k.lower() for k in req.headers.keys()}
+
+        return additional_headers & keys_in_header
+
+    def __get_string_to_sign(self, req, bucket_name, key, additional_header_list):
+        verb = req.method
+        content_md5 = req.headers.get('content-md5', '')
+        content_type = req.headers.get('content-type', '')
+        date = req.headers.get('date', '')
+
+        canonicalized_oss_headers = self.__get_canonicalized_oss_headers(req, additional_header_list)
+        additional_headers = ';'.join(sorted(additional_header_list))
+        canonicalized_resource = self.__get_resource_string(req, bucket_name, key)
+
+        return verb + '\n' +\
+            content_md5 + '\n' +\
+            content_type + '\n' +\
+            date + '\n' +\
+            canonicalized_oss_headers +\
+            additional_headers + '\n' +\
+            canonicalized_resource
+
+    def __get_resource_string(self, req, bucket_name, key):
+        if bucket_name:
+            encoded_uri = v2_uri_encode('/' + bucket_name + '/' + key)
+        else:
+            encoded_uri = v2_uri_encode('/')
+
+        logging.info('encoded_uri={0} key={1}'.format(encoded_uri, key))
+
+        return encoded_uri + self.__get_canonalized_query_string(req)
+
+    def __get_canonalized_query_string(self, req):
+        encoded_params = {}
+        for param, value in req.params.items():
+            encoded_params[v2_uri_encode(param)] = v2_uri_encode(value)
+
+        if not encoded_params:
+            return ''
+
+        sorted_params = sorted(encoded_params.items(), key=lambda e: e[0])
+        return '?' + '&'.join(self.__param_to_query(k, v) for k, v in sorted_params)
+
+    def __param_to_query(self, k, v):
+        if v:
+            return k + '=' + v
+        else:
+            return k
+
+    def __get_canonicalized_oss_headers(self, req, additional_headers):
+        """
+        :param additional_headers: must be a list of headers in low case, and must not be 'x-oss-' prefixed.
+        """
+        canon_headers = []
+
+        for k, v in req.headers.items():
+            lower_key = k.lower()
+            if lower_key.startswith('x-oss-') or lower_key in additional_headers:
+                canon_headers.append((lower_key, v))
+
+        canon_headers.sort(key=lambda x: x[0])
+
+        return ''.join(v[0] + ':' + v[1] + '\n' for v in canon_headers)

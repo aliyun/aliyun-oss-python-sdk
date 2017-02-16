@@ -281,6 +281,39 @@ class TestObject(OssTestCase):
             resp = requests.get(url)
             self.assertEqual(content, resp.content)
 
+    def test_private_download_url_with_extra_query(self):
+        key = 'nelson'
+        key = self.random_key()
+        content = random_bytes(42)
+
+        self.bucket.put_object(key, content)
+        url = self.bucket.sign_url('GET', key, 60, params={'extra-query': '1'})
+
+        resp = requests.get(url)
+        self.assertEqual(content, resp.content)
+
+        resp = requests.get(url + '&another-query=1')
+        self.assertEqual(resp.status_code, 403)
+
+        e = oss2.exceptions.make_exception(oss2.http.Response(resp))
+        self.assertEqual(e.status, 403)
+        self.assertEqual(e.code, 'SignatureDoesNotMatch')
+
+    def test_modified_since(self):
+        key = self.random_key()
+        content = random_bytes(16)
+
+        self.bucket.put_object(key, content)
+
+        try:
+            result = self.bucket.get_object(key,
+                                            headers={
+                                                'if-modified-since': oss2.utils.http_date(int(time.time()) + 60),
+                                            },
+                                            byte_range=(0, 7))
+        except oss2.exceptions.NotModified as e:
+            pass
+
     def test_copy_object(self):
         source_key = self.random_key()
         target_key = self.random_key()
