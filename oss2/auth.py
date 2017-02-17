@@ -209,10 +209,8 @@ def v2_uri_encode(raw_text):
     return res
 
 
-_DEFAULT_ADDITIONAL_HEADERS = {
-    'range',
-    'if-modified-since'
-}
+_DEFAULT_ADDITIONAL_HEADERS = set(['range',
+                                   'if-modified-since'])
 
 
 class AuthV2(object):
@@ -292,8 +290,8 @@ class AuthV2(object):
     def __get_additional_headers(self, req, in_additional_headers):
         # we add a header into additional_headers only if it is already in req's headers.
 
-        additional_headers = {h.lower() for h in in_additional_headers}
-        keys_in_header = {k.lower() for k in req.headers.keys()}
+        additional_headers = set(h.lower() for h in in_additional_headers)
+        keys_in_header = set(k.lower() for k in req.headers.keys())
 
         return additional_headers & keys_in_header
 
