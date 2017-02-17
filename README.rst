@@ -121,6 +121,7 @@ Python 2.6，2.7，3.3，3.4，3.5
 
     $ export OSS_TEST_AUTH_VERSION=v2
 
+
 更多使用
 --------
 - `更多例子 <https://github.com/aliyun/aliyun-oss-python-sdk/tree/master/examples>`_
