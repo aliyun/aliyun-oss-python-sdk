@@ -8,6 +8,7 @@ import logging
 from . import utils
 from .compat import urlquote, to_bytes
 
+logger = logging.getLogger('oss2')
 
 class Auth(object):
     """用于保存用户AccessKeyId、AccessKeySecret，以及计算签名的对象。"""
@@ -47,7 +48,7 @@ class Auth(object):
     def __make_signature(self, req, bucket_name, key):
         string_to_sign = self.__get_string_to_sign(req, bucket_name, key)
 
-        logging.debug('string_to_sign={0}'.format(string_to_sign))
+        logger.debug('string_to_sign={0}'.format(string_to_sign))
 
         h = hmac.new(to_bytes(self.secret), to_bytes(string_to_sign), hashlib.sha1)
         return utils.b64encode_as_string(h.digest())
@@ -127,7 +128,7 @@ class Auth(object):
         
         p = params if params else {}
         string_to_sign = str(expiration_time) + "\n" + canon_params_str + canonicalized_resource
-        logging.debug('string_to_sign={0}'.format(string_to_sign))
+        logger.debug('string_to_sign={0}'.format(string_to_sign))
         
         h = hmac.new(to_bytes(self.secret), to_bytes(string_to_sign), hashlib.sha1)
         signature = utils.b64encode_as_string(h.digest())

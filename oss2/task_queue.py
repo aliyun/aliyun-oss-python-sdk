@@ -11,6 +11,7 @@ except ImportError:
 
 import traceback
 
+logger = logging.getLogger('oss2')
 
 class TaskQueue(object):
     def __init__(self, producer, consumers):
@@ -38,7 +39,7 @@ class TaskQueue(object):
                 t.join(1)
 
         if self.__exc_info:
-            logging.debug('An exception was thrown by producer or consumer, backtrace: {0}'.format(self.__exc_stack))
+            logger.debug('An exception was thrown by producer or consumer, backtrace: {0}'.format(self.__exc_stack))
             raise self.__exc_info[1]
 
     def put(self, data):
