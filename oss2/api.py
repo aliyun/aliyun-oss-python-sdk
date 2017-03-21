@@ -240,6 +240,7 @@ class Bucket(_Base):
     COMP = 'comp'
     STATUS = 'status'
     VOD = 'vod'
+    SYMLINK = 'symlink'
 
     def __init__(self, auth, endpoint, bucket_name,
                  is_cname=False,
@@ -768,6 +769,31 @@ class Bucket(_Base):
                                         'part-number-marker': marker,
                                         'max-parts': str(max_parts)})
         return self._parse_result(resp, xml_utils.parse_list_parts, ListPartsResult)
+    
+    def put_object_symlink(self, target_key, symlink_key, headers=None):
+        """创建Symlink。
+
+        :param str target_key: 目标文件，目标文件不能为符号连接
+        :param str symlink_key: 符号连接类文件，其实质是一个特殊的文件，数据指向目标文件
+        
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        headers = headers or {}
+        headers['x-oss-symlink-target'] = urlquote(target_key, '')
+        resp = self.__do_object('PUT', symlink_key, headers=headers, params={Bucket.SYMLINK: ''})
+        return RequestResult(resp)
+
+    def get_object_symlink(self, symlink_key):
+        """获取符号连接文件的目标文件。
+
+        :param str symlink_key: 符号连接类文件
+
+        :return: :class:`GetObjectSymlinkResult <oss2.models.GetObjectSymlinkResult>`
+
+        :raises: 如果文件的符号链接不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
+        """
+        resp = self.__do_object('GET', symlink_key, params={Bucket.SYMLINK: ''})
+        return GetObjectSymlinkResult(resp)
 
     def create_bucket(self, permission=None):
         """创建新的Bucket。

@@ -90,6 +90,14 @@ class GetObjectMetaResult(RequestResult):
         self.etag = _get_etag(self.headers)
 
 
+class GetObjectSymlinkResult(RequestResult):
+    def __init__(self, resp):
+        super(GetObjectSymlinkResult, self).__init__(resp)
+
+        #: 符号连接的目标文件
+        self.target_key = _hget(self.headers, 'x-oss-symlink-target')
+        
+        
 class GetObjectResult(HeadObjectResult):
     def __init__(self, resp, progress_callback=None, crc_enabled=False):
         super(GetObjectResult, self).__init__(resp)

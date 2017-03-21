@@ -19,7 +19,8 @@ class Auth(object):
          'delete', 'website', 'location', 'objectInfo', 'objectMeta',
          'response-expires', 'response-content-disposition', 'cors', 'lifecycle',
          'restore', 'qos', 'referer', 'append', 'position', 'security-token',
-         'live', 'comp', 'status', 'vod', 'startTime', 'endTime', 'x-oss-process']
+         'live', 'comp', 'status', 'vod', 'startTime', 'endTime', 'x-oss-process',
+         'symlink']
     )
 
     def __init__(self, access_key_id, access_key_secret):
