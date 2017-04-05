@@ -628,7 +628,7 @@ ETag: "164F32EF262006C5EE6C8D1AA30DD2CD"
             self.assertEqual(result.acl, expected)
     
     @patch('oss2.Session.do_request')
-    def test_put_object_symlink(self, do_request):
+    def test_put_symlink(self, do_request):
         request_text = '''PUT /sjbhlsgsbecvlpbf?symlink= HTTP/1.1
 Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
 Accept-Encoding: identity
@@ -655,14 +655,14 @@ x-oss-server-time: 19'''
         req_info = unittests.common.mock_response(do_request, response_text)
 
         headers = {'x-oss-meta-key1': 'value1', 'x-oss-meta-key2': 'value2'}
-        result = unittests.common.bucket().put_object_symlink('bcvzkwznomy', 'sjbhlsgsbecvlpbf', headers)
+        result = unittests.common.bucket().put_symlink('bcvzkwznomy', 'sjbhlsgsbecvlpbf', headers)
 
         self.assertRequest(req_info, request_text)
         self.assertEqual(result.request_id, '566B6C0D8CDE4E975D730BEF')
         self.assertEqual(result.status, 200)
         
     @patch('oss2.Session.do_request')
-    def test_get_object_symlink(self, do_request):
+    def test_get_symlink(self, do_request):
         request_text = '''GET /sjbhlsgsbecvlpbf?symlink= HTTP/1.1
 Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
 Accept-Encoding: identity
@@ -685,7 +685,7 @@ x-oss-server-time: 39'''
 
         req_info = unittests.common.mock_response(do_request, response_text)
 
-        result = unittests.common.bucket().get_object_symlink('sjbhlsgsbecvlpbf')
+        result = unittests.common.bucket().get_symlink('sjbhlsgsbecvlpbf')
 
         self.assertRequest(req_info, request_text)
         self.assertEqual(result.request_id, '566B6C0D8CDE4E975D730BEF')

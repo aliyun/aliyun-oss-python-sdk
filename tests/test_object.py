@@ -518,7 +518,7 @@ class TestObject(OssTestCase):
         else:
             self.assertTrue(False)
 
-    def test_put_object_symlink(self):
+    def test_put_symlink(self):
         key  = self.random_key()
         symlink = self.random_key()
         content = 'hello'
@@ -526,7 +526,7 @@ class TestObject(OssTestCase):
         self.bucket.put_object(key, content)
         
         # put symlink normal
-        self.bucket.put_object_symlink(key, symlink)
+        self.bucket.put_symlink(key, symlink)
         
         head_result = self.bucket.head_object(symlink)
         self.assertEqual(head_result.content_length, len(content))
@@ -535,7 +535,7 @@ class TestObject(OssTestCase):
         self.bucket.put_object(key, content)
         
         # put symlink with meta
-        self.bucket.put_object_symlink(key, symlink, headers={'x-oss-meta-key1': 'value1',
+        self.bucket.put_symlink(key, symlink, headers={'x-oss-meta-key1': 'value1',
                                                               'X-Oss-Meta-Key2': 'value2'})
         head_result = self.bucket.head_object(symlink)
         self.assertEqual(head_result.content_length, len(content))
@@ -543,7 +543,7 @@ class TestObject(OssTestCase):
         self.assertEqual(head_result.headers['x-oss-meta-key1'], 'value1')
         self.assertEqual(head_result.headers['x-oss-meta-key2'], 'value2')
 
-    def test_get_object_symlink(self):
+    def test_get_symlink(self):
         key  = self.random_key()
         symlink = self.random_key()
         content = 'hello'
@@ -552,16 +552,16 @@ class TestObject(OssTestCase):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
         
-        self.assertRaises(NoSuchBucket, bucket.get_object_symlink, symlink)
+        self.assertRaises(NoSuchBucket, bucket.get_symlink, symlink)
         
         # object no exist
-        self.assertRaises(NoSuchKey, self.bucket.get_object_symlink, symlink)
+        self.assertRaises(NoSuchKey, self.bucket.get_symlink, symlink)
         
         self.bucket.put_object(key, content)
-        self.bucket.put_object_symlink(key, symlink)
+        self.bucket.put_symlink(key, symlink)
         
         # get symlink normal
-        result = self.bucket.get_object_symlink(symlink)
+        result = self.bucket.get_symlink(symlink)
         self.assertEqual(result.target_key, key)
 
 if __name__ == '__main__':

@@ -770,7 +770,7 @@ class Bucket(_Base):
                                         'max-parts': str(max_parts)})
         return self._parse_result(resp, xml_utils.parse_list_parts, ListPartsResult)
     
-    def put_object_symlink(self, target_key, symlink_key, headers=None):
+    def put_symlink(self, target_key, symlink_key, headers=None):
         """创建Symlink。
 
         :param str target_key: 目标文件，目标文件不能为符号连接
@@ -783,7 +783,7 @@ class Bucket(_Base):
         resp = self.__do_object('PUT', symlink_key, headers=headers, params={Bucket.SYMLINK: ''})
         return RequestResult(resp)
 
-    def get_object_symlink(self, symlink_key):
+    def get_symlink(self, symlink_key):
         """获取符号连接文件的目标文件。
 
         :param str symlink_key: 符号连接类文件
