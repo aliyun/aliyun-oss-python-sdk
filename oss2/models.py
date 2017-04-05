@@ -90,9 +90,9 @@ class GetObjectMetaResult(RequestResult):
         self.etag = _get_etag(self.headers)
 
 
-class GetObjectSymlinkResult(RequestResult):
+class GetSymlinkResult(RequestResult):
     def __init__(self, resp):
-        super(GetObjectSymlinkResult, self).__init__(resp)
+        super(GetSymlinkResult, self).__init__(resp)
 
         #: 符号连接的目标文件
         self.target_key = urlunquote(_hget(self.headers, 'x-oss-symlink-target'))

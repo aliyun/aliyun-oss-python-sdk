@@ -788,12 +788,12 @@ class Bucket(_Base):
 
         :param str symlink_key: 符号连接类文件
 
-        :return: :class:`GetObjectSymlinkResult <oss2.models.GetObjectSymlinkResult>`
+        :return: :class:`GetSymlinkResult <oss2.models.GetSymlinkResult>`
 
         :raises: 如果文件的符号链接不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
         resp = self.__do_object('GET', symlink_key, params={Bucket.SYMLINK: ''})
-        return GetObjectSymlinkResult(resp)
+        return GetSymlinkResult(resp)
 
     def create_bucket(self, permission=None):
         """创建新的Bucket。
