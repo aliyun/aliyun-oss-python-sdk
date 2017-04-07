@@ -626,6 +626,71 @@ ETag: "164F32EF262006C5EE6C8D1AA30DD2CD"
 
             result = unittests.common.bucket().get_object_acl('fake-key')
             self.assertEqual(result.acl, expected)
+    
+    @patch('oss2.Session.do_request')
+    def test_put_symlink(self, do_request):
+        request_text = '''PUT /sjbhlsgsbecvlpbf?symlink= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Content-Length: 0
+User-Agent: aliyun-sdk-python/2.3.0(Windows/7/;3.3.3)
+x-oss-symlink-target: bcvzkwznomy
+x-oss-meta-key1: value1
+x-oss-meta-key2: value2
+date: Wed, 22 Mar 2017 03:15:15 GMT
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:AC830VOm7dDnv+CVpTaui6gh5xc='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Wed, 22 Mar 2017 03:15:20 GMT
+Content-Length: 0
+Connection: keep-alive
+x-oss-request-id: 566B6C0D8CDE4E975D730BEF
+ETag: "B070B9DEB1655BE905777D6DC856E6F1"
+x-oss-hash-crc64ecma: 0
+x-oss-server-time: 19'''
+
+        req_info = unittests.common.mock_response(do_request, response_text)
+
+        headers = {'x-oss-meta-key1': 'value1', 'x-oss-meta-key2': 'value2'}
+        result = unittests.common.bucket().put_symlink('bcvzkwznomy', 'sjbhlsgsbecvlpbf', headers)
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6C0D8CDE4E975D730BEF')
+        self.assertEqual(result.status, 200)
+        
+    @patch('oss2.Session.do_request')
+    def test_get_symlink(self, do_request):
+        request_text = '''GET /sjbhlsgsbecvlpbf?symlink= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Accept: */*
+User-Agent: aliyun-sdk-python/2.3.0(Windows/7/;3.3.3)
+date: Wed, 22 Mar 2017 03:14:31 GMT
+authorization: OSS ZCDmm7TPZKHtx77j:AC830VOm7dDnv+CVpTaui6gh5xc='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Wed, 22 Mar 2017 03:14:36 GMT
+Content-Length: 0
+Connection: keep-alive
+x-oss-request-id: 566B6C0D8CDE4E975D730BEF
+Last-Modified: Wed, 22 Mar 2017 03:14:31 GMT
+ETag: "0D9980D049C9256C927F8A46BC1BADCF"
+x-oss-symlink-target: bcvzkwznomy
+x-oss-server-time: 39'''
+
+        req_info = unittests.common.mock_response(do_request, response_text)
+
+        result = unittests.common.bucket().get_symlink('sjbhlsgsbecvlpbf')
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6C0D8CDE4E975D730BEF')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.target_key, 'bcvzkwznomy')        
 
     # for ci
     def test_oss_utils_negative(self):

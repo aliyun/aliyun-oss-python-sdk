@@ -9,7 +9,7 @@ oss2.models
 
 from .utils import http_to_unixtime, make_progress_adapter, make_crc_adapter
 from .exceptions import ClientError
-
+from .compat import urlunquote
 
 class PartInfo(object):
     """表示分片信息的文件。
@@ -90,6 +90,14 @@ class GetObjectMetaResult(RequestResult):
         self.etag = _get_etag(self.headers)
 
 
+class GetSymlinkResult(RequestResult):
+    def __init__(self, resp):
+        super(GetSymlinkResult, self).__init__(resp)
+
+        #: 符号连接的目标文件
+        self.target_key = urlunquote(_hget(self.headers, 'x-oss-symlink-target'))
+        
+        
 class GetObjectResult(HeadObjectResult):
     def __init__(self, resp, progress_callback=None, crc_enabled=False):
         super(GetObjectResult, self).__init__(resp)
