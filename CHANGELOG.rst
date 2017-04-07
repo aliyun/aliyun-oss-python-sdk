@@ -6,7 +6,7 @@ Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则�
 Version 2.3.0
 -------------
 
-- 增加：支持符号链接接口`bucket.put_symlink`，`bucket.get_symlink`
+- 增加：符号链接接口 `bucket.put_symlink`，`bucket.get_symlink`
 
 
 Version 2.2.3
