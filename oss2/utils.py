@@ -134,7 +134,8 @@ class SizedFileAdapter(object):
         self.offset += amt
         return self.file_object.read(amt)
 
-    def __len__(self):
+    @property
+    def len(self):
         return self.size
 
 
@@ -152,9 +153,16 @@ def file_object_remaining_bytes(fileobj):
     return end - current
 
 
+def _has_data_size_attr(data):
+    return hasattr(data, '__len__') or hasattr(data, 'len') or (hasattr(data, 'seek') and hasattr(data, 'tell'))
+
+
 def _get_data_size(data):
     if hasattr(data, '__len__'):
         return len(data)
+
+    if hasattr(data, 'len'):
+        return data.len
 
     if hasattr(data, 'seek') and hasattr(data, 'tell'):
         return file_object_remaining_bytes(data)
@@ -202,7 +210,7 @@ def make_crc_adapter(data, init_crc=0):
     data = to_bytes(data)
 
     # bytes or file object
-    if hasattr(data, '__len__') or (hasattr(data, 'seek') and hasattr(data, 'tell')):
+    if _has_data_size_attr(data):
         return _BytesAndFileAdapter(data, 
                                     size=_get_data_size(data), 
                                     crc_callback=Crc64(init_crc))
@@ -321,9 +329,10 @@ class _BytesAndFileAdapter(object):
         
         self.crc_callback = crc_callback
 
-    def __len__(self):
+    @property
+    def len(self):
         return self.size
-    
+
     # for python 2.x
     def __bool__(self):
         return True

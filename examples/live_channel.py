@@ -76,7 +76,7 @@ prefix = ''
 max_keys = 1000
 
 for info in oss2.LiveChannelIterator(bucket, prefix, max_keys=max_keys):
-    print(info.id)
+    print(info.name)
 
 # 对于正在推流的频道调用get_live_channel_stat可以获得流的状态信息。
 # 如果频道正在推流，那么stat_result中的所有字段都有意义。
