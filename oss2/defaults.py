@@ -8,6 +8,8 @@ oss2.defaults
 
 """
 
+import logging
+
 
 def get(value, default_value):
     if value is None:
@@ -44,3 +46,10 @@ multiget_num_threads = 4
 
 #: 并行下载（multiget）的缺省分片大小
 multiget_part_size = 10 * 1024 * 1024
+
+#: 缺省 Logger
+logger = logging.getLogger()
+
+
+def get_logger():
+    return logger
