@@ -3,6 +3,12 @@ OSS SDK for Python 版本记录
 
 Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
+Version 2.3.1
+-------------
+
+- 修复：#66 oss2相关的Adapter中用了__len__()函数会导致requests super_len()函数在32bit Windows上导致不能够上传超过2GB的文件。
+
+
 Version 2.3.0
 -------------
 

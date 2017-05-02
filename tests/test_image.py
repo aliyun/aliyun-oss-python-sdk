@@ -41,35 +41,35 @@ class TestImage(OssTestCase):
         
         original_image, new_image = self.__prepare()
         self.__test(original_image, new_image, style)
-        self.__check(new_image, 100, 100, 3587, 'jpg')
+        self.__check(new_image, 100, 100, 3267, 'jpg')
             
     def test_crop(self):
         style = "image/crop,w_100,h_100,x_100,y_100,r_1"  # 裁剪
         
         original_image, new_image = self.__prepare()
         self.__test(original_image, new_image, style)
-        self.__check(new_image, 100, 100, 2281, 'jpg')
+        self.__check(new_image, 100, 100, 1969, 'jpg')
         
     def test_rotate(self):
         style = "image/rotate,90"  # 旋转
         
         original_image, new_image = self.__prepare()
         self.__test(original_image, new_image, style)
-        self.__check(new_image, 400, 267, 21509, 'jpg')
+        self.__check(new_image, 400, 267, 20998, 'jpg')
         
     def test_sharpen(self):
         style = "image/sharpen,100"  # 锐化
         
         original_image, new_image = self.__prepare()
         self.__test(original_image, new_image, style)
-        self.__check(new_image, 267, 400, 24183, 'jpg')
+        self.__check(new_image, 267, 400, 23015, 'jpg')
         
     def test_watermark(self):
         style = "image/watermark,text_SGVsbG8g5Zu-54mH5pyN5YqhIQ"  # 文字水印
         
         original_image, new_image = self.__prepare()
         self.__test(original_image, new_image, style)
-        self.__check(new_image, 267, 400, 26953, 'jpg')
+        self.__check(new_image, 267, 400, 26369, 'jpg')
         
     def test_format(self):
         style = "image/format,png"  # 图像格式转换
@@ -83,7 +83,7 @@ class TestImage(OssTestCase):
         
         original_image, new_image = self.__prepare()
         self.__test_to_file(original_image, new_image, style)
-        self.__check(new_image, 100, 100, 3587, 'jpg')
+        self.__check(new_image, 100, 100, 3267, 'jpg')
          
 
 if __name__ == '__main__':

@@ -8,6 +8,7 @@ from oss2.exceptions import make_exception
 import os
 import sys
 import tempfile
+import requests
 
 from common import *
 
@@ -91,6 +92,22 @@ class TestUtils(OssTestCase):
         self.assertTrue(isinstance(e, oss2.exceptions.NoSuchKey))
         self.assertEqual(e.status, 404)
         self.assertEqual(e.code, 'NoSuchKey')
+
+    def test_len(self):
+        adapter = oss2.utils.SizedFileAdapter('ss', 2500000000)
+        self.assertEqual(requests.utils.super_len(adapter), 2500000000)
+
+        adapter = oss2.utils._BytesAndFileAdapter('ss', size=2500000000)
+        self.assertEqual(requests.utils.super_len(adapter), 2500000000)
+
+    def test_adapter_composition(self):
+        def progress_callback(consumed_bytes, total_bytes):
+            pass
+
+        crc_adapter = oss2.utils.make_crc_adapter('sss')
+        progress_adapter = oss2.utils.make_progress_adapter(crc_adapter, progress_callback)
+
+        self.assertEqual(progress_adapter.len, 3)
 
 
 if __name__ == '__main__':

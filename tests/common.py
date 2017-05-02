@@ -103,6 +103,24 @@ class OssTestCase(unittest.TestCase):
         self.temp_files.append(pathname)
         return pathname
 
+    def _prepare_temp_file_with_size(self, size):
+        fd, pathname = tempfile.mkstemp(suffix='test-upload')
+
+        block_size = 8 * 1024 * 1024
+        num_written = 0
+
+        while num_written < size:
+            to_write = min(block_size, size - num_written)
+            num_written += to_write
+
+            content = 's' * to_write
+            os.write(fd, oss2.to_bytes(content))
+
+        os.close(fd)
+
+        self.temp_files.append(pathname)
+        return pathname
+
     def retry_assert(self, func):
         for i in range(5):
             if func():

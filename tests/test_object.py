@@ -544,7 +544,7 @@ class TestObject(OssTestCase):
         self.assertEqual(head_result.headers['x-oss-meta-key2'], 'value2')
 
     def test_get_symlink(self):
-        key  = self.random_key()
+        key = self.random_key()
         symlink = self.random_key()
         content = 'hello'
         
@@ -563,6 +563,7 @@ class TestObject(OssTestCase):
         # get symlink normal
         result = self.bucket.get_symlink(symlink)
         self.assertEqual(result.target_key, key)
+
 
 if __name__ == '__main__':
     unittest.main()
