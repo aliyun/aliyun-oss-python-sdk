@@ -12,6 +12,8 @@ import requests
 
 from common import *
 
+import logging
+
 
 is_py2 = (sys.version_info[0] == 2)
 is_py3 = (sys.version_info[0] == 3)
@@ -108,6 +110,30 @@ class TestUtils(OssTestCase):
         progress_adapter = oss2.utils.make_progress_adapter(crc_adapter, progress_callback)
 
         self.assertEqual(progress_adapter.len, 3)
+
+    def test_default_logger_basic(self):
+        # verify default logger
+        self.assertEqual(oss2.defaults.get_logger(), logging.getLogger())
+
+        # verify custom logger
+        custom_logger = logging.getLogger('oss2')
+        oss2.defaults.logger = custom_logger
+
+        self.assertEqual(oss2.defaults.get_logger(), custom_logger)
+
+    def test_default_logger_put(self):
+        custom_logger = logging.getLogger('oss2')
+        oss2.defaults.logger = custom_logger
+
+        custom_logger.addHandler(logging.StreamHandler(sys.stdout))
+        custom_logger.setLevel(logging.DEBUG)
+
+        key = self.random_key()
+
+        self.bucket.put_object(key, 'abc')
+        resp = self.bucket.get_object(key).resp
+
+        self.assertEqual(b'abc', resp.read())
 
 
 if __name__ == '__main__':

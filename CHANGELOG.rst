@@ -6,6 +6,7 @@ Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则�
 Version 2.3.1
 -------------
 
+- 修复：#63 增加 `oss2.defaults.logger` 配置项，用户可以设置该变量，来改变缺省的 `logger` （缺省是 `root` logger）
 - 修复：#66 oss2相关的Adapter中用了__len__()函数会导致requests super_len()函数在32bit Windows上导致不能够上传超过2GB的文件。
 
 
