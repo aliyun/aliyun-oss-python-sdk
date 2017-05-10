@@ -118,13 +118,13 @@ Python 2.6，2.7，3.3，3.4，3.5
 --------
 - `更多例子 <https://github.com/aliyun/aliyun-oss-python-sdk/tree/master/examples>`_
 - `Python SDK API文档 <http://aliyun-oss-python-sdk.readthedocs.org/en/latest>`_
-- `官网Python SDK文档 <https://docs.aliyun.com/#/pub/oss/sdk/python-sdk&preface>`_
+- `官网Python SDK文档 <https://help.aliyun.com/document_detail/32026.html>`_
 
 联系我们
 --------
 - `阿里云OSS官方网站 <http://oss.aliyun.com>`_
 - `阿里云OSS官方论坛 <http://bbs.aliyun.com>`_
-- `阿里云OSS官方文档中心 <http://www.aliyun.com/product/oss#Docs>`_
+- `阿里云OSS官方文档中心 <https://help.aliyun.com/document_detail/32026.html>`_
 - 阿里云官方技术支持：`提交工单 <https://workorder.console.aliyun.com/#/ticket/createIndex>`_
 
 代码许可
