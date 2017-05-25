@@ -135,3 +135,9 @@ class OssTestCase(unittest.TestCase):
             read = f.read()
             self.assertEqual(len(read), len(content))
             self.assertEqual(read, content)
+
+    def assertFileContentNotEqual(self, filename, content):
+        with open(filename, 'rb') as f:
+            read = f.read()
+            self.assertNotEqual(len(read), len(content))
+            self.assertNotEqual(read, content)

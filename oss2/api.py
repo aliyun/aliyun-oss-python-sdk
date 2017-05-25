@@ -478,7 +478,11 @@ class Bucket(_Base):
         with open(to_unicode(filename), 'wb') as f:
             result = self.get_object(key, byte_range=byte_range, headers=headers, progress_callback=progress_callback,
                                      process=process)
-            shutil.copyfileobj(result, f)
+
+            if result.content_length is None:
+                shutil.copyfileobj(result, f)
+            else:
+                utils.copyfileobj_and_verify(result, f, result.content_length)
 
             return result
 

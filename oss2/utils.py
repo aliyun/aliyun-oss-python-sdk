@@ -22,7 +22,7 @@ import errno
 import crcmod
 
 from .compat import to_string, to_bytes
-from .exceptions import ClientError, InconsistentError
+from .exceptions import ClientError, InconsistentError, RequestError
 
 
 _EXTRA_TYPES_MAP = {
@@ -465,3 +465,20 @@ def force_rename(src, dst):
             os.rename(src, dst)
         else:
             raise
+
+
+def copyfileobj_and_verify(fsrc, fdst, expected_len, chunk_size=16*1024):
+    """copy data from file-like object fsrc to file-like object fdst, and verify length"""
+
+    num_read = 0
+
+    while 1:
+        buf = fsrc.read(chunk_size)
+        if not buf:
+            break
+
+        num_read += len(buf)
+        fdst.write(buf)
+
+    if num_read != expected_len:
+        raise RequestError(IOError("IncompleteRead from source"))
