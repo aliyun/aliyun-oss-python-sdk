@@ -21,10 +21,10 @@ from .defaults import get_logger
 
 import functools
 import threading
-import shutil
 import random
 import string
 
+import shutil
 
 _MAX_PART_COUNT = 10000
 _MIN_PART_SIZE = 100 * 1024
@@ -285,7 +285,7 @@ class _ResumableDownloader(_ResumableOperation):
             headers = {'If-Match': self.objectInfo.etag,
                        'If-Unmodified-Since': utils.http_date(self.objectInfo.mtime)}
             result = self.bucket.get_object(self.key, byte_range=(part.start, part.end - 1), headers=headers)
-            shutil.copyfileobj(result, f)
+            utils.copyfileobj_and_verify(result, f, part.end - part.start)
 
         self.__finish_part(part)
 
