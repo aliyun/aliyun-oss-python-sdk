@@ -482,7 +482,7 @@ class Bucket(_Base):
             if result.content_length is None:
                 shutil.copyfileobj(result, f)
             else:
-                utils.copyfileobj_and_verify(result, f, result.content_length)
+                utils.copyfileobj_and_verify(result, f, result.content_length, request_id=result.request_id)
 
             return result
 

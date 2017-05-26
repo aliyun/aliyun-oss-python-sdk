@@ -16,7 +16,7 @@ from xml.parsers import expat
 from .compat import to_string
 
 
-_OSS_ERROR_TO_EXCEPTION = {} # populated at end of module
+_OSS_ERROR_TO_EXCEPTION = {}  # populated at end of module
 
 
 OSS_CLIENT_ERROR_STATUS = -1
@@ -72,8 +72,8 @@ class RequestError(OssError):
 
 
 class InconsistentError(OssError):
-    def __init__(self, message):
-        OssError.__init__(self, OSS_INCONSISTENT_ERROR_STATUS, {}, 'InconsistentError: ' + message, {})
+    def __init__(self, message, request_id=''):
+        OssError.__init__(self, OSS_INCONSISTENT_ERROR_STATUS, {'x-oss-request-id': request_id}, 'InconsistentError: ' + message, {})
 
     def __str__(self):
         error = {'status': self.status,

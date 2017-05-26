@@ -18,6 +18,7 @@ class SizedFileAdapterForMock(object):
     def __init__(self, file_object, size, content_length=None):
         self.f = oss2.utils.SizedFileAdapter(file_object, size)
         self.content_length = content_length
+        self.request_id = 'fake-request-id'
 
     def read(self, amt=None):
         return self.f.read(amt)
@@ -551,7 +552,13 @@ class TestDownload(OssTestCase):
         with patch.object(oss2.Bucket, 'get_object',
                           side_effect=partial(mock_get_object, content_length=file_size),
                           autospec=True):
-            self.assertRaises(oss2.exceptions.RequestError, oss2.Bucket.get_object_to_file, self.bucket, key, filename)
+            try:
+                self.bucket.get_object_to_file(key, filename)
+            except oss2.exceptions.InconsistentError as e:
+                self.assertTrue(e.request_id)
+                self.assertEqual(e.body, 'InconsistentError: IncompleteRead from source')
+            except:
+                self.assertTrue(False)
 
     def test_get_object_to_file_incomplete_download_gzip(self):
         file_size = 1024 * 1024
@@ -577,8 +584,14 @@ class TestDownload(OssTestCase):
         with patch.object(oss2.Bucket, 'get_object',
                           side_effect=partial(mock_get_object, content_length=file_size),
                           autospec=True):
+            try:
+                oss2.resumable_download(self.bucket, key, filename)
+            except oss2.exceptions.InconsistentError as e:
+                self.assertTrue(e.request_id)
+                self.assertEqual(e.body, 'InconsistentError: IncompleteRead from source')
+            except:
+                self.assertTrue(False)
 
-            self.assertRaises(oss2.exceptions.RequestError, oss2.resumable_download, self.bucket, key, filename)
 
 if __name__ == '__main__':
     unittest.main()

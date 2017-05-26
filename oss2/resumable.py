@@ -285,7 +285,7 @@ class _ResumableDownloader(_ResumableOperation):
             headers = {'If-Match': self.objectInfo.etag,
                        'If-Unmodified-Since': utils.http_date(self.objectInfo.mtime)}
             result = self.bucket.get_object(self.key, byte_range=(part.start, part.end - 1), headers=headers)
-            utils.copyfileobj_and_verify(result, f, part.end - part.start)
+            utils.copyfileobj_and_verify(result, f, part.end - part.start, request_id=result.request_id)
 
         self.__finish_part(part)
 
