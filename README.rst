@@ -119,7 +119,7 @@ Run the test in the following method:
 
 More usage
 --------
-- `More examples can be found at: <https://github.com/aliyun/aliyun-oss-python-sdk/tree/master/examples>`_. 
+- `More examples can be found <https://github.com/aliyun/aliyun-oss-python-sdk/tree/master/examples>`_. 
 - `Python SDK API documentation <http://aliyun-oss-python-sdk.readthedocs.org/en/latest>`_. 
 - `Official Python SDK documentation <https://help.aliyun.com/document_detail/32026.html>`_.
 
