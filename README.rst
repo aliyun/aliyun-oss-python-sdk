@@ -14,14 +14,14 @@ Alibaba Cloud OSS SDK for Python
 Overview
 ----
 
-Alibaba Cloud Object Storage Python SDK 2.x. This version is not compatible with the previous version (Version 0.x). The package name is "oss2" to avoid conflict with previous versions. 
+Alibaba Cloud Object Storage Python SDK 2.x. This version is not compatible with the previous version (Version 0.x). The package name is `oss2` to avoid conflict with previous versions. 
 
 
-The SDK of this version is dependent on the third-party HTTP library 'requests <https://github.com/kennethreitz/requests>' and 'crcmod'. Install the SDK following the methods below. 
+The SDK of this version is dependent on the third-party HTTP library `requests <https://github.com/kennethreitz/requests>`_ and `crcmod`. Install the SDK following the methods below. 
 
 Note:
 
-    This version does not contain the 'osscmd' command line tool. 
+    This version does not contain the `osscmd` command line tool. 
 
 Run environment
 --------
@@ -30,7 +30,7 @@ Python 2.6，2.7，3.3，3.4，3.5
 
 .. note::
 
-    Do not use Python 3.3.0 or 3.3.1. Refer to 'Python Issue 16658 <https://bugs.python.org/issue16658>`_'.
+    Do not use Python 3.3.0 or 3.3.1. Refer to `Python Issue 16658 <https://bugs.python.org/issue16658>`_.
 
 Installation method
 --------
@@ -119,16 +119,16 @@ Run the test in the following method:
 
 More usage
 --------
-- 'More examples can be found at: <https://github.com/aliyun/aliyun-oss-python-sdk/tree/master/examples>`_. 
-- 'Python SDK API documentation <http://aliyun-oss-python-sdk.readthedocs.org/en/latest>'_. 
-- 'Official Python SDK documentation <https://help.aliyun.com/document_detail/32026.html>'_.
+- `More examples can be found at: <https://github.com/aliyun/aliyun-oss-python-sdk/tree/master/examples>`_. 
+- `Python SDK API documentation <http://aliyun-oss-python-sdk.readthedocs.org/en/latest>`_. 
+- `Official Python SDK documentation <https://help.aliyun.com/document_detail/32026.html>`_.
 
 Contact us
 --------
-- 'Alibaba Cloud OSS official website <http://oss.aliyun.com>`_.
-- 'Alibaba Cloud OSS official forum <http://bbs.aliyun.com>`_.
-- 'Alibaba Cloud OSS official documentation center <https://help.aliyun.com/document_detail/32026.html>`_.
-- Alibaba Cloud official technical support: 'Submit a ticket <https://workorder.console.aliyun.com/#/ticket/createIndex>`_.
+- `Alibaba Cloud OSS official website <http://oss.aliyun.com>`_.
+- `Alibaba Cloud OSS official forum <http://bbs.aliyun.com>`_.
+- `Alibaba Cloud OSS official documentation center <https://help.aliyun.com/document_detail/32026.html>`_.
+- Alibaba Cloud official technical support: `Submit a ticket <https://workorder.console.aliyun.com/#/ticket/createIndex>`_.
 
 Code license
 --------
