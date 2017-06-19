@@ -123,7 +123,6 @@ import time
 import shutil
 import oss2.utils
 
-
 class _Base(object):
     def __init__(self, auth, endpoint, is_cname, session, connect_timeout,
                  app_name='', enable_crc=True):
@@ -146,6 +145,13 @@ class _Base(object):
         resp = self.session.do_request(req, timeout=self.timeout)
         if resp.status // 100 != 2:
             raise exceptions.make_exception(resp)
+        
+        # Note that connections are only released back to the pool for reuse once all body data has been read; 
+        # be sure to either set stream to False or read the content property of the Response object.
+        # For more details, please refer to http://docs.python-requests.org/en/master/user/advanced/#keep-alive.
+        content_length = oss2.models._hget(resp.headers, 'content-length', int)
+        if content_length is not None and content_length == 0:
+            resp.read()
 
         return resp
 
