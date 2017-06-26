@@ -132,4 +132,4 @@ Contacting us
 
 License
 -------
-- MIT.
+- `MIT <https://github.com/aliyun/aliyun-oss-python-sdk/blob/master/LICENSE>`_.
