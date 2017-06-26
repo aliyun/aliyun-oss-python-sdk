@@ -48,8 +48,8 @@ You can also install the unzipped installer package directly:
     $ sudo python setup.py install
 
 
-Quick start
------------
+Getting started
+---------------
 
 .. code-block:: python
 
