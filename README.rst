@@ -1,5 +1,5 @@
 Alibaba Cloud OSS SDK for Python
-==========================
+================================
 
 .. image:: https://badge.fury.io/py/oss2.svg
     :target: https://badge.fury.io/py/oss2
@@ -10,9 +10,9 @@ Alibaba Cloud OSS SDK for Python
 
 `README of Chinese <https://github.com/aliyun/aliyun-oss-python-sdk/blob/master/README-CN.rst>`_    
 ------------------
-    
+
 Overview
-----
+--------
 
 Alibaba Cloud Object Storage Python SDK 2.x. This version is not compatible with the previous version (Version 0.x). The package name is `oss2` to avoid conflict with previous versions. 
 
@@ -23,17 +23,17 @@ Note:
 
     This version does not contain the `osscmd` command line tool. 
 
-Run environment
---------
+Running environment
+-------------------
 
 Python 2.6，2.7，3.3，3.4，3.5
 
-.. note::
+Note:
 
     Do not use Python 3.3.0 or 3.3.1. Refer to `Python Issue 16658 <https://bugs.python.org/issue16658>`_.
 
-Installation method
---------
+Installing
+----------
 
 Install the official release version through PIP (taking Linux as an example): 
 
@@ -48,8 +48,8 @@ You can also install the unzipped installer package directly:
     $ sudo python setup.py install
 
 
-Quick use
---------
+Getting started
+---------------
 
 .. code-block:: python
 
@@ -80,8 +80,8 @@ Quick use
 
 For more examples, refer to the code under the "examples" directory. 
 
-Handle errors
---------
+Handling errors
+---------------
 
 The Python SDK interface will throw an exception in case of an error (see oss2.exceptions sub-module) unless otherwise specified. An example is provided below:
 
@@ -93,8 +93,8 @@ The Python SDK interface will throw an exception in case of an error (see oss2.e
     except oss2.exceptions.NoSuchKey as e:
         print('{0} not found: http_status={1}, request_id={2}'.format(key, e.status, e.request_id))
 
-Test
-----
+Testing
+-------
 
 First set the required AccessKeyId, AccessKeySecret, endpoint and bucket information for the test through environment variables (**Do not use the bucket for the production environment**). 
 Take the Linux system for example: 
@@ -117,19 +117,19 @@ Run the test in the following method:
 
     $ nosetests                          # First install nose
 
-More usage
---------
-- `More examples can be found <https://github.com/aliyun/aliyun-oss-python-sdk/tree/master/examples>`_. 
+More resources
+--------------
+- `More examples <https://github.com/aliyun/aliyun-oss-python-sdk/tree/master/examples>`_. 
 - `Python SDK API documentation <http://aliyun-oss-python-sdk.readthedocs.org/en/latest>`_. 
 - `Official Python SDK documentation <https://help.aliyun.com/document_detail/32026.html>`_.
 
-Contact us
---------
+Contacting us
+-------------
 - `Alibaba Cloud OSS official website <http://oss.aliyun.com>`_.
 - `Alibaba Cloud OSS official forum <http://bbs.aliyun.com>`_.
 - `Alibaba Cloud OSS official documentation center <https://help.aliyun.com/document_detail/32026.html>`_.
 - Alibaba Cloud official technical support: `Submit a ticket <https://workorder.console.aliyun.com/#/ticket/createIndex>`_.
 
-Code license
---------
-For the MIT license, see LICENSE object. 
+License
+-------
+- `MIT <https://github.com/aliyun/aliyun-oss-python-sdk/blob/master/LICENSE>`_.
