@@ -20,17 +20,17 @@ class TestIterator(OssTestCase):
         object_list = []
         dir_list = []
 
-        # 准备文件
+        # Prepares the file
         for i in range(20):
             object_list.append(prefix + random_string(16))
             self.bucket.put_object(object_list[-1], random_bytes(10))
 
-        # 准备目录
+        # Prepares the folder
         for i in range(5):
             dir_list.append(prefix + random_string(5) + '/')
             self.bucket.put_object(dir_list[-1] + random_string(5), random_bytes(3))
 
-        # 验证
+        # Verification
         objects_got = []
         dirs_got = []
         for info in oss2.ObjectIterator(self.bucket, prefix, delimiter='/', max_keys=4):
@@ -60,16 +60,16 @@ class TestIterator(OssTestCase):
         upload_list = []
         dir_list = []
 
-        # 准备分片上传
+        # Prepares the upload parts
         for i in range(10):
             upload_list.append(self.bucket.init_multipart_upload(key).upload_id)
 
-        # 准备碎片目录
+        # prepares the folders
         for i in range(4):
             dir_list.append(prefix + random_string(5) + '/')
             self.bucket.init_multipart_upload(dir_list[-1] + random_string(5))
 
-        # 验证
+        # Verification
         uploads_got = []
         dirs_got = []
         for u in oss2.MultipartUploadIterator(self.bucket, prefix=prefix, delimiter='/', max_uploads=2):
@@ -97,27 +97,27 @@ class TestIterator(OssTestCase):
         self.assertEqual(sorted(upload_list), sorted(uploads_got))
 
     def test_object_upload_iterator(self):
-        # target_object是想要列举的文件，而intact_object则不是。
-        # 这里intact_object故意以target_object为前缀
+        # target_object is the file to list while intact is not.
+        # intact_object is prefixed by target_object on purposely.
         target_object = self.random_key()
         intact_object = self.random_key()
 
         target_list = []
         intact_list = []
 
-        # 准备分片
+        # prepares the multipart uploads
         for i in range(10):
             target_list.append(self.bucket.init_multipart_upload(target_object).upload_id)
             intact_list.append(self.bucket.init_multipart_upload(intact_object).upload_id)
 
-        # 验证：max_uploads能被分片数整除
+        # Verify：max_uploads could be divided by part count
         uploads_got = []
         for u in oss2.ObjectUploadIterator(self.bucket, target_object, max_uploads=5):
             uploads_got.append(u.upload_id)
 
         self.assertEqual(sorted(target_list), uploads_got)
 
-        # 验证：max_uploads不能被分片数整除
+        # Verify：max_uploads could not be divided by part count
         uploads_got = []
         for u in oss2.ObjectUploadIterator(self.bucket, target_object, max_uploads=3):
             uploads_got.append(u.upload_id)
@@ -125,7 +125,7 @@ class TestIterator(OssTestCase):
         self.assertEqual(sorted(target_list), uploads_got)
 
 
-        # 清理
+        # Clean up
         for upload_id in target_list:
             self.bucket.abort_multipart_upload(target_object, upload_id)
 
@@ -136,7 +136,7 @@ class TestIterator(OssTestCase):
         for key in [random_string(16), '中文+_)(*&^%$#@!前缀', u'中文+_)(*&^%$#@!前缀']:
             upload_id = self.bucket.init_multipart_upload(key).upload_id
 
-            # 准备分片
+            # prepares the multipart uploads
             part_list = []
             for part_number in [1, 3, 6, 7, 9, 10]:
                 content = random_string(128 * 1024)
@@ -145,7 +145,7 @@ class TestIterator(OssTestCase):
 
                 self.bucket.upload_part(key, upload_id, part_number, content)
 
-            # 验证
+            # Verification
             parts_got = []
             for part_info in oss2.PartIterator(self.bucket, key, upload_id):
                 parts_got.append(part_info)
@@ -165,12 +165,12 @@ class TestIterator(OssTestCase):
 
         channel_target = oss2.models.LiveChannelInfoTarget(playlist_name = 'test.m3u8')
         channel_info = oss2.models.LiveChannelInfo(target = channel_target)
-        # 准备频道
+        # Prepares the live channel
         for i in range(20):
             channel_name_list.append(prefix + random_string(16))
             self.bucket.create_live_channel(channel_name_list[-1], channel_info)
 
-        # 验证
+        # Verify
         live_channel_got = []
         for info in oss2.LiveChannelIterator(self.bucket, prefix, max_keys=4):
             live_channel_got.append(info.name)

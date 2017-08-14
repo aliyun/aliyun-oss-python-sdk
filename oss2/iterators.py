@@ -4,7 +4,7 @@
 oss2.iterators
 ~~~~~~~~~~~~~~
 
-该模块包含了一些易于使用的迭代器，可以用来遍历Bucket、文件、分片上传等。
+This module contains some easy to use iterators for enumerating bucket, file, parts, etc.
 """
 
 from .models import MultipartUploadInfo, SimplifiedObjectInfo
@@ -57,14 +57,14 @@ class _BaseIterator(object):
 
 
 class BucketIterator(_BaseIterator):
-    """遍历用户Bucket的迭代器。
+    """Iterator for bucket
 
-    每次迭代返回的是 :class:`SimplifiedBucketInfo <oss2.models.SimplifiedBucketInfo>` 对象。
+    It returns a :class:`SimplifiedBucketInfo <oss2.models.SimplifiedBucketInfo>` instance in each iteration (via next()).
 
-    :param service: :class:`Service <oss2.Service>` 对象
-    :param prefix: 只列举匹配该前缀的Bucket
-    :param marker: 分页符。只列举Bucket名字典序在此之后的Bucket
-    :param max_keys: 每次调用 `list_buckets` 时的max_keys参数。注意迭代器返回的数目可能会大于该值。
+    :param service: :class:`Service <oss2.Service>` instance
+    :param prefix: Bucket name prefix---only buckets with the prefix are listed.
+    :param marker: Paging marker. Only lists bucket whose name is after the marker in the lexicographic order.
+    :param max_keys: The max keys to return for list_buckets. Note that it does **not** mean the max keys for the iterator to return is no more than it. The iterator could return more items than max_keys.
     """
     def __init__(self, service, prefix='', marker='', max_keys=100, max_retries=None):
         super(BucketIterator, self).__init__(marker, max_retries)
@@ -82,16 +82,16 @@ class BucketIterator(_BaseIterator):
 
 
 class ObjectIterator(_BaseIterator):
-    """遍历Bucket里文件的迭代器。
+    """Iterator for files in bucket.
 
-    每次迭代返回的是 :class:`SimplifiedObjectInfo <oss2.models.SimplifiedObjectInfo>` 对象。
-    当 `SimplifiedObjectInfo.is_prefix()` 返回True时，表明是公共前缀（目录）。
+    It returns a :class:`SimplifiedObjectInfo <oss2.models.SimplifiedObjectInfo>` instance for each iteration (via next()).
+    When `SimplifiedObjectInfo.is_prefix()` is True, it means the objet is common prefix (directory, not a file); Otherwise it's a file.
 
-    :param bucket: :class:`Bucket <oss2.Bucket>` 对象
-    :param prefix: 只列举匹配该前缀的文件
-    :param delimiter: 目录分隔符
-    :param marker: 分页符
-    :param max_keys: 每次调用 `list_objects` 时的max_keys参数。注意迭代器返回的数目可能会大于该值。
+    :param bucket: :class:`Bucket <oss2.Bucket>` instance
+    :param prefix: The file name prefix
+    :param delimiter: delimiter for the directory
+    :param marker: Paging marker
+    :param max_keys: The max keys to return for each `list_objects` call. However the total entries iterator returns could be more than that.
     """
     def __init__(self, bucket, prefix='', delimiter='', marker='', max_keys=100, max_retries=None):
         super(ObjectIterator, self).__init__(marker, max_retries)
@@ -114,17 +114,17 @@ class ObjectIterator(_BaseIterator):
 
 
 class MultipartUploadIterator(_BaseIterator):
-    """遍历Bucket里未完成的分片上传。
+    """Iterator of ongoing parts in multiparts upload.
 
-    每次返回 :class:`MultipartUploadInfo <oss2.models.MultipartUploadInfo>` 对象。
-    当 `MultipartUploadInfo.is_prefix()` 返回True时，表明是公共前缀（目录）。
+    It returns a :class:`MultipartUploadInfo <oss2.models.MultipartUploadInfo>` instance for each iteration.
+    When `MultipartUploadInfo.is_prefix()` returns true, it means it's a folder. Otherwise it's a file.
 
-    :param bucket: :class:`Bucket <oss2.Bucket>` 对象
-    :param prefix: 仅列举匹配该前缀的文件的分片上传
-    :param delimiter: 目录分隔符
-    :param key_marker: 文件名分页符
-    :param upload_id_marker: 分片上传ID分页符
-    :param max_uploads: 每次调用 `list_multipart_uploads` 时的max_uploads参数。注意迭代器返回的数目可能会大于该值。
+    :param bucket: :class:`Bucket <oss2.Bucket>` instance
+    :param prefix: file key prefix---only parts of those files will be listed.
+    :param delimiter: directory delimeter.
+    :param key_marker: Paging marker.
+    :param upload_id_marker: Paging upload Id marker.
+    :param max_uploads: Max entries for each  `list_multipart_uploads` call. Note that the total count the iterator returns could be more than that.
     """
     def __init__(self, bucket,
                  prefix='', delimiter='', key_marker='', upload_id_marker='',
@@ -151,14 +151,14 @@ class MultipartUploadIterator(_BaseIterator):
 
 
 class ObjectUploadIterator(_BaseIterator):
-    """遍历一个Object所有未完成的分片上传。
+    """Iterator of ongoing multiparts upload.
 
-    每次返回 :class:`MultipartUploadInfo <oss2.models.MultipartUploadInfo>` 对象。
-    当 `MultipartUploadInfo.is_prefix()` 返回True时，表明是公共前缀（目录）。
+    It returns a :class:`MultipartUploadInfo <oss2.models.MultipartUploadInfo>` instance for each iteration.
+    When `MultipartUploadInfo.is_prefix()` is true, it means the common prefix (folder).
 
-    :param bucket: :class:`Bucket <oss2.Bucket>` 对象
-    :param key: 文件名
-    :param max_uploads: 每次调用 `list_multipart_uploads` 时的max_uploads参数。注意迭代器返回的数目可能会大于该值。
+    :param bucket: :class:`Bucket <oss2.Bucket>` instance
+    :param key: object key.
+    :param max_uploads: Max entries for each `list_multipart_uploads` call. Note the total count the iterator returns could be more than that.
     """
     def __init__(self, bucket, key, max_uploads=1000, max_retries=None):
         super(ObjectUploadIterator, self).__init__('', max_retries)
@@ -186,15 +186,15 @@ class ObjectUploadIterator(_BaseIterator):
 
 
 class PartIterator(_BaseIterator):
-    """遍历一个分片上传会话中已经上传的分片。
+    """Iterator of uploaded parts of a specific multipart upload.
 
-    每次返回 :class:`PartInfo <oss2.models.PartInfo>` 对象。
+    It returns a :class:`PartInfo <oss2.models.PartInfo>` instance for each iteration.
 
-    :param bucket: :class:`Bucket <oss2.Bucket>` 对象
-    :param key: 文件名
-    :param upload_id: 分片上传ID
-    :param marker: 分页符
-    :param max_parts: 每次调用 `list_parts` 时的max_parts参数。注意迭代器返回的数目可能会大于该值。
+    :param bucket: :class:`Bucket <oss2.Bucket>` instance.
+    :param key: object key.
+    :param upload_id: Upload Id.
+    :param marker: Paging marker
+    :param max_parts: The max parts for each `list_parts` call. Note that the total count the iterator returns could be more than that.
     """
     def __init__(self, bucket, key, upload_id,
                  marker='0', max_parts=1000, max_retries=None):
@@ -215,14 +215,14 @@ class PartIterator(_BaseIterator):
 
 
 class LiveChannelIterator(_BaseIterator):
-    """遍历Bucket里文件的迭代器。
+    """Iterator of Live Channel in a bucket.
 
-    每次迭代返回的是 :class:`LiveChannelInfo <oss2.models.LiveChannelInfo>` 对象。
+    It returns a :class:`LiveChannelInfo <oss2.models.LiveChannelInfo>` instance for each iteration.
 
-    :param bucket: :class:`Bucket <oss2.Bucket>` 对象
-    :param prefix: 只列举匹配该前缀的文件
-    :param marker: 分页符
-    :param max_keys: 每次调用 `list_live_channel` 时的max_keys参数。注意迭代器返回的数目可能会大于该值。
+    :param bucket: :class:`Bucket <oss2.Bucket>` instance.
+    :param prefix: Live Channel prefix
+    :param marker: Paging marker.
+    :param max_keys: Max entries for each `list_live_channel` call. Note that the total count the iterator returns could be more than that.
     """
     def __init__(self, bucket, prefix='', marker='', max_keys=100, max_retries=None):
         super(LiveChannelIterator, self).__init__(marker, max_retries)

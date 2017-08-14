@@ -4,7 +4,7 @@
 oss2.defaults
 ~~~~~~~~~~~~~
 
-全局缺省变量。
+Global Default variables.
 
 """
 
@@ -18,36 +18,36 @@ def get(value, default_value):
         return value
 
 
-#: 连接超时时间
+#: connection timeout
 connect_timeout = 60
 
-#: 缺省重试次数
+#: retry count
 request_retries = 3
 
-#: 对于某些接口，上传数据长度大于或等于该值时，就采用分片上传。
+#: The threshold of file size for using multipart upload in some APIs.
 multipart_threshold = 10 * 1024 * 1024
 
-#: 分片上传缺省线程数
+#: Default thread count for multipart upload.
 multipart_num_threads = 1
 
-#: 缺省分片大小
+#: Default part size.
 part_size = 10 * 1024 * 1024
 
 
-#: 每个Session连接池大小
+#: Connection pool size for each session.
 connection_pool_size = 10
 
 
-#: 对于断点下载，如果OSS文件大小大于该值就进行并行下载（multiget）
+#: The threshold of file size for using multipart download (multiget) in some APIs.
 multiget_threshold = 100 * 1024 * 1024
 
-#: 并行下载（multiget）缺省线程数
+#: Default thread count for multipart download (multiget)
 multiget_num_threads = 4
 
-#: 并行下载（multiget）的缺省分片大小
+#: Default part size in multipart download (multiget)
 multiget_part_size = 10 * 1024 * 1024
 
-#: 缺省 Logger
+#: Default Logger
 logger = logging.getLogger()
 
 

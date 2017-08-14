@@ -4,7 +4,7 @@
 oss2.models
 ~~~~~~~~~~
 
-该模块包含Python SDK API接口所需要的输入参数以及返回值类型。
+The module contains all classes' definition for parameters and return values in the Python SDK API.
 """
 
 from .utils import http_to_unixtime, make_progress_adapter, make_crc_adapter
@@ -12,15 +12,15 @@ from .exceptions import ClientError
 from .compat import urlunquote
 
 class PartInfo(object):
-    """表示分片信息的文件。
+    """Part information.
 
-    该文件既用于 :func:`list_parts <oss2.Bucket.list_parts>` 的输出，也用于 :func:`complete_multipart_upload
-    <oss2.Bucket.complete_multipart_upload>` 的输入。
+    This class is the output object of :func:`list_parts <oss2.Bucket.list_parts>`， and the input parameters for :func:`complete_multipart_upload
+    <oss2.Bucket.complete_multipart_upload>`.
 
-    :param int part_number: 分片号
-    :param str etag: 分片的ETag
-    :param int size: 分片的大小。仅用在 `list_parts` 的结果里。
-    :param int last_modified: 该分片最后修改的时间戳，类型为int。参考 :ref:`unix_time`
+    :param int part_number: part number (starting from 1)
+    :param str etag: ETag
+    :param int size: Part size in bytes.It's only used in  `list_parts` result.
+    :param int last_modified: The last modified of that part in unix time, type is int. Check out :ref:`unix_time` for more information.
     """
     def __init__(self, part_number, etag, size=None, last_modified=None):
         self.part_number = part_number
@@ -42,16 +42,16 @@ def _get_etag(headers):
 
 class RequestResult(object):
     def __init__(self, resp):
-        #: HTTP响应
+        #: HTTP response
         self.resp = resp
 
-        #: HTTP状态码
+        #: HTTP status code (such as 200,404, etc)
         self.status = resp.status
 
-        #: HTTP头
+        #: HTTP headers
         self.headers = resp.headers
 
-        #: 请求ID，用于跟踪一个OSS请求。提交工单时，最后能够提供请求ID
+        #: Request ID which is used for tracking OSS request.It's very useful when submitting a customer ticket.
         self.request_id = resp.headers.get('x-oss-request-id', '')
 
 
@@ -59,17 +59,17 @@ class HeadObjectResult(RequestResult):
     def __init__(self, resp):
         super(HeadObjectResult, self).__init__(resp)
 
-        #: 文件类型，可以是'Normal'、'Multipart'、'Appendable'等
+        #: File type, three types are supported: 'Normal'、'Multipart'、'Appendable'.
         self.object_type = _hget(self.headers, 'x-oss-object-type')
 
-        #: 文件最后修改时间，类型为int。参考 :ref:`unix_time` 。
+        #: File's last modified time in unix time, type is int.
 
         self.last_modified = _hget(self.headers, 'last-modified', http_to_unixtime)
 
-        #: 文件的MIME类型
+        #: File's MIME type.
         self.content_type = _hget(self.headers, 'content-type')
 
-        #: Content-Length，可能是None。
+        #: Content-Length，it could be None。
         self.content_length = _hget(self.headers, 'content-length', int)
 
         #: HTTP ETag
@@ -80,10 +80,10 @@ class GetObjectMetaResult(RequestResult):
     def __init__(self, resp):
         super(GetObjectMetaResult, self).__init__(resp)
 
-        #: 文件最后修改时间，类型为int。参考 :ref:`unix_time` 。
+        #: Last modified time of a file, in unix time. Check out :ref:`unix_time` for more information.
         self.last_modified = _hget(self.headers, 'last-modified', http_to_unixtime)
 
-        #: Content-Length，文件大小，类型为int。
+        #: Content-Length，file size in bytes. Type is int.
         self.content_length = _hget(self.headers, 'content-length', int)
 
         #: HTTP ETag
@@ -94,7 +94,7 @@ class GetSymlinkResult(RequestResult):
     def __init__(self, resp):
         super(GetSymlinkResult, self).__init__(resp)
 
-        #: 符号连接的目标文件
+        #: The target file of the symlink file.
         self.target_key = urlunquote(_hget(self.headers, 'x-oss-symlink-target'))
         
         
@@ -137,7 +137,7 @@ class PutObjectResult(RequestResult):
         #: HTTP ETag
         self.etag = _get_etag(self.headers)
         
-        #: 文件上传后，OSS上文件的CRC64值
+        #: CRC value of the file uploaded.
         self.crc = _hget(resp.headers, 'x-oss-hash-crc64ecma', int)
 
 
@@ -148,10 +148,10 @@ class AppendObjectResult(RequestResult):
         #: HTTP ETag
         self.etag = _get_etag(self.headers)
 
-        #: 本次追加写完成后，OSS上文件的CRC64值
+        #: The updated CRC64 value after the append operation.
         self.crc = _hget(resp.headers, 'x-oss-hash-crc64ecma', int)
 
-        #: 下次追加写的偏移
+        #: The next position for append operation.
         self.next_position = _hget(resp.headers, 'x-oss-next-append-position', int)
 
 
@@ -159,7 +159,7 @@ class BatchDeleteObjectsResult(RequestResult):
     def __init__(self, resp):
         super(BatchDeleteObjectsResult, self).__init__(resp)
 
-        #: 已经删除的文件名列表
+        #: The deleted file name list
         self.deleted_keys = []
 
 
@@ -167,7 +167,7 @@ class InitMultipartUploadResult(RequestResult):
     def __init__(self, resp):
         super(InitMultipartUploadResult, self).__init__(resp)
 
-        #: 新生成的Upload ID
+        #: initial Upload ID
         self.upload_id = None
 
 
@@ -175,41 +175,41 @@ class ListObjectsResult(RequestResult):
     def __init__(self, resp):
         super(ListObjectsResult, self).__init__(resp)
 
-        #: True表示还有更多的文件可以罗列；False表示已经列举完毕。
+        #: True means there's more files to list; False means all files are listed.
         self.is_truncated = False
 
-        #: 下一次罗列的分页标记符，即，可以作为 :func:`list_objects <oss2.Bucket.list_objects>` 的 `marker` 参数。
+        #: Paging marker for next call. It should be the value of parameter marker in next :func:`list_objects <oss2.Bucket.list_objects>` call.
         self.next_marker = ''
 
-        #: 本次罗列得到的文件列表。其中元素的类型为 :class:`SimplifiedObjectInfo` 。
+        #: The object list. The object type is :class:`SimplifiedObjectInfo`.
         self.object_list = []
 
-        #: 本次罗列得到的公共前缀列表，类型为str列表。
+        #: The prefix list
         self.prefix_list = []
 
 
 class SimplifiedObjectInfo(object):
     def __init__(self, key, last_modified, etag, type, size, storage_class):
-        #: 文件名，或公共前缀名。
+        #: The file name or common prefix name (folder name).
         self.key = key
 
-        #: 文件的最后修改时间
+        #: Last modified time.
         self.last_modified = last_modified
 
         #: HTTP ETag
         self.etag = etag
 
-        #: 文件类型
+        #: File type
         self.type = type
 
-        #: 文件大小
+        #: File size
         self.size = size
 
-        #: 文件的存储类别，是一个字符串。
+        #: Storage class (Standard, IA and Archive)
         self.storage_class = storage_class
 
     def is_prefix(self):
-        """如果是公共前缀，返回True；是文件，则返回False"""
+        """If it's common prefix (folder), returns true; Otherwise returns False."""
         return self.last_modified is None
 
 
@@ -223,7 +223,7 @@ class GetObjectAclResult(RequestResult):
     def __init__(self, resp):
         super(GetObjectAclResult, self).__init__(resp)
 
-        #: 文件的ACL，其值可以是 `OBJECT_ACL_DEFAULT`、`OBJECT_ACL_PRIVATE`、`OBJECT_ACL_PUBLIC_READ`或
+        #: File ACL, The value could be `OBJECT_ACL_DEFAULT`、`OBJECT_ACL_PRIVATE`、`OBJECT_ACL_PUBLIC_READ` or 
         #: `OBJECT_ACL_PUBLIC_READ_WRITE`
         self.acl = ''
 
@@ -231,13 +231,13 @@ class GetObjectAclResult(RequestResult):
 class SimplifiedBucketInfo(object):
     """:func:`list_buckets <oss2.Service.list_objects>` 结果中的单个元素类型。"""
     def __init__(self, name, location, creation_date):
-        #: Bucket名
+        #: Bucket name
         self.name = name
 
-        #: Bucket的区域
+        #: Bucket location
         self.location = location
 
-        #: Bucket的创建时间，类型为int。参考 :ref:`unix_time`。
+        #: Bucket created time in unix time. Check out :ref:`unix_time` for more information.
         self.creation_date = creation_date
 
 
@@ -245,29 +245,29 @@ class ListBucketsResult(RequestResult):
     def __init__(self, resp):
         super(ListBucketsResult, self).__init__(resp)
 
-        #: True表示还有更多的Bucket可以罗列；False表示已经列举完毕。
+        #: True means more buckets to list; False means all buckets have been listed.
         self.is_truncated = False
 
-        #: 下一次罗列的分页标记符，即，可以作为 :func:`list_buckets <oss2.Service.list_buckets>` 的 `marker` 参数。
+        #: The next paging marker--that is it could be the value of parameter `marker` in :func:`list_buckets <oss2.Service.list_buckets>`.
         self.next_marker = ''
 
-        #: 得到的Bucket列表，类型为 :class:`SimplifiedBucketInfo` 。
+        #: Gets the bucket list. The type is :class:`SimplifiedBucketInfo`.
         self.buckets = []
 
 
 class MultipartUploadInfo(object):
     def __init__(self, key, upload_id, initiation_date):
-        #: 文件名
+        #: File name
         self.key = key
 
-        #: 分片上传ID
+        #: upload Id
         self.upload_id = upload_id
 
-        #: 分片上传初始化的时间，类型为int。参考 :ref:`unix_time`
+        #: The initialization time of a multipart upload in unix time. Please check out :ref:`unix_time`.
         self.initiation_date = initiation_date
 
     def is_prefix(self):
-        """如果是公共前缀则返回True"""
+        """If it's common prefix then return true;Otherwise return false"""
         return self.upload_id is None
 
 
@@ -275,19 +275,19 @@ class ListMultipartUploadsResult(RequestResult):
     def __init__(self, resp):
         super(ListMultipartUploadsResult, self).__init__(resp)
 
-        #: True表示还有更多的为完成分片上传可以罗列；False表示已经列举完毕。
+        #: True means more unfinished multiparts uploads to list;False means no more multiparts uploads.
         self.is_truncated = False
 
-        #: 文件名分页符
+        #: The paging key marker.
         self.next_key_marker = ''
 
-        #: 分片上传ID分页符
+        #: The paging upload Id marker
         self.next_upload_id_marker = ''
 
-        #: 分片上传列表。类型为`MultipartUploadInfo`列表。
+        #: list of the multiparts upload. The type is `MultipartUploadInfo`.
         self.upload_list = []
 
-        #: 公共前缀列表。类型为str列表。
+        #: The common prefix. The type is str.
         self.prefix_list = []
 
 
@@ -295,13 +295,13 @@ class ListPartsResult(RequestResult):
     def __init__(self, resp):
         super(ListPartsResult, self).__init__(resp)
 
-        # True表示还有更多的Part可以罗列；False表示已经列举完毕。
+        # True means more parts to list. False means no more parts to list.
         self.is_truncated = False
 
-        # 下一个分页符
+        # Next paging marker
         self.next_marker = ''
 
-        # 罗列出的Part信息，类型为 `PartInfo` 列表。
+        # parts list. The type is `PartInfo`.
         self.parts = []
 
 
@@ -314,7 +314,7 @@ class GetBucketAclResult(RequestResult):
     def __init__(self, resp):
         super(GetBucketAclResult, self).__init__(resp)
 
-        #: Bucket的ACL，其值可以是 `BUCKET_ACL_PRIVATE`、`BUCKET_ACL_PUBLIC_READ`或`BUCKET_ACL_PUBLIC_READ_WRITE`。
+        #: Bucket ACL, the value could be `BUCKET_ACL_PRIVATE`、`BUCKET_ACL_PUBLIC_READ`或`BUCKET_ACL_PUBLIC_READ_WRITE`。
         self.acl = ''
 
 
@@ -322,15 +322,15 @@ class GetBucketLocationResult(RequestResult):
     def __init__(self, resp):
         super(GetBucketLocationResult, self).__init__(resp)
 
-        #: Bucket所在的数据中心
+        #: Bucket's datacenter location
         self.location = ''
 
 
 class BucketLogging(object):
-    """Bucket日志配置信息。
+    """Bucket logging configuration.
 
-    :param str target_bucket: 存储日志到这个Bucket。
-    :param str target_prefix: 生成的日志文件名加上该前缀。
+    :param str target_bucket: logging files' bucket。
+    :param str target_prefix: The prefix of the logging files.
     """
     def __init__(self, target_bucket, target_prefix):
         self.target_bucket = target_bucket
@@ -344,10 +344,10 @@ class GetBucketLoggingResult(RequestResult, BucketLogging):
 
 
 class BucketReferer(object):
-    """Bucket防盗链设置。
+    """Bucket referer settings
 
-    :param bool allow_empty_referer: 是否允许空的Referer。
-    :param referers: Referer列表，每个元素是一个str。
+    :param bool allow_empty_referer: Flag of allowing empty Referer。
+    :param referers: Referer list. The type of element is str.
     """
     def __init__(self, allow_empty_referer, referers):
         self.allow_empty_referer = allow_empty_referer
@@ -361,10 +361,10 @@ class GetBucketRefererResult(RequestResult, BucketReferer):
 
 
 class BucketWebsite(object):
-    """静态网站托管配置。
+    """Static website configuraiton.
 
-    :param str index_file: 索引页面文件
-    :param str error_file: 404页面文件
+    :param str index_file: The home page file.
+    :param str error_file: 404 not found file.
     """
     def __init__(self, index_file, error_file):
         self.index_file = index_file
@@ -378,11 +378,11 @@ class GetBucketWebsiteResult(RequestResult, BucketWebsite):
 
 
 class LifecycleExpiration(object):
-    """过期删除操作。
+    """Life cycle expiration。
 
-    :param days: 表示在文件修改后过了这么多天，就会匹配规则，从而被删除
-    :param date: 表示在该日期之后，规则就一直生效。即每天都会对符合前缀的文件执行删除操作（如，删除），而不管文件是什么时候生成的。
-        *不建议使用*
+    :param days: The days after last modified to trigger the expiration rule (such as delete files).
+    :param date: The date threshold to trigger the expiration rule---after this date the expiration rule will be always valid (not recommended).
+        
     :type date: `datetime.date`
     """
     def __init__(self, days=None, date=None):
@@ -394,13 +394,13 @@ class LifecycleExpiration(object):
 
 
 class LifecycleRule(object):
-    """生命周期规则。
+    """Life cycle rule
 
-    :param id: 规则名
-    :param prefix: 只有文件名匹配该前缀的文件才适用本规则
-    :param expiration: 过期删除操作。
+    :param id: Rule name
+    :param prefix: File prefix to match the rule
+    :param expiration: Expiration time
     :type expiration: :class:`LifecycleExpiration`
-    :param status: 启用还是禁止该规则。可选值为 `LifecycleRule.ENABLED` 或 `LifecycleRule.DISABLED`
+    :param status: Enable or disable the rule. The value is either `LifecycleRule.ENABLED` or `LifecycleRule.DISABLED`
     """
 
     ENABLED = 'Enabled'
@@ -415,9 +415,9 @@ class LifecycleRule(object):
 
 
 class BucketLifecycle(object):
-    """Bucket的生命周期配置。
+    """Bucket's life cycle configuration。
 
-    :param rules: 规则列表，
+    :param rules: Life cycle rule list，
     :type rules: list of :class:`LifecycleRule`
     """
     def __init__(self, rules=None):
@@ -431,15 +431,15 @@ class GetBucketLifecycleResult(RequestResult, BucketLifecycle):
 
 
 class CorsRule(object):
-    """CORS（跨域资源共享）规则。
+    """CORS (cross origin resource sharing) rules
 
-    :param allowed_origins: 允许跨域访问的域。
+    :param allowed_origins: Allow origins to access the bucket
     :type allowed_origins: list of str
 
-    :param allowed_methods: 允许跨域访问的HTTP方法，如'GET'等。
+    :param allowed_methods: Allowed HTTP methods for CORS.
     :type allowed_methods: list of str
 
-    :param allowed_headers: 允许跨域访问的HTTP头部。
+    :param allowed_headers: Allowed HTTP headers for CORS.
     :type allowed_headers: list of str
 
 
@@ -469,15 +469,15 @@ class GetBucketCorsResult(RequestResult, BucketCors):
 
 
 class LiveChannelInfoTarget(object):
-    """Live channel中的Target节点，包含目标协议的一些参数。
+    """Target information in the Live channel，which includes the parameters of the target protocol.
 
-    :param type: 协议，目前仅支持HLS。
+    :param type: prtocol, only HLS is supported for now.
     :type type: str
 
-    :param frag_duration: HLS协议下生成的ts文件的期望时长，单位为秒。
+    :param frag_duration: The expected time length in seconds of HLS protocol's TS files.
     :type frag_duration: int
 
-    :param frag_count: HLS协议下m3u8文件里ts文件的数量。
+    :param frag_count: TS file count in the m3u8 file of HLS protocol.
     :type frag_count: int"""
 
     def __init__(self,
@@ -492,27 +492,27 @@ class LiveChannelInfoTarget(object):
 
 
 class LiveChannelInfo(object):
-    """Live channel（直播频道）配置。
+    """Live channel configuration
 
-    :param status: 直播频道的状态，合法的值为"enabled"和"disabled"。
+    :param status: status: the value is either "enabled" or "disabled".
     :type status: str
 
-    :param description: 直播频道的描述信息，最长为128字节。
+    :param description: The live channel's description, the max length is 128 bytes.
     :type description: str
 
-    :param target: 直播频道的推流目标节点，包含目标协议相关的参数。
+    :param target: The target informtion of a pushing streaming, including the parameters about the target protocol.
     :type class:`LiveChannelInfoTarget <oss2.models.LiveChannelInfoTarget>`
 
-    :param last_modified: 直播频道的最后修改时间，这个字段仅在`ListLiveChannel`时使用。
-    :type last_modified: int, 参考 :ref:`unix_time`。
+    :param last_modified: The last modified time of the live channel. It's only used in `ListLiveChannel`.
+    :type last_modified: Last modified time in unix time (int type), Check out :ref:`unix_time`.
     
-    :param name: 直播频道的名称。
+    :param name: The live channel name.
     :type name: str
         
-    :param play_url: 播放地址。
+    :param play_url: play url.
     :type play_url: str
         
-    :param publish_url: 推流地址。
+    :param publish_url: publish url
     :type publish_url: str"""
     
     def __init__(self,
@@ -533,25 +533,25 @@ class LiveChannelInfo(object):
 
 
 class LiveChannelList(object):
-    """List直播频道的结果。
+    """The result of live channel list operation.
 
-    :param prefix: List直播频道使用的前缀。
+    :param prefix: The live channel to list
     :type prefix: str
 
-    :param marker: List直播频道使用的marker。
+    :param marker: The paging marker in the live channel list operation.
     :type marker: str
 
-    :param max_keys: List时返回的最多的直播频道的条数。
+    :param max_keys: Max entries to return.
     :type max_keys: int
 
-    :param is_truncated: 本次List是否列举完所有的直播频道
+    :param is_truncated: Is there more live channels to list.
     :type is_truncated: bool
 
-    :param next_marker: 下一次List直播频道使用的marker。
+    :param next_marker: The next paging marker
     :type marker: str
 
-    :param channels: List返回的直播频道列表
-    :type channels: list，类型为 :class:`LiveChannelInfo`"""
+    :param channels: the live channel list returned.
+    :type channels: list，the type is :class:`LiveChannelInfo`"""
 
     def __init__(self,
             prefix = '',
@@ -568,21 +568,21 @@ class LiveChannelList(object):
 
 
 class LiveChannelVideoStat(object):
-    """LiveStat中的Video节点。
+    """The video node in LiveStat
 
-    :param width: 视频的宽度。
+    :param width: video width
     :type width: int
 
-    :param height: 视频的高度。
+    :param height: video height
     :type height: int
 
-    :param frame_rate: 帧率。
+    :param frame_rate: frame rate
     :type frame_rate: int
 
-    :param codec: 编码方式。
+    :param codec: codec
     :type codec: str
 
-    :param bandwidth: 码率。
+    :param bandwidth: bandwith of the video
     :type bandwidth: int"""
 
     def __init__(self,
@@ -599,15 +599,15 @@ class LiveChannelVideoStat(object):
 
 
 class LiveChannelAudioStat(object):
-    """LiveStat中的Audio节点。
+    """Audio node in LiveStat
 
-    :param codec: 编码方式。
+    :param codec: Audio codec.
     :type codec: str
 
-    :param sample_rate: 采样率。
+    :param sample_rate: Sample rate
     :type sample_rate: int
 
-    :param bandwidth: 码率。
+    :param bandwidth: bandwidth
     :type bandwidth: int"""
 
     def __init__(self,
@@ -620,21 +620,21 @@ class LiveChannelAudioStat(object):
 
 
 class LiveChannelStat(object):
-    """LiveStat结果。
+    """LiveStat result.
 
-    :param status: 直播状态。
+    :param status: live channel status
     :type codec: str
 
-    :param remote_addr: 客户端的地址。
+    :param remote_addr: remote address
     :type remote_addr: str
 
-    :param connected_time: 本次推流开始时间。
+    :param connected_time: The connected time for the pusing streaming.
     :type connected_time: int, unix time
 
-    :param video: 视频描述信息。
+    :param video: Video description information
     :type video: class:`LiveChannelVideoStat <oss2.models.LiveChannelVideoStat>`
 
-    :param audio: 音频描述信息。
+    :param audio: Audio description information
     :type audio: class:`LiveChannelAudioStat <oss2.models.LiveChannelAudioStat>`"""
 
     def __init__(self,
@@ -651,15 +651,15 @@ class LiveChannelStat(object):
 
 
 class LiveRecord(object):
-    """直播频道中的推流记录信息
+    """Pushing streaming record
 
-    :param start_time: 本次推流开始时间。
-    :type start_time: int，参考 :ref:`unix_time`。
+    :param start_time: The start time of the push streaming.
+    :type start_time: int, check out :ref:`unix_time`.
 
-    :param end_time: 本次推流结束时间。
-    :type end_time: int， 参考 :ref:`unix_time`。
+    :param end_time: The end time of the push streaming.
+    :type end_time: int, check out :ref:`unix_time` for more information.
 
-    :param remote_addr: 推流时客户端的地址。
+    :param remote_addr: The remote address of the pushing streaming.
     :type remote_addr: str"""
 
     def __init__(self,
@@ -672,7 +672,7 @@ class LiveRecord(object):
 
 
 class LiveChannelHistory(object):
-    """直播频道下的推流记录。"""
+    """Pushing streaming record of the live channel"""
 
     def __init__(self):
         self.records = []

@@ -1,11 +1,11 @@
 .. _api:
 
-API文档
+API document
 ==========
 
 .. module:: oss2
 
-基础类
+Base classes
 ------
 
 .. autoclass:: oss2.Auth
@@ -15,38 +15,38 @@ API文档
 .. autoclass:: oss2.Service
 .. autoclass:: oss2.Session
 
-输入、输出和异常说明
+Input, Output and Exceptions
 ------------------
 
 .. automodule:: oss2.api
 
-文件（Object）相关操作
+Object operations
 --------------------
 
-上传
+Upload
 ~~~~
 .. automethod:: oss2.Bucket.put_object
 .. automethod:: oss2.Bucket.put_object_from_file
 .. automethod:: oss2.Bucket.append_object
 
 
-下载
+Download
 ~~~~
 .. automethod:: oss2.Bucket.get_object
 .. automethod:: oss2.Bucket.get_object_to_file
 
 
-删除
+Delete
 ~~~~
 .. automethod:: oss2.Bucket.delete_object
 .. automethod:: oss2.Bucket.batch_delete_objects
 
 
-罗列
+List
 ~~~~
 .. automethod:: oss2.Bucket.list_objects
 
-获取、更改文件信息
+Get/Update file information
 ~~~~~~~~~~~~~~~
 
 .. automethod:: oss2.Bucket.head_object
@@ -57,7 +57,7 @@ API文档
 .. automethod:: oss2.Bucket.get_object_meta
 
 
-分片上传
+Multipart upload
 ~~~~~~~~
 
 .. automethod:: oss2.Bucket.init_multipart_upload
@@ -68,57 +68,57 @@ API文档
 .. automethod:: oss2.Bucket.list_parts
 
 
-符号链接
+Symlink
 ~~~~~~~~
 
 .. automethod:: oss2.Bucket.put_symlink
 .. automethod:: oss2.Bucket.get_symlink
 
 
-存储空间（Bucket）相关操作
+Bucket operations
 -------------------------
 
-创建、删除、查询
+Create, Delete, Query
 ~~~~~~~~~~~~~~
 
 .. automethod:: oss2.Bucket.create_bucket
 .. automethod:: oss2.Bucket.delete_bucket
 .. automethod:: oss2.Bucket.get_bucket_location
 
-Bucket权限管理
+Bucket ACL
 ~~~~~~~~~~~~~~
 .. automethod:: oss2.Bucket.put_bucket_acl
 .. automethod:: oss2.Bucket.get_bucket_acl
 
 
-跨域资源共享（CORS）
+CORS (cross origin resource sharing)
 ~~~~~~~~~~~~~~~~~~~~
 .. automethod:: oss2.Bucket.put_bucket_cors
 .. automethod:: oss2.Bucket.get_bucket_cors
 .. automethod:: oss2.Bucket.delete_bucket_cors
 
 
-生命周期管理
+Lifecycle management
 ~~~~~~~~~~~
 .. automethod:: oss2.Bucket.put_bucket_lifecycle
 .. automethod:: oss2.Bucket.get_bucket_lifecycle
 .. automethod:: oss2.Bucket.delete_bucket_lifecycle
 
 
-日志收集
+Logging
 ~~~~~~~~
 
 .. automethod:: oss2.Bucket.put_bucket_logging
 .. automethod:: oss2.Bucket.get_bucket_logging
 .. automethod:: oss2.Bucket.delete_bucket_logging
 
-防盗链
+Referrer
 ~~~~~~
 
 .. automethod:: oss2.Bucket.put_bucket_referer
 .. automethod:: oss2.Bucket.get_bucket_referer
 
-静态网站托管
+Static website
 ~~~~~~~~~~~~
 
 .. automethod:: oss2.Bucket.put_bucket_website
@@ -126,7 +126,7 @@ Bucket权限管理
 .. automethod:: oss2.Bucket.delete_bucket_website
 
 
-RTPM推流操作
+RTPM pushing streaming operations
 ~~~~~~~~~~~~
 
 .. automethod:: oss2.Bucket.create_live_channel

@@ -3,9 +3,8 @@
 """
 oss2.http
 ~~~~~~~~
-
-这个模块包含了HTTP Adapters。尽管OSS Python SDK内部使用requests库进行HTTP通信，但是对使用者是透明的。
-该模块中的 `Session` 、 `Request` 、`Response` 对requests的对应的类做了简单的封装。
+This is the HTTP Adapters for requests library. So that the dependency of request library is totally transparent to the SDK caller.
+It has the wrapper class `Session` 、 `Request` 、`Response`  for its counterparts in the requests library.
 """
 
 import platform
@@ -24,7 +23,7 @@ _USER_AGENT = 'aliyun-sdk-python/{0}({1}/{2}/{3};{4})'.format(
 
 
 class Session(object):
-    """属于同一个Session的请求共享一组连接池，如有可能也会重用HTTP连接。"""
+    """Requests of the same session share the same connection pool and possiblly same HTTP connectoin."""
     def __init__(self):
         self.session = requests.Session()
 
@@ -96,6 +95,7 @@ class Response(object):
         return self.response.iter_content(_CHUNK_SIZE)
 
 
+# TODOTODO
 # requests对于具有fileno()方法的file object，会用fileno()的返回值作为Content-Length。
 # 这对于已经读取了部分内容，或执行了seek()的file object是不正确的。
 #

@@ -62,31 +62,31 @@ class TestObject(OssTestCase):
         with open(filename, 'wb') as f:
             f.write(content)
 
-        # 上传本地文件到OSS
+        # Upload local file to OSS
         self.bucket.put_object_from_file(key, filename)
 
-        # 检查Content-Type应该是javascript
+        # Checks Content-Type is javascript
         result = self.bucket.head_object(key)
         self.assertEqual(result.headers['content-type'], 'application/javascript')
 
-        # 下载到本地文件
+        # Download it to a local file
         self.bucket.get_object_to_file(key, filename2)
 
         self.assertTrue(filecmp.cmp(filename, filename2))
 
-        # 上传本地文件的一部分到OSS
+        # Upload some parts of the local file to OSS
         key_partial = self.random_key('-partial.txt')
         offset = 100
         with open(filename, 'rb') as f:
             f.seek(offset, os.SEEK_SET)
             self.bucket.put_object(key_partial, f)
 
-        # 检查上传后的文件
+        # Verify the uploaded file
         result = self.bucket.get_object(key_partial)
         self.assertEqual(result.content_length, len(content) - offset)
         self.assertEqual(result.read(), content[offset:])
 
-        # 清理
+        # clear
         os.remove(filename)
         os.remove(filename2)
 
@@ -98,7 +98,7 @@ class TestObject(OssTestCase):
 
         self.bucket.put_object(src_key, content)
 
-        # 获取OSS上的文件，一边读取一边写入到另外一个OSS文件
+        # Gets the OSS file. Reading and writing to another OSS file.
         src = self.bucket.get_object(src_key)
         result = self.bucket.put_object(dst_key, src)
 
@@ -183,7 +183,7 @@ class TestObject(OssTestCase):
         key = self.random_key()
         content = random_bytes(512)
 
-        # 设置bucket为public-read，并确认可以上传和下载
+        # Sets the bucket as public-read，and make sure upload or download works.
         self.bucket.put_bucket_acl('public-read-write')
         time.sleep(2)
 
@@ -192,12 +192,12 @@ class TestObject(OssTestCase):
         result = b.get_object(key)
         self.assertEqual(result.read(), content)
 
-        # 测试sign_url
+        # test sign url
         url = b.sign_url('GET', key, 100)
         resp = requests.get(url)
         self.assertEqual(content, resp.content)
 
-        # 设置bucket为private，并确认上传和下载都会失败
+        # Sets the bucket as private. Make sure upload or download fails.
         self.bucket.put_bucket_acl('private')
         time.sleep(1)
 
@@ -309,7 +309,7 @@ class TestObject(OssTestCase):
 
         self.bucket.put_object(key, content)
 
-        # 更改Content-Type，增加用户自定义元数据
+        # Update Content-Type and add user's custom header.
         self.bucket.update_object_meta(key, {'Content-Type': 'whatever',
                                                      'x-oss-meta-category': 'novel'})
 
@@ -387,28 +387,28 @@ class TestObject(OssTestCase):
         key = self.random_key()
         content = random_bytes(2 * 1024 * 1024)
 
-        # 上传内存中的内容
+        # Uploads the in-memory content
         stats = {'previous': -1}
         self.bucket.put_object(key, content, progress_callback=progress_callback)
         self.assertEqual(stats['previous'], len(content))
 
-        # 追加内容
+        # Appends the content
         stats = {'previous': -1}
         self.bucket.append_object(self.random_key(), 0, content, progress_callback=progress_callback)
         self.assertEqual(stats['previous'], len(content))
 
-        # 下载到文件
+        # Downloads it to local file
         stats = {'previous': -1}
         filename = random_string(12) + '.txt'
         self.bucket.get_object_to_file(key, filename, progress_callback=progress_callback)
         self.assertEqual(stats['previous'], len(content))
 
-        # 上传本地文件
+        # Upload the local file
         stats = {'previous': -1}
         self.bucket.put_object_from_file(key, filename, progress_callback=progress_callback)
         self.assertEqual(stats['previous'], len(content))
 
-        # 下载到本地，采用iterator语法
+        # Download the file to local, use iterator syntax.
         stats = {'previous': -1}
         result = self.bucket.get_object(key, progress_callback=progress_callback)
         content_got = b''

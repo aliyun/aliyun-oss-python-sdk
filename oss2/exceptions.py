@@ -4,7 +4,7 @@
 oss2.exceptions
 ~~~~~~~~~~~~~~
 
-异常类。
+Exception classes
 """
 
 import re
@@ -26,22 +26,22 @@ OSS_INCONSISTENT_ERROR_STATUS = -3
 
 class OssError(Exception):
     def __init__(self, status, headers, body, details):
-        #: HTTP 状态码
+        #: HTTP Status code (such as 200)
         self.status = status
 
-        #: 请求ID，用于跟踪一个OSS请求。提交工单时，最好能够提供请求ID
+        #: Request Id, which represents a unique OSS request. It would be very useful when submitting a support ticket.
         self.request_id = headers.get('x-oss-request-id', '')
 
-        #: HTTP响应体（部分）
+        #: HTTP response body
         self.body = body
 
-        #: 详细错误信息，是一个string到string的dict
+        #: The error messages It's a dict of <string, string>
         self.details = details
 
-        #: OSS错误码
+        #: OSS error code
         self.code = self.details.get('Code', '')
 
-        #: OSS错误信息
+        #: OSS error message
         self.message = self.details.get('Message', '')
 
     def __str__(self):

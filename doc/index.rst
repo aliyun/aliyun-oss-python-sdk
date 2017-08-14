@@ -7,7 +7,7 @@ Aliyun OSS SDK for Python
 =========================
 
 
-开发文档
+Development documentation
 --------
 
 .. toctree::

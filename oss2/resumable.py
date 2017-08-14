@@ -4,7 +4,7 @@
 oss2.resumable
 ~~~~~~~~~~~~~~
 
-该模块包含了断点续传相关的函数和类。
+The module contains the classes for resumable upload.
 """
 
 import os
@@ -37,24 +37,21 @@ def resumable_upload(bucket, key, filename,
                      part_size=None,
                      progress_callback=None,
                      num_threads=None):
-    """断点上传本地文件。
+    """resumable upload from local file.
 
-    实现中采用分片上传方式上传本地文件，缺省的并发数是 `oss2.defaults.multipart_num_threads` ，并且在
-    本地磁盘保存已经上传的分片信息。如果因为某种原因上传被中断，下次上传同样的文件，即源文件和目标文件路径都
-    一样，就只会上传缺失的分片。
+    It uses multiparts upload with `oss2.defaults.multipart_num_threads` as the default thread number. 
+    It saves the checkpoint file in local disk (by default in home folder) which could be used for next resumable upload in case this upload is interupted.
+    The resumable upload only uploads the remaininig parts according to the checkpoint file, as long as the local files and uploaded parts are not updated since the last upload.
 
-    缺省条件下，该函数会在用户 `HOME` 目录下保存断点续传的信息。当待上传的本地文件没有发生变化，
-    且目标文件名没有变化时，会根据本地保存的信息，从断点开始上传。
-
-    :param bucket: :class:`Bucket <oss2.Bucket>` 对象
-    :param key: 上传到用户空间的文件名
-    :param filename: 待上传本地文件名
-    :param store: 用来保存断点信息的持久存储，参见 :class:`ResumableStore` 的接口。如不指定，则使用 `ResumableStore` 。
-    :param headers: 传给 `put_object` 或 `init_multipart_upload` 的HTTP头部
-    :param multipart_threshold: 文件长度大于该值时，则用分片上传。
-    :param part_size: 指定分片上传的每个分片的大小。如不指定，则自动计算。
-    :param progress_callback: 上传进度回调函数。参见 :ref:`progress_callback` 。
-    :param num_threads: 并发上传的线程数，如不指定则使用 `oss2.defaults.multipart_num_threads` 。
+    :param bucket: :class:`Bucket <oss2.Bucket>` instance.
+    :param key: object key in OSS
+    :param filename: local file name
+    :param store: Store for the checkpoint information. If not specified, use `ResumableStore`.
+    :param headers: Http headers for  `put_object` or `init_multipart_upload`.
+    :param multipart_threshold: The threshold of the file size to use multipart upload
+    :param part_size: Part size. If not specified, the value will be calculated automatically.
+    :param progress_callback: The progress callback. Check out ref:`progress_callback` for more information.
+    :param num_threads: The parallel thread count for upload. If not specified, `oss2.defaults.multipart_num_threads` will be used.
     """
     size = os.path.getsize(filename)
     multipart_threshold = defaults.get(multipart_threshold, defaults.multipart_threshold)
@@ -80,36 +77,37 @@ def resumable_download(bucket, key, filename,
                        progress_callback=None,
                        num_threads=None,
                        store=None):
-    """断点下载。
+    """Resumable download.
 
-    实现的方法是：
-        #. 在本地创建一个临时文件，文件名由原始文件名加上一个随机的后缀组成；
-        #. 通过指定请求的 `Range` 头按照范围并发读取OSS文件，并写入到临时文件里对应的位置；
-        #. 全部完成之后，把临时文件重命名为目标文件 （即 `filename` ）
+    The imlementation：
+        #. Creates a temp file with same original file name plus a random suffix.
+        #. Parallel download OSS file with specified `Range` into the temp file.
+        #. Once finished, rename the temp file to the target file name.
 
-    在上述过程中，断点信息，即已经完成的范围，会保存在磁盘上。因为某种原因下载中断，后续如果下载
-    同样的文件，也就是源文件和目标文件一样，就会先读取断点信息，然后只下载缺失的部分。
+    During the download, the checkpoint information (finished range) is stored in disk as the checkpoint file. 
+    If the download is interrupted somehow the latter download could resume from it if the source and target file matches. 
+    Only the missing parts will be downloaded.
+    
+    By default, the checkpoint file is in a Home subfolder, which could be specified by `store` parameter. 
 
-    缺省设置下，断点信息保存在 `HOME` 目录的一个子目录下。可以通过 `store` 参数更改保存位置。
-
-    使用该函数应注意如下细节：
-        #. 对同样的源文件、目标文件，避免多个程序（线程）同时调用该函数。因为断点信息会在磁盘上互相覆盖，或临时文件名会冲突。
-        #. 避免使用太小的范围（分片），即 `part_size` 不宜过小，建议大于或等于 `oss2.defaults.multiget_part_size` 。
-        #. 如果目标文件已经存在，那么该函数会覆盖此文件。
+    Notes:
+        #. For the same source and target file, at any given time, there should be only one running instance of this API. Otherwise multiple calls could lead to checkpoint file be overwritten by each other.
+        #. Don't use too small part size. The suggested size is no less than `oss2.defaults.multiget_part_size`.
+        #. The API will overwrite the target file if it exists already.
 
 
-    :param bucket: :class:`Bucket <oss2.Bucket>` 对象。
-    :param str key: 待下载的远程文件名。
-    :param str filename: 本地的目标文件名。
-    :param int multiget_threshold: 文件长度大于该值时，则使用断点下载。
-    :param int part_size: 指定期望的分片大小，即每个请求获得的字节数，实际的分片大小可能有所不同。
-    :param progress_callback: 下载进度回调函数。参见 :ref:`progress_callback` 。
-    :param num_threads: 并发下载的线程数，如不指定则使用 `oss2.defaults.multiget_num_threads` 。
+    :param bucket: :class:`Bucket <oss2.Bucket>` instance
+    :param str key: OSS key object.
+    :param str filename: Local file name.
+    :param int multiget_threshold: The threshold of the file size to use multiget download.
+    :param int part_size: The preferred part size. The actual part size might be slightly different according to determine_part_size().
+    :param progress_callback: Progress callback. Check out :ref:`progress_callback`.
+    :param num_threads: Parallel thread number. Default value is `oss2.defaults.multiget_num_threads`.
 
-    :param store: 用来保存断点信息的持久存储，可以指定断点信息所在的目录。
+    :param store: To specify the persistent storage for checkpoint information. For example, the folder of the checkpoin file.
     :type store: `ResumableDownloadStore`
 
-    :raises: 如果OSS文件不存在，则抛出 :class:`NotFound <oss2.exceptions.NotFound>` ；也有可能抛出其他因下载文件而产生的异常。
+    :raises: If the source OSS file does not exist，:class:`NotFound <oss2.exceptions.NotFound>` is thrown；Other exception may be thrown as well upon other issues.
     """
 
     multiget_threshold = defaults.get(multiget_threshold, defaults.multiget_threshold)
@@ -132,12 +130,12 @@ _MAX_MULTIGET_PART_COUNT = 100
 
 def determine_part_size(total_size,
                         preferred_size=None):
-    """确定分片上传是分片的大小。
+    """Determine the part size of the multiparts upload.
 
-    :param int total_size: 总共需要上传的长度
-    :param int preferred_size: 用户期望的分片大小。如果不指定则采用defaults.part_size
+    :param int total_size: Total size to upload.
+    :param int preferred_size: User's preferred size. By default it's defaults.part_size.
 
-    :return: 分片大小
+    :return: Part size
     """
     if not preferred_size:
         preferred_size = defaults.part_size
@@ -371,17 +369,17 @@ class _ResumableDownloader(_ResumableOperation):
 
 
 class _ResumableUploader(_ResumableOperation):
-    """以断点续传方式上传文件。
+    """Resumable upload
 
-    :param bucket: :class:`Bucket <oss2.Bucket>` 对象
-    :param key: 文件名
-    :param filename: 待上传的文件名
-    :param size: 文件总长度
-    :param store: 用来保存进度的持久化存储
-    :param headers: 传给 `init_multipart_upload` 的HTTP头部
-    :param part_size: 分片大小。优先使用用户提供的值。如果用户没有指定，那么对于新上传，计算出一个合理值；对于老的上传，采用第一个
-        分片的大小。
-    :param progress_callback: 上传进度回调函数。参见 :ref:`progress_callback` 。
+    :param bucket: :class:`Bucket <oss2.Bucket>` instance
+    :param key: OSS object key.
+    :param filename: The file name to upload.
+    :param size: Total file size.
+    :param store: The store for persisting checkpoint information.
+    :param headers: The http headers for `init_multipart_upload`
+    :param part_size: Part size. If it's specified, then it has higher priority than the calculated part size. If not specified, for the retry upload, the original upload's part size will be used.
+
+    :param progress_callback: Progress callback. Check out :ref:`progress_callback`.
     """
     def __init__(self, bucket, key, filename, size,
                  store=None,
@@ -550,8 +548,7 @@ class _ResumableStoreBase(object):
         if not os.path.exists(pathname):
             return None
 
-        # json.load()返回的总是unicode，对于Python2，我们将其转换
-        # 为str。
+        # json.load() returns unicode. For Python2, it's converted to str.
 
         try:
             with open(to_unicode(pathname), 'r') as f:
@@ -585,12 +582,12 @@ def _normalize_path(path):
 
 
 class ResumableStore(_ResumableStoreBase):
-    """保存断点上传断点信息的类。
+    """The class for persisting uploading checkpoint information.
 
-    每次上传的信息会保存在 `root/dir/` 下面的某个文件里。
+    The checkpoint information would be a subfolder of `root/dir/`
 
-    :param str root: 父目录，缺省为HOME
-    :param str dir: 子目录，缺省为 `_UPLOAD_TEMP_DIR`
+    :param str root: Root folder, default is `HOME`.
+    :param str dir: Subfoder，default is `_UPLOAD_TEMP_DIR`
     """
     def __init__(self, root=None, dir=None):
         super(ResumableStore, self).__init__(root or os.path.expanduser('~'), dir or _UPLOAD_TEMP_DIR)
@@ -604,12 +601,12 @@ class ResumableStore(_ResumableStoreBase):
 
 
 class ResumableDownloadStore(_ResumableStoreBase):
-    """保存断点下载断点信息的类。
+    """The class for persisting downloading checkpoint information.
 
-    每次下载的断点信息会保存在 `root/dir/` 下面的某个文件里。
+    The checkpoint information would be a subfolder of `root/dir/`
 
-    :param str root: 父目录，缺省为HOME
-    :param str dir: 子目录，缺省为 `_DOWNLOAD_TEMP_DIR`
+    :param str root: Root folder, default is `HOME`.
+    :param str dir: Subfoder，default is `_UPLOAD_TEMP_DIR`
     """
     def __init__(self, root=None, dir=None):
         super(ResumableDownloadStore, self).__init__(root or os.path.expanduser('~'), dir or _DOWNLOAD_TEMP_DIR)

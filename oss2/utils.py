@@ -4,7 +4,7 @@
 oss2.utils
 ----------
 
-工具函数模块。
+Utils module
 """
 
 from email.utils import formatdate
@@ -46,21 +46,21 @@ def b64encode_as_string(data):
 
 
 def content_md5(data):
-    """计算data的MD5值，经过Base64编码并返回str类型。
+    """Calculate the MD5 of the data. The return value is base64 encoded str.
 
-    返回值可以直接作为HTTP Content-Type头部的值
+    The return value could be value of of HTTP Content-MD5 header.
     """
     m = hashlib.md5(to_bytes(data))
     return b64encode_as_string(m.digest())
 
 
 def md5_string(data):
-    """返回 `data` 的MD5值，以十六进制可读字符串（32个小写字符）的方式。"""
+    """Returns MD5 value of `data` in hex string (hexdigest())"""
     return hashlib.md5(to_bytes(data)).hexdigest()
 
 
 def content_type_by_name(name):
-    """根据文件名，返回Content-Type。"""
+    """Return the Content-Type by file name."""
     ext = os.path.splitext(name)[1].lower()
     if ext in _EXTRA_TYPES_MAP:
         return _EXTRA_TYPES_MAP[ext]
@@ -69,7 +69,7 @@ def content_type_by_name(name):
 
 
 def set_content_type(headers, name):
-    """根据文件名在headers里设置Content-Type。如果headers中已经存在Content-Type，则直接返回。"""
+    """Sets the content type by the name. If the content-type has been set, no-op and return."""
     headers = headers or {}
 
     if 'Content-Type' in headers:
@@ -102,7 +102,7 @@ _BUCKET_NAME_CHARS = set(_ALPHA_NUM + _HYPHEN)
 
 
 def is_valid_bucket_name(name):
-    """判断是否为合法的Bucket名"""
+    """Checks if the bucket name is valid."""
     if len(name) < 3 or len(name) > 63:
         return False
 
@@ -116,7 +116,7 @@ def is_valid_bucket_name(name):
 
 
 class SizedFileAdapter(object):
-    """通过这个适配器（Adapter），可以把原先的 `file_object` 的长度限制到等于 `size`。"""
+    """It guarantees only read up to the specified 'size' data, even if the original 'file_object' size （Adapter）is bigger."""
     def __init__(self, file_object, size):
         self.file_object = file_object
         self.size = size
@@ -174,14 +174,14 @@ _CHUNK_SIZE = 8 * 1024
 
 
 def make_progress_adapter(data, progress_callback, size=None):
-    """返回一个适配器，从而在读取 `data` ，即调用read或者对其进行迭代的时候，能够
-     调用进度回调函数。当 `size` 没有指定，且无法确定时，上传回调函数返回的总字节数为None。
+    """Returns an adapter instance so that the progress callback is called when reading the data.
+     When parameter `size` is not specified and cannot be dertermined, the total size in the callback is None.
 
-    :param data: 可以是bytes、file object或iterable
-    :param progress_callback: 进度回调函数，参见 :ref:`progress_callback`
-    :param size: 指定 `data` 的大小，可选
+    :param data: It could be bytes、file object or iterable
+    :param progress_callback: Progress callback. Check out :ref:`progress_callback`
+    :param size: Specify the `data` size, optional.
 
-    :return: 能够调用进度回调函数的适配器
+    :return: The adapters that could call the progress callback.
     """
     data = to_bytes(data)
 
@@ -200,12 +200,12 @@ def make_progress_adapter(data, progress_callback, size=None):
 
 
 def make_crc_adapter(data, init_crc=0):
-    """返回一个适配器，从而在读取 `data` ，即调用read或者对其进行迭代的时候，能够计算CRC。
+    """Returns an adapter instance so that the CRC could be calculated during read.
 
-    :param data: 可以是bytes、file object或iterable
-    :param init_crc: 初始CRC值，可选
+    :param data: It could be bytes、file object or iterable
+    :param init_crc: Init CRC value, optional.
 
-    :return: 能够调用计算CRC函数的适配器
+    :return: A adapter that could calls CRC caluclating function.
     """
     data = to_bytes(data)
 
@@ -269,10 +269,10 @@ class _IterableAdapter(object):
 
 
 class _FileLikeAdapter(object):
-    """通过这个适配器，可以给无法确定内容长度的 `fileobj` 加上进度监控。
+    """The adapter to monior the progress for `fileobj` that the content length could not be termined.
 
-    :param fileobj: file-like object，只要支持read即可
-    :param progress_callback: 进度回调函数
+    :param fileobj: file-like object，as long as read() is supported.
+    :param progress_callback: Progress callback.
     """
     def __init__(self, fileobj, progress_callback=None, crc_callback=None):
         self.fileobj = fileobj
@@ -314,12 +314,12 @@ class _FileLikeAdapter(object):
 
 
 class _BytesAndFileAdapter(object):
-    """通过这个适配器，可以给 `data` 加上进度监控。
+    """The adapter to monitor data's progress.
 
-    :param data: 可以是unicode字符串（内部会转换为UTF-8编码的bytes）、bytes或file object
-    :param progress_callback: 用户提供的进度报告回调，形如 callback(bytes_read, total_bytes)。
-        其中bytes_read是已经读取的字节数；total_bytes是总的字节数。
-    :param int size: `data` 包含的字节数。
+    :param data: It could be unicode（internally it's convereted to UTF-8 bytes）、bytes or file object
+    :param progress_callback: Progress callback，The signature is callback(bytes_read, total_bytes).
+        `bytes_read` is the bytes read and `total_bytes` is the total bytes.
+    :param int size: The size of the `data`.
     """
     def __init__(self, data, progress_callback=None, size=None, crc_callback=None):
         self.data = to_bytes(data)
@@ -411,22 +411,22 @@ def to_unixtime(time_string, format_string):
 
 
 def http_date(timeval=None):
-    """返回符合HTTP标准的GMT时间字符串，用strftime的格式表示就是"%a, %d %b %Y %H:%M:%S GMT"。
-    但不能使用strftime，因为strftime的结果是和locale相关的。
+    """Returns the HTTP standard GMT time string. If using strftime format, it would be "%a, %d %b %Y %H:%M:%S GMT".
+    But strftime() cannot be used as it's locale dependent.
     """
     return formatdate(timeval, usegmt=True)
 
 
 def http_to_unixtime(time_string):
-    """把HTTP Date格式的字符串转换为UNIX时间（自1970年1月1日UTC零点的秒数）。
+    """Converts the Http date to unix time（total seconds since 1970 Jan First, 00:00).
 
-    HTTP Date形如 `Sat, 05 Dec 2015 11:10:29 GMT` 。
+    HTTP Date such as `Sat, 05 Dec 2015 11:10:29 GMT` 。
     """
     return to_unixtime(time_string, _GMT_FORMAT)
 
 
 def iso8601_to_unixtime(time_string):
-    """把ISO8601时间字符串（形如，2012-02-24T06:07:48.000Z）转换为UNIX时间，精确到秒。"""
+    """Coverts the ISO8601 time string (e.g. 2012-02-24T06:07:48.000Z）to unix time in seconds"""
     return to_unixtime(time_string, _ISO8601_FORMAT)
 
 
@@ -448,7 +448,7 @@ def makedir_p(dirpath):
 
 
 def silently_remove(filename):
-    """删除文件，如果文件不存在也不报错。"""
+    """Silently remove the file. If the file does not exist, no op and return without error."""
     try:
         os.remove(filename)
     except OSError as e:
