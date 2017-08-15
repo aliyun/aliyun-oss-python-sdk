@@ -1,12 +1,12 @@
 .. _easy:
 
 
-易用性接口
+interfaces for easy to use
 ==========
 
 .. module:: oss2
 
-迭代器
+Iterators
 ~~~~~~
 
 .. autoclass:: oss2.BucketIterator
@@ -16,13 +16,13 @@
 .. autoclass:: oss2.PartIterator
 
 
-断点续传（上传、下载）
+Resumable upload or download.
 ~~~~~~~~~~~~~~~~~~~
 
 .. autofunction:: oss2.resumable_upload
 .. autofunction:: oss2.resumable_download
 
-FileObject适配器
+FileObject Adapter
 ~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: oss2.SizedFileAdapter

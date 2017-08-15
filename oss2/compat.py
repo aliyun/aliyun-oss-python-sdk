@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-兼容Python版本
+Compatible Python versions
 """
 
 import sys
@@ -22,18 +22,18 @@ if is_py2:
 
 
     def to_bytes(data):
-        """若输入为unicode， 则转为utf-8编码的bytes；其他则原样返回。"""
+        """Covert to UTF-8 encoding if the input is unicode; otherwise return the original data."""
         if isinstance(data, unicode):
             return data.encode('utf-8')
         else:
             return data
 
     def to_string(data):
-        """把输入转换为str对象"""
+        """convert to str object"""
         return to_bytes(data)
 
     def to_unicode(data):
-        """把输入转换为unicode，要求输入是unicode或者utf-8编码的bytes。"""
+        """Convert the input to unicode if it's utf-8 bytes."""
         if isinstance(data, bytes):
             return data.decode('utf-8')
         else:
@@ -59,21 +59,21 @@ elif is_py3:
     from urllib.parse import urlparse
 
     def to_bytes(data):
-        """若输入为str（即unicode），则转为utf-8编码的bytes；其他则原样返回"""
+        """Covert to UTF-8 encoding if the input is unicode; otherwise return the original data."""
         if isinstance(data, str):
             return data.encode(encoding='utf-8')
         else:
             return data
 
     def to_string(data):
-        """若输入为bytes，则认为是utf-8编码，并返回str"""
+        """Convert the input to unicode if it's utf-8 bytes."""
         if isinstance(data, bytes):
             return data.decode('utf-8')
         else:
             return data
 
     def to_unicode(data):
-        """把输入转换为unicode，要求输入是unicode或者utf-8编码的bytes。"""
+        """Convert the input to unicode if it's utf-8 bytes."""
         return to_string(data)
 
     def stringify(input):

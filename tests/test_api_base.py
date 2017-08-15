@@ -23,7 +23,7 @@ class TestApiBase(OssTestCase):
         bucket = oss2.Bucket(oss2.AnonymousAuth(), OSS_ENDPOINT.replace('http://', 'https://'), bucket_name)
         self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.get_object, 'hello.txt')
 
-    # 只是为了测试，请不要用IP访问OSS，除非你是在VPC环境下。
+    # Test only. Do not use IP to access OSS, unless it's under VPC
     def test_ip(self):
         bucket_name = random_string(63)
         ip = socket.gethostbyname(OSS_ENDPOINT.replace('https://', '').replace('http://', ''))
@@ -61,14 +61,14 @@ class TestApiBase(OssTestCase):
 
             from unittest.mock import patch
             with patch.object(oss2.Session, 'do_request', side_effect=do_request, autospec=True):
-                # 不加 app_name
+                # no app_name
                 assert_found = False
                 self.assertRaises(oss2.exceptions.ClientError, self.bucket.get_bucket_acl)
 
                 service = oss2.Service(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT)
                 self.assertRaises(oss2.exceptions.ClientError, service.list_buckets)
 
-                # 加app_name
+                # add app_name
                 assert_found = True
                 bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET,
                                      app_name=app)

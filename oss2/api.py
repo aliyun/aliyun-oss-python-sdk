@@ -1,113 +1,108 @@
 # -*- coding: utf-8 -*-
 
 """
-文件上传方法中的data参数
+The data parameters in file upload methods
 ------------------------
-诸如 :func:`put_object <Bucket.put_object>` 这样的上传接口都会有 `data` 参数用于接收用户数据。`data` 可以是下述类型
-    - unicode类型（对于Python3则是str类型）：内部会自动转换为UTF-8的bytes
-    - bytes类型：不做任何转换
-    - file-like object：对于可以seek和tell的file object，从当前位置读取直到结束。其他类型，请确保当前位置是文件开始。
-    - 可迭代类型：对于无法探知长度的数据，要求一定是可迭代的。此时会通过Chunked Encoding传输。
+For example, func:`put_object <Bucket.put_object>` has the 'data' parameter. It could be any one of the following types:
+    - unicode type (for Python3 it's str): Internally it's converted to UTF-8 bytes.
+    - bytes types：No convertion
+    - file-like object：For seek()-able and tell()-able file object, it will read from the current position to the end. Otherwise, make sure the current position is the file start position.
+    - Iterator types：The data must be iterator type if its length is not predictable. Internally it's using `Chunk encoding` for transfer.
 
-Bucket配置修改方法中的input参数
+The input parmater in bucket config update
 -----------------------------
-诸如 :func:`put_bucket_cors <Bucket.put_bucket_cors>` 这样的Bucket配置修改接口都会有 `input` 参数接收用户提供的配置数据。
-`input` 可以是下述类型
-  - Bucket配置信息相关的类，如 `BucketCors`
-  - unicode类型（对于Python3则是str类型）
-  - 经过utf-8编码的bytes类型
+For example :func:`put_bucket_cors <Bucket.put_bucket_cors>` has `input` parameter. It could be any one of the following types:
+  - Bucket config related class such as `BucketCors`
+  - unicode type（For Python3, it's str）
+  - UTF-8 encoded bytes
   - file-like object
-  - 可迭代类型，会通过Chunked Encoding传输
-也就是说 `input` 参数可以比 `data` 参数多接受第一种类型的输入。
+  - Iterator types，uses `Chunked Encoding` for transfer
+In other words, except supporting `Bucket config related class`, `input` has same types of `data` parameter.
 
-返回值
+Return value 
 ------
-:class:`Service` 和 :class:`Bucket` 类的大多数方法都是返回 :class:`RequestResult <oss2.models.RequestResult>`
-及其子类。`RequestResult` 包含了HTTP响应的状态码、头部以及OSS Request ID，而它的子类则包含用户真正想要的结果。例如，
-`ListBucketsResult.buckets` 就是返回的Bucket信息列表；`GetObjectResult` 则是一个file-like object，可以调用 `read()` 来获取响应的
-HTTP包体。
+Most get methods in :class:`Service` and :class:`Bucket` return :class:`RequestResult <oss2.models.RequestResult>` or its subclasses.
+`RequestResult` class defines the HTTP status code、response headers and OSS Request ID. And its subclasses define the scenario specific data that are interesting to uses.
+For example,
+`ListBucketsResult.buckets` returns the Bucket instance list; and `GetObjectResult` returns a file-like object which could call `read()` to get the response body.
 
-
-异常
+Exceptions
 ----
-一般来说Python SDK可能会抛出三种类型的异常，这些异常都继承于 :class:`OssError <oss2.exceptions.OssError>` ：
-    - :class:`ClientError <oss2.exceptions.ClientError>` ：由于用户参数错误而引发的异常；
-    - :class:`ServerError <oss2.exceptions.ServerError>` 及其子类：OSS服务器返回非成功的状态码，如4xx或5xx；
-    - :class:`RequestError <oss2.exceptions.RequestError>` ：底层requests库抛出的异常，如DNS解析错误，超时等；
-当然，`Bucket.put_object_from_file` 和 `Bucket.get_object_to_file` 这类函数还会抛出文件相关的异常。
+Generally speaking Python SDK could throw 3 Exception types, which all inhert from :class:`OssError <oss2.exceptions.OssError>` ：
+    - :class:`ClientError <oss2.exceptions.ClientError>`：It's the client side exception that is likely due to user's incorrect parameters of usage；
+    - :class:`ServerError <oss2.exceptions.ServerError>` and its subclasses.Server side exceptions which contain error code such as 4xx or 5xx.
+    - :class:`RequestError <oss2.exceptions.RequestError>` ：The underlying requests lib's exceptions, such as DNS error or timeout；
+Besides, `Bucket.put_object_from_file` and `Bucket.get_object_to_file` may throw file related exceptions.
 
 
 .. _byte_range:
 
-指定下载范围
+Download range
 ------------
-诸如 :func:`get_object <Bucket.get_object>` 以及 :func:`upload_part_copy <Bucket.upload_part_copy>` 这样的函数，可以接受
-`byte_range` 参数，表明读取数据的范围。该参数是一个二元tuple：(start, last)。这些接口会把它转换为Range头部的值，如：
-    - byte_range 为 (0, 99) 转换为 'bytes=0-99'，表示读取前100个字节
-    - byte_range 为 (None, 99) 转换为 'bytes=-99'，表示读取最后99个字节
-    - byte_range 为 (100, None) 转换为 'bytes=100-'，表示读取第101个字节到文件结尾的部分（包含第101个字节）
+For example, :func:`get_object <Bucket.get_object>` and :func:`upload_part_copy <Bucket.upload_part_copy>` accept 'byte_range' parameters, which specifies the read range.
+It's a 2-tuple: (start,last). These methods interanlly would translate the tuple into the value of Http header Range, such as:
+    - For (0, 99), the translated Range header is 'bytes=0-99'，which means reading the first 100 bytes.
+    - For (None, 99), the translated Range header is 'bytes=-99'，which means reading the last 99 bytes
+    - For (100, None), the translated Range header is 'bytes=100-', which means reading the whole data starting from the 101th character (The index is 100 and index starts with 0).
 
 
-分页罗列
+Paging
 -------
-罗列各种资源的接口，如 :func:`list_buckets <Service.list_buckets>` 、 :func:`list_objects <Bucket.list_objects>` 都支持
-分页查询。通过设定分页标记（如：`marker` 、 `key_marker` ）的方式可以指定查询某一页。首次调用将分页标记设为空（缺省值，可以不设），
-后续的调用使用返回值中的 `next_marker` 、 `next_key_marker` 等。每次调用后检查返回值中的 `is_truncated` ，其值为 `False` 说明
-已经到了最后一页。
-
+Listing APIs such as :func:`list_buckets <Service.list_buckets>` and :func:`list_objects <Bucket.list_objects>` support paging.
+Specify the paging markers (e.g. marker, key_marker) to query a specific page after that marker. 
+For the first page, the marker is empty, which is the by default value.
+For next pages, use the next_marker or next_key_marker value as the marker value. Check the is_truncated value after each call to determine if it's the last page--false means it's the last page.
 
 .. _progress_callback:
 
-上传下载进度
+Upload or Download Progress
 -----------
-上传下载接口，诸如 `get_object` 、 `put_object` 、`resumable_upload`，都支持进度回调函数，可以用它实现进度条等功能。
+Upload or Download APIs such as `get_object`, `put_object`, `resumable_upload` support progress callback method. User can use it to implement progress bar or other functions that needs the progress data.
 
-`progress_callback` 的函数原型如下 ::
+`progress_callback` definition ::
 
     def progress_callback(bytes_consumed, total_bytes):
-        '''进度回调函数。
+        '''progress callback
 
-        :param int bytes_consumed: 已经消费的字节数。对于上传，就是已经上传的量；对于下载，就是已经下载的量。
-        :param int total_bytes: 总长度。
+        :param int bytes_consumed: Consumed bytes. For upload it's uploaded bytes; for download it's download bytes.
+        :param int total_bytes: Total bytes.
         '''
 
-其中 `total_bytes` 对于上传和下载有不同的含义：
-    - 上传：当输入是bytes或可以seek/tell的文件对象，那么它的值就是总的字节数；否则，其值为None
-    - 下载：当返回的HTTP相应中有Content-Length头部，那么它的值就是Content-Length的值；否则，其值为None
+Note that `total_bytes` has different meanings for download and upload.
+    - For upload, if the input is bytes or file object supports seek/tell, it's the total size. Otherwise it's none.
+    - Download: When http headers returned has content-length header, then it's the value of content-length. Otherwise it's none.
 
 
 .. _unix_time:
 
 Unix Time
 ---------
-OSS Python SDK会把从服务器获得时间戳都转换为自1970年1月1日UTC零点以来的秒数，即Unix Time。
-参见 `Unix Time <https://en.wikipedia.org/wiki/Unix_time>`_
+OSS Python SDK will automatically convert the server time to Unix time (or epoch time, `<https://en.wikipedia.org/wiki/Unix_time>`)
 
-OSS中常用的时间格式有
-    - HTTP Date格式，形如 `Sat, 05 Dec 2015 11:04:39 GMT` 这样的GMT时间。
-      用在If-Modified-Since、Last-Modified这些HTTP请求、响应头里。
-    - ISO8601格式，形如 `2015-12-05T00:00:00.000Z`。
-      用在生命周期管理配置、列举Bucket结果中的创建时间、列举文件结果中的最后修改时间等处。
+The common time format in OSS is:
+    - HTTP Date format，like `Sat, 05 Dec 2015 11:04:39 GMT`. It's used in http headers such as If-Modified-Since or Last-Modified.
+    - ISO8601 format，for example `2015-12-05T00:00:00.000Z`.
+      It's used in lifecycle management configuration, create/last modified time in result of bucket list or file list.
 
-`http_date` 函数把Unix Time转换为HTTP Date；而 `http_to_unixtime` 则做相反的转换。如 ::
+`http_date` converts the Unix Time to HTTP Date；`http_to_unixtime` does the opposite. For example ::
 
     >>> import oss2, time
-    >>> unix_time = int(time.time())             # 当前UNIX Time，设其值为 1449313829
-    >>> date_str = oss2.http_date(unix_time)     # 得到 'Sat, 05 Dec 2015 11:10:29 GMT'
-    >>> oss2.http_to_unixtime(date_str)          # 得到 1449313829
+    >>> unix_time = int(time.time())             # Current time in UNIX Time，Value is 1449313829
+    >>> date_str = oss2.http_date(unix_time)     # date_str will be 'Sat, 05 Dec 2015 11:10:29 GMT'
+    >>> oss2.http_to_unixtime(date_str)          # the result is 1449313829
 
 .. note::
 
-    生成HTTP协议所需的日期（即HTTP Date）时，请使用 `http_date` ， 不要使用 `strftime` 这样的函数。因为后者是和locale相关的。
-    比如，`strftime` 结果中可能会出现中文，而这样的格式，OSS服务器是不能识别的。
+    Please use `http_date` instead of 'strftime' to generate date in http protocol.Because the latter depends on the locale.
+    For example, `strftime`result could contain Chinese which could not be parsed by OSS server.
 
-`iso8601_to_unixtime` 把ISO8601格式转换为Unix Time；`date_to_iso8601` 和 `iso8601_to_date` 则在ISO8601格式的字符串和
-datetime.date之间相互转换。如 ::
+`iso8601_to_unixtime` converts date in ISO8601 format to Unix Time；`date_to_iso8601` and `iso8601_to_date` does the translation between ISO8601 and datetime.date.
+For example ::
 
     >>> import oss2
-    >>> d = oss2.iso8601_to_date('2015-12-05T00:00:00.000Z')  # 得到 datetime.date(2015, 12, 5)
-    >>> date_str = oss2.date_to_iso8601(d)                    # 得到 '2015-12-05T00:00:00.000Z'
-    >>> oss2.iso8601_to_unixtime(date_str)                    # 得到 1449273600
+    >>> d = oss2.iso8601_to_date('2015-12-05T00:00:00.000Z')  # Gets datetime.date(2015, 12, 5)
+    >>> date_str = oss2.date_to_iso8601(d)                    # Gets '2015-12-05T00:00:00.000Z'
+    >>> oss2.iso8601_to_unixtime(date_str)                    # Gets 1449273600
 """
 
 from . import xml_utils
@@ -162,9 +157,9 @@ class _Base(object):
 
 
 class Service(_Base):
-    """用于Service操作的类，如罗列用户所有的Bucket。
+    """The class for interacting with Service. For example list all buckets.
 
-    用法 ::
+    For example ::
 
         >>> import oss2
         >>> auth = oss2.Auth('your-access-key-id', 'your-access-key-secret')
@@ -172,17 +167,17 @@ class Service(_Base):
         >>> service.list_buckets()
         <oss2.models.ListBucketsResult object at 0x0299FAB0>
 
-    :param auth: 包含了用户认证信息的Auth对象
+    :param auth: the auth instance that contains access-key-id and access-key-secret.
     :type auth: oss2.Auth
 
-    :param str endpoint: 访问域名，如杭州区域的域名为oss-cn-hangzhou.aliyuncs.com
+    :param str endpoint: the domain of endpoint, such as 'oss-cn-hangzhou.aliyuncs.com'
 
-    :param session: 会话。如果是None表示新开会话，非None则复用传入的会话
+    :param session: session instance. If it's None, then it will use a new session.
     :type session: oss2.Session
 
-    :param float connect_timeout: 连接超时时间，以秒为单位。
-    :param str app_name: 应用名。该参数不为空，则在User Agent中加入其值。
-        注意到，最终这个字符串是要作为HTTP Header的值传输的，所以必须要遵循HTTP标准。
+    :param float connect_timeout: connection timeout in seconds.
+    :param str app_name: App name. If it's not null, it will be appended in User Agent header.
+        Note that this value will be part of the Http header value and thus must follow the http protocol.
     """
     def __init__(self, auth, endpoint,
                  session=None,
@@ -192,13 +187,13 @@ class Service(_Base):
                                       app_name=app_name)
 
     def list_buckets(self, prefix='', marker='', max_keys=100):
-        """根据前缀罗列用户的Bucket。
+        """List buckets by prefix
 
-        :param str prefix: 只罗列Bucket名为该前缀的Bucket，空串表示罗列所有的Bucket
-        :param str marker: 分页标志。首次调用传空串，后续使用返回值中的next_marker
-        :param int max_keys: 每次调用最多返回的Bucket数目
+        :param str prefix: The prefix of buckets tolist. List all buckets if it's empty.
+        :param str marker: The paging maker. It's empty for first page and then use next_marker in the response of the previous page.
+        :param int max_keys: Max bucket count to return.
 
-        :return: 罗列的结果
+        :return: The bucket lists
         :rtype: oss2.models.ListBucketsResult
         """
         resp = self._do('GET', '', '',
@@ -209,9 +204,9 @@ class Service(_Base):
 
 
 class Bucket(_Base):
-    """用于Bucket和Object操作的类，诸如创建、删除Bucket，上传、下载Object等。
+    """The class for Bucket or Object related operations, such as create, delete bucket, upload or download object.
 
-    用法（假设Bucket属于杭州区域） ::
+    Examples（Assuming Bucket is in Hangzhou datacenter） ::
 
         >>> import oss2
         >>> auth = oss2.Auth('your-access-key-id', 'your-access-key-secret')
@@ -219,20 +214,20 @@ class Bucket(_Base):
         >>> bucket.put_object('readme.txt', 'content of the object')
         <oss2.models.PutObjectResult object at 0x029B9930>
 
-    :param auth: 包含了用户认证信息的Auth对象
+    :param auth: Auth object that has the user's access key id and access key secret.
     :type auth: oss2.Auth
 
-    :param str endpoint: 访问域名或者CNAME
-    :param str bucket_name: Bucket名
-    :param bool is_cname: 如果endpoint是CNAME则设为True；反之，则为False。
+    :param str endpoint: Domain name of endpoint or the CName.
+    :param str bucket_name: Bucket name
+    :param bool is_cname: True if the endpoint is CNAME; Otherwise it's False.
 
-    :param session: 会话。如果是None表示新开会话，非None则复用传入的会话
+    :param session: Session instance. None for creating a new session.
     :type session: oss2.Session
 
-    :param float connect_timeout: 连接超时时间，以秒为单位。
+    :param float connect_timeout: connectio timeout in seconds.
 
-    :param str app_name: 应用名。该参数不为空，则在User Agent中加入其值。
-        注意到，最终这个字符串是要作为HTTP Header的值传输的，所以必须要遵循HTTP标准。
+    :param str app_name: App name. If it's not empty, it would be appended in User Agent.
+        Note that this value needs to follow the http header value's requirement as it's part of the User Agent header.
     """
 
     ACL = 'acl'
@@ -260,25 +255,25 @@ class Bucket(_Base):
         self.bucket_name = bucket_name.strip()
 
     def sign_url(self, method, key, expires, headers=None, params=None):
-        """生成签名URL。
+        """generate the presigned url.
 
-        常见的用法是生成加签的URL以供授信用户下载，如为log.jpg生成一个5分钟后过期的下载链接::
+        The signed url could be used for accessing the object by any user who has the url. For example, in the code below, it generates the signed url with 5 minutes TTL for log.jpg file:
 
             >>> bucket.sign_url('GET', 'log.jpg', 5 * 60)
             'http://your-bucket.oss-cn-hangzhou.aliyuncs.com/logo.jpg?OSSAccessKeyId=YourAccessKeyId\&Expires=1447178011&Signature=UJfeJgvcypWq6Q%2Bm3IJcSHbvSak%3D'
 
-        :param method: HTTP方法，如'GET'、'PUT'、'DELETE'等
+        :param method: HTTP method such as 'GET', 'PUT', 'DELETE', etc
         :type method: str
-        :param key: 文件名
-        :param expires: 过期时间（单位：秒），链接在当前时间再过expires秒后过期
+        :param key: object key
+        :param expires: Expiration time in seconds. The url is invalid after it's expired.
 
-        :param headers: 需要签名的HTTP头部，如名称以x-oss-meta-开头的头部（作为用户自定义元数据）、
-            Content-Type头部等。对于下载，不需要填。
-        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+        :param headers: The http headers to sign. For example the headers startign with x-oss-meta- (user's custom metadata), Content-Type, etc.
+            Not needed for download.
+        :type headers: Could be dict, but recommendation is oss2.CaseInsensitiveDict
 
-        :param params: 需要签名的HTTP查询参数
+        :param params: http query parameters to sign
 
-        :return: 签名URL。
+        :return: Signed url.
         """
         key = to_string(key)
         req = http.Request(method, self._make_url(self.bucket_name, key),
@@ -287,15 +282,15 @@ class Bucket(_Base):
         return self.auth._sign_url(req, self.bucket_name, key, expires)
 
     def sign_rtmp_url(self, channel_name, playlist_name, expires):
-        """生成RTMP推流的签名URL。
-        常见的用法是生成加签的URL以供授信用户向OSS推RTMP流。
+        """Sign RTMP pushing streaming url.
+        It's used to push the RTMP streaming to OSS for trusted user who has the url.
 
-        :param channel_name: 直播频道的名称
-        :param expires: 过期时间（单位：秒），链接在当前时间再过expires秒后过期
-        :param playlist_name: 播放列表名称，注意与创建live channel时一致
-        :param params: 需要签名的HTTP查询参数
+        :param channel_name: channel name
+        :param expires: Expiration time in seconds.The url is invalid after it's expired.
+        :param playlist_name: playlist name，it should be the one created in live channel creation time.
+        :param params: Http query parameters to sign.
 
-        :return: 签名URL。
+        :return: Signed url.
         """        
         url = self._make_url(self.bucket_name, 'live').replace('http://', 'rtmp://').replace('https://', 'rtmp://') + '/' + channel_name
         params = {}
@@ -303,12 +298,12 @@ class Bucket(_Base):
         return self.auth._sign_rtmp_url(url, self.bucket_name, channel_name, playlist_name, expires, params)
 
     def list_objects(self, prefix='', delimiter='', marker='', max_keys=100):
-        """根据前缀罗列Bucket里的文件。
+        """List objects by the prefix under a bucket.
 
-        :param str prefix: 只罗列文件名为该前缀的文件
-        :param str delimiter: 分隔符。可以用来模拟目录
-        :param str marker: 分页标志。首次调用传空串，后续使用返回值的next_marker
-        :param int max_keys: 最多返回文件的个数，文件和目录的和不能超过该值
+        :param str prefix: The prefix of the objects to list. 
+        :param str delimiter: The folder separator
+        :param str marker: Paging marker. It's empty for first page and then use next_marker in the response of the previous page.
+        :param int max_keys: Max entries to return.
 
         :return: :class:`ListObjectsResult <oss2.models.ListObjectsResult>`
         """
@@ -323,22 +318,26 @@ class Bucket(_Base):
     def put_object(self, key, data,
                    headers=None,
                    progress_callback=None):
-        """上传一个普通文件。
+        """Upload a normal file (not appendable).
 
-        用法 ::
+        Example ::
             >>> bucket.put_object('readme.txt', 'content of readme.txt')
             >>> with open(u'local_file.txt', 'rb') as f:
             >>>     bucket.put_object('remote_file.txt', f)
 
-        :param key: 上传到OSS的文件名
+                Upload a folder
+            >>> bucket.enable_crc = False # this is needed as by default crc is enabled and it will not work when creating folder.
+            >>> bucket.put_object('testfolder/', None)
 
-        :param data: 待上传的内容。
-        :type data: bytes，str或file-like object
+        :param key: file name in OSS
 
-        :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-meta-开头的头部等
-        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+        :param data: file content.
+        :type data: bytes，str or file-like object
 
-        :param progress_callback: 用户指定的进度回调函数。可以用来实现进度条等功能。参考 :ref:`progress_callback` 。
+        :param headers: Http headers. It could be content-type, Content-MD5 or x-oss-meta- prefixed headers.
+        :type headers: dict，but recommendation is oss2.CaseInsensitiveDict
+
+        :param progress_callback: The user's callback. Typical usage is progress bar. Check out :ref:`progress_callback`.
 
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
@@ -361,15 +360,15 @@ class Bucket(_Base):
     def put_object_from_file(self, key, filename,
                              headers=None,
                              progress_callback=None):
-        """上传一个本地文件到OSS的普通文件。
+        """Upload a normal file to OSS.
 
-        :param str key: 上传到OSS的文件名
-        :param str filename: 本地文件名，需要有可读权限
+        :param str key: file name in oss.
+        :param str filename: Local file path, called needs the read permission.
 
-        :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-meta-开头的头部等
-        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+        :param headers: Http headers. It could be content-type, Content-MD5 or x-oss-meta- prefixed headers.
+        :type headers: dict，but recommendation is oss2.CaseInsensitiveDict
 
-        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
+        :param progress_callback: The user's callback. Typical usage is progress bar. Check out :ref:`progress_callback`.
 
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
@@ -382,25 +381,25 @@ class Bucket(_Base):
                       headers=None,
                       progress_callback=None,
                       init_crc=None):
-        """追加上传一个文件。
+        """Append the data to an existing object or create a new appendable file if not existing.
 
-        :param str key: 新的文件名，或已经存在的可追加文件名
-        :param int position: 追加上传一个新的文件， `position` 设为0；追加一个已经存在的可追加文件， `position` 设为文件的当前长度。
-            `position` 可以从上次追加的结果 `AppendObjectResult.next_position` 中获得。
+        :param str key: existing file name or new file name.
+        :param int position: 0 for creating a new appendable file or current length for appending an existing file.
+            `position` value could be from `AppendObjectResult.next_position` of the previous append_object result's.
 
-        :param data: 用户数据
-        :type data: str、bytes、file-like object或可迭代对象
+        :param data: User data
+        :type data: str、bytes、file-like object or Iterator object
 
-        :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-开头的头部等
-        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+        :param headers: Http headers. It could be content-type, Content-MD5 or x-oss-meta- prefixed headers.
+        :type headers: dict，but recommendation is oss2.CaseInsensitiveDict
 
-        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
+        :param progress_callback: The user's callback. Typical usage is progress bar. Check out :ref:`progress_callback`.
 
         :return: :class:`AppendObjectResult <oss2.models.AppendObjectResult>`
 
-        :raises: 如果 `position` 和当前文件长度不一致，抛出 :class:`PositionNotEqualToLength <oss2.exceptions.PositionNotEqualToLength>` ；
-                 如果当前文件不是可追加类型，抛出 :class:`ObjectNotAppendable <oss2.exceptions.ObjectNotAppendable>` ；
-                 还会抛出其他一些异常
+        :raises: If the position is not same as the current file's length, :class:`PositionNotEqualToLength <oss2.exceptions.PositionNotEqualToLength>` will be thrown；
+                 If the file is not appendable, :class:`ObjectNotAppendable <oss2.exceptions.ObjectNotAppendable>` is thrown ；
+                 Other client side exceptions could be thrown as well
         """
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), key)
 
@@ -426,27 +425,27 @@ class Bucket(_Base):
                    headers=None,
                    progress_callback=None,
                    process=None):
-        """下载一个文件。
+        """Download a file.
 
-        用法 ::
+        Example ::
 
             >>> result = bucket.get_object('readme.txt')
             >>> print(result.read())
             'hello world'
 
-        :param key: 文件名
-        :param byte_range: 指定下载范围。参见 :ref:`byte_range`
+        :param key: object name in OSS
+        :param byte_range: Download range. Check out :ref:`byte_range` for more information.
 
-        :param headers: HTTP头部
-        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+        :param headers: HTTP headers
+        :type headers: dict or oss2.CaseInsensitiveDict (recommended)
 
-        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
+        :param progress_callback: User callback. Please check out :ref:`progress_callback`
 
-        :param process: oss文件处理，如图像服务等。指定后process，返回的内容为处理后的文件。
+        :param process: oss file process，For example image processing. The returne object is applied with the process.
         
         :return: file-like object
 
-        :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
+        :raises: If the file does not exist, :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` is thrown ；Other exception could also happen though.
         """
         headers = http.CaseInsensitiveDict(headers)
 
@@ -466,20 +465,20 @@ class Bucket(_Base):
                            headers=None,
                            progress_callback=None,
                            process=None):
-        """下载一个文件到本地文件。
+        """Download a file to the local file.
 
-        :param key: 文件名
-        :param filename: 本地文件名。要求父目录已经存在，且有写权限。
-        :param byte_range: 指定下载范围。参见 :ref:`byte_range`
+        :param key: object name in OSS
+        :param filename: Local file name. The folder of the file must be available for write and pre-existing.
+        :param byte_range: The download range. Check out :ref:`byte_range`.
 
-        :param headers: HTTP头部
-        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+        :param headers: HTTP headers
+        :type headers: dict or oss2.CaseInsensitiveDict (recommended)
 
-        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
+        :param progress_callback: user callback. Check out :ref:`progress_callback`
     
-        :param process: oss文件处理，如图像服务等。指定后process，返回的内容为处理后的文件。
+        :param process: oss file process，For example image processing. The returne object is applied with the process.
 
-        :return: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
+        :return: If the file does not exist, :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` is thrown ；Other exception could also happen though.
         """
         with open(to_unicode(filename), 'wb') as f:
             result = self.get_object(key, byte_range=byte_range, headers=headers, progress_callback=progress_callback,
@@ -493,51 +492,53 @@ class Bucket(_Base):
             return result
 
     def head_object(self, key, headers=None):
-        """获取文件元信息。
+        """Gets object metadata
 
-        HTTP响应的头部包含了文件元信息，可以通过 `RequestResult` 的 `headers` 成员获得。
-        用法 ::
+        The metadata is in HTTP response headers, which could be accessed by `RequestResult.headers`.
+        Usage ::
 
             >>> result = bucket.head_object('readme.txt')
             >>> print(result.content_type)
             text/plain
 
-        :param key: 文件名
+        :param key: object name in OSS
 
-        :param headers: HTTP头部
-        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+        :param headers: HTTP headers.
+        :type headers: dict or oss2.CaseInsensitiveDict (recommended)
 
         :return: :class:`HeadObjectResult <oss2.models.HeadObjectResult>`
 
-        :raises: 如果Bucket不存在或者Object不存在，则抛出 :class:`NotFound <oss2.exceptions.NotFound>`
+        :raises: If the bucket or file does not exist, :class:`NotFound <oss2.exceptions.NotFound>` is thrown.
         """
         resp = self.__do_object('HEAD', key, headers=headers)
         return HeadObjectResult(resp)
     
     def get_object_meta(self, key):
-        """获取文件基本元信息，包括该Object的ETag、Size（文件大小）、LastModified，并不返回其内容。
+        """Gets the object's basic metadata, which includes ETag, Size, LastModified.
 
-        HTTP响应的头部包含了文件基本元信息，可以通过 `GetObjectMetaResult` 的 `last_modified`，`content_length`,`etag` 成员获得。
+        The metadata is in HTTP response headers, which could be accessed by `GetObjectMetaResult`'s 'last_modified`，`content_length`,`etag`
 
-        :param key: 文件名
+        :param key: object key in OSS.
 
         :return: :class:`GetObjectMetaResult <oss2.models.GetObjectMetaResult>`
 
-        :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
+        :raises: If file does not exist, :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` is thrown；Other exception could also happen though.
         """
         resp = self.__do_object('GET', key, params={'objectMeta': ''})
         return GetObjectMetaResult(resp)
 
     def object_exists(self, key):
-        """如果文件存在就返回True，否则返回False。如果Bucket不存在，或是发生其他错误，则抛出异常。"""
+        """If the file exists, return true. Otherwise false. If the bucket does not exist or other errors happen, exceptions will be thrown."""
 
-        # 如果我们用head_object来实现的话，由于HTTP HEAD请求没有响应体，只有响应头部，这样当发生404时，
-        # 我们无法区分是NoSuchBucket还是NoSuchKey错误。
+        # If head_object is used as the implementation, as it only has response header, when 404 is returned, no way to tell if it's a NoSuchBucket or NoSuchKey.
         #
-        # 2.2.0之前的实现是通过get_object的if-modified-since头部，把date设为当前时间24小时后，这样如果文件存在，则会返回
-        # 304 (NotModified)；不存在，则会返回NoSuchKey。get_object会受回源的影响，如果配置会404回源，get_object会判断错误。
+        # Before version 2.2.0, it calls get_object with current + 24h as the if-modified-since parameter.
+        # If file exists, it returns 304 (NotModified); If file does not exists, returns NoSuchkey. 
+        # However get_object would retrieve object in other sites if "Retrieve from source" is set and object is not found in OSS.
+        # That is the file could be from other sites and thus should have return 404 instead of the object in this case.
         # 
-        # 目前的实现是通过get_object_meta判断文件是否存在。
+        # So the current solution is to call get_object_meta which is not impacted by "Retrieve from source" feature.
+        # Meanwhile it could differentiate bucket not found or key not found.
 
         try:
             self.get_object_meta(key)
@@ -549,14 +550,14 @@ class Bucket(_Base):
         return True
 
     def copy_object(self, source_bucket_name, source_key, target_key, headers=None):
-        """拷贝一个文件到当前Bucket。
+        """Copy a file to current bucket.
 
-        :param str source_bucket_name: 源Bucket名
-        :param str source_key: 源文件名
-        :param str target_key: 目标文件名
+        :param str source_bucket_name: Source bucket name
+        :param str source_key: Source file name
+        :param str target_key: Target file name
 
-        :param headers: HTTP头部
-        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+        :param headers: HTTP headers
+        :type headers: dict or oss2.CaseInsensitiveDict (recommended)
 
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
@@ -568,23 +569,23 @@ class Bucket(_Base):
         return PutObjectResult(resp)
 
     def update_object_meta(self, key, headers):
-        """更改Object的元数据信息，包括Content-Type这类标准的HTTP头部，以及以x-oss-meta-开头的自定义元数据。
+        """Update Object's metadata information, including HTTP standard headers such as Content-Type or x-oss-meta- prefixed custom metadata.
+        If user specifies invalid headers (e.g. not standard headers or non x-oss-meta- headers), the call would still succeed but no operation is done in server side.
 
-        用户可以通过 :func:`head_object` 获得元数据信息。
+        User could call :func:`head_object` to get the updated information. Note that get_object_meta does return all metadata, but head_object does.
 
-        :param str key: 文件名
+        :param str key: object key
 
-        :param headers: HTTP头部，包含了元数据信息
-        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+        :param headers: HTTP headers, it could be a dict or oss2.CaseInsensitiveDict (recommended)
 
         :return: :class:`RequestResult <oss2.models.RequestResults>`
         """
         return self.copy_object(self.bucket_name, key, key, headers=headers)
 
     def delete_object(self, key):
-        """删除一个文件。
+        """Delete a file
 
-        :param str key: 文件名
+        :param str key: object key
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
@@ -592,11 +593,11 @@ class Bucket(_Base):
         return RequestResult(resp)
 
     def put_object_acl(self, key, permission):
-        """设置文件的ACL。
+        """Sets the object ACL
 
-        :param str key: 文件名
-        :param str permission: 可以是oss2.OBJECT_ACL_DEFAULT、oss2.OBJECT_ACL_PRIVATE、oss2.OBJECT_ACL_PUBLIC_READ或
-            oss2.OBJECT_ACL_PUBLIC_READ_WRITE。
+        :param str key: object name
+        :param str permission: Valid values are oss2.OBJECT_ACL_DEFAULT、oss2.OBJECT_ACL_PRIVATE、oss2.OBJECT_ACL_PUBLIC_READ or
+            oss2.OBJECT_ACL_PUBLIC_READ_WRITE.
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
@@ -604,7 +605,7 @@ class Bucket(_Base):
         return RequestResult(resp)
 
     def get_object_acl(self, key):
-        """获取文件的ACL。
+        """Gets the object ACL
 
         :return: :class:`GetObjectAclResult <oss2.models.GetObjectAclResult>`
         """
@@ -612,9 +613,9 @@ class Bucket(_Base):
         return self._parse_result(resp, xml_utils.parse_get_object_acl, GetObjectAclResult)
 
     def batch_delete_objects(self, key_list):
-        """批量删除文件。待删除文件列表不能为空。
+        """delete objects specified in key_list.
 
-        :param key_list: 文件名列表，不能为空。
+        :param key_list: object key list, non-empty.
         :type key_list: list of str
 
         :return: :class:`BatchDeleteObjectsResult <oss2.models.BatchDeleteObjectsResult>`
@@ -630,14 +631,14 @@ class Bucket(_Base):
         return self._parse_result(resp, xml_utils.parse_batch_delete_objects, BatchDeleteObjectsResult)
 
     def init_multipart_upload(self, key, headers=None):
-        """初始化分片上传。
+        """initialize a multipart upload.
 
-        返回值中的 `upload_id` 以及Bucket名和Object名三元组唯一对应了此次分片上传事件。
+        `upload_id`, Bucket name and object key in the returned value forms a 3-tuple which is a unique id for the upload.
 
-        :param str key: 待上传的文件名
+        :param str key: object key
 
-        :param headers: HTTP头部
-        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+        :param headers: HTTP headers
+        :type headers: dict or oss2.CaseInsensitiveDict (recommended)
 
         :return: :class:`InitMultipartUploadResult <oss2.models.InitMultipartUploadResult>`
         """
@@ -647,16 +648,16 @@ class Bucket(_Base):
         return self._parse_result(resp, xml_utils.parse_init_multipart_upload, InitMultipartUploadResult)
 
     def upload_part(self, key, upload_id, part_number, data, progress_callback=None, headers=None):
-        """上传一个分片。
+        """upload a part
 
-        :param str key: 待上传文件名，这个文件名要和 :func:`init_multipart_upload` 的文件名一致。
-        :param str upload_id: 分片上传ID
-        :param int part_number: 分片号，最小值是1.
-        :param data: 待上传数据。
-        :param progress_callback: 用户指定进度回调函数。可以用来实现进度条等功能。参考 :ref:`progress_callback` 。
+        :param str key: object key, must be same as the on in :func:`init_multipart_upload`.
+        :param str upload_id: upload Id
+        :param int part_number: part number, starting with 1.
+        :param data: data to upload
+        :param progress_callback: user callback. Check out :ref:`progress_callback`.
 
-        :param headers: 用户指定的HTTP头部。可以指定Content-MD5头部等
-        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+        :param headers: http headers. such as Content-MD5
+        :type headers: dict or oss2.CaseInsensitiveDict (recommended)
 
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
@@ -678,16 +679,16 @@ class Bucket(_Base):
         return result
 
     def complete_multipart_upload(self, key, upload_id, parts, headers=None):
-        """完成分片上传，创建文件。
+        """Completes a multipart upload. A file would be created with all the parts' data and these parts will not be available to user.
 
-        :param str key: 待上传的文件名，这个文件名要和 :func:`init_multipart_upload` 的文件名一致。
-        :param str upload_id: 分片上传ID
+        :param str key: The object key which should be same as the on in :func:`init_multipart_upload`.
+        :param str upload_id: upload id.
 
-        :param parts: PartInfo列表。PartInfo中的part_number和etag是必填项。其中的etag可以从 :func:`upload_part` 的返回值中得到。
+        :param parts: PartInfo list. The part_number and Etag are required in PartInfo. The etag comes from the result of :func:`upload_part`.
         :type parts: list of `PartInfo <oss2.models.PartInfo>`
 
-        :param headers: HTTP头部
-        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+        :param headers: HTTP headers
+        :type headers: dict or oss2.CaseInsensitiveDict (recommended)
 
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
@@ -700,10 +701,10 @@ class Bucket(_Base):
         return PutObjectResult(resp)
 
     def abort_multipart_upload(self, key, upload_id):
-        """取消分片上传。
+        """abort a multipart upload.
 
-        :param str key: 待上传的文件名，这个文件名要和 :func:`init_multipart_upload` 的文件名一致。
-        :param str upload_id: 分片上传ID
+        :param str key: The object key, must be same as the one in :func:`init_multipart_upload`.
+        :param str upload_id: Upload Id.
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
@@ -717,13 +718,13 @@ class Bucket(_Base):
                                key_marker='',
                                upload_id_marker='',
                                max_uploads=1000):
-        """罗列正在进行中的分片上传。支持分页。
+        """Lists all the ongoing uploads,and it supports paging.
 
-        :param str prefix: 只罗列匹配该前缀的文件的分片上传
-        :param str delimiter: 目录分割符
-        :param str key_marker: 文件名分页符。第一次调用可以不传，后续设为返回值中的 `next_key_marker`
-        :param str upload_id_marker: 分片ID分页符。第一次调用可以不传，后续设为返回值中的 `next_upload_id_marker`
-        :param int max_uploads: 一次罗列最多能够返回的条目数
+        :param str prefix: Prefix filter
+        :param str delimiter: delimiter of folder
+        :param str key_marker: Key marker for paging. 
+        :param str upload_id_marker: It's empty for first page and then use next_marker in the response of the previous page.
+        :param int max_uploads: Max entries to return.
 
         :return: :class:`ListMultipartUploadsResult <oss2.models.ListMultipartUploadsResult>`
         """
@@ -740,12 +741,12 @@ class Bucket(_Base):
     def upload_part_copy(self, source_bucket_name, source_key, byte_range,
                          target_key, target_upload_id, target_part_number,
                          headers=None):
-        """分片拷贝。把一个已有文件的一部分或整体拷贝成目标文件的一个分片。
+        """Uploads a part from another file.
 
-        :param byte_range: 指定待拷贝内容在源文件里的范围。参见 :ref:`byte_range`
+        :param byte_range: The range to copy in the source file :ref:`byte_range`
 
-        :param headers: HTTP头部
-        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+        :param headers: HTTP headers
+        :type headers: dict or oss2.CaseInsensitiveDict (recommended)
 
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
@@ -765,12 +766,12 @@ class Bucket(_Base):
 
     def list_parts(self, key, upload_id,
                    marker='', max_parts=1000):
-        """列举已经上传的分片。支持分页。
+        """Lists uploaded parts and it supports paging. As comparison, list_multipart_uploads lists ongoing parts.
 
-        :param str key: 文件名
-        :param str upload_id: 分片上传ID
-        :param str marker: 分页符
-        :param int max_parts: 一次最多罗列多少分片
+        :param str key: object key.
+        :param str upload_id: upload Id.
+        :param str marker: key marker for paging.
+        :param int max_parts: Max entries to return.
 
         :return: :class:`ListPartsResult <oss2.models.ListPartsResult>`
         """
@@ -781,10 +782,10 @@ class Bucket(_Base):
         return self._parse_result(resp, xml_utils.parse_list_parts, ListPartsResult)
     
     def put_symlink(self, target_key, symlink_key, headers=None):
-        """创建Symlink。
+        """Creates a symbolic file
 
-        :param str target_key: 目标文件，目标文件不能为符号连接
-        :param str symlink_key: 符号连接类文件，其实质是一个特殊的文件，数据指向目标文件
+        :param str target_key: Target file, which cannot be another symbolic file.
+        :param str symlink_key: The symbolic file name.
         
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
@@ -794,22 +795,23 @@ class Bucket(_Base):
         return RequestResult(resp)
 
     def get_symlink(self, symlink_key):
-        """获取符号连接文件的目标文件。
+        """Gets the symbolic file's information.
 
-        :param str symlink_key: 符号连接类文件
+        :param str symlink_key: The symbolic file key.
 
         :return: :class:`GetSymlinkResult <oss2.models.GetSymlinkResult>`
 
-        :raises: 如果文件的符号链接不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
+        :raises: If the symbolic file does not exist，:class:`NoSuchKey <oss2.exceptions.NoSuchKey>` is thrown ；
+                 If the key is the symbolic file, then ServerError with error code NotSymlink is returned. Other exceptions are also possible though.
         """
         resp = self.__do_object('GET', symlink_key, params={Bucket.SYMLINK: ''})
         return GetSymlinkResult(resp)
 
     def create_bucket(self, permission=None):
-        """创建新的Bucket。
+        """Creates a new bucket。
 
-        :param str permission: 指定Bucket的ACL。可以是oss2.BUCKET_ACL_PRIVATE（推荐、缺省）、oss2.BUCKET_ACL_PUBLIC_READ或是
-            oss2.BUCKET_ACL_PUBLIC_READ_WRITE。
+        :param str permission: Bucket ACL. It could be oss2.BUCKET_ACL_PRIVATE（recommended,default value) or oss2.BUCKET_ACL_PUBLIC_READ or 
+            oss2.BUCKET_ACL_PUBLIC_READ_WRITE.
         """
         if permission:
             headers = {'x-oss-acl': permission}
@@ -819,26 +821,26 @@ class Bucket(_Base):
         return RequestResult(resp)
 
     def delete_bucket(self):
-        """删除一个Bucket。只有没有任何文件，也没有任何未完成的分片上传的Bucket才能被删除。
+        """Deletes a bucket. A bucket could be deleted only when the bucket is empty.
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
 
-        ":raises: 如果试图删除一个非空Bucket，则抛出 :class:`BucketNotEmpty <oss2.exceptions.BucketNotEmpty>`
+        ":raises: If the bucket is not empty，:class:`BucketNotEmpty <oss2.exceptions.BucketNotEmpty>` is thrown
         """
         resp = self.__do_bucket('DELETE')
         return RequestResult(resp)
 
     def put_bucket_acl(self, permission):
-        """设置Bucket的ACL。
+        """Sets the bucket ACL.
 
-        :param str permission: 新的ACL，可以是oss2.BUCKET_ACL_PRIVATE、oss2.BUCKET_ACL_PUBLIC_READ或
+        :param str permission: The value could be oss2.BUCKET_ACL_PRIVATE、oss2.BUCKET_ACL_PUBLIC_READ或
             oss2.BUCKET_ACL_PUBLIC_READ_WRITE
         """
         resp = self.__do_bucket('PUT', headers={'x-oss-acl': permission}, params={Bucket.ACL: ''})
         return RequestResult(resp)
 
     def get_bucket_acl(self):
-        """获取Bucket的ACL。
+        """Gets bucket ACL
 
         :return: :class:`GetBucketAclResult <oss2.models.GetBucketAclResult>`
         """
@@ -846,16 +848,16 @@ class Bucket(_Base):
         return self._parse_result(resp, xml_utils.parse_get_bucket_acl, GetBucketAclResult)
 
     def put_bucket_cors(self, input):
-        """设置Bucket的CORS。
+        """Sets the bucket CORS.
 
-        :param input: :class:`BucketCors <oss2.models.BucketCors>` 对象或其他
+        :param input: :class:`BucketCors <oss2.models.BucketCors>` instance or data could be converted to BucketCor by xml_utils.to_put_bucket_cors.
         """
         data = self.__convert_data(BucketCors, xml_utils.to_put_bucket_cors, input)
         resp = self.__do_bucket('PUT', data=data, params={Bucket.CORS: ''})
         return RequestResult(resp)
 
     def get_bucket_cors(self):
-        """获取Bucket的CORS配置。
+        """Gets the bucket's CORS.
 
         :return: :class:`GetBucketCorsResult <oss2.models.GetBucketCorsResult>`
         """
@@ -863,36 +865,36 @@ class Bucket(_Base):
         return self._parse_result(resp, xml_utils.parse_get_bucket_cors, GetBucketCorsResult)
 
     def delete_bucket_cors(self):
-        """删除Bucket的CORS配置。"""
+        """Deletes the bucket's CORS"""
         resp = self.__do_bucket('DELETE', params={Bucket.CORS: ''})
         return RequestResult(resp)
 
     def put_bucket_lifecycle(self, input):
-        """设置生命周期管理的配置。
+        """Sets the life cycle of the bucket.
 
-        :param input: :class:`BucketLifecycle <oss2.models.BucketLifecycle>` 对象或其他
+        :param input: :class:`BucketLifecycle <oss2.models.BucketLifecycle>` instance or data could be convered to BucketLifecycle by xml_utils.to_put_bucket_lifecycle.
         """
         data = self.__convert_data(BucketLifecycle, xml_utils.to_put_bucket_lifecycle, input)
         resp = self.__do_bucket('PUT', data=data, params={Bucket.LIFECYCLE: ''})
         return RequestResult(resp)
 
     def get_bucket_lifecycle(self):
-        """获取生命周期管理配置。
+        """Gets the bucket lifecycle.
 
         :return: :class:`GetBucketLifecycleResult <oss2.models.GetBucketLifecycleResult>`
 
-        :raises: 如果没有设置Lifecycle，则抛出 :class:`NoSuchLifecycle <oss2.exceptions.NoSuchLifecycle>`
+        :raises: If the life cycle is not set in the bucket, :class:`NoSuchLifecycle <oss2.exceptions.NoSuchLifecycle>` is thrown.
         """
         resp = self.__do_bucket('GET', params={Bucket.LIFECYCLE: ''})
         return self._parse_result(resp, xml_utils.parse_get_bucket_lifecycle, GetBucketLifecycleResult)
 
     def delete_bucket_lifecycle(self):
-        """删除生命周期管理配置。如果Lifecycle没有设置，也返回成功。"""
+        """Deletes the life cycle of the bucket. It still return 200 OK if the life cycle does not exist."""
         resp = self.__do_bucket('DELETE', params={Bucket.LIFECYCLE: ''})
         return RequestResult(resp)
 
     def get_bucket_location(self):
-        """获取Bucket的数据中心。
+        """Gets the bucket location.
 
         :return: :class:`GetBucketLocationResult <oss2.models.GetBucketLocationResult>`
         """
@@ -900,16 +902,16 @@ class Bucket(_Base):
         return self._parse_result(resp, xml_utils.parse_get_bucket_location, GetBucketLocationResult)
 
     def put_bucket_logging(self, input):
-        """设置Bucket的访问日志功能。
+        """Sets the bucket's logging.
 
-        :param input: :class:`BucketLogging <oss2.models.BucketLogging>` 对象或其他
+        :param input: :class:`BucketLogging <oss2.models.BucketLogging>` instance or other data that could be converted to BucketLogging by xml_utils.to_put_bucket_logging.
         """
         data = self.__convert_data(BucketLogging, xml_utils.to_put_bucket_logging, input)
         resp = self.__do_bucket('PUT', data=data, params={Bucket.LOGGING: ''})
         return RequestResult(resp)
 
     def get_bucket_logging(self):
-        """获取Bucket的访问日志功能配置。
+        """Gets the bucket's logging.
 
         :return: :class:`GetBucketLoggingResult <oss2.models.GetBucketLoggingResult>`
         """
@@ -917,21 +919,21 @@ class Bucket(_Base):
         return self._parse_result(resp, xml_utils.parse_get_bucket_logging, GetBucketLoggingResult)
 
     def delete_bucket_logging(self):
-        """关闭Bucket的访问日志功能。"""
+        """Deletes the bucket's logging configuration---the existing logging files are not deleted."""
         resp = self.__do_bucket('DELETE', params={Bucket.LOGGING: ''})
         return RequestResult(resp)
 
     def put_bucket_referer(self, input):
-        """为Bucket设置防盗链。
+        """Sets the bucket's allowed referer.
 
-        :param input: :class:`BucketReferer <oss2.models.BucketReferer>` 对象或其他
+        :param input: :class:`BucketReferer <oss2.models.BucketReferer>` instance or other data that could be convered to BucketReferer by xml_utils.to_put_bucket_referer.
         """
         data = self.__convert_data(BucketReferer, xml_utils.to_put_bucket_referer, input)
         resp = self.__do_bucket('PUT', data=data, params={Bucket.REFERER: ''})
         return RequestResult(resp)
 
     def get_bucket_referer(self):
-        """获取Bucket的防盗链配置。
+        """Gets the bucket's allowed referer.
 
         :return: :class:`GetBucketRefererResult <oss2.models.GetBucketRefererResult>`
         """
@@ -939,7 +941,7 @@ class Bucket(_Base):
         return self._parse_result(resp, xml_utils.parse_get_bucket_referer, GetBucketRefererResult)
 
     def put_bucket_website(self, input):
-        """为Bucket配置静态网站托管功能。
+        """Sets the static website config for the bucket.
 
         :param input: :class:`BucketWebsite <oss2.models.BucketWebsite>`
         """
@@ -948,11 +950,11 @@ class Bucket(_Base):
         return RequestResult(resp)
 
     def get_bucket_website(self):
-        """获取Bucket的静态网站托管配置。
+        """Gets the static website config.
 
         :return: :class:`GetBucketWebsiteResult <oss2.models.GetBucketWebsiteResult>`
 
-        :raises: 如果没有设置静态网站托管，那么就抛出 :class:`NoSuchWebsite <oss2.exceptions.NoSuchWebsite>`
+        :raises: If the static website config is not set, :class:`NoSuchWebsite <oss2.exceptions.NoSuchWebsite>` is thrown.
         """
         resp = self.__do_bucket('GET', params={Bucket.WEBSITE: ''})
         return self._parse_result(resp, xml_utils.parse_get_bucket_websiste, GetBucketWebsiteResult)
@@ -963,10 +965,10 @@ class Bucket(_Base):
         return RequestResult(resp)
 
     def create_live_channel(self, channel_name, input):
-        """创建推流直播频道
+        """Creates a live channel.
 
-        :param str channel_name: 要创建的live channel的名称
-        :param input: LiveChannelInfo类型，包含了live channel中的描述信息
+        :param str channel_name: The live channel name.
+        :param input: LiveChannelInfo instance, which includes the live channel's description information.
 
         :return: :class:`CreateLiveChannelResult <oss2.models.CreateLiveChannelResult>`
         """
@@ -975,17 +977,17 @@ class Bucket(_Base):
         return self._parse_result(resp, xml_utils.parse_create_live_channel, CreateLiveChannelResult)
 
     def delete_live_channel(self, channel_name):
-        """删除推流直播频道
+        """Deletes the live channel.
 
-        :param str channel_name: 要删除的live channel的名称
+        :param str channel_name: The live channel name.
         """
         resp = self.__do_object('DELETE', channel_name, params={Bucket.LIVE: ''})
         return RequestResult(resp)
 
     def get_live_channel(self, channel_name):
-        """获取直播频道配置
+        """Gets the live channel configuration.
 
-        :param str channel_name: 要获取的live channel的名称
+        :param str channel_name: live channel name
 
         :return: :class:`GetLiveChannelResult <oss2.models.GetLiveChannelResult>`
         """
@@ -993,11 +995,11 @@ class Bucket(_Base):
         return self._parse_result(resp, xml_utils.parse_get_live_channel, GetLiveChannelResult)
 
     def list_live_channel(self, prefix='', marker='', max_keys=100):
-        """列举出Bucket下所有符合条件的live channel
+        """Lists all live channels under the bucket according to the prefix and marker filters
 
-        param: str prefix: list时channel_id的公共前缀
-        param: str marker: list时指定的起始标记
-        param: int max_keys: 本次list返回live channel的最大个数
+        param: str prefix: The channel Id must start with this prefix.
+        param: str marker: The channel Id marker for paging.
+        param: int max_keys: The max channel  count to return.
 
         return: :class:`ListLiveChannelResult <oss2.models.ListLiveChannelResult>`
         """
@@ -1008,9 +1010,9 @@ class Bucket(_Base):
         return self._parse_result(resp, xml_utils.parse_list_live_channel, ListLiveChannelResult)
 
     def get_live_channel_stat(self, channel_name):
-        """获取live channel当前推流的状态
+        """Gets the live channel's pushing streaming status.
 
-        param str channel_name: 要获取推流状态的live channel的名称
+        param str channel_name: The live channel name
 
         return: :class:`GetLiveChannelStatResult <oss2.models.GetLiveChannelStatResult>`
         """
@@ -1018,18 +1020,19 @@ class Bucket(_Base):
         return self._parse_result(resp, xml_utils.parse_live_channel_stat, GetLiveChannelStatResult)
 
     def put_live_channel_status(self, channel_name, status):
-        """更改live channel的status，仅能在“enabled”和“disabled”两种状态中更改
+        """Update the live channel's status. Supported status is “enabled” or “disabled”.
 
-        param str channel_name: 要更改status的live channel的名称
-        param str status: live channel的目标status
+        param str channel_name: live channel name,
+        param str status: live channel's desired status
         """
         resp = self.__do_object('PUT', channel_name, params={Bucket.LIVE: '', Bucket.STATUS: status})
         return RequestResult(resp)
 
     def get_live_channel_history(self, channel_name):
-        """获取live channel中最近的最多十次的推流记录，记录中包含推流的起止时间和远端的地址
+        """Gets the up to 10's recent pushing streaming record of the live channel. Each record includes the 
+        start/end time and the remote address (the source of the pushing streaming).
 
-        param str channel_name: 要获取最近推流记录的live channel的名称
+        param str channel_name: live channel name.
 
         return: :class:`GetLiveChannelHistoryResult <oss2.models.GetLiveChannelHistoryResult>`
         """
@@ -1037,12 +1040,12 @@ class Bucket(_Base):
         return self._parse_result(resp, xml_utils.parse_live_channel_history, GetLiveChannelHistoryResult)
 
     def post_vod_playlist(self, channel_name, playlist_name, start_time = 0, end_time = 0):
-        """根据指定的playlist name以及startTime和endTime生成一个点播的播放列表
+        """Generates a VOD play list according to the play list name, start time and end time. 
 
-        param str channel_name: 要生成点播列表的live channel的名称
-        param str playlist_name: 要生成点播列表m3u8文件的名称
-        param int start_time: 点播的起始时间，Unix Time格式，可以使用int(time.time())获取
-        param int end_time: 点播的结束时间，Unix Time格式，可以使用int(time.time())获取
+        param str channel_name: Live channel name.
+        param str playlist_name: The play list name (*.m3u8 file)
+        param int start_time: Start time in Unix Time，which could be got from int(time.time())
+        param int end_time: End time in Unix Time，which could be got from int(time.time())
         """
         key = channel_name + "/" + playlist_name
         resp = self.__do_object('POST', key, params={Bucket.VOD: '',
@@ -1051,10 +1054,10 @@ class Bucket(_Base):
         return RequestResult(resp)
 
     def _get_bucket_config(self, config):
-        """获得Bucket某项配置，具体哪种配置由 `config` 指定。该接口直接返回 `RequestResult` 对象。
-        通过read()接口可以获得XML字符串。不建议使用。
+        """Gets the bucket config.
+        The raw xml string could be get by result.read() (not recommended though).
 
-        :param str config: 可以是 `Bucket.ACL` 、 `Bucket.LOGGING` 等。
+        :param str config: Supported values are `Bucket.ACL` 、 `Bucket.LOGGING`, etc (check out the beginning part of Bucket class for the complete list).
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """

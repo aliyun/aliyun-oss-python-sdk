@@ -4,11 +4,11 @@
 oss2.xml_utils
 ~~~~~~~~~~~~~~
 
-XML处理相关。
+Utility class for XML processing.
 
-主要包括两类接口：
-    - parse_开头的函数：用来解析服务器端返回的XML
-    - to_开头的函数：用来生成发往服务器端的XML
+It includes two kind of APIs:
+    - APIs starting with parse_：This is for paring the xml from OSS server
+    - APIs starting with to_：This is for generating the xml to sent to OSS servers
 
 """
 

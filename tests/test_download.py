@@ -76,7 +76,7 @@ class TestDownload(OssTestCase):
         self.__test_normal(2 * 1024 * 1024 + 1)
 
     def test_large_multi_threaded(self):
-        """多线程，线程数少于分片数"""
+        """thread count is smaller than parts count"""
 
         oss2.defaults.multiget_threshold = 1024 * 1024
         oss2.defaults.multiget_part_size = 100 * 1024
@@ -85,7 +85,7 @@ class TestDownload(OssTestCase):
         self.__test_normal(2 * 1024 * 1024)
 
     def test_large_many_threads(self):
-        """线程数多余分片数"""
+        """thread count is bigger than parts count"""
 
         oss2.defaults.multiget_threshold = 1024 * 1024
         oss2.defaults.multiget_part_size = 100 * 1024
@@ -130,7 +130,7 @@ class TestDownload(OssTestCase):
         self.assertFileContent(filename, content)
 
     def test_resume_hole_start(self):
-        """第一个part失败"""
+        """The first part fails"""
 
         oss2.defaults.multiget_threshold = 1
         oss2.defaults.multiget_part_size = 500
@@ -139,7 +139,7 @@ class TestDownload(OssTestCase):
         self.__test_resume(500 * 10 + 16, [1])
 
     def test_resume_hole_end(self):
-        """最后一个part失败"""
+        """The last part fails"""
 
         oss2.defaults.multiget_threshold = 1
         oss2.defaults.multiget_part_size = 500
@@ -148,7 +148,7 @@ class TestDownload(OssTestCase):
         self.__test_resume(500 * 10 + 16, [11])
 
     def test_resume_hole_mid(self):
-        """中间part失败"""
+        """The middle part fails"""
 
         oss2.defaults.multiget_threshold = 1
         oss2.defaults.multiget_part_size = 500
@@ -296,7 +296,7 @@ class TestDownload(OssTestCase):
         self.__test_insane_record(400, corrupt_record)
 
     def test_remote_changed_before_start(self):
-        """在开始下载之前，OSS上的文件就已经被修改了"""
+        """The OSS file has been updated before the download starts"""
         oss2.defaults.multiget_threshold = 1
 
         # reuse __test_insane_record to simulate
@@ -350,7 +350,7 @@ class TestDownload(OssTestCase):
         self.assertTrue(new_context['etag'] != old_context['etag'])
 
     def test_two_downloaders(self):
-        """两个downloader同时跑，但是store的目录不一样。"""
+        """Two downloads run concurrently with different target folders."""
 
         oss2.defaults.multiget_threshold = 1
         oss2.defaults.multiget_part_size = 100

@@ -70,10 +70,10 @@ class TestMultipart(OssTestCase):
 
         content = random_bytes(200 * 1024)
 
-        # 上传源文件
+        # uploads source file
         self.bucket.put_object(src_object, content)
 
-        # part copy到目标文件
+        # Copy the file to the target parts.
         parts = []
         upload_id = self.bucket.init_multipart_upload(dst_object).upload_id
 
@@ -87,7 +87,7 @@ class TestMultipart(OssTestCase):
 
         self.bucket.complete_multipart_upload(dst_object, upload_id, parts)
 
-        # 验证
+        # Verify
         content_got = self.bucket.get_object(dst_object).read()
         self.assertEqual(len(content_got), len(content))
         self.assertEqual(content_got, content)

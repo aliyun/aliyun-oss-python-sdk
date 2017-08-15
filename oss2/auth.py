@@ -11,7 +11,7 @@ from .defaults import get_logger
 
 
 class Auth(object):
-    """用于保存用户AccessKeyId、AccessKeySecret，以及计算签名的对象。"""
+    """Store user's AccessKeyId、AccessKeySecret information and calcualte the signature"""
 
     _subresource_key_set = frozenset(
         ['response-content-type', 'response-content-language',
@@ -142,11 +142,11 @@ class Auth(object):
     
 
 class AnonymousAuth(object):
-    """用于匿名访问。
+    """Anonymous Auth
 
     .. note::
-        匿名用户只能读取public-read的Bucket，或只能读取、写入public-read-write的Bucket。
-        不能进行Service、Bucket相关的操作，也不能罗列文件等。
+        Anonymous auth can only read bucket with public-read permission, or read/write bucket with public-read-write permissions.
+        It cannot execute service or bucket related operations(e.g. add a new bucket or list files under a bucket).
     """
     def _sign_request(self, req, bucket_name, key):
         pass
@@ -159,10 +159,10 @@ class AnonymousAuth(object):
         
 
 class StsAuth(object):
-    """用于STS临时凭证访问。可以通过官方STS客户端获得临时密钥（AccessKeyId、AccessKeySecret）以及临时安全令牌（SecurityToken）。
+    """For STS Auth. User could get the AccessKeyId, AccessKeySecret and SecurityToken from the AliCloud's STS service (https://sts.aliyuncs.com)
 
-    注意到临时凭证会在一段时间后过期，在此之前需要重新获取临时凭证，并更新 :class:`Bucket <oss2.Bucket>` 的 `auth` 成员变量为新
-    的 `StsAuth` 实例。
+    Note that the AccessKeyId/Secret and SecurtyToken has the expiration time. Once they're renewed, the STSAuth property in class Bucket instance needs 
+    to be updated with the new credentials.
 
     :param str access_key_id: 临时AccessKeyId
     :param str access_key_secret: 临时AccessKeySecret
