@@ -95,12 +95,9 @@ class Response(object):
         return self.response.iter_content(_CHUNK_SIZE)
 
 
-# TODOTODO
-# requests对于具有fileno()方法的file object，会用fileno()的返回值作为Content-Length。
-# 这对于已经读取了部分内容，或执行了seek()的file object是不正确的。
-#
-# _convert_request_body()对于支持seek()和tell() file object，确保是从
-# 当前位置读取，且只读取当前位置到文件结束的内容。
+# For data which has the len() method (which means it has the length), returns the whole data as the request's content.
+# For data which supports seek() and tell(), but not len(), then returns the remaining data from the current position.
+# Note that for file, it does not support len(),  but it supports seek() and tell().
 def _convert_request_body(data):
     data = to_bytes(data)
 
