@@ -90,6 +90,30 @@ class TestObject(OssTestCase):
         os.remove(filename)
         os.remove(filename2)
 
+    def test_object_empty(self):
+        key = self.random_key()
+        content = b''
+
+        self.bucket.put_object(key, content)
+        res = self.bucket.get_object(key)
+
+        self.assertEqual(res.read(), b'')
+
+    def test_file_empty(self):
+        input_filename = random_string(12)
+        output_filename = random_string(12)
+
+        key = self.random_key()
+        content = b''
+
+        with open(input_filename, 'wb') as f:
+            f.write(content)
+
+        self.bucket.put_object_from_file(key, input_filename)
+        self.bucket.get_object_to_file(key, output_filename)
+
+        self.assertTrue(filecmp.cmp(input_filename, output_filename))
+
     def test_streaming(self):
         src_key = self.random_key('.src')
         dst_key = self.random_key('.dst')
@@ -440,7 +464,9 @@ class TestObject(OssTestCase):
         self.bucket.put_object(key, content)
 
         result = self.bucket.get_object(key, headers={'Accept-Encoding': 'gzip'})
-        self.assertEqual(result.read(), content)
+        content_read = result.read()
+        self.assertEqual(len(content_read), len(content))
+        self.assertEqual(content_read, content)
         self.assertTrue(result.content_length is None)
         self.assertEqual(result.headers['Content-Encoding'], 'gzip')
 

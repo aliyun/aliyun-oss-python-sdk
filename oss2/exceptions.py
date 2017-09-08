@@ -46,8 +46,16 @@ class OssError(Exception):
 
     def __str__(self):
         error = {'status': self.status,
+                 'request-id': self.request_id,
                  'details': self.details}
         return str(error)
+
+    def _str_with_body(self):
+        error = {'status': self.status,
+                 'request-id': self.request_id,
+                 'details': self.body}
+        return str(error)
+
 
 
 class ClientError(OssError):
@@ -55,9 +63,7 @@ class ClientError(OssError):
         OssError.__init__(self, OSS_CLIENT_ERROR_STATUS, {}, 'ClientError: ' + message, {})
 
     def __str__(self):
-        error = {'status': self.status,
-                 'details': self.body}
-        return str(error)
+        return self._str_with_body()
 
 
 class RequestError(OssError):
@@ -66,9 +72,7 @@ class RequestError(OssError):
         self.exception = e
 
     def __str__(self):
-        error = {'status': self.status,
-                 'details': self.body}
-        return str(error)
+        return self._str_with_body()
 
 
 class InconsistentError(OssError):
@@ -76,9 +80,7 @@ class InconsistentError(OssError):
         OssError.__init__(self, OSS_INCONSISTENT_ERROR_STATUS, {'x-oss-request-id': request_id}, 'InconsistentError: ' + message, {})
 
     def __str__(self):
-        error = {'status': self.status,
-                 'details': self.body}
-        return str(error)
+        return self._str_with_body()
 
 
 class ServerError(OssError):
