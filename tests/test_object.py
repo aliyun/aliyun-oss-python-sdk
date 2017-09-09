@@ -52,6 +52,19 @@ class TestObject(OssTestCase):
 
         self.assertRaises(NoSuchKey, self.bucket.get_object, key)
 
+    def test_last_modified_time(self):
+        key = self.random_key()
+        content = random_bytes(10)
+
+        self.bucket.put_object(key, content)
+
+        res = self.bucket.get_object(key)
+        res.read()
+
+        time_string = res.headers['Last-Modified']
+        self.assertEqual(oss2.utils.http_to_unixtime(time_string), res.last_modified)
+        self.assertEqual(oss2.utils.to_unixtime(time_string, '%a, %d %b %Y %H:%M:%S GMT'), res.last_modified)
+
     def test_file(self):
         filename = random_string(12) + '.js'
         filename2 = random_string(12)
