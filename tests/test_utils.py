@@ -16,6 +16,11 @@ from common import *
 
 import logging
 
+try:
+    xrange
+except NameError:
+    xrange = range
+
 
 is_py2 = (sys.version_info[0] == 2)
 is_py3 = (sys.version_info[0] == 3)
