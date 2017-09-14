@@ -3,6 +3,8 @@
 import requests
 import filecmp
 import calendar
+import json
+import base64
 
 from oss2.exceptions import (ClientError, RequestError, NoSuchBucket,
                              NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable)
@@ -317,6 +319,25 @@ class TestObject(OssTestCase):
 
             resp = requests.get(url)
             self.assertEqual(content, resp.content)
+            
+    def test_sign_url_with_callback(self):
+        key = self.random_key()
+        
+        # callback
+        callback_params = {}
+        callback_params['callbackUrl'] = 'http://cbsrv.demo.com'
+        callback_params['callbackBody'] = 'bucket=${bucket}&object=${object}' 
+        encoded_callback = base64.b64encode(json.dumps(callback_params).strip())
+        
+        # callback vars
+        callback_var_params = {'x:my_var1': 'my_val1', 'x:my_var2': 'my_val2'}
+        encoded_callback_var = base64.b64encode(json.dumps(callback_var_params).strip())
+        
+        # put with callback
+        params = {'callback': encoded_callback, 'callback-var': encoded_callback_var}
+        url = self.bucket.sign_url('PUT', key, 60, params=params)
+        resp = requests.put(url)
+        self.assertEqual(resp.status_code, 203)
 
     def test_copy_object(self):
         source_key = self.random_key()
