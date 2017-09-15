@@ -323,15 +323,19 @@ class TestObject(OssTestCase):
     def test_sign_url_with_callback(self):
         key = self.random_key()
         
+        def encode_callback(cb_dict):
+            cb_str = json.dumps(callback_params).strip()
+            return oss2.compat.to_string(base64.b64encode(oss2.compat.to_bytes(cb_str))) 
+        
         # callback
         callback_params = {}
-        callback_params['callbackUrl'] = 'http://cbsrv.demo.com'
+        callback_params['callbackUrl'] = 'http://cbsrv.oss.demo.com'
         callback_params['callbackBody'] = 'bucket=${bucket}&object=${object}' 
-        encoded_callback = base64.b64encode(json.dumps(callback_params).strip())
+        encoded_callback = encode_callback(callback_params)
         
         # callback vars
         callback_var_params = {'x:my_var1': 'my_val1', 'x:my_var2': 'my_val2'}
-        encoded_callback_var = base64.b64encode(json.dumps(callback_var_params).strip())
+        encoded_callback_var = encode_callback(callback_var_params)
         
         # put with callback
         params = {'callback': encoded_callback, 'callback-var': encoded_callback_var}
