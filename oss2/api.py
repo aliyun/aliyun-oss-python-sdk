@@ -119,7 +119,6 @@ from . import defaults
 from .models import *
 from .compat import urlquote, urlparse, to_unicode, to_string
 
-import time
 import shutil
 import oss2.utils
 
@@ -247,6 +246,8 @@ class Bucket(_Base):
     STATUS = 'status'
     VOD = 'vod'
     SYMLINK = 'symlink'
+    QOS = 'qos'
+
 
     def __init__(self, auth, endpoint, bucket_name,
                  is_cname=False,
@@ -827,6 +828,37 @@ class Bucket(_Base):
         """
         resp = self.__do_bucket('DELETE')
         return RequestResult(resp)
+
+    def head_bucket(self):
+        """探测一个Bucket是否存在。
+
+        :return: :class:`HeadBucketResult <oss2.models.HeadBucketResult>`
+        """
+        resp = self.__do_bucket('HEAD')
+        return HeadBucketResult(resp)
+
+    def put_bucket_storage_capacity(self, num_giga_bytes):
+        """设置Bucket容量限额。
+
+        :param int num_giga_bytes: 容量限制，以GB为单位；-1表示没有容量限制。
+
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        input = BucketQos(storage_capacity=num_giga_bytes)
+        data = self.__convert_data(BucketQos, xml_utils.to_bucket_qos, input)
+
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.QOS: ''})
+        return RequestResult(resp)
+
+    def get_bucket_storage_capacity(self):
+        """获取Bucket容量限额。
+
+        :return: 返回当前Bucket容量限额，以GB为单位。如果没有限制则返回-1。
+        """
+        resp = self.__do_bucket('GET', params={Bucket.QOS: ''})
+        bucket_qos = self._parse_result(resp, xml_utils.parse_get_bucket_qos, GetBucketQosResult)
+
+        return bucket_qos.storage_capacity
 
     def put_bucket_acl(self, permission):
         """设置Bucket的ACL。

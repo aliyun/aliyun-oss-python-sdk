@@ -310,6 +310,13 @@ BUCKET_ACL_PUBLIC_READ = 'public-read'
 BUCKET_ACL_PUBLIC_READ_WRITE = 'public-read-write'
 
 
+class HeadBucketResult(RequestResult):
+    def __init__(self, resp):
+        super(HeadBucketResult, self).__init__(resp)
+
+        self.location = _hget(self.headers, 'x-oss-bucket-region')
+
+
 class GetBucketAclResult(RequestResult):
     def __init__(self, resp):
         super(GetBucketAclResult, self).__init__(resp)
@@ -428,6 +435,22 @@ class GetBucketLifecycleResult(RequestResult, BucketLifecycle):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         BucketLifecycle.__init__(self)
+
+
+class BucketQos(object):
+    """Bucket QoS设置。
+
+    :param int storage_capacity: 容量限额，单位为GB。
+    """
+    def __init__(self, storage_capacity=-1):
+        self.storage_capacity = storage_capacity
+
+
+class GetBucketQosResult(RequestResult):
+    def __init__(self, resp):
+        super(GetBucketQosResult, self).__init__(resp)
+
+        self.storage_capacity = -1
 
 
 class CorsRule(object):
@@ -700,6 +723,7 @@ class GetLiveChannelStatResult(RequestResult, LiveChannelStat):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         LiveChannelStat.__init__(self)
+
 
 class GetLiveChannelHistoryResult(RequestResult, LiveChannelHistory):
     def __init__(self, resp):

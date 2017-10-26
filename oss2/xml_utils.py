@@ -386,6 +386,14 @@ def parse_get_bucket_cors(result, body):
     return result
 
 
+def parse_get_bucket_qos(result, body):
+    root = ElementTree.fromstring(body)
+
+    result.storage_capacity = _find_int(root, 'StorageCapacity')
+
+    return result
+
+
 def to_complete_upload_request(parts):
     root = ElementTree.Element('CompleteMultipartUpload')
     for p in parts:
@@ -479,6 +487,7 @@ def to_put_bucket_cors(bucket_cors):
 
     return _node_to_string(root)
 
+
 def to_create_live_channel(live_channel):
     root = ElementTree.Element('LiveChannelConfiguration')
 
@@ -490,5 +499,13 @@ def to_create_live_channel(live_channel):
     _add_text_child(target_node, 'FragDuration', str(live_channel.target.frag_duration))
     _add_text_child(target_node, 'FragCount', str(live_channel.target.frag_count))
     _add_text_child(target_node, 'PlaylistName', str(live_channel.target.playlist_name))
+
+    return _node_to_string(root)
+
+
+def to_bucket_qos(bucket_qos):
+    root = ElementTree.Element('BucketUserQos')
+
+    _add_text_child(root, 'StorageCapacity', str(bucket_qos.storage_capacity))
 
     return _node_to_string(root)
