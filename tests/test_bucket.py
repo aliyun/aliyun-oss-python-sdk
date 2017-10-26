@@ -245,6 +245,29 @@ class TestBucket(OssTestCase):
             self.assertEqual(result.allow_empty_referer, True)
             self.assertEqual(result.referers[0], to_string(u'阿里云'))
 
+    def test_head_bucket_normal(self):
+        head_result = self.bucket.head_bucket()
+        get_result = self.bucket.get_bucket_location()
+
+        self.assertEqual(head_result.location, get_result.location)
+
+    def test_head_bucket_not_exist(self):
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+
+        self.assertRaises(oss2.exceptions.NotFound, bucket.head_bucket)
+
+    def test_bucket_storage_capacity(self):
+        old_capacity = self.bucket.get_bucket_storage_capacity()
+
+        if old_capacity == -1:
+            new_capacity = 100
+        else:
+            new_capacity = old_capacity + 100
+
+        self.bucket.put_bucket_storage_capacity(new_capacity)
+        self.assertEqual(new_capacity, self.bucket.get_bucket_storage_capacity())
+
 
 if __name__ == '__main__':
     unittest.main()
