@@ -309,6 +309,10 @@ BUCKET_ACL_PRIVATE = 'private'
 BUCKET_ACL_PUBLIC_READ = 'public-read'
 BUCKET_ACL_PUBLIC_READ_WRITE = 'public-read-write'
 
+BUCKET_STORAGE_CLASS_STANDARD = 'Standard'
+BUCKET_STORAGE_CLASS_IA = 'IA'
+BUCKET_STORAGE_CLASS_ARCHIVE = 'Archive'
+
 
 class GetBucketAclResult(RequestResult):
     def __init__(self, resp):
@@ -341,6 +345,11 @@ class GetBucketLoggingResult(RequestResult, BucketLogging):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         BucketLogging.__init__(self, '', '')
+
+
+class BucketCreateConfig(object):
+    def __init__(self, storage_class):
+        self.storage_class = storage_class
 
 
 class BucketReferer(object):

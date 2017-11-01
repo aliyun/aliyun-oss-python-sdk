@@ -30,6 +30,32 @@ class TestBucket(OssTestCase):
 
         self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.delete_bucket)
 
+    def test_bucket_with_storage_class(self):
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE, oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_IA))
+
+        service = oss2.Service(auth, OSS_ENDPOINT)
+        wait_meta_sync()
+        self.retry_assert(lambda: bucket.bucket_name in
+                          (b.name for b in
+                           service.list_buckets(prefix=bucket.bucket_name).buckets))
+
+        key = 'a.txt'
+        bucket.put_object(key, 'content')
+
+        self.assertRaises(oss2.exceptions.BucketNotEmpty, bucket.delete_bucket)
+
+        objects = bucket.list_objects()
+        self.assertEqual(1, len(objects.object_list))
+        self.assertEqual(objects.object_list[0].storage_class, 'IA')
+
+        bucket.delete_object(key)
+        bucket.delete_bucket()
+
+        self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.delete_bucket)
+
     def test_acl(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
