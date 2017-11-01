@@ -591,6 +591,15 @@ class Bucket(_Base):
         resp = self.__do_object('DELETE', key)
         return RequestResult(resp)
 
+    def restore_object(self, key):
+        """restore an object
+
+        :param str key: object name
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        resp = self.__do_object('POST', key, params={'restore': ''})
+        return RequestResult(resp)
+
     def put_object_acl(self, key, permission):
         """设置文件的ACL。
 
