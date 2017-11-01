@@ -352,6 +352,19 @@ class BucketCreateConfig(object):
         self.storage_class = storage_class
 
 
+class BucketStat(object):
+    def __init__(self, storage, object_count, multi_part_upload_count):
+        self.storage = storage
+        self.object_count = object_count
+        self.multi_part_upload_count = multi_part_upload_count
+
+
+class GetBucketStatResult(RequestResult, BucketStat):
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        BucketStat.__init__(self, 0, 0, 0)
+
+
 class BucketReferer(object):
     """Bucket防盗链设置。
 

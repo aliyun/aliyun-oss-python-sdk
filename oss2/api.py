@@ -247,6 +247,7 @@ class Bucket(_Base):
     STATUS = 'status'
     VOD = 'vod'
     SYMLINK = 'symlink'
+    STAT = 'stat'
 
     def __init__(self, auth, endpoint, bucket_name,
                  is_cname=False,
@@ -953,6 +954,14 @@ class Bucket(_Base):
         """
         resp = self.__do_bucket('GET', params={Bucket.REFERER: ''})
         return self._parse_result(resp, xml_utils.parse_get_bucket_referer, GetBucketRefererResult)
+
+    def get_bucket_stat(self):
+        """get bucket stat
+
+        :return: :class:`GetBucketStatResult <oss2.models.GetBucketStatResult>`
+        """
+        resp = self.__do_bucket('GET', params={Bucket.STAT: ''})
+        return self._parse_result(resp, xml_utils.parse_get_bucket_stat, GetBucketStatResult)
 
     def put_bucket_website(self, input):
         """为Bucket配置静态网站托管功能。

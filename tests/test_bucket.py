@@ -211,6 +211,30 @@ class TestBucket(OssTestCase):
 
         self.assertRaises(oss2.exceptions.NoSuchCors, self.bucket.get_bucket_cors)
 
+    def test_bucket_stat(self):
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
+
+        service = oss2.Service(auth, OSS_ENDPOINT)
+        wait_meta_sync()
+        self.retry_assert(lambda: bucket.bucket_name in (b.name for b in
+                                                         service.list_buckets(prefix=bucket.bucket_name).buckets))
+
+        key = 'a.txt'
+        bucket.put_object(key, 'content')
+
+        result = bucket.get_bucket_stat()
+        self.assertEqual(1, result.object_count)
+        self.assertEqual(0, result.multi_part_upload_count)
+        self.assertEqual(7, result.storage)
+
+        bucket.delete_object(key)
+        bucket.delete_bucket()
+
+        self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.delete_bucket)
+
     def test_referer(self):
         referers = ['http://hello.com', 'mibrowser:home', '中文+referer', u'中文+referer']
         config = oss2.models.BucketReferer(True, referers)
