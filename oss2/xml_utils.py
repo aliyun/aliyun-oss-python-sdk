@@ -408,6 +408,14 @@ def to_batch_delete_objects_request(keys, quiet):
     return _node_to_string(root_node)
 
 
+def to_put_bucket_config(bucket_config):
+    root = ElementTree.Element('CreateBucketConfiguration')
+
+    _add_text_child(root, 'StorageClass', str(bucket_config.storage_class))
+
+    return _node_to_string(root)
+
+
 def to_put_bucket_logging(bucket_logging):
     root = ElementTree.Element('BucketLoggingStatus')
 

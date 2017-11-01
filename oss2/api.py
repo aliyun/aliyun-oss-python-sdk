@@ -805,17 +805,24 @@ class Bucket(_Base):
         resp = self.__do_object('GET', symlink_key, params={Bucket.SYMLINK: ''})
         return GetSymlinkResult(resp)
 
-    def create_bucket(self, permission=None):
+    def create_bucket(self, permission=None, input=None):
         """创建新的Bucket。
 
         :param str permission: 指定Bucket的ACL。可以是oss2.BUCKET_ACL_PRIVATE（推荐、缺省）、oss2.BUCKET_ACL_PUBLIC_READ或是
             oss2.BUCKET_ACL_PUBLIC_READ_WRITE。
+
+        :param input: :class:`BucketCreateConfig <oss2.models.BucketCreateConfig>` object
         """
         if permission:
             headers = {'x-oss-acl': permission}
         else:
             headers = None
-        resp = self.__do_bucket('PUT', headers=headers)
+
+        if input:
+            data = self.__convert_data(BucketCreateConfig, xml_utils.to_put_bucket_config, input)
+        else:
+            data = None
+        resp = self.__do_bucket('PUT', headers=headers, data=data)
         return RequestResult(resp)
 
     def delete_bucket(self):
