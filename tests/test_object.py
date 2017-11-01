@@ -9,7 +9,7 @@ import base64
 from oss2.exceptions import (ClientError, RequestError, NoSuchBucket,
                              NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable)
 from common import *
-
+from exceptions import *
 
 def now():
     return int(calendar.timegm(time.gmtime()))
@@ -53,6 +53,32 @@ class TestObject(OssTestCase):
         self.bucket.delete_object(key)
 
         self.assertRaises(NoSuchKey, self.bucket.get_object, key)
+
+    def test_restore_object(self):
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE, oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_ARCHIVE))
+
+        service = oss2.Service(auth, OSS_ENDPOINT)
+        wait_meta_sync()
+        self.retry_assert(lambda: bucket.bucket_name in (b.name for b in
+                                                         service.list_buckets(prefix=bucket.bucket_name).buckets))
+
+        key = 'a.txt'
+        bucket.put_object(key, 'content')
+        self.assertEqual(202, bucket.restore_object('a.txt').status)
+        while True:
+            # do we need this test?
+            try:
+                bucket.restore_object('a.txt')
+                self.assertEqual(200, bucket.restore_object('a.txt').status)
+                break
+            except:
+                time.sleep(1)
+
+        bucket.delete_object(key)
+        bucket.delete_bucket()
 
     def test_last_modified_time(self):
         key = self.random_key()
