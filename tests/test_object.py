@@ -9,7 +9,7 @@ import base64
 from oss2.exceptions import (ClientError, RequestError, NoSuchBucket,
                              NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable)
 from common import *
-
+from exceptions import *
 
 def now():
     return int(calendar.timegm(time.gmtime()))
@@ -68,7 +68,14 @@ class TestObject(OssTestCase):
         key = 'a.txt'
         bucket.put_object(key, 'content')
         self.assertEqual(202, bucket.restore_object('a.txt').status)
-        self.assertTrue((200 == bucket.restore_object('a.txt').status) or (409 == bucket.restore_object('a.txt').status))
+        while True:
+            # do we need this test?
+            try:
+                bucket.restore_object('a.txt')
+                self.assertEqual(200, bucket.restore_object('a.txt').status)
+                break
+            except:
+                time.sleep(1)
 
         bucket.delete_object(key)
         bucket.delete_bucket()
