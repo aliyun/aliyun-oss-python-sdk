@@ -25,7 +25,10 @@ from .models import (SimplifiedObjectInfo,
                      LiveChannelInfo,
                      LiveRecord,
                      LiveChannelVideoStat,
-                     LiveChannelAudioStat)
+                     LiveChannelAudioStat,
+                     Bucket,
+                     Owner,
+                     AccessControlList)
 
 from .compat import urlunquote, to_unicode, to_string
 from .utils import iso8601_to_unixtime, date_to_iso8601, iso8601_to_date
@@ -223,6 +226,22 @@ def parse_get_bucket_stat(result, body):
     result.storage = _find_int(root, 'Storage')
     result.object_count = _find_int(root, 'ObjectCount')
     result.multi_part_upload_count = _find_int(root, 'MultipartUploadCount')
+
+    return result
+
+
+def parse_get_bucket_info(result, body):
+    root = ElementTree.fromstring(body)
+    result.bucket = Bucket()
+
+    result.bucket.name = _find_tag(root, 'Bucket/Name')
+    result.bucket.creation_date = _find_tag(root, 'Bucket/CreationDate')
+    result.bucket.storage_class = _find_tag(root, 'Bucket/StorageClass')
+    result.bucket.extranet_endpoint = _find_tag(root, 'Bucket/ExtranetEndpoint')
+    result.bucket.intranet_endpoint = _find_tag(root, 'Bucket/IntranetEndpoint')
+    result.bucket.location = _find_tag(root, 'Bucket/Location')
+    result.bucket.owner = Owner(_find_tag(root, 'Bucket/Owner/DisplayName'), _find_tag(root, 'Bucket/Owner/ID'))
+    result.bucket.acl = AccessControlList(_find_tag(root, 'Bucket/AccessControlList/Grant'))
 
     return result
 

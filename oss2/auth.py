@@ -19,7 +19,7 @@ class Auth(object):
          'acl', 'uploadId', 'uploads', 'partNumber', 'group', 'link',
          'delete', 'website', 'location', 'objectInfo', 'objectMeta',
          'response-expires', 'response-content-disposition', 'cors', 'lifecycle',
-         'restore', 'qos', 'referer', 'stat', 'append', 'position', 'security-token',
+         'restore', 'qos', 'referer', 'stat', 'bucketInfo', 'append', 'position', 'security-token',
          'live', 'comp', 'status', 'vod', 'startTime', 'endTime', 'x-oss-process',
          'symlink', 'callback', 'callback-var']
     )

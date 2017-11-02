@@ -359,10 +359,45 @@ class BucketStat(object):
         self.multi_part_upload_count = multi_part_upload_count
 
 
+class AccessControlList(object):
+    def __init__(self, grant):
+        self.grant = grant
+
+
+class Owner(object):
+    def __init__(self, display_name, owner_id):
+        self.display_name = display_name
+        self.id = owner_id
+
+
+class Bucket(object):
+    def __init__(self, name=None, owner=None, location=None, storage_class=None,
+                 intranet_endpoint=None, extranet_endpoint=None, creation_date=None, acl=None):
+        self.name = name
+        self.owner = owner
+        self.location = location
+        self.storage_class = storage_class
+        self.intranet_endpoint = intranet_endpoint
+        self.extranet_endpoint = extranet_endpoint
+        self.creation_date = creation_date
+        self.acl = acl
+
+
+class BucketInfo(object):
+    def __init__(self, bucket):
+        self.bucket = bucket
+
+
 class GetBucketStatResult(RequestResult, BucketStat):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         BucketStat.__init__(self, 0, 0, 0)
+
+
+class GetBucketInfoResult(RequestResult, BucketInfo):
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        BucketInfo.__init__(self, None)
 
 
 class BucketReferer(object):

@@ -235,6 +235,28 @@ class TestBucket(OssTestCase):
 
         self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.delete_bucket)
 
+    def test_bucket_info(self):
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
+
+        service = oss2.Service(auth, OSS_ENDPOINT)
+        wait_meta_sync()
+        self.retry_assert(lambda: bucket.bucket_name in (b.name for b in
+                                                         service.list_buckets(prefix=bucket.bucket_name).buckets))
+        result = bucket.get_bucket_info()
+        self.assertEqual(result.bucket.name, bucket.bucket_name)
+        self.assertEqual(result.bucket.storage_class, oss2.BUCKET_STORAGE_CLASS_STANDARD)
+        self.assertIsNotNone(result.bucket.creation_date)
+        self.assertTrue(len(result.bucket.intranet_endpoint) > 0)
+        self.assertTrue(len(result.bucket.extranet_endpoint) > 0)
+        self.assertTrue(len(result.bucket.owner.id) > 0)
+        self.assertEqual(result.bucket.acl.grant, oss2.BUCKET_ACL_PRIVATE)
+        bucket.delete_bucket()
+
+        self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.delete_bucket)
+
     def test_referer(self):
         referers = ['http://hello.com', 'mibrowser:home', '中文+referer', u'中文+referer']
         config = oss2.models.BucketReferer(True, referers)
