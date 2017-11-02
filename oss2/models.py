@@ -439,8 +439,9 @@ class LifecycleExpiration(object):
 
     :param days: 表示在文件修改后过了这么多天，就会匹配规则，从而被删除
     :param date: 表示在该日期之后，规则就一直生效。即每天都会对符合前缀的文件执行删除操作（如，删除），而不管文件是什么时候生成的。
-    :param created_before_date: delete files if their last modified time earlier than created_before_date
         *不建议使用*
+    :param created_before_date: delete files if their last modified time earlier than created_before_date
+
     :type date: `datetime.date`
     """
     def __init__(self, days=None, date=None, created_before_date=None):
