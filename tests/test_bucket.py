@@ -322,7 +322,7 @@ class TestBucket(OssTestCase):
         result = bucket.get_bucket_info()
         self.assertEqual(result.bucket.name, bucket.bucket_name)
         self.assertEqual(result.bucket.storage_class, oss2.BUCKET_STORAGE_CLASS_STANDARD)
-        self.assertTrue(str(result.bucket.creation_date) > 0)
+        self.assertTrue(len(result.bucket.creation_date) > 0)
         self.assertTrue(len(result.bucket.intranet_endpoint) > 0)
         self.assertTrue(len(result.bucket.extranet_endpoint) > 0)
         self.assertTrue(len(result.bucket.owner.id) > 0)
