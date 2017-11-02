@@ -439,15 +439,56 @@ class LifecycleExpiration(object):
 
     :param days: 表示在文件修改后过了这么多天，就会匹配规则，从而被删除
     :param date: 表示在该日期之后，规则就一直生效。即每天都会对符合前缀的文件执行删除操作（如，删除），而不管文件是什么时候生成的。
+    :param created_before_date: delete files if their last modified time earlier than created_before_date
         *不建议使用*
     :type date: `datetime.date`
     """
-    def __init__(self, days=None, date=None):
-        if days is not None and date is not None:
-            raise ClientError('days and date should not be both specified')
+    def __init__(self, days=None, date=None, created_before_date=None):
+        not_none_fields = 0
+        if days is not None:
+            not_none_fields += 1
+        if date is not None:
+            not_none_fields += 1
+        if created_before_date is not None:
+            not_none_fields += 1
+
+        if not_none_fields > 1:
+            raise ClientError('Only one of three fields(days, date and created_before_date) should be specified')
 
         self.days = days
         self.date = date
+        self.created_before_date = created_before_date
+
+
+class AbortMultipartUpload(object):
+    """delete parts
+
+    :param days: delete parts after days since last modified
+    :param created_before_date: delete parts if their last modified time earlier than created_before_date
+
+    """
+    def __init__(self, days=None, created_before_date=None):
+        if days is not None and created_before_date is not None:
+            raise ClientError('Only one of two fields(days and created_before_date) should be specified')
+
+        self.days = days
+        self.created_before_date = created_before_date
+
+
+class StorageTransition(object):
+    """transit objects
+
+    :param days: transit objects after days since last modified
+    :param created_before_date: transit objects if their last modified time earlier than created_before_date
+    :param storage_class: transit objects to storage_class
+    """
+    def __init__(self, days=None, created_before_date=None, storage_class=None):
+        if days is not None and created_before_date is not None:
+            raise ClientError('Only one of two fields(days and created_before_date) should be specified')
+
+        self.days = days
+        self.created_before_date = created_before_date
+        self.storage_class = storage_class
 
 
 class LifecycleRule(object):
@@ -464,11 +505,15 @@ class LifecycleRule(object):
     DISABLED = 'Disabled'
 
     def __init__(self, id, prefix,
-                 status=ENABLED, expiration=None):
+                 status=ENABLED, expiration=None,
+                 abort_multipart_upload=None,
+                 storage_transitions=None):
         self.id = id
         self.prefix = prefix
         self.status = status
         self.expiration = expiration
+        self.abort_multipart_upload = abort_multipart_upload
+        self.storage_transitions = storage_transitions
 
 
 class BucketLifecycle(object):

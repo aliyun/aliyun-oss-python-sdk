@@ -188,6 +188,80 @@ class TestBucket(OssTestCase):
 
         self.bucket.delete_bucket_lifecycle()
 
+    def test_lifecycle_created_before_date(self):
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle
+
+        rule = LifecycleRule(random_string(10), '中文前缀/',
+                             status=LifecycleRule.DISABLED,
+                             expiration=LifecycleExpiration(created_before_date=datetime.date(2100, 12, 25)))
+        lifecycle = BucketLifecycle([rule])
+
+        self.bucket.put_bucket_lifecycle(lifecycle)
+        self.retry_assert(lambda: self.same_lifecycle(rule, self.bucket))
+
+        self.bucket.delete_bucket_lifecycle()
+
+    def test_lifecycle_abort_multipart_upload(self):
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, AbortMultipartUpload
+
+        rule = LifecycleRule(random_string(10), '中文前缀/',
+                             status=LifecycleRule.DISABLED,
+                             expiration=LifecycleExpiration(created_before_date=datetime.date(2100, 12, 25)))
+        rule.abort_multipart_upload = AbortMultipartUpload(days=356)
+
+        lifecycle = BucketLifecycle([rule])
+
+        self.bucket.put_bucket_lifecycle(lifecycle)
+        self.retry_assert(lambda: self.same_lifecycle(rule, self.bucket))
+
+        result = self.bucket.get_bucket_lifecycle()
+        self.assertEqual(1, len(result.rules))
+        self.assertEqual(356, result.rules[0].abort_multipart_upload.days)
+
+        self.bucket.delete_bucket_lifecycle()
+
+    def test_lifecycle_storage_transitions(self):
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition
+
+        rule = LifecycleRule(random_string(10), '中文前缀/',
+                             status=LifecycleRule.DISABLED,
+                             expiration=LifecycleExpiration(days=357))
+        rule.storage_transitions = [StorageTransition(days=356, storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
+
+        lifecycle = BucketLifecycle([rule])
+
+        self.bucket.put_bucket_lifecycle(lifecycle)
+        self.retry_assert(lambda: self.same_lifecycle(rule, self.bucket))
+
+        result = self.bucket.get_bucket_lifecycle()
+        self.assertEqual(1, len(result.rules))
+        self.assertEqual(1, len(result.rules[0].storage_transitions))
+        self.assertEqual(356, result.rules[0].storage_transitions[0].days)
+
+        self.bucket.delete_bucket_lifecycle()
+
+    def test_lifecycle_all(self):
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, AbortMultipartUpload, StorageTransition
+
+        rule = LifecycleRule(random_string(10), '中文前缀/',
+                             status=LifecycleRule.DISABLED,
+                             expiration=LifecycleExpiration(days=357))
+        rule.abort_multipart_upload = AbortMultipartUpload(days=356)
+        rule.storage_transitions = [StorageTransition(days=356, storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
+
+        lifecycle = BucketLifecycle([rule])
+
+        self.bucket.put_bucket_lifecycle(lifecycle)
+        self.retry_assert(lambda: self.same_lifecycle(rule, self.bucket))
+
+        result = self.bucket.get_bucket_lifecycle()
+        self.assertEqual(1, len(result.rules))
+        self.assertEqual(356, result.rules[0].abort_multipart_upload.days)
+        self.assertEqual(1, len(result.rules[0].storage_transitions))
+        self.assertEqual(356, result.rules[0].storage_transitions[0].days)
+
+        self.bucket.delete_bucket_lifecycle()
+
     def test_cors(self):
         rule = oss2.models.CorsRule(allowed_origins=['*'],
                                     allowed_methods=['HEAD', 'GET'],
@@ -248,7 +322,7 @@ class TestBucket(OssTestCase):
         result = bucket.get_bucket_info()
         self.assertEqual(result.bucket.name, bucket.bucket_name)
         self.assertEqual(result.bucket.storage_class, oss2.BUCKET_STORAGE_CLASS_STANDARD)
-        self.assertIsNotNone(result.bucket.creation_date)
+        self.assertTrue(str(result.bucket.creation_date) > 0)
         self.assertTrue(len(result.bucket.intranet_endpoint) > 0)
         self.assertTrue(len(result.bucket.extranet_endpoint) > 0)
         self.assertTrue(len(result.bucket.owner.id) > 0)
