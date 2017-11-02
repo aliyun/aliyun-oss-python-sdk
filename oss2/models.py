@@ -454,7 +454,7 @@ class LifecycleExpiration(object):
             not_none_fields += 1
 
         if not_none_fields > 1:
-            raise ClientError('Only one of three fields(days, date and created_before_date) should be specified')
+            raise ClientError('More than one field(days, date and created_before_date) has been specified')
 
         self.days = days
         self.date = date
@@ -470,7 +470,7 @@ class AbortMultipartUpload(object):
     """
     def __init__(self, days=None, created_before_date=None):
         if days is not None and created_before_date is not None:
-            raise ClientError('Only one of two fields(days and created_before_date) should be specified')
+            raise ClientError('days and created_before_date should not be both specified')
 
         self.days = days
         self.created_before_date = created_before_date
@@ -485,7 +485,7 @@ class StorageTransition(object):
     """
     def __init__(self, days=None, created_before_date=None, storage_class=None):
         if days is not None and created_before_date is not None:
-            raise ClientError('Only one of two fields(days and created_before_date) should be specified')
+            raise ClientError('days and created_before_date should not be both specified')
 
         self.days = days
         self.created_before_date = created_before_date
