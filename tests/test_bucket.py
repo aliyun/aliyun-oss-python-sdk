@@ -28,6 +28,7 @@ class TestBucket(OssTestCase):
         bucket.delete_object(key)
         bucket.delete_bucket()
 
+        wait_meta_sync()
         self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.delete_bucket)
 
     def test_bucket_with_storage_class(self):
@@ -53,7 +54,7 @@ class TestBucket(OssTestCase):
 
         bucket.delete_object(key)
         bucket.delete_bucket()
-
+        wait_meta_sync()
         self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.delete_bucket)
 
     def test_acl(self):
@@ -282,7 +283,7 @@ class TestBucket(OssTestCase):
 
         self.bucket.delete_bucket_cors()
         self.bucket.delete_bucket_cors()
-
+        wait_meta_sync()
         self.assertRaises(oss2.exceptions.NoSuchCors, self.bucket.get_bucket_cors)
 
     def test_bucket_stat(self):
@@ -298,6 +299,7 @@ class TestBucket(OssTestCase):
 
         key = 'a.txt'
         bucket.put_object(key, 'content')
+        wait_meta_sync()
 
         result = bucket.get_bucket_stat()
         self.assertEqual(1, result.object_count)
