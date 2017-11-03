@@ -370,9 +370,9 @@ class Owner(object):
         self.id = owner_id
 
 
-class Bucket(object):
-    def __init__(self, name=None, owner=None, location=None, storage_class=None,
-                 intranet_endpoint=None, extranet_endpoint=None, creation_date=None, acl=None):
+class BucketInfo(object):
+    def __init__(self, name=None, owner=None, location=None, storage_class=None, intranet_endpoint=None,
+                 extranet_endpoint=None, creation_date=None, acl=None):
         self.name = name
         self.owner = owner
         self.location = location
@@ -381,11 +381,6 @@ class Bucket(object):
         self.extranet_endpoint = extranet_endpoint
         self.creation_date = creation_date
         self.acl = acl
-
-
-class BucketInfo(object):
-    def __init__(self, bucket):
-        self.bucket = bucket
 
 
 class GetBucketStatResult(RequestResult, BucketStat):
@@ -397,7 +392,7 @@ class GetBucketStatResult(RequestResult, BucketStat):
 class GetBucketInfoResult(RequestResult, BucketInfo):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
-        BucketInfo.__init__(self, None)
+        BucketInfo.__init__(self)
 
 
 class BucketReferer(object):

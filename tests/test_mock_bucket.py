@@ -322,6 +322,175 @@ x-oss-request-id: 566B6BD9B295345D15740F1F'''
         self.assertRequest(req_info, request_text.format(id, prefix, status, date))
 
     @patch('oss2.Session.do_request')
+    def test_put_lifecycle_days_less_than_transition_days(self, do_request):
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle
+
+        request_text = '''PUT /?lifecycle= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Content-Length: 178
+date: Sat, 12 Dec 2015 00:35:39 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:BdIgh0100HCI1QkZKsArQvQafzY=
+
+<LifecycleConfiguration><Rule><ID>{0}</ID><Prefix>{1}</Prefix><Status>{2}</Status><Expiration><Days>{3}</Days></Expiration><Transition><Days>{4}</Days><StorageClass>IA</StorageClass></Transition></Rule></LifecycleConfiguration>'''
+
+        response_text = '''HTTP/1.1 400
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:39 GMT
+Content-Length: 0
+Connection: keep-alive
+x-oss-request-id: 566B6BDB1BA604C27DD419B8
+
+<?xml version="1.0" encoding="UTF-8"?>
+<Error>
+  <Code>InvalidArgument</Code>
+  <Message>Days in the Expiration action must be more than the Transition action for StorageClass IA</Message>
+  <RequestId>566B6BDB1BA604C27DD419B8</RequestId>
+  <ArgumentName>Days</ArgumentName>
+  <ArgumentValue>2</ArgumentValue>
+  <HostId>ming-oss-share.oss-cn-hangzhou.aliyuncs.com</HostId>
+</Error>
+'''
+        req_info = unittests.common.mock_response(do_request, response_text)
+
+        id = '中文ID'
+        prefix = '中文前缀'
+        status = 'Enabled'
+        days = 2
+        transition_days = 4
+
+        rule = LifecycleRule(id, prefix,
+                             status=LifecycleRule.ENABLED,
+                             expiration=LifecycleExpiration(days=days))
+
+        rule.storage_transitions = [oss2.models.StorageTransition(days=4, storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
+        self.assertRaises(oss2.exceptions.InvalidArgument,
+                          unittests.common.bucket().put_bucket_lifecycle, BucketLifecycle([rule]))
+
+    @patch('oss2.Session.do_request')
+    def test_put_lifecycle_invalid_transitions(self, do_request):
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle
+
+        request_text = '''PUT /?lifecycle= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Content-Length: 178
+date: Sat, 12 Dec 2015 00:35:39 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:BdIgh0100HCI1QkZKsArQvQafzY=
+
+{0}'''
+
+        response_text = '''HTTP/1.1 400
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:39 GMT
+Content-Length: 0
+Connection: keep-alive
+x-oss-request-id: 566B6BDB1BA604C27DD419B8
+
+<?xml version="1.0" encoding="UTF-8"?>
+<Error>
+  <Code>InvalidArgument</Code>
+</Error>
+'''
+        req_info = unittests.common.mock_response(do_request, response_text)
+
+        id = '中文ID'
+        prefix = '中文前缀'
+        status = 'Enabled'
+        days = 5
+        transition_days = 4
+
+        rule = LifecycleRule(id, prefix,
+                             status=LifecycleRule.ENABLED,
+                             expiration=LifecycleExpiration(days=days))
+
+        # Archive days less than IA
+        rule.storage_transitions = [oss2.models.StorageTransition(days=transition_days + 2,
+                                                                  storage_class=oss2.BUCKET_STORAGE_CLASS_IA),
+                                    oss2.models.StorageTransition(days=transition_days,
+                                                                  storage_class=oss2.BUCKET_STORAGE_CLASS_ARCHIVE)]
+        request_body = '''
+        <LifecycleConfiguration>
+            <Rule>
+                <ID>{0}</ID>
+                <Prefix>{1}</Prefix>
+                <Status>{2}</Status>
+                <Expiration>
+                    <Days>{3}</Days>
+                </Expiration>
+                <Transition>
+                    <StorageClass>IA</StorageClass>
+                    <Days>{4}</Days>
+                </Transition>
+                <Transition>
+                    <StorageClass>Archive</StorageClass>
+                    <Days>{5}</Days>
+                </Transition>
+            </Rule>
+        </LifecycleConfiguration>
+        '''
+        self.assertRaises(oss2.exceptions.InvalidArgument,
+                          unittests.common.bucket().put_bucket_lifecycle, BucketLifecycle([rule]))
+        self.assertRequest(req_info, request_text.format(
+            request_body.format(id, prefix, status, days, transition_days + 2, transition_days).replace('\n', '').replace(' ', '')))
+
+        # transition Archive
+        rule.storage_transitions = [oss2.models.StorageTransition(days=transition_days + 2,
+                                                                  storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
+
+        request_body = '''
+        <LifecycleConfiguration>
+            <Rule>
+                <ID>{0}</ID>
+                <Prefix>{1}</Prefix>
+                <Status>{2}</Status>
+                <Expiration>
+                    <Days>{3}</Days>
+                </Expiration>
+                <Transition>
+                    <StorageClass>IA</StorageClass>
+                    <Days>{4}</Days>
+                </Transition>
+            </Rule>
+        </LifecycleConfiguration>
+        '''
+        self.assertRaises(oss2.exceptions.InvalidArgument,
+                          unittests.common.bucket().put_bucket_lifecycle, BucketLifecycle([rule]))
+        self.assertRequest(req_info, request_text.format(
+            request_body.format(id, prefix, status, days, transition_days + 2).replace('\n', '').replace(' ', '')))
+
+        # transition from IA to Standard
+        rule.storage_transitions = [oss2.models.StorageTransition(days=transition_days + 2,
+                                                                  storage_class=oss2.BUCKET_STORAGE_CLASS_STANDARD)]
+        request_body = '''
+        <LifecycleConfiguration>
+            <Rule>
+                <ID>{0}</ID>
+                <Prefix>{1}</Prefix>
+                <Status>{2}</Status>
+                <Expiration>
+                    <Days>{3}</Days>
+                </Expiration>
+                <Transition>
+                    <StorageClass>Standard</StorageClass>
+                    <Days>{4}</Days>
+                </Transition>
+            </Rule>
+        </LifecycleConfiguration>
+        '''
+        self.assertRaises(oss2.exceptions.InvalidArgument,
+                          unittests.common.bucket().put_bucket_lifecycle, BucketLifecycle([rule]))
+
+        self.assertRequest(req_info, request_text.format(
+            request_body.format(id, prefix, status, days, transition_days + 2).replace('\n', '').replace(' ', '')))
+
+    @patch('oss2.Session.do_request')
     def test_put_lifecycle_days(self, do_request):
         from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle
 
@@ -457,6 +626,73 @@ x-oss-request-id: 566B6BDB1BA604C27DD419B0
         self.assertEqual(rule.status, status)
         self.assertEqual(rule.expiration.date, None)
         self.assertEqual(rule.expiration.days, days)
+
+    @patch('oss2.Session.do_request')
+    def test_get_info(self, do_request):
+        request_text = '''GET /?bucketInfo HTTP/1.1
+Host: sbowspxjhmccpmesjqcwagfw.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:37:17 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:wopWcmMd/70eNKYOc9M6ZA21yY8='''
+
+        response_text = '''HTTP/1.1 404
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:37:17 GMT
+Content-Type: application/xml
+Content-Length: 287
+Connection: keep-alive
+x-oss-request-id: 566B6C3D6086505A0CFF0F68
+
+<?xml version="1.0" encoding="UTF-8"?>
+<Error>
+  <Code>NoSuchBucket</Code>
+  <Message>The specified bucket does not exist.</Message>
+  <RequestId>566B6C3D6086505A0CFF0F68</RequestId>
+  <HostId>sbowspxjhmccpmesjqcwagfw.oss-cn-hangzhou.aliyuncs.com</HostId>
+  <BucketName>sbowspxjhmccpmesjqcwagfw</BucketName>
+</Error>'''
+
+        req_info = unittests.common.mock_response(do_request, response_text)
+        bucket = unittests.common.bucket()
+        bucket.bucket_name = 'sbowspxjhmccpmesjqcwagfw'
+        self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.get_bucket_info)
+        self.assertRequest(req_info, request_text)
+
+    @patch('oss2.Session.do_request')
+    def test_get_stat(self, do_request):
+        request_text = '''GET /?stat HTTP/1.1
+Host: sbowspxjhmccpmesjqcwagfw.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:37:17 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:wopWcmMd/70eNKYOc9M6ZA21yY8='''
+
+        response_text = '''HTTP/1.1 403
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:37:17 GMT
+Content-Type: application/xml
+Content-Length: 287
+Connection: keep-alive
+x-oss-request-id: 566B6C3D6086505A0CFF0F68
+
+<?xml version="1.0" encoding="UTF-8"?>
+<Error>
+  <Code>AccessDenied</Code>
+  <Message>AccessDenied</Message>
+  <RequestId>566B6C3D6086505A0CFF0F68</RequestId>
+  <HostId>sbowspxjhmccpmesjqcwagfw.oss-cn-hangzhou.aliyuncs.com</HostId>
+</Error>'''
+
+        req_info = unittests.common.mock_response(do_request, response_text)
+        bucket = unittests.common.bucket()
+        bucket.bucket_name = 'sbowspxjhmccpmesjqcwagfw'
+        self.assertRaises(oss2.exceptions.AccessDenied, bucket.get_bucket_stat)
+        self.assertRequest(req_info, request_text)
 
     @patch('oss2.Session.do_request')
     def test_delete_lifecycle(self, do_request):

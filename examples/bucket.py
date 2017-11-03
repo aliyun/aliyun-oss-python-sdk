@@ -32,6 +32,31 @@ print('\n'.join(info.name for info in oss2.BucketIterator(service)))
 # 创建Bucket对象，所有Object相关的接口都可以通过Bucket对象来进行
 bucket = oss2.Bucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name)
 
+# create bucket with permission and storage class
+bucket.create_bucket(permission=oss2.BUCKET_ACL_PRIVATE,
+                     input=oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_STANDARD))
+
+# get bucket info
+bucket_info = bucket.get_bucket_info()
+print 'name: ' + bucket_info.name
+print 'storage class: ' + bucket_info.storage_class
+print 'creation date: ' + bucket_info.creation_date
+
+# get bucket stat
+bucket_stat = bucket.get_bucket_stat()
+print 'storage: ' + str(bucket_stat.storage)
+print 'object count: ' + str(bucket_stat.object_count)
+print 'multi part upload count: ' + str(bucket_stat.multi_part_upload_count)
+
+# set bucket lifecycle.
+rule = oss2.models.LifecycleRule('a', '中文前缀/', status=oss2.models.LifecycleRule.DISABLED,
+                                 expiration=oss2.models.LifecycleExpiration(days=357))
+rule.abort_multipart_upload = oss2.models.AbortMultipartUpload(days=356)
+# transition to IA
+rule.storage_transitions = [oss2.models.StorageTransition(days=356, storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
+
+lifecycle = oss2.models.BucketLifecycle([rule])
+bucket.put_bucket_lifecycle(lifecycle)
 
 # 下面只展示如何配置静态网站托管。其他的Bucket操作方式类似，可以参考tests/test_bucket.py里的内容
 

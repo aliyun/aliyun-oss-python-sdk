@@ -66,12 +66,13 @@ class TestObject(OssTestCase):
 
         key = 'a.txt'
         bucket.put_object(key, 'content')
-        self.assertEqual(202, bucket.restore_object('a.txt').status)
+        self.assertEqual(202, bucket.restore_object(key).status)
         while True:
             # do we need this test?
             try:
                 bucket.restore_object('a.txt')
-                self.assertEqual(200, bucket.restore_object('a.txt').status)
+                self.assertEqual(200, bucket.restore_object(key).status)
+                self.assertEqual('content', bucket.get_object(key).read())
                 break
             except:
                 time.sleep(1)

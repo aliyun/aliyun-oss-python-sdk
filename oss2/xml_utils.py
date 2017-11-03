@@ -234,16 +234,15 @@ def parse_get_bucket_stat(result, body):
 
 def parse_get_bucket_info(result, body):
     root = ElementTree.fromstring(body)
-    result.bucket = Bucket()
 
-    result.bucket.name = _find_tag(root, 'Bucket/Name')
-    result.bucket.creation_date = _find_tag(root, 'Bucket/CreationDate')
-    result.bucket.storage_class = _find_tag(root, 'Bucket/StorageClass')
-    result.bucket.extranet_endpoint = _find_tag(root, 'Bucket/ExtranetEndpoint')
-    result.bucket.intranet_endpoint = _find_tag(root, 'Bucket/IntranetEndpoint')
-    result.bucket.location = _find_tag(root, 'Bucket/Location')
-    result.bucket.owner = Owner(_find_tag(root, 'Bucket/Owner/DisplayName'), _find_tag(root, 'Bucket/Owner/ID'))
-    result.bucket.acl = AccessControlList(_find_tag(root, 'Bucket/AccessControlList/Grant'))
+    result.name = _find_tag(root, 'Bucket/Name')
+    result.creation_date = _find_tag(root, 'Bucket/CreationDate')
+    result.storage_class = _find_tag(root, 'Bucket/StorageClass')
+    result.extranet_endpoint = _find_tag(root, 'Bucket/ExtranetEndpoint')
+    result.intranet_endpoint = _find_tag(root, 'Bucket/IntranetEndpoint')
+    result.location = _find_tag(root, 'Bucket/Location')
+    result.owner = Owner(_find_tag(root, 'Bucket/Owner/DisplayName'), _find_tag(root, 'Bucket/Owner/ID'))
+    result.acl = AccessControlList(_find_tag(root, 'Bucket/AccessControlList/Grant'))
 
     return result
 
