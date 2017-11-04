@@ -155,6 +155,7 @@ class TestLiveChannel(OssTestCase):
         for channel_name in channel_name_list:
             bucket.delete_live_channel(channel_name)
         bucket.delete_bucket()
+        wait_meta_sync()
         self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.delete_bucket)
 
     def test_get_live_channel_stat(self):

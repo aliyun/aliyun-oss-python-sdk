@@ -308,7 +308,7 @@ class TestBucket(OssTestCase):
 
         bucket.delete_object(key)
         bucket.delete_bucket()
-
+        wait_meta_sync()
         self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.delete_bucket)
 
     def test_bucket_info(self):
