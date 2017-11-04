@@ -331,6 +331,7 @@ class TestBucket(OssTestCase):
         self.assertEqual(result.acl.grant, oss2.BUCKET_ACL_PRIVATE)
         bucket.delete_bucket()
 
+        wait_meta_sync()
         self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.delete_bucket)
 
     def test_referer(self):
