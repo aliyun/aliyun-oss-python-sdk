@@ -10,7 +10,7 @@ install:
 - pip install --upgrade mock
 script:
 - nosetests unittests/ --with-cov
-- if [ -n "$OSS_TEST_ACCESS_KEY_ID" ]; then travis_wait 40 nosetests tests/ --with-cov; fi
+- if [ -n "$OSS_TEST_ACCESS_KEY_ID" ]; then travis_wait 30 nosetests tests/ --with-cov; fi
 after_success:
 - coveralls
 env:
