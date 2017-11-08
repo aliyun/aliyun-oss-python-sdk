@@ -38,15 +38,15 @@ bucket.create_bucket(permission=oss2.BUCKET_ACL_PRIVATE,
 
 # get bucket info
 bucket_info = bucket.get_bucket_info()
-print 'name: ' + bucket_info.name
-print 'storage class: ' + bucket_info.storage_class
-print 'creation date: ' + bucket_info.creation_date
+print('name: ' + bucket_info.name)
+print('storage class: ' + bucket_info.storage_class)
+print('creation date: ' + bucket_info.creation_date)
 
 # get bucket stat
 bucket_stat = bucket.get_bucket_stat()
-print 'storage: ' + str(bucket_stat.storage)
-print 'object count: ' + str(bucket_stat.object_count)
-print 'multi part upload count: ' + str(bucket_stat.multi_part_upload_count)
+print('storage: ' + str(bucket_stat.storage))
+print('object count: ' + str(bucket_stat.object_count))
+print('multi part upload count: ' + str(bucket_stat.multi_part_upload_count))
 
 # set bucket lifecycle.
 rule = oss2.models.LifecycleRule('a', '中文前缀/', status=oss2.models.LifecycleRule.DISABLED,

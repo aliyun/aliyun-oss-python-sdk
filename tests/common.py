@@ -82,7 +82,7 @@ class OssTestCase(unittest.TestCase):
             oss2.utils.silently_remove(temp_file)
 
         delete_keys(self.bucket, self.key_list)
-        print self.__class__.__name__ + '.' + self._testMethodName + ' used ' + str(time.time() - self.start)
+        print(self.__class__.__name__ + '.' + self._testMethodName + ' used ' + str(time.time() - self.start))
 
     def random_key(self, suffix=''):
         key = self.prefix + random_string(12) + suffix
