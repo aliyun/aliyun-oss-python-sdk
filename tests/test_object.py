@@ -98,7 +98,7 @@ class TestObject(OssTestCase):
         filename2 = random_string(12)
 
         key = self.random_key('.txt')
-        content = random_bytes(1024 * 1024)
+        content = random_bytes(1024)
 
         with open(filename, 'wb') as f:
             f.write(content)
@@ -159,7 +159,7 @@ class TestObject(OssTestCase):
         src_key = self.random_key('.src')
         dst_key = self.random_key('.dst')
 
-        content = random_bytes(1024 * 1024)
+        content = random_bytes(1024)
 
         self.bucket.put_object(src_key, content)
 
@@ -188,7 +188,7 @@ class TestObject(OssTestCase):
     def test_data_generator(self):
         key = self.random_key()
         key2 = self.random_key()
-        content = random_bytes(1024 * 1024 + 1)
+        content = random_bytes(16 * 1024 + 1)
 
         self.bucket.put_object(key, self.make_generator(content, 8192))
         self.assertEqual(self.bucket.get_object(key).read(), content)
@@ -473,7 +473,7 @@ class TestObject(OssTestCase):
             stats['previous'] = bytes_consumed
 
         key = self.random_key()
-        content = random_bytes(2 * 1024 * 1024)
+        content = random_bytes(1024)
 
         # 上传内存中的内容
         stats = {'previous': -1}
@@ -523,7 +523,7 @@ class TestObject(OssTestCase):
         """OSS supports HTTP Compression, see https://en.wikipedia.org/wiki/HTTP_compression for details.
         """
         key = self.random_key('.txt')       # ensure our content-type is text/plain, which could be compressed
-        content = random_bytes(1024 * 1024) # ensure our content-length is larger than 1024 to trigger compression
+        content = random_bytes(10 * 1024) # ensure our content-length is larger than 1024 to trigger compression
 
         self.bucket.put_object(key, content)
 
