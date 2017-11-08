@@ -48,7 +48,7 @@ class TestUpload(OssTestCase):
 
     def test_concurrency(self):
         key = random_string(16)
-        content = random_bytes(8 * 100 * 1024)
+        content = random_bytes(64 * 100 * 1024)
 
         pathname = self._prepare_temp_file(content)
 
