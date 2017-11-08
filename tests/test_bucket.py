@@ -55,9 +55,6 @@ class TestBucket(OssTestCase):
         bucket.delete_object(key)
         bucket.delete_bucket()
 
-        wait_meta_sync()
-        self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.delete_bucket)
-
     def test_acl(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
@@ -310,9 +307,6 @@ class TestBucket(OssTestCase):
         bucket.delete_object(key)
         bucket.delete_bucket()
 
-        wait_meta_sync()
-        self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.delete_bucket)
-
     def test_bucket_info(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
@@ -332,9 +326,6 @@ class TestBucket(OssTestCase):
         self.assertTrue(len(result.owner.id) > 0)
         self.assertEqual(result.acl.grant, oss2.BUCKET_ACL_PRIVATE)
         bucket.delete_bucket()
-
-        wait_meta_sync()
-        self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.delete_bucket)
 
     def test_referer(self):
         referers = ['http://hello.com', 'mibrowser:home', '中文+referer', u'中文+referer']
