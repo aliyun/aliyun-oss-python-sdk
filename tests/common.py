@@ -46,7 +46,7 @@ class NonlocalObject(object):
 
 def wait_meta_sync():
     if os.environ.get('TRAVIS'):
-        time.sleep(15)
+        time.sleep(5)
     else:
         time.sleep(1)
 
