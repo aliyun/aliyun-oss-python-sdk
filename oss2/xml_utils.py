@@ -387,8 +387,9 @@ def parse_lifecycle_abort_multipart_upload(abort_multipart_upload_node):
 
     if abort_multipart_upload_node.find('Days') is not None:
         abort_multipart_upload.days = _find_int(abort_multipart_upload_node, 'Days')
-    elif abort_multipart_upload_node.find('Date') is not None:
-        abort_multipart_upload.date = iso8601_to_date(_find_tag(abort_multipart_upload_node, 'Date'))
+    elif abort_multipart_upload_node.find('CreatedBeforeDate') is not None:
+        abort_multipart_upload.created_before_date = iso8601_to_date(_find_tag(abort_multipart_upload_node,
+                                                                               'CreatedBeforeDate'))
     return abort_multipart_upload
 
 
@@ -402,8 +403,9 @@ def parse_lifecycle_storage_transitions(storage_transition_nodes):
         storage_transition = StorageTransition(storage_class=storage_class)
         if storage_transition_node.find('Days') is not None:
             storage_transition.days = _find_int(storage_transition_node, 'Days')
-        elif storage_transition_node.find('Date') is not None:
-            storage_transition.date = iso8601_to_date(_find_tag(storage_transition_node, 'Date'))
+        elif storage_transition_node.find('CreatedBeforeDate') is not None:
+            storage_transition.created_before_date = iso8601_to_date(_find_tag(storage_transition_node,
+                                                                               'CreatedBeforeDate'))
 
         storage_transitions.append(storage_transition)
 
