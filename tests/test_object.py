@@ -10,6 +10,7 @@ from oss2.exceptions import (ClientError, RequestError, NoSuchBucket,
                              NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable)
 from common import *
 
+
 def now():
     return int(calendar.timegm(time.gmtime()))
 
@@ -263,7 +264,7 @@ class TestObject(OssTestCase):
 
         # 设置bucket为private，并确认上传和下载都会失败
         self.bucket.put_bucket_acl('private')
-        time.sleep(1)
+        wait_meta_sync()
 
         self.assertRaises(oss2.exceptions.AccessDenied, b.put_object, key, content)
         self.assertRaises(oss2.exceptions.AccessDenied, b.get_object, key)
