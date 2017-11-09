@@ -394,9 +394,6 @@ def parse_lifecycle_abort_multipart_upload(abort_multipart_upload_node):
 
 
 def parse_lifecycle_storage_transitions(storage_transition_nodes):
-    if storage_transition_nodes is None:
-        return None
-
     storage_transitions = []
     for storage_transition_node in storage_transition_nodes:
         storage_class = _find_tag(storage_transition_node, 'StorageClass')

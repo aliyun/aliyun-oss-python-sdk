@@ -209,6 +209,7 @@ class TestBucket(OssTestCase):
         rule = LifecycleRule(random_string(10), '中文前缀/',
                              status=LifecycleRule.DISABLED,
                              expiration=LifecycleExpiration(created_before_date=datetime.date(2100, 12, 25)))
+
         rule.abort_multipart_upload = AbortMultipartUpload(days=356)
 
         lifecycle = BucketLifecycle([rule])
@@ -313,6 +314,16 @@ class TestBucket(OssTestCase):
         rule = LifecycleRule(random_string(10), '中文前缀/',
                              status=LifecycleRule.DISABLED,
                              expiration=LifecycleExpiration(days=357))
+
+        self.assertRaises(oss2.exceptions.ClientError,
+                          LifecycleExpiration, days=356, created_before_date=datetime.date(2100, 12, 25))
+
+        self.assertRaises(oss2.exceptions.ClientError,
+                          AbortMultipartUpload, days=356, created_before_date=datetime.date(2100, 12, 25))
+
+        self.assertRaises(oss2.exceptions.ClientError,
+                          StorageTransition, days=356, created_before_date=datetime.date(2100, 12, 25))
+
         rule.abort_multipart_upload = AbortMultipartUpload(days=356)
         rule.storage_transitions = [StorageTransition(days=356, storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
 
