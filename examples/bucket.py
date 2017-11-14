@@ -48,12 +48,16 @@ print('storage: ' + str(bucket_stat.storage))
 print('object count: ' + str(bucket_stat.object_count))
 print('multi part upload count: ' + str(bucket_stat.multi_part_upload_count))
 
-# set bucket lifecycle.
-rule = oss2.models.LifecycleRule('a', '中文前缀/', status=oss2.models.LifecycleRule.DISABLED,
+# set bucket lifecycle. Object's will expire after 357 days since its last modified time
+rule = oss2.models.LifecycleRule('lc_for_chinese_prefix', '中文前缀/', status=oss2.models.LifecycleRule.ENABLED,
                                  expiration=oss2.models.LifecycleExpiration(days=357))
+
+# abort multipart upload after 356 days
 rule.abort_multipart_upload = oss2.models.AbortMultipartUpload(days=356)
-# transition to IA
-rule.storage_transitions = [oss2.models.StorageTransition(days=356, storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
+# transition to IA after 180 days since object's last modified time
+rule.storage_transitions = [oss2.models.StorageTransition(days=180, storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
+# transition to ARCHIVE after 356 days since object's last modified time
+rule.storage_transitions.append(oss2.models.StorageTransition(days=356, storage_class=oss2.BUCKET_STORAGE_CLASS_ARCHIVE))
 
 lifecycle = oss2.models.BucketLifecycle([rule])
 bucket.put_bucket_lifecycle(lifecycle)

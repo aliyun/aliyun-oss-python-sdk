@@ -97,6 +97,11 @@ class MalformedXml(ServerError):
     code = 'MalformedXML'
 
 
+class InvalidRequest(ServerError):
+    status = 400
+    code = 'InvalidRequest'
+
+
 class InvalidArgument(ServerError):
     status = 400
     code = 'InvalidArgument'

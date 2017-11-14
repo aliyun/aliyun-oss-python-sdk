@@ -595,7 +595,11 @@ class Bucket(_Base):
 
     def restore_object(self, key):
         """restore an object
-
+            return 202 if first time invoke restore_object for this key
+            return 409 if restore still in progress
+            return 200 if restore process has finished and will extend one day for download(max 7 days)
+            return 404 if object does not exist
+            return 400 if not restore Archive object
         :param str key: object name
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """

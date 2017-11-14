@@ -165,7 +165,7 @@ class TestBucket(OssTestCase):
 
         for prefix in ['中文前缀+/', '', u'中文前缀+/']:
             rule = LifecycleRule(random_string(10), prefix,
-                                 status=LifecycleRule.DISABLED,
+                                 status=LifecycleRule.ENABLED,
                                  expiration=LifecycleExpiration(days=356))
             lifecycle = BucketLifecycle([rule])
 
@@ -181,8 +181,8 @@ class TestBucket(OssTestCase):
         from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle
 
         rule = LifecycleRule(random_string(10), '中文前缀/',
-                             status=LifecycleRule.DISABLED,
-                             expiration=LifecycleExpiration(date=datetime.date(2100, 12, 25)))
+                             status=LifecycleRule.ENABLED,
+                             expiration=LifecycleExpiration(date=datetime.date(2016, 12, 25)))
         lifecycle = BucketLifecycle([rule])
 
         self.bucket.put_bucket_lifecycle(lifecycle)
@@ -194,8 +194,8 @@ class TestBucket(OssTestCase):
         from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle
 
         rule = LifecycleRule(random_string(10), '中文前缀/',
-                             status=LifecycleRule.DISABLED,
-                             expiration=LifecycleExpiration(created_before_date=datetime.date(2100, 12, 25)))
+                             status=LifecycleRule.ENABLED,
+                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 25)))
         lifecycle = BucketLifecycle([rule])
 
         self.bucket.put_bucket_lifecycle(lifecycle)
@@ -207,8 +207,8 @@ class TestBucket(OssTestCase):
         from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, AbortMultipartUpload
 
         rule = LifecycleRule(random_string(10), '中文前缀/',
-                             status=LifecycleRule.DISABLED,
-                             expiration=LifecycleExpiration(created_before_date=datetime.date(2100, 12, 25)))
+                             status=LifecycleRule.ENABLED,
+                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 25)))
 
         rule.abort_multipart_upload = AbortMultipartUpload(days=356)
 
@@ -227,9 +227,9 @@ class TestBucket(OssTestCase):
         from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, AbortMultipartUpload
 
         rule = LifecycleRule(random_string(10), '中文前缀/',
-                             status=LifecycleRule.DISABLED,
-                             expiration=LifecycleExpiration(created_before_date=datetime.date(2100, 12, 25)))
-        rule.abort_multipart_upload = AbortMultipartUpload(created_before_date=datetime.date(2100, 12, 20))
+                             status=LifecycleRule.ENABLED,
+                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 25)))
+        rule.abort_multipart_upload = AbortMultipartUpload(created_before_date=datetime.date(2016, 12, 20))
 
         lifecycle = BucketLifecycle([rule])
 
@@ -237,15 +237,28 @@ class TestBucket(OssTestCase):
 
         result = self.bucket.get_bucket_lifecycle()
         self.assertEqual(1, len(result.rules))
-        self.assertEqual(datetime.date(2100, 12, 20), result.rules[0].abort_multipart_upload.created_before_date)
+        self.assertEqual(datetime.date(2016, 12, 20), result.rules[0].abort_multipart_upload.created_before_date)
 
         self.bucket.delete_bucket_lifecycle()
+
+    def test_lifecycle_storage_transitions_mixed(self):
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition
+
+        rule = LifecycleRule(random_string(10), '中文前缀/',
+                             status=LifecycleRule.ENABLED,
+                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 25)))
+
+        rule.storage_transitions = [StorageTransition(days=356, storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
+
+        lifecycle = BucketLifecycle([rule])
+
+        self.assertRaises(oss2.exceptions.InvalidRequest, self.bucket.put_bucket_lifecycle, lifecycle)
 
     def test_lifecycle_storage_transitions_days(self):
         from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition
 
         rule = LifecycleRule(random_string(10), '中文前缀/',
-                             status=LifecycleRule.DISABLED,
+                             status=LifecycleRule.ENABLED,
                              expiration=LifecycleExpiration(days=357))
 
         rule.storage_transitions = [StorageTransition(days=356, storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
@@ -265,7 +278,7 @@ class TestBucket(OssTestCase):
         from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition
 
         rule = LifecycleRule(random_string(10), '中文前缀/',
-                             status=LifecycleRule.DISABLED,
+                             status=LifecycleRule.ENABLED,
                              expiration=LifecycleExpiration(days=357))
 
         rule.storage_transitions = [StorageTransition(days=355, storage_class=oss2.BUCKET_STORAGE_CLASS_IA),
@@ -292,9 +305,9 @@ class TestBucket(OssTestCase):
         from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition
 
         rule = LifecycleRule(random_string(10), '中文前缀/',
-                             status=LifecycleRule.DISABLED,
-                             expiration=LifecycleExpiration(created_before_date=datetime.date(2100, 12, 25)))
-        rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2100, 12, 20),
+                             status=LifecycleRule.ENABLED,
+                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 25)))
+        rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 20),
                                                       storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
 
         lifecycle = BucketLifecycle([rule])
@@ -304,7 +317,28 @@ class TestBucket(OssTestCase):
         result = self.bucket.get_bucket_lifecycle()
         self.assertEqual(1, len(result.rules))
         self.assertEqual(1, len(result.rules[0].storage_transitions))
-        self.assertEqual(datetime.date(2100, 12, 20), result.rules[0].storage_transitions[0].created_before_date)
+        self.assertEqual(datetime.date(2016, 12, 20), result.rules[0].storage_transitions[0].created_before_date)
+
+        self.bucket.delete_bucket_lifecycle()
+
+    def test_lifecycle_all_without_object_expiration(self):
+        from oss2.models import LifecycleRule, BucketLifecycle, AbortMultipartUpload, StorageTransition
+
+        rule = LifecycleRule(random_string(10), '中文前缀/',
+                             status=LifecycleRule.ENABLED)
+
+        rule.abort_multipart_upload = AbortMultipartUpload(days=356)
+        rule.storage_transitions = [StorageTransition(days=356, storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
+
+        lifecycle = BucketLifecycle([rule])
+
+        self.bucket.put_bucket_lifecycle(lifecycle)
+
+        result = self.bucket.get_bucket_lifecycle()
+        self.assertEqual(1, len(result.rules))
+        self.assertEqual(356, result.rules[0].abort_multipart_upload.days)
+        self.assertEqual(1, len(result.rules[0].storage_transitions))
+        self.assertEqual(356, result.rules[0].storage_transitions[0].days)
 
         self.bucket.delete_bucket_lifecycle()
 
@@ -312,17 +346,17 @@ class TestBucket(OssTestCase):
         from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, AbortMultipartUpload, StorageTransition
 
         rule = LifecycleRule(random_string(10), '中文前缀/',
-                             status=LifecycleRule.DISABLED,
+                             status=LifecycleRule.ENABLED,
                              expiration=LifecycleExpiration(days=357))
 
         self.assertRaises(oss2.exceptions.ClientError,
-                          LifecycleExpiration, days=356, created_before_date=datetime.date(2100, 12, 25))
+                          LifecycleExpiration, days=356, created_before_date=datetime.date(2016, 12, 25))
 
         self.assertRaises(oss2.exceptions.ClientError,
-                          AbortMultipartUpload, days=356, created_before_date=datetime.date(2100, 12, 25))
+                          AbortMultipartUpload, days=356, created_before_date=datetime.date(2016, 12, 25))
 
         self.assertRaises(oss2.exceptions.ClientError,
-                          StorageTransition, days=356, created_before_date=datetime.date(2100, 12, 25))
+                          StorageTransition, days=356, created_before_date=datetime.date(2016, 12, 25))
 
         rule.abort_multipart_upload = AbortMultipartUpload(days=356)
         rule.storage_transitions = [StorageTransition(days=356, storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
