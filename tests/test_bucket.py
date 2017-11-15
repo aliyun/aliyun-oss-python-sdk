@@ -235,6 +235,7 @@ class TestBucket(OssTestCase):
 
         self.bucket.put_bucket_lifecycle(lifecycle)
 
+        wait_meta_sync()
         result = self.bucket.get_bucket_lifecycle()
         self.assertEqual(1, len(result.rules))
         self.assertEqual(datetime.date(2016, 12, 20), result.rules[0].abort_multipart_upload.created_before_date)
@@ -414,7 +415,7 @@ class TestBucket(OssTestCase):
         result = bucket.get_bucket_stat()
         self.assertEqual(1, result.object_count)
         self.assertEqual(0, result.multi_part_upload_count)
-        self.assertEqual(7, result.storage)
+        self.assertEqual(7, result.storage_size_in_bytes)
 
         bucket.delete_object(key)
         bucket.delete_bucket()

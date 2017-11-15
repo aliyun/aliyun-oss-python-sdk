@@ -32,31 +32,31 @@ print('\n'.join(info.name for info in oss2.BucketIterator(service)))
 # 创建Bucket对象，所有Object相关的接口都可以通过Bucket对象来进行
 bucket = oss2.Bucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name)
 
-# create bucket with permission and storage class
+# 带权限与存储类型创建bucket
 bucket.create_bucket(permission=oss2.BUCKET_ACL_PRIVATE,
                      input=oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_STANDARD))
 
-# get bucket info
+# 获取bucket相关信息
 bucket_info = bucket.get_bucket_info()
 print('name: ' + bucket_info.name)
 print('storage class: ' + bucket_info.storage_class)
 print('creation date: ' + bucket_info.creation_date)
 
-# get bucket stat
+# 查看Bucket的状态
 bucket_stat = bucket.get_bucket_stat()
-print('storage: ' + str(bucket_stat.storage))
+print('storage: ' + str(bucket_stat.storage_size_in_bytes))
 print('object count: ' + str(bucket_stat.object_count))
 print('multi part upload count: ' + str(bucket_stat.multi_part_upload_count))
 
-# set bucket lifecycle. Object's will expire after 357 days since its last modified time
-rule = oss2.models.LifecycleRule('lc_for_chinese_prefix', '中文前缀/', status=oss2.models.LifecycleRule.ENABLED,
+# 设置bucket生命周期， 有'中文/'前缀的对象在最后修改时间之后357天失效
+rule = oss2.models.LifecycleRule('lc_for_chinese_prefix', '中文/', status=oss2.models.LifecycleRule.ENABLED,
                                  expiration=oss2.models.LifecycleExpiration(days=357))
 
-# abort multipart upload after 356 days
+# 删除相对最后修改时间365天之后的parts
 rule.abort_multipart_upload = oss2.models.AbortMultipartUpload(days=356)
-# transition to IA after 180 days since object's last modified time
+# 对象最后修改时间超过180天后转为IA
 rule.storage_transitions = [oss2.models.StorageTransition(days=180, storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
-# transition to ARCHIVE after 356 days since object's last modified time
+# 对象最后修改时间超过356天后转为ARCHIVE
 rule.storage_transitions.append(oss2.models.StorageTransition(days=356, storage_class=oss2.BUCKET_STORAGE_CLASS_ARCHIVE))
 
 lifecycle = oss2.models.BucketLifecycle([rule])

@@ -595,11 +595,23 @@ class Bucket(_Base):
 
     def restore_object(self, key):
         """restore an object
-            return 202 if first time invoke restore_object for this key
-            return 409 if restore still in progress
-            return 200 if restore process has finished and will extend one day for download(max 7 days)
-            return 404 if object does not exist
-            return 400 if not restore Archive object
+            如果是第一次针对该object调用接口，返回RequestResult.status = 202；
+            如果已经成功调用过restore接口，且服务端仍处于解冻中，抛异常RestoreAlreadyInProgress(status=409)
+            如果已经成功调用过restore接口，且服务端解冻已经完成，再次调用时返回RequestResult.status = 200，且会将object的可下载时间延长一天，最多延长7天。
+            如果object不存在，则抛异常NoSuchKey(status=404)；
+            对非Archive类型的Object提交restore，则抛异常OperationNotSupported(status=400)
+
+            也可以通过调用head_object接口来获取meta信息来判断是否可以restore与restore的状态
+            代码示例::
+            >>> meta = bucket.head_object(key)
+            >>> if meta.resp.headers['x-oss-storage-class'] == oss2.BUCKET_STORAGE_CLASS_ARCHIVE:
+            >>>     bucket.restore_object(key)
+            >>>         while True:
+            >>>             meta = bucket.head_object(key)
+            >>>             if meta.resp.headers['x-oss-restore'] == 'ongoing-request="true"':
+            >>>                 time.sleep(5)
+            >>>             else:
+            >>>                 break
         :param str key: object name
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
@@ -833,10 +845,7 @@ class Bucket(_Base):
         else:
             headers = None
 
-        if input:
-            data = self.__convert_data(BucketCreateConfig, xml_utils.to_put_bucket_config, input)
-        else:
-            data = None
+        data = self.__convert_data(BucketCreateConfig, xml_utils.to_put_bucket_config, input)
         resp = self.__do_bucket('PUT', headers=headers, data=data)
         return RequestResult(resp)
 
@@ -961,7 +970,7 @@ class Bucket(_Base):
         return self._parse_result(resp, xml_utils.parse_get_bucket_referer, GetBucketRefererResult)
 
     def get_bucket_stat(self):
-        """get bucket stat
+        """查看Bucket的状态，目前包括bucket大小，bucket的object数量，bucket正在上传的Multipart Upload事件个数等。
 
         :return: :class:`GetBucketStatResult <oss2.models.GetBucketStatResult>`
         """
@@ -969,7 +978,7 @@ class Bucket(_Base):
         return self._parse_result(resp, xml_utils.parse_get_bucket_stat, GetBucketStatResult)
 
     def get_bucket_info(self):
-        """get bucket info
+        """获取bucket相关信息，如创建时间，访问Endpoint，Owner与ACL等。
 
         :return: :class:`GetBucketInfoResult <oss2.models.GetBucketInfoResult>`
         """

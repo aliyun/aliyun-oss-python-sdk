@@ -353,8 +353,8 @@ class BucketCreateConfig(object):
 
 
 class BucketStat(object):
-    def __init__(self, storage, object_count, multi_part_upload_count):
-        self.storage = storage
+    def __init__(self, storage_size_in_bytes, object_count, multi_part_upload_count):
+        self.storage_size_in_bytes = storage_size_in_bytes
         self.object_count = object_count
         self.multi_part_upload_count = multi_part_upload_count
 
@@ -457,10 +457,10 @@ class LifecycleExpiration(object):
 
 
 class AbortMultipartUpload(object):
-    """delete parts
+    """删除parts
 
-    :param days: delete parts after days since last modified
-    :param created_before_date: delete parts if their last modified time earlier than created_before_date
+    :param days: 删除相对最后修改时间days天之后的parts
+    :param created_before_date: 删除最后修改时间早于created_before_date的parts
 
     """
     def __init__(self, days=None, created_before_date=None):
@@ -474,9 +474,9 @@ class AbortMultipartUpload(object):
 class StorageTransition(object):
     """transit objects
 
-    :param days: transit objects after days since last modified
-    :param created_before_date: transit objects if their last modified time earlier than created_before_date
-    :param storage_class: transit objects to storage_class
+    :param days: 将相对最后修改时间days天之后的Object转储
+    :param created_before_date: 将最后修改时间早于created_before_date的对象转储
+    :param storage_class: 对象转储到OSS的目标存储类型
     """
     def __init__(self, days=None, created_before_date=None, storage_class=None):
         if days is not None and created_before_date is not None:

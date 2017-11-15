@@ -224,7 +224,7 @@ def parse_get_bucket_logging(result, body):
 def parse_get_bucket_stat(result, body):
     root = ElementTree.fromstring(body)
 
-    result.storage = _find_int(root, 'Storage')
+    result.storage_size_in_bytes = _find_int(root, 'Storage')
     result.object_count = _find_int(root, 'ObjectCount')
     result.multi_part_upload_count = _find_int(root, 'MultipartUploadCount')
 

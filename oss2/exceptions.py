@@ -102,6 +102,16 @@ class InvalidRequest(ServerError):
     code = 'InvalidRequest'
 
 
+class OperationNotSupported(ServerError):
+    status = 400
+    code = 'OperationNotSupported'
+
+
+class RestoreAlreadyInProgress(ServerError):
+    status = 409
+    code = 'RestoreAlreadyInProgress'
+
+
 class InvalidArgument(ServerError):
     status = 400
     code = 'InvalidArgument'
