@@ -177,6 +177,39 @@ class TestBucket(OssTestCase):
 
         self.assertRaises(oss2.exceptions.NoSuchLifecycle, self.bucket.get_bucket_lifecycle)
 
+    def test_put_lifecycle_days_less_than_transition_days(self):
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle
+
+        rule = LifecycleRule(random_string(10), '中文前缀/',
+                             status=LifecycleRule.ENABLED,
+                             expiration=LifecycleExpiration(days=3))
+
+        rule.storage_transitions = [oss2.models.StorageTransition(days=4, storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
+        self.assertRaises(oss2.exceptions.InvalidArgument, self.bucket.put_bucket_lifecycle, BucketLifecycle([rule]))
+
+    def test_put_lifecycle_invalid_transitions(self):
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle
+
+        rule = LifecycleRule(random_string(10), '中文前缀/',
+                             status=LifecycleRule.ENABLED,
+                             expiration=LifecycleExpiration(days=6))
+        # 转储为ARCHIVE的天数小于转储为IA
+        rule.storage_transitions = [oss2.models.StorageTransition(days=5,
+                                                                  storage_class=oss2.BUCKET_STORAGE_CLASS_IA),
+                                    oss2.models.StorageTransition(days=2,
+                                                                  storage_class=oss2.BUCKET_STORAGE_CLASS_ARCHIVE)]
+        self.assertRaises(oss2.exceptions.InvalidArgument, self.bucket.put_bucket_lifecycle, BucketLifecycle([rule]))
+
+        # 转储为IA(天数大于object过期时间)
+        rule.storage_transitions = [oss2.models.StorageTransition(days=7,
+                                                                  storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
+        self.assertRaises(oss2.exceptions.InvalidArgument, self.bucket.put_bucket_lifecycle, BucketLifecycle([rule]))
+
+        # 转储为STANDARD
+        rule.storage_transitions = [oss2.models.StorageTransition(days=5,
+                                                                  storage_class=oss2.BUCKET_STORAGE_CLASS_STANDARD)]
+        self.assertRaises(oss2.exceptions.InvalidArgument, self.bucket.put_bucket_lifecycle, BucketLifecycle([rule]))
+
     def test_lifecycle_date(self):
         from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle
 
@@ -426,6 +459,8 @@ class TestBucket(OssTestCase):
     def test_bucket_info(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+
+        self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.get_bucket_info)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
 
