@@ -54,6 +54,23 @@ class TestObject(OssTestCase):
 
         self.assertRaises(NoSuchKey, self.bucket.get_object, key)
 
+    def test_restore_object(self):
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE, oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_ARCHIVE))
+
+        service = oss2.Service(auth, OSS_ENDPOINT)
+        wait_meta_sync()
+        self.retry_assert(lambda: bucket.bucket_name in (b.name for b in
+                                                         service.list_buckets(prefix=bucket.bucket_name).buckets))
+
+        key = 'a.txt'
+        bucket.put_object(key, 'content')
+        self.assertEqual(202, bucket.restore_object(key).status)
+        bucket.delete_object(key)
+        bucket.delete_bucket()
+
     def test_last_modified_time(self):
         key = self.random_key()
         content = random_bytes(10)
@@ -238,7 +255,7 @@ class TestObject(OssTestCase):
 
         # 设置bucket为private，并确认上传和下载都会失败
         self.bucket.put_bucket_acl('private')
-        time.sleep(1)
+        wait_meta_sync()
 
         self.assertRaises(oss2.exceptions.AccessDenied, b.put_object, key, content)
         self.assertRaises(oss2.exceptions.AccessDenied, b.get_object, key)

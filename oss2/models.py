@@ -309,6 +309,10 @@ BUCKET_ACL_PRIVATE = 'private'
 BUCKET_ACL_PUBLIC_READ = 'public-read'
 BUCKET_ACL_PUBLIC_READ_WRITE = 'public-read-write'
 
+BUCKET_STORAGE_CLASS_STANDARD = 'Standard'
+BUCKET_STORAGE_CLASS_IA = 'IA'
+BUCKET_STORAGE_CLASS_ARCHIVE = 'Archive'
+
 
 class GetBucketAclResult(RequestResult):
     def __init__(self, resp):
@@ -341,6 +345,54 @@ class GetBucketLoggingResult(RequestResult, BucketLogging):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         BucketLogging.__init__(self, '', '')
+
+
+class BucketCreateConfig(object):
+    def __init__(self, storage_class):
+        self.storage_class = storage_class
+
+
+class BucketStat(object):
+    def __init__(self, storage_size_in_bytes, object_count, multi_part_upload_count):
+        self.storage_size_in_bytes = storage_size_in_bytes
+        self.object_count = object_count
+        self.multi_part_upload_count = multi_part_upload_count
+
+
+class AccessControlList(object):
+    def __init__(self, grant):
+        self.grant = grant
+
+
+class Owner(object):
+    def __init__(self, display_name, owner_id):
+        self.display_name = display_name
+        self.id = owner_id
+
+
+class BucketInfo(object):
+    def __init__(self, name=None, owner=None, location=None, storage_class=None, intranet_endpoint=None,
+                 extranet_endpoint=None, creation_date=None, acl=None):
+        self.name = name
+        self.owner = owner
+        self.location = location
+        self.storage_class = storage_class
+        self.intranet_endpoint = intranet_endpoint
+        self.extranet_endpoint = extranet_endpoint
+        self.creation_date = creation_date
+        self.acl = acl
+
+
+class GetBucketStatResult(RequestResult, BucketStat):
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        BucketStat.__init__(self, 0, 0, 0)
+
+
+class GetBucketInfoResult(RequestResult, BucketInfo):
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        BucketInfo.__init__(self)
 
 
 class BucketReferer(object):
@@ -383,14 +435,56 @@ class LifecycleExpiration(object):
     :param days: 表示在文件修改后过了这么多天，就会匹配规则，从而被删除
     :param date: 表示在该日期之后，规则就一直生效。即每天都会对符合前缀的文件执行删除操作（如，删除），而不管文件是什么时候生成的。
         *不建议使用*
+    :param created_before_date: delete files if their last modified time earlier than created_before_date
+
     :type date: `datetime.date`
     """
-    def __init__(self, days=None, date=None):
-        if days is not None and date is not None:
-            raise ClientError('days and date should not be both specified')
+    def __init__(self, days=None, date=None, created_before_date=None):
+        not_none_fields = 0
+        if days is not None:
+            not_none_fields += 1
+        if date is not None:
+            not_none_fields += 1
+        if created_before_date is not None:
+            not_none_fields += 1
+
+        if not_none_fields > 1:
+            raise ClientError('More than one field(days, date and created_before_date) has been specified')
 
         self.days = days
         self.date = date
+        self.created_before_date = created_before_date
+
+
+class AbortMultipartUpload(object):
+    """删除parts
+
+    :param days: 删除相对最后修改时间days天之后的parts
+    :param created_before_date: 删除最后修改时间早于created_before_date的parts
+
+    """
+    def __init__(self, days=None, created_before_date=None):
+        if days is not None and created_before_date is not None:
+            raise ClientError('days and created_before_date should not be both specified')
+
+        self.days = days
+        self.created_before_date = created_before_date
+
+
+class StorageTransition(object):
+    """transit objects
+
+    :param days: 将相对最后修改时间days天之后的Object转储
+    :param created_before_date: 将最后修改时间早于created_before_date的对象转储
+    :param storage_class: 对象转储到OSS的目标存储类型
+    """
+    def __init__(self, days=None, created_before_date=None, storage_class=None):
+        if days is not None and created_before_date is not None:
+            raise ClientError('days and created_before_date should not be both specified')
+
+        self.days = days
+        self.created_before_date = created_before_date
+        self.storage_class = storage_class
 
 
 class LifecycleRule(object):
@@ -407,11 +501,15 @@ class LifecycleRule(object):
     DISABLED = 'Disabled'
 
     def __init__(self, id, prefix,
-                 status=ENABLED, expiration=None):
+                 status=ENABLED, expiration=None,
+                 abort_multipart_upload=None,
+                 storage_transitions=None):
         self.id = id
         self.prefix = prefix
         self.status = status
         self.expiration = expiration
+        self.abort_multipart_upload = abort_multipart_upload
+        self.storage_transitions = storage_transitions
 
 
 class BucketLifecycle(object):

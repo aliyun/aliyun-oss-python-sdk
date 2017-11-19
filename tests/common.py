@@ -46,7 +46,7 @@ class NonlocalObject(object):
 
 def wait_meta_sync():
     if os.environ.get('TRAVIS'):
-        time.sleep(15)
+        time.sleep(5)
     else:
         time.sleep(1)
 
@@ -63,6 +63,7 @@ class OssTestCase(unittest.TestCase):
         self.default_multiget_part_size = 100 * 1024
 
     def setUp(self):
+        self.start = time.time()
         oss2.defaults.connect_timeout = self.default_connect_timeout
         oss2.defaults.multipart_threshold = self.default_multipart_num_threads
         oss2.defaults.multipart_num_threads = random.randint(1, 5)

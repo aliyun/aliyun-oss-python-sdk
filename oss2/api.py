@@ -247,6 +247,8 @@ class Bucket(_Base):
     STATUS = 'status'
     VOD = 'vod'
     SYMLINK = 'symlink'
+    STAT = 'stat'
+    BUCKET_INFO = 'bucketInfo'
 
     def __init__(self, auth, endpoint, bucket_name,
                  is_cname=False,
@@ -591,6 +593,31 @@ class Bucket(_Base):
         resp = self.__do_object('DELETE', key)
         return RequestResult(resp)
 
+    def restore_object(self, key):
+        """restore an object
+            如果是第一次针对该object调用接口，返回RequestResult.status = 202；
+            如果已经成功调用过restore接口，且服务端仍处于解冻中，抛异常RestoreAlreadyInProgress(status=409)
+            如果已经成功调用过restore接口，且服务端解冻已经完成，再次调用时返回RequestResult.status = 200，且会将object的可下载时间延长一天，最多延长7天。
+            如果object不存在，则抛异常NoSuchKey(status=404)；
+            对非Archive类型的Object提交restore，则抛异常OperationNotSupported(status=400)
+
+            也可以通过调用head_object接口来获取meta信息来判断是否可以restore与restore的状态
+            代码示例::
+            >>> meta = bucket.head_object(key)
+            >>> if meta.resp.headers['x-oss-storage-class'] == oss2.BUCKET_STORAGE_CLASS_ARCHIVE:
+            >>>     bucket.restore_object(key)
+            >>>         while True:
+            >>>             meta = bucket.head_object(key)
+            >>>             if meta.resp.headers['x-oss-restore'] == 'ongoing-request="true"':
+            >>>                 time.sleep(5)
+            >>>             else:
+            >>>                 break
+        :param str key: object name
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        resp = self.__do_object('POST', key, params={'restore': ''})
+        return RequestResult(resp)
+
     def put_object_acl(self, key, permission):
         """设置文件的ACL。
 
@@ -805,17 +832,21 @@ class Bucket(_Base):
         resp = self.__do_object('GET', symlink_key, params={Bucket.SYMLINK: ''})
         return GetSymlinkResult(resp)
 
-    def create_bucket(self, permission=None):
+    def create_bucket(self, permission=None, input=None):
         """创建新的Bucket。
 
         :param str permission: 指定Bucket的ACL。可以是oss2.BUCKET_ACL_PRIVATE（推荐、缺省）、oss2.BUCKET_ACL_PUBLIC_READ或是
             oss2.BUCKET_ACL_PUBLIC_READ_WRITE。
+
+        :param input: :class:`BucketCreateConfig <oss2.models.BucketCreateConfig>` object
         """
         if permission:
             headers = {'x-oss-acl': permission}
         else:
             headers = None
-        resp = self.__do_bucket('PUT', headers=headers)
+
+        data = self.__convert_data(BucketCreateConfig, xml_utils.to_put_bucket_config, input)
+        resp = self.__do_bucket('PUT', headers=headers, data=data)
         return RequestResult(resp)
 
     def delete_bucket(self):
@@ -937,6 +968,22 @@ class Bucket(_Base):
         """
         resp = self.__do_bucket('GET', params={Bucket.REFERER: ''})
         return self._parse_result(resp, xml_utils.parse_get_bucket_referer, GetBucketRefererResult)
+
+    def get_bucket_stat(self):
+        """查看Bucket的状态，目前包括bucket大小，bucket的object数量，bucket正在上传的Multipart Upload事件个数等。
+
+        :return: :class:`GetBucketStatResult <oss2.models.GetBucketStatResult>`
+        """
+        resp = self.__do_bucket('GET', params={Bucket.STAT: ''})
+        return self._parse_result(resp, xml_utils.parse_get_bucket_stat, GetBucketStatResult)
+
+    def get_bucket_info(self):
+        """获取bucket相关信息，如创建时间，访问Endpoint，Owner与ACL等。
+
+        :return: :class:`GetBucketInfoResult <oss2.models.GetBucketInfoResult>`
+        """
+        resp = self.__do_bucket('GET', params={Bucket.BUCKET_INFO: ''})
+        return self._parse_result(resp, xml_utils.parse_get_bucket_info, GetBucketInfoResult)
 
     def put_bucket_website(self, input):
         """为Bucket配置静态网站托管功能。
