@@ -3,7 +3,7 @@ __version__ = '2.3.4'
 from . import models, exceptions
 
 from .api import Service, Bucket
-from .auth import Auth, AnonymousAuth, StsAuth, AuthV2
+from .auth import Auth, AnonymousAuth, StsAuth, SIGN_VERSION_1, SIGN_VERSION_2
 from .http import Session, CaseInsensitiveDict
 
 

@@ -35,8 +35,8 @@ for param in (access_key_id, access_key_secret, bucket_name, endpoint):
     assert '<' not in param, 'Please set variable: ' + param
 
 
-# Create an AuthV2 instance so that we sign our requests by V2 algorithm:
-auth = oss2.AuthV2(access_key_id, access_key_secret)
+# Create an Auth instance with sign_version=oss2.SIGN_VERSION_2 so that we sign our requests by V2 algorithm:
+auth = oss2.Auth(access_key_id, access_key_secret, sign_version=oss2.SIGN_VERSION_2)
 
 # Create a Bucket instance, all bucket and object operations are taken on it
 bucket = oss2.Bucket(auth, endpoint, bucket_name)

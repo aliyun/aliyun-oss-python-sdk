@@ -361,10 +361,8 @@ class TestObject(OssTestCase):
         self.assertEqual(resp.status_code, 203)
 
     def test_private_download_url_with_extra_query(self):
-        if OSS_AUTH_VERSION != "v2":
+        if OSS_AUTH_VERSION != oss2.SIGN_VERSION_2:
             return
-
-        key = 'nelson'
         key = self.random_key()
         content = random_bytes(42)
 
@@ -386,15 +384,13 @@ class TestObject(OssTestCase):
         content = random_bytes(16)
 
         self.bucket.put_object(key, content)
-
-        try:
-            result = self.bucket.get_object(key,
-                                            headers={
-                                                'if-modified-since': oss2.utils.http_date(int(time.time()) + 60),
-                                            },
-                                            byte_range=(0, 7))
-        except oss2.exceptions.NotModified as e:
-            pass
+        self.assertRaises(oss2.exceptions.NotModified,
+                          self.bucket.get_object,
+                          key,
+                          headers={
+                              'if-modified-since': oss2.utils.http_date(int(time.time()) + 60),
+                          },
+                          byte_range=(0, 7))
 
     def test_copy_object(self):
         source_key = self.random_key()

@@ -8,11 +8,69 @@ from . import utils
 from .compat import urlquote, to_bytes
 
 from .defaults import get_logger
+import logging
+
+SIGN_VERSION_1 = 'v1'
+SIGN_VERSION_2 = 'v2'
 
 
 class Auth(object):
-    """用于保存用户AccessKeyId、AccessKeySecret，以及计算签名的对象。"""
+    """用户访问凭证，需要传入AccessKeyID与AccessKeySecret"""
+    def __init__(self, access_key_id, access_key_secret, sign_version=SIGN_VERSION_2):
+        if sign_version == SIGN_VERSION_2:
+            self.__sign = SignV2(access_key_id.strip(), access_key_secret.strip())
+        else:
+            self.__sign = SignV1(access_key_id.strip(), access_key_secret.strip())
 
+    def _sign_request(self, req, bucket_name, key):
+        self.__sign._sign_request(req, bucket_name, key)
+
+    def _sign_url(self, req, bucket_name, key, expires):
+        return self.__sign._sign_url(req, bucket_name, key, expires)
+
+    def _sign_rtmp_url(self, url, bucket_name, channel_name, playlist_name, expires, params):
+        return self.__sign._sign_rtmp_url(url, bucket_name, channel_name, playlist_name, expires, params)
+
+
+class Sign(object):
+    """用于保存用户AccessKeyId、AccessKeySecret，以及计算签名的对象。"""
+    def __init__(self, access_key_id, access_key_secret):
+        self.id = access_key_id.strip()
+        self.secret = access_key_secret.strip()
+
+    def _sign_rtmp_url(self, url, bucket_name, channel_name, playlist_name, expires, params):
+        expiration_time = int(time.time()) + expires
+
+        canonicalized_resource = "/%s/%s" % (bucket_name, channel_name)
+        canonicalized_params = []
+
+        if params:
+            items = params.items()
+            for k, v in items:
+                if k != "OSSAccessKeyId" and k != "Signature" and k != "Expires" and k != "SecurityToken":
+                    canonicalized_params.append((k, v))
+
+        canonicalized_params.sort(key=lambda e: e[0])
+        canon_params_str = ''
+        for k, v in canonicalized_params:
+            canon_params_str += '%s:%s\n' % (k, v)
+
+        p = params if params else {}
+        string_to_sign = str(expiration_time) + "\n" + canon_params_str + canonicalized_resource
+        get_logger().debug('string_to_sign={0}'.format(string_to_sign))
+
+        h = hmac.new(to_bytes(self.secret), to_bytes(string_to_sign), hashlib.sha1)
+        signature = utils.b64encode_as_string(h.digest())
+
+        p['OSSAccessKeyId'] = self.id
+        p['Expires'] = str(expiration_time)
+        p['Signature'] = signature
+
+        return url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in p.items())
+
+
+class SignV1(Sign):
+    """签名版本1"""
     _subresource_key_set = frozenset(
         ['response-content-type', 'response-content-language',
          'response-cache-control', 'logging', 'response-content-encoding',
@@ -23,10 +81,6 @@ class Auth(object):
          'live', 'comp', 'status', 'vod', 'startTime', 'endTime', 'x-oss-process',
          'symlink', 'callback', 'callback-var']
     )
-
-    def __init__(self, access_key_id, access_key_secret):
-        self.id = access_key_id.strip()
-        self.secret = access_key_secret.strip()
 
     def _sign_request(self, req, bucket_name, key):
         req.headers['date'] = utils.http_date()
@@ -109,36 +163,6 @@ class Auth(object):
             return k + '=' + v
         else:
             return k
-
-    def _sign_rtmp_url(self, url, bucket_name, channel_name, playlist_name, expires, params):
-        expiration_time = int(time.time()) + expires
-
-        canonicalized_resource = "/%s/%s" % (bucket_name, channel_name)
-        canonicalized_params = []
-        
-        if params:
-            items = params.items()
-            for k,v in items:
-                if k != "OSSAccessKeyId" and k != "Signature" and k!= "Expires" and k!= "SecurityToken":
-                    canonicalized_params.append((k, v))
-                    
-        canonicalized_params.sort(key=lambda e: e[0]) 
-        canon_params_str = ''
-        for k, v in canonicalized_params:
-            canon_params_str += '%s:%s\n' % (k, v)
-        
-        p = params if params else {}
-        string_to_sign = str(expiration_time) + "\n" + canon_params_str + canonicalized_resource
-        get_logger().debug('string_to_sign={0}'.format(string_to_sign))
-        
-        h = hmac.new(to_bytes(self.secret), to_bytes(string_to_sign), hashlib.sha1)
-        signature = utils.b64encode_as_string(h.digest())
-
-        p['OSSAccessKeyId'] = self.id
-        p['Expires'] = str(expiration_time)
-        p['Signature'] = signature
-
-        return url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in p.items())
     
 
 class AnonymousAuth(object):
@@ -168,21 +192,27 @@ class StsAuth(object):
     :param str access_key_secret: 临时AccessKeySecret
     :param str security_token: 临时安全令牌(SecurityToken)
     """
-    def __init__(self, access_key_id, access_key_secret, security_token):
-        self.__auth = Auth(access_key_id, access_key_secret)
+    def __init__(self, access_key_id, access_key_secret, security_token, sign_version=SIGN_VERSION_2):
+        self.id = access_key_id.strip()
+        self.secret = access_key_secret.strip()
+        if sign_version == SIGN_VERSION_2:
+            self.__sign = SignV2(self.id, self.secret)
+        else:
+            self.__sign = SignV1(self.id, self.secret)
+
         self.__security_token = security_token
 
     def _sign_request(self, req, bucket_name, key):
         req.headers['x-oss-security-token'] = self.__security_token
-        self.__auth._sign_request(req, bucket_name, key)
+        self.__sign._sign_request(req, bucket_name, key)
 
     def _sign_url(self, req, bucket_name, key, expires):
         req.params['security-token'] = self.__security_token
-        return self.__auth._sign_url(req, bucket_name, key, expires)
+        return self.__sign._sign_url(req, bucket_name, key, expires)
     
     def _sign_rtmp_url(self, url, bucket_name, channel_name, playlist_name, expires, params):
         params['security-token'] = self.__security_token
-        return self.__auth._sign_rtmp_url(url, bucket_name, channel_name, playlist_name, expires, params)
+        return self.__sign._sign_rtmp_url(url, bucket_name, channel_name, playlist_name, expires, params)
 
 
 def _param_to_quoted_query(k, v):
@@ -215,14 +245,11 @@ _DEFAULT_ADDITIONAL_HEADERS = set(['range',
                                    'if-modified-since'])
 
 
-class AuthV2(object):
-    def __init__(self, access_key_id, access_key_secret):
-        #: AccessKeyId
-        self.id = access_key_id.strip()
-
-        #: AccessKeySecret
-        self.secret = access_key_secret.strip()
-
+class SignV2(Sign):
+    """签名版本2，与版本1的区别在：
+    1. 使用SHA256算法，具有更高的安全性
+    2. 参数计算包含所有的HTTP查询参数
+    """
     def _sign_request(self, req, bucket_name, key, in_additional_headers=None):
         """Insert Authorization header into a request.
 
