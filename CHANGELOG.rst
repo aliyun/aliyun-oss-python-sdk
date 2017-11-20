@@ -3,6 +3,14 @@ OSS SDK for Python 版本记录
 
 Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
+Version 2.4.0
+-------------
+
+- 增加：`bucket.create_bucket` 支持创建IA/Archive类型的存储空间
+- 增加：`bucket.restore_object` 解冻Archive类型的文件
+- 增加：`bucket.get_bucket_info`，`bucket.get_bucket_stat` 获取存储相关的信息
+- 增加：LifeCycle支持CreatedBeforeDate，AbortMultipartUpload和IA/Archive
+
 Version 2.3.4
 -------------
 
