@@ -80,16 +80,34 @@ class Response(object):
         self.status = response.status_code
         self.headers = response.headers
 
+        # When a response contains no body, iter_content() cannot
+        # be run twice (requests.exceptions.StreamConsumedError will be raised).
+        # For details of the issue, please see issue #82
+        #
+        # To work around this issue, we simply return b'' when everything has been read.
+        #
+        # Note you cannot use self.response.raw.read() to implement self.read(), because
+        # raw.read() does not uncompress response body when the encoding is gzip etc., and
+        # we try to avoid depends on details of self.response.raw.
+        self.__all_read = False
+
     def read(self, amt=None):
+        if self.__all_read:
+            return b''
+
         if amt is None:
             content_list = []
             for chunk in self.response.iter_content(_CHUNK_SIZE):
                 content_list.append(chunk)
-            return b''.join(content_list)
+            content = b''.join(content_list)
+
+            self.__all_read = True
+            return content
         else:
             try:
                 return next(self.response.iter_content(amt))
             except StopIteration:
+                self.__all_read = True
                 return b''
 
     def __iter__(self):

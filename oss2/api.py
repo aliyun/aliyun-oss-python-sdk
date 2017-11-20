@@ -123,7 +123,6 @@ import time
 import shutil
 import oss2.utils
 
-
 class _Base(object):
     def __init__(self, auth, endpoint, is_cname, session, connect_timeout,
                  app_name='', enable_crc=True):
@@ -146,6 +145,13 @@ class _Base(object):
         resp = self.session.do_request(req, timeout=self.timeout)
         if resp.status // 100 != 2:
             raise exceptions.make_exception(resp)
+        
+        # Note that connections are only released back to the pool for reuse once all body data has been read; 
+        # be sure to either set stream to False or read the content property of the Response object.
+        # For more details, please refer to http://docs.python-requests.org/en/master/user/advanced/#keep-alive.
+        content_length = oss2.models._hget(resp.headers, 'content-length', int)
+        if content_length is not None and content_length == 0:
+            resp.read()
 
         return resp
 
@@ -240,6 +246,9 @@ class Bucket(_Base):
     COMP = 'comp'
     STATUS = 'status'
     VOD = 'vod'
+    SYMLINK = 'symlink'
+    STAT = 'stat'
+    BUCKET_INFO = 'bucketInfo'
 
     def __init__(self, auth, endpoint, bucket_name,
                  is_cname=False,
@@ -477,7 +486,11 @@ class Bucket(_Base):
         with open(to_unicode(filename), 'wb') as f:
             result = self.get_object(key, byte_range=byte_range, headers=headers, progress_callback=progress_callback,
                                      process=process)
-            shutil.copyfileobj(result, f)
+
+            if result.content_length is None:
+                shutil.copyfileobj(result, f)
+            else:
+                utils.copyfileobj_and_verify(result, f, result.content_length, request_id=result.request_id)
 
             return result
 
@@ -578,6 +591,31 @@ class Bucket(_Base):
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
         resp = self.__do_object('DELETE', key)
+        return RequestResult(resp)
+
+    def restore_object(self, key):
+        """restore an object
+            如果是第一次针对该object调用接口，返回RequestResult.status = 202；
+            如果已经成功调用过restore接口，且服务端仍处于解冻中，抛异常RestoreAlreadyInProgress(status=409)
+            如果已经成功调用过restore接口，且服务端解冻已经完成，再次调用时返回RequestResult.status = 200，且会将object的可下载时间延长一天，最多延长7天。
+            如果object不存在，则抛异常NoSuchKey(status=404)；
+            对非Archive类型的Object提交restore，则抛异常OperationNotSupported(status=400)
+
+            也可以通过调用head_object接口来获取meta信息来判断是否可以restore与restore的状态
+            代码示例::
+            >>> meta = bucket.head_object(key)
+            >>> if meta.resp.headers['x-oss-storage-class'] == oss2.BUCKET_STORAGE_CLASS_ARCHIVE:
+            >>>     bucket.restore_object(key)
+            >>>         while True:
+            >>>             meta = bucket.head_object(key)
+            >>>             if meta.resp.headers['x-oss-restore'] == 'ongoing-request="true"':
+            >>>                 time.sleep(5)
+            >>>             else:
+            >>>                 break
+        :param str key: object name
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        resp = self.__do_object('POST', key, params={'restore': ''})
         return RequestResult(resp)
 
     def put_object_acl(self, key, permission):
@@ -768,18 +806,47 @@ class Bucket(_Base):
                                         'part-number-marker': marker,
                                         'max-parts': str(max_parts)})
         return self._parse_result(resp, xml_utils.parse_list_parts, ListPartsResult)
+    
+    def put_symlink(self, target_key, symlink_key, headers=None):
+        """创建Symlink。
 
-    def create_bucket(self, permission=None):
+        :param str target_key: 目标文件，目标文件不能为符号连接
+        :param str symlink_key: 符号连接类文件，其实质是一个特殊的文件，数据指向目标文件
+        
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        headers = headers or {}
+        headers['x-oss-symlink-target'] = urlquote(target_key, '')
+        resp = self.__do_object('PUT', symlink_key, headers=headers, params={Bucket.SYMLINK: ''})
+        return RequestResult(resp)
+
+    def get_symlink(self, symlink_key):
+        """获取符号连接文件的目标文件。
+
+        :param str symlink_key: 符号连接类文件
+
+        :return: :class:`GetSymlinkResult <oss2.models.GetSymlinkResult>`
+
+        :raises: 如果文件的符号链接不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
+        """
+        resp = self.__do_object('GET', symlink_key, params={Bucket.SYMLINK: ''})
+        return GetSymlinkResult(resp)
+
+    def create_bucket(self, permission=None, input=None):
         """创建新的Bucket。
 
         :param str permission: 指定Bucket的ACL。可以是oss2.BUCKET_ACL_PRIVATE（推荐、缺省）、oss2.BUCKET_ACL_PUBLIC_READ或是
             oss2.BUCKET_ACL_PUBLIC_READ_WRITE。
+
+        :param input: :class:`BucketCreateConfig <oss2.models.BucketCreateConfig>` object
         """
         if permission:
             headers = {'x-oss-acl': permission}
         else:
             headers = None
-        resp = self.__do_bucket('PUT', headers=headers)
+
+        data = self.__convert_data(BucketCreateConfig, xml_utils.to_put_bucket_config, input)
+        resp = self.__do_bucket('PUT', headers=headers, data=data)
         return RequestResult(resp)
 
     def delete_bucket(self):
@@ -901,6 +968,22 @@ class Bucket(_Base):
         """
         resp = self.__do_bucket('GET', params={Bucket.REFERER: ''})
         return self._parse_result(resp, xml_utils.parse_get_bucket_referer, GetBucketRefererResult)
+
+    def get_bucket_stat(self):
+        """查看Bucket的状态，目前包括bucket大小，bucket的object数量，bucket正在上传的Multipart Upload事件个数等。
+
+        :return: :class:`GetBucketStatResult <oss2.models.GetBucketStatResult>`
+        """
+        resp = self.__do_bucket('GET', params={Bucket.STAT: ''})
+        return self._parse_result(resp, xml_utils.parse_get_bucket_stat, GetBucketStatResult)
+
+    def get_bucket_info(self):
+        """获取bucket相关信息，如创建时间，访问Endpoint，Owner与ACL等。
+
+        :return: :class:`GetBucketInfoResult <oss2.models.GetBucketInfoResult>`
+        """
+        resp = self.__do_bucket('GET', params={Bucket.BUCKET_INFO: ''})
+        return self._parse_result(resp, xml_utils.parse_get_bucket_info, GetBucketInfoResult)
 
     def put_bucket_website(self, input):
         """为Bucket配置静态网站托管功能。

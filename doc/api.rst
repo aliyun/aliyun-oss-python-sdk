@@ -68,6 +68,13 @@ API文档
 .. automethod:: oss2.Bucket.list_parts
 
 
+符号链接
+~~~~~~~~
+
+.. automethod:: oss2.Bucket.put_symlink
+.. automethod:: oss2.Bucket.get_symlink
+
+
 存储空间（Bucket）相关操作
 -------------------------
 
@@ -120,7 +127,7 @@ Bucket权限管理
 
 
 RTPM推流操作
------------
+~~~~~~~~~~~~
 
 .. automethod:: oss2.Bucket.create_live_channel
 .. automethod:: oss2.Bucket.delete_live_channel

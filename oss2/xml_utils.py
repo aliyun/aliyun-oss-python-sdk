@@ -25,7 +25,11 @@ from .models import (SimplifiedObjectInfo,
                      LiveChannelInfo,
                      LiveRecord,
                      LiveChannelVideoStat,
-                     LiveChannelAudioStat)
+                     LiveChannelAudioStat,
+                     Owner,
+                     AccessControlList,
+                     AbortMultipartUpload,
+                     StorageTransition)
 
 from .compat import urlunquote, to_unicode, to_string
 from .utils import iso8601_to_unixtime, date_to_iso8601, iso8601_to_date
@@ -217,6 +221,31 @@ def parse_get_bucket_logging(result, body):
     return result
 
 
+def parse_get_bucket_stat(result, body):
+    root = ElementTree.fromstring(body)
+
+    result.storage_size_in_bytes = _find_int(root, 'Storage')
+    result.object_count = _find_int(root, 'ObjectCount')
+    result.multi_part_upload_count = _find_int(root, 'MultipartUploadCount')
+
+    return result
+
+
+def parse_get_bucket_info(result, body):
+    root = ElementTree.fromstring(body)
+
+    result.name = _find_tag(root, 'Bucket/Name')
+    result.creation_date = _find_tag(root, 'Bucket/CreationDate')
+    result.storage_class = _find_tag(root, 'Bucket/StorageClass')
+    result.extranet_endpoint = _find_tag(root, 'Bucket/ExtranetEndpoint')
+    result.intranet_endpoint = _find_tag(root, 'Bucket/IntranetEndpoint')
+    result.location = _find_tag(root, 'Bucket/Location')
+    result.owner = Owner(_find_tag(root, 'Bucket/Owner/DisplayName'), _find_tag(root, 'Bucket/Owner/ID'))
+    result.acl = AccessControlList(_find_tag(root, 'Bucket/AccessControlList/Grant'))
+
+    return result
+
+
 def parse_get_bucket_referer(result, body):
     root = ElementTree.fromstring(body)
 
@@ -351,16 +380,49 @@ def parse_lifecycle_expiration(expiration_node):
     return expiration
 
 
+def parse_lifecycle_abort_multipart_upload(abort_multipart_upload_node):
+    if abort_multipart_upload_node is None:
+        return None
+    abort_multipart_upload = AbortMultipartUpload()
+
+    if abort_multipart_upload_node.find('Days') is not None:
+        abort_multipart_upload.days = _find_int(abort_multipart_upload_node, 'Days')
+    elif abort_multipart_upload_node.find('CreatedBeforeDate') is not None:
+        abort_multipart_upload.created_before_date = iso8601_to_date(_find_tag(abort_multipart_upload_node,
+                                                                               'CreatedBeforeDate'))
+    return abort_multipart_upload
+
+
+def parse_lifecycle_storage_transitions(storage_transition_nodes):
+    storage_transitions = []
+    for storage_transition_node in storage_transition_nodes:
+        storage_class = _find_tag(storage_transition_node, 'StorageClass')
+        storage_transition = StorageTransition(storage_class=storage_class)
+        if storage_transition_node.find('Days') is not None:
+            storage_transition.days = _find_int(storage_transition_node, 'Days')
+        elif storage_transition_node.find('CreatedBeforeDate') is not None:
+            storage_transition.created_before_date = iso8601_to_date(_find_tag(storage_transition_node,
+                                                                               'CreatedBeforeDate'))
+
+        storage_transitions.append(storage_transition)
+
+    return storage_transitions
+
+
 def parse_get_bucket_lifecycle(result, body):
     root = ElementTree.fromstring(body)
 
     for rule_node in root.findall('Rule'):
         expiration = parse_lifecycle_expiration(rule_node.find('Expiration'))
+        abort_multipart_upload = parse_lifecycle_abort_multipart_upload(rule_node.find('AbortMultipartUpload'))
+        storage_transitions = parse_lifecycle_storage_transitions(rule_node.findall('Transition'))
         rule = LifecycleRule(
             _find_tag(rule_node, 'ID'),
             _find_tag(rule_node, 'Prefix'),
             status=_find_tag(rule_node, 'Status'),
-            expiration=expiration
+            expiration=expiration,
+            abort_multipart_upload=abort_multipart_upload,
+            storage_transitions=storage_transitions
             )
         result.rules.append(rule)
 
@@ -406,6 +468,14 @@ def to_batch_delete_objects_request(keys, quiet):
         _add_text_child(object_node, 'Key', key)
 
     return _node_to_string(root_node)
+
+
+def to_put_bucket_config(bucket_config):
+    root = ElementTree.Element('CreateBucketConfiguration')
+
+    _add_text_child(root, 'StorageClass', str(bucket_config.storage_class))
+
+    return _node_to_string(root)
 
 
 def to_put_bucket_logging(bucket_logging):
@@ -460,6 +530,28 @@ def to_put_bucket_lifecycle(bucket_lifecycle):
                 _add_text_child(expiration_node, 'Days', str(expiration.days))
             elif expiration.date is not None:
                 _add_text_child(expiration_node, 'Date', date_to_iso8601(expiration.date))
+            elif expiration.created_before_date is not None:
+                _add_text_child(expiration_node, 'CreatedBeforeDate', date_to_iso8601(expiration.created_before_date))
+
+        abort_multipart_upload = rule.abort_multipart_upload
+        if abort_multipart_upload:
+            abort_multipart_upload_node = ElementTree.SubElement(rule_node, 'AbortMultipartUpload')
+            if abort_multipart_upload.days is not None:
+                _add_text_child(abort_multipart_upload_node, 'Days', str(abort_multipart_upload.days))
+            elif abort_multipart_upload.created_before_date is not None:
+                _add_text_child(abort_multipart_upload_node, 'CreatedBeforeDate',
+                                date_to_iso8601(abort_multipart_upload.created_before_date))
+
+        storage_transitions = rule.storage_transitions
+        if storage_transitions:
+            for storage_transition in storage_transitions:
+                storage_transition_node = ElementTree.SubElement(rule_node, 'Transition')
+                _add_text_child(storage_transition_node, 'StorageClass', str(storage_transition.storage_class))
+                if storage_transition.days is not None:
+                    _add_text_child(storage_transition_node, 'Days', str(storage_transition.days))
+                elif storage_transition.created_before_date is not None:
+                    _add_text_child(storage_transition_node, 'CreatedBeforeDate',
+                                    date_to_iso8601(storage_transition.created_before_date))
 
     return _node_to_string(root)
 

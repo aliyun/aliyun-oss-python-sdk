@@ -3,10 +3,11 @@
 import hmac
 import hashlib
 import time
-import logging
 
 from . import utils
 from .compat import urlquote, to_bytes
+
+from .defaults import get_logger
 
 
 class Auth(object):
@@ -18,8 +19,9 @@ class Auth(object):
          'acl', 'uploadId', 'uploads', 'partNumber', 'group', 'link',
          'delete', 'website', 'location', 'objectInfo', 'objectMeta',
          'response-expires', 'response-content-disposition', 'cors', 'lifecycle',
-         'restore', 'qos', 'referer', 'append', 'position', 'security-token',
-         'live', 'comp', 'status', 'vod', 'startTime', 'endTime', 'x-oss-process']
+         'restore', 'qos', 'referer', 'stat', 'bucketInfo', 'append', 'position', 'security-token',
+         'live', 'comp', 'status', 'vod', 'startTime', 'endTime', 'x-oss-process',
+         'symlink', 'callback', 'callback-var']
     )
 
     def __init__(self, access_key_id, access_key_secret):
@@ -47,7 +49,7 @@ class Auth(object):
     def __make_signature(self, req, bucket_name, key):
         string_to_sign = self.__get_string_to_sign(req, bucket_name, key)
 
-        logging.debug('string_to_sign={0}'.format(string_to_sign))
+        get_logger().debug('string_to_sign={0}'.format(string_to_sign))
 
         h = hmac.new(to_bytes(self.secret), to_bytes(string_to_sign), hashlib.sha1)
         return utils.b64encode_as_string(h.digest())
@@ -127,7 +129,7 @@ class Auth(object):
         
         p = params if params else {}
         string_to_sign = str(expiration_time) + "\n" + canon_params_str + canonicalized_resource
-        logging.debug('string_to_sign={0}'.format(string_to_sign))
+        get_logger().debug('string_to_sign={0}'.format(string_to_sign))
         
         h = hmac.new(to_bytes(self.secret), to_bytes(string_to_sign), hashlib.sha1)
         signature = utils.b64encode_as_string(h.digest())

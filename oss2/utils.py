@@ -20,9 +20,10 @@ import datetime
 import time
 import errno
 import crcmod
+import re
 
 from .compat import to_string, to_bytes
-from .exceptions import ClientError, InconsistentError
+from .exceptions import ClientError, InconsistentError, RequestError
 
 
 _EXTRA_TYPES_MAP = {
@@ -134,7 +135,8 @@ class SizedFileAdapter(object):
         self.offset += amt
         return self.file_object.read(amt)
 
-    def __len__(self):
+    @property
+    def len(self):
         return self.size
 
 
@@ -152,9 +154,16 @@ def file_object_remaining_bytes(fileobj):
     return end - current
 
 
+def _has_data_size_attr(data):
+    return hasattr(data, '__len__') or hasattr(data, 'len') or (hasattr(data, 'seek') and hasattr(data, 'tell'))
+
+
 def _get_data_size(data):
     if hasattr(data, '__len__'):
         return len(data)
+
+    if hasattr(data, 'len'):
+        return data.len
 
     if hasattr(data, 'seek') and hasattr(data, 'tell'):
         return file_object_remaining_bytes(data)
@@ -202,7 +211,7 @@ def make_crc_adapter(data, init_crc=0):
     data = to_bytes(data)
 
     # bytes or file object
-    if hasattr(data, '__len__') or (hasattr(data, 'seek') and hasattr(data, 'tell')):
+    if _has_data_size_attr(data):
         return _BytesAndFileAdapter(data, 
                                     size=_get_data_size(data), 
                                     crc_callback=Crc64(init_crc))
@@ -321,9 +330,10 @@ class _BytesAndFileAdapter(object):
         
         self.crc_callback = crc_callback
 
-    def __len__(self):
+    @property
+    def len(self):
         return self.size
-    
+
     # for python 2.x
     def __bool__(self):
         return True
@@ -392,8 +402,33 @@ class Crc64(object):
 
 _STRPTIME_LOCK = threading.Lock()
 
-_GMT_FORMAT = "%a, %d %b %Y %H:%M:%S GMT"
 _ISO8601_FORMAT = "%Y-%m-%dT%H:%M:%S.000Z"
+
+# A regex to match HTTP Last-Modified header, whose format is 'Sat, 05 Dec 2015 11:10:29 GMT'.
+# Its strftime/strptime format is '%a, %d %b %Y %H:%M:%S GMT'
+
+_HTTP_GMT_RE = re.compile(
+    r'(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), (?P<day>0[1-9]|([1-2]\d)|(3[0-1])) (?P<month>Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (?P<year>\d+) (?P<hour>([0-1]\d)|(2[0-3])):(?P<minute>[0-5]\d):(?P<second>[0-5]\d) GMT$'
+)
+
+_ISO8601_RE = re.compile(
+    r'(?P<year>\d+)-(?P<month>01|02|03|04|05|06|07|08|09|10|11|12)-(?P<day>0[1-9]|([1-2]\d)|(3[0-1]))T(?P<hour>([0-1]\d)|(2[0-3])):(?P<minute>[0-5]\d):(?P<second>[0-5]\d)\.000Z$'
+)
+
+_MONTH_MAPPING = {
+    'Jan': 1,
+    'Feb': 2,
+    'Mar': 3,
+    'Apr': 4,
+    'May': 5,
+    'Jun': 6,
+    'Jul': 7,
+    'Aug': 8,
+    'Sep': 9,
+    'Oct': 10,
+    'Nov': 11,
+    'Dec': 12
+}
 
 
 def to_unixtime(time_string, format_string):
@@ -413,12 +448,41 @@ def http_to_unixtime(time_string):
 
     HTTP Date形如 `Sat, 05 Dec 2015 11:10:29 GMT` 。
     """
-    return to_unixtime(time_string, _GMT_FORMAT)
+    m = _HTTP_GMT_RE.match(time_string)
+
+    if not m:
+        raise ValueError(time_string + " is not in valid HTTP date format")
+
+    day = int(m.group('day'))
+    month = _MONTH_MAPPING[m.group('month')]
+    year = int(m.group('year'))
+    hour = int(m.group('hour'))
+    minute = int(m.group('minute'))
+    second = int(m.group('second'))
+
+    tm = datetime.datetime(year, month, day, hour, minute, second).timetuple()
+
+    return calendar.timegm(tm)
 
 
 def iso8601_to_unixtime(time_string):
     """把ISO8601时间字符串（形如，2012-02-24T06:07:48.000Z）转换为UNIX时间，精确到秒。"""
-    return to_unixtime(time_string, _ISO8601_FORMAT)
+
+    m = _ISO8601_RE.match(time_string)
+
+    if not m:
+        raise ValueError(time_string + " is not in valid ISO8601 format")
+
+    day = int(m.group('day'))
+    month = int(m.group('month'))
+    year = int(m.group('year'))
+    hour = int(m.group('hour'))
+    minute = int(m.group('minute'))
+    second = int(m.group('second'))
+
+    tm = datetime.datetime(year, month, day, hour, minute, second).timetuple()
+
+    return calendar.timegm(tm)
 
 
 def date_to_iso8601(d):
@@ -456,3 +520,22 @@ def force_rename(src, dst):
             os.rename(src, dst)
         else:
             raise
+
+
+def copyfileobj_and_verify(fsrc, fdst, expected_len,
+                           chunk_size=16*1024,
+                           request_id=''):
+    """copy data from file-like object fsrc to file-like object fdst, and verify length"""
+
+    num_read = 0
+
+    while 1:
+        buf = fsrc.read(chunk_size)
+        if not buf:
+            break
+
+        num_read += len(buf)
+        fdst.write(buf)
+
+    if num_read != expected_len:
+        raise InconsistentError("IncompleteRead from source", request_id)

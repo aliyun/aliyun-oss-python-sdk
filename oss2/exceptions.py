@@ -16,7 +16,7 @@ from xml.parsers import expat
 from .compat import to_string
 
 
-_OSS_ERROR_TO_EXCEPTION = {} # populated at end of module
+_OSS_ERROR_TO_EXCEPTION = {}  # populated at end of module
 
 
 OSS_CLIENT_ERROR_STATUS = -1
@@ -46,8 +46,16 @@ class OssError(Exception):
 
     def __str__(self):
         error = {'status': self.status,
+                 'request-id': self.request_id,
                  'details': self.details}
         return str(error)
+
+    def _str_with_body(self):
+        error = {'status': self.status,
+                 'request-id': self.request_id,
+                 'details': self.body}
+        return str(error)
+
 
 
 class ClientError(OssError):
@@ -55,9 +63,7 @@ class ClientError(OssError):
         OssError.__init__(self, OSS_CLIENT_ERROR_STATUS, {}, 'ClientError: ' + message, {})
 
     def __str__(self):
-        error = {'status': self.status,
-                 'details': self.body}
-        return str(error)
+        return self._str_with_body()
 
 
 class RequestError(OssError):
@@ -66,19 +72,15 @@ class RequestError(OssError):
         self.exception = e
 
     def __str__(self):
-        error = {'status': self.status,
-                 'details': self.body}
-        return str(error)
+        return self._str_with_body()
 
 
 class InconsistentError(OssError):
-    def __init__(self, message):
-        OssError.__init__(self, OSS_INCONSISTENT_ERROR_STATUS, {}, 'InconsistentError: ' + message, {})
+    def __init__(self, message, request_id=''):
+        OssError.__init__(self, OSS_INCONSISTENT_ERROR_STATUS, {'x-oss-request-id': request_id}, 'InconsistentError: ' + message, {})
 
     def __str__(self):
-        error = {'status': self.status,
-                 'details': self.body}
-        return str(error)
+        return self._str_with_body()
 
 
 class ServerError(OssError):
@@ -93,6 +95,21 @@ class NotFound(ServerError):
 class MalformedXml(ServerError):
     status = 400
     code = 'MalformedXML'
+
+
+class InvalidRequest(ServerError):
+    status = 400
+    code = 'InvalidRequest'
+
+
+class OperationNotSupported(ServerError):
+    status = 400
+    code = 'OperationNotSupported'
+
+
+class RestoreAlreadyInProgress(ServerError):
+    status = 409
+    code = 'RestoreAlreadyInProgress'
 
 
 class InvalidArgument(ServerError):

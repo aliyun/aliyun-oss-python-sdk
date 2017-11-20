@@ -3,6 +3,8 @@
 import requests
 import filecmp
 import calendar
+import json
+import base64
 
 from oss2.exceptions import (ClientError, RequestError, NoSuchBucket,
                              NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable)
@@ -52,6 +54,36 @@ class TestObject(OssTestCase):
 
         self.assertRaises(NoSuchKey, self.bucket.get_object, key)
 
+    def test_restore_object(self):
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE, oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_ARCHIVE))
+
+        service = oss2.Service(auth, OSS_ENDPOINT)
+        wait_meta_sync()
+        self.retry_assert(lambda: bucket.bucket_name in (b.name for b in
+                                                         service.list_buckets(prefix=bucket.bucket_name).buckets))
+
+        key = 'a.txt'
+        bucket.put_object(key, 'content')
+        self.assertEqual(202, bucket.restore_object(key).status)
+        bucket.delete_object(key)
+        bucket.delete_bucket()
+
+    def test_last_modified_time(self):
+        key = self.random_key()
+        content = random_bytes(10)
+
+        self.bucket.put_object(key, content)
+
+        res = self.bucket.get_object(key)
+        res.read()
+
+        time_string = res.headers['Last-Modified']
+        self.assertEqual(oss2.utils.http_to_unixtime(time_string), res.last_modified)
+        self.assertEqual(oss2.utils.to_unixtime(time_string, '%a, %d %b %Y %H:%M:%S GMT'), res.last_modified)
+
     def test_file(self):
         filename = random_string(12) + '.js'
         filename2 = random_string(12)
@@ -89,6 +121,30 @@ class TestObject(OssTestCase):
         # 清理
         os.remove(filename)
         os.remove(filename2)
+
+    def test_object_empty(self):
+        key = self.random_key()
+        content = b''
+
+        self.bucket.put_object(key, content)
+        res = self.bucket.get_object(key)
+
+        self.assertEqual(res.read(), b'')
+
+    def test_file_empty(self):
+        input_filename = random_string(12)
+        output_filename = random_string(12)
+
+        key = self.random_key()
+        content = b''
+
+        with open(input_filename, 'wb') as f:
+            f.write(content)
+
+        self.bucket.put_object_from_file(key, input_filename)
+        self.bucket.get_object_to_file(key, output_filename)
+
+        self.assertTrue(filecmp.cmp(input_filename, output_filename))
 
     def test_streaming(self):
         src_key = self.random_key('.src')
@@ -199,7 +255,7 @@ class TestObject(OssTestCase):
 
         # 设置bucket为private，并确认上传和下载都会失败
         self.bucket.put_bucket_acl('private')
-        time.sleep(1)
+        wait_meta_sync()
 
         self.assertRaises(oss2.exceptions.AccessDenied, b.put_object, key, content)
         self.assertRaises(oss2.exceptions.AccessDenied, b.get_object, key)
@@ -280,6 +336,29 @@ class TestObject(OssTestCase):
 
             resp = requests.get(url)
             self.assertEqual(content, resp.content)
+            
+    def test_sign_url_with_callback(self):
+        key = self.random_key()
+        
+        def encode_callback(cb_dict):
+            cb_str = json.dumps(callback_params).strip()
+            return oss2.compat.to_string(base64.b64encode(oss2.compat.to_bytes(cb_str))) 
+        
+        # callback
+        callback_params = {}
+        callback_params['callbackUrl'] = 'http://cbsrv.oss.demo.com'
+        callback_params['callbackBody'] = 'bucket=${bucket}&object=${object}' 
+        encoded_callback = encode_callback(callback_params)
+        
+        # callback vars
+        callback_var_params = {'x:my_var1': 'my_val1', 'x:my_var2': 'my_val2'}
+        encoded_callback_var = encode_callback(callback_var_params)
+        
+        # put with callback
+        params = {'callback': encoded_callback, 'callback-var': encoded_callback_var}
+        url = self.bucket.sign_url('PUT', key, 60, params=params)
+        resp = requests.put(url)
+        self.assertEqual(resp.status_code, 203)
 
     def test_private_download_url_with_extra_query(self):
         if OSS_AUTH_VERSION != "v2":
@@ -476,7 +555,9 @@ class TestObject(OssTestCase):
         self.bucket.put_object(key, content)
 
         result = self.bucket.get_object(key, headers={'Accept-Encoding': 'gzip'})
-        self.assertEqual(result.read(), content)
+        content_read = result.read()
+        self.assertEqual(len(content_read), len(content))
+        self.assertEqual(content_read, content)
         self.assertTrue(result.content_length is None)
         self.assertEqual(result.headers['Content-Encoding'], 'gzip')
 
@@ -553,6 +634,52 @@ class TestObject(OssTestCase):
             self.assertTrue(e.body.startswith('InconsistentError: the crc of'))
         else:
             self.assertTrue(False)
+
+    def test_put_symlink(self):
+        key  = self.random_key()
+        symlink = self.random_key()
+        content = 'hello'
+        
+        self.bucket.put_object(key, content)
+        
+        # put symlink normal
+        self.bucket.put_symlink(key, symlink)
+        
+        head_result = self.bucket.head_object(symlink)
+        self.assertEqual(head_result.content_length, len(content))
+        self.assertEqual(head_result.etag, '5D41402ABC4B2A76B9719D911017C592')
+
+        self.bucket.put_object(key, content)
+        
+        # put symlink with meta
+        self.bucket.put_symlink(key, symlink, headers={'x-oss-meta-key1': 'value1',
+                                                              'X-Oss-Meta-Key2': 'value2'})
+        head_result = self.bucket.head_object(symlink)
+        self.assertEqual(head_result.content_length, len(content))
+        self.assertEqual(head_result.etag, '5D41402ABC4B2A76B9719D911017C592')
+        self.assertEqual(head_result.headers['x-oss-meta-key1'], 'value1')
+        self.assertEqual(head_result.headers['x-oss-meta-key2'], 'value2')
+
+    def test_get_symlink(self):
+        key = self.random_key()
+        symlink = self.random_key()
+        content = 'hello'
+        
+        # bucket no exist
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+        
+        self.assertRaises(NoSuchBucket, bucket.get_symlink, symlink)
+        
+        # object no exist
+        self.assertRaises(NoSuchKey, self.bucket.get_symlink, symlink)
+        
+        self.bucket.put_object(key, content)
+        self.bucket.put_symlink(key, symlink)
+        
+        # get symlink normal
+        result = self.bucket.get_symlink(symlink)
+        self.assertEqual(result.target_key, key)
 
 
 if __name__ == '__main__':

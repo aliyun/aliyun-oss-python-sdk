@@ -14,15 +14,38 @@ from functools import partial
 from common import *
 
 
+class SizedFileAdapterForMock(object):
+    def __init__(self, file_object, size, content_length=None):
+        self.f = oss2.utils.SizedFileAdapter(file_object, size)
+        self.content_length = content_length
+        self.request_id = 'fake-request-id'
+
+    def read(self, amt=None):
+        return self.f.read(amt)
+
+    @property
+    def len(self):
+        return self.f.len
+
+
+orig_get_object = oss2.Bucket.get_object
+
+
+def mock_get_object(b, k, byte_range=None, headers=None, progress_callback=None, process=None, content_length=None):
+    res = orig_get_object(b, k, byte_range, headers, progress_callback, process)
+
+    return SizedFileAdapterForMock(res, 50, content_length)
+
+
 def modify_one(store, store_key, r, key=None, value=None):
     r[key] = value
     store.put(store_key, r)
 
 
 class TestDownload(OssTestCase):
-    def __prepare(self, file_size):
+    def __prepare(self, file_size, suffix=''):
         content = random_bytes(file_size)
-        key = self.random_key()
+        key = self.random_key(suffix)
         filename = self.random_filename()
 
         self.bucket.put_object(key, content)
@@ -521,6 +544,53 @@ class TestDownload(OssTestCase):
 
         oss2.resumable_download(self.bucket, key, filename)
         self.assertFileContent(filename, content)
+
+    def test_get_object_to_file_incomplete_download(self):
+        file_size = 123 * 3 + 1
+        key, filename, content = self.__prepare(file_size)
+
+        with patch.object(oss2.Bucket, 'get_object',
+                          side_effect=partial(mock_get_object, content_length=file_size),
+                          autospec=True):
+            try:
+                self.bucket.get_object_to_file(key, filename)
+            except oss2.exceptions.InconsistentError as e:
+                self.assertTrue(e.request_id)
+                self.assertEqual(e.body, 'InconsistentError: IncompleteRead from source')
+            except:
+                self.assertTrue(False)
+
+    def test_get_object_to_file_incomplete_download_gzip(self):
+        file_size = 1024 * 1024
+        key, filename, content = self.__prepare(file_size, '.txt')
+
+        with patch.object(oss2.Bucket, 'get_object',
+                          side_effect=partial(mock_get_object, content_length=None),
+                          autospec=True):
+
+            self.bucket.get_object_to_file(key, filename, headers={'Accept-Encoding': 'gzip'})
+            self.assertFileContentNotEqual(filename, content)
+
+    def test_resumable_incomplete_download(self):
+        """One of the part is incomplete, while there's no exception raised."""
+
+        oss2.defaults.multiget_threshold = 1
+        oss2.defaults.multiget_part_size = 100
+        oss2.defaults.multiget_num_threads = 5
+
+        file_size = 123 * 3 + 1
+        key, filename, content = self.__prepare(file_size)
+
+        with patch.object(oss2.Bucket, 'get_object',
+                          side_effect=partial(mock_get_object, content_length=file_size),
+                          autospec=True):
+            try:
+                oss2.resumable_download(self.bucket, key, filename)
+            except oss2.exceptions.InconsistentError as e:
+                self.assertTrue(e.request_id)
+                self.assertEqual(e.body, 'InconsistentError: IncompleteRead from source')
+            except:
+                self.assertTrue(False)
 
 
 if __name__ == '__main__':

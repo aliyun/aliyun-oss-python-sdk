@@ -50,7 +50,7 @@ class NonlocalObject(object):
 
 def wait_meta_sync():
     if os.environ.get('TRAVIS'):
-        time.sleep(15)
+        time.sleep(5)
     else:
         time.sleep(1)
 
@@ -67,6 +67,7 @@ class OssTestCase(unittest.TestCase):
         self.default_multiget_part_size = 100 * 1024
 
     def setUp(self):
+        self.start = time.time()
         oss2.defaults.connect_timeout = self.default_connect_timeout
         oss2.defaults.multipart_threshold = self.default_multipart_num_threads
         oss2.defaults.multipart_num_threads = random.randint(1, 5)
@@ -112,6 +113,24 @@ class OssTestCase(unittest.TestCase):
         self.temp_files.append(pathname)
         return pathname
 
+    def _prepare_temp_file_with_size(self, size):
+        fd, pathname = tempfile.mkstemp(suffix='test-upload')
+
+        block_size = 8 * 1024 * 1024
+        num_written = 0
+
+        while num_written < size:
+            to_write = min(block_size, size - num_written)
+            num_written += to_write
+
+            content = 's' * to_write
+            os.write(fd, oss2.to_bytes(content))
+
+        os.close(fd)
+
+        self.temp_files.append(pathname)
+        return pathname
+
     def retry_assert(self, func):
         for i in range(5):
             if func():
@@ -126,3 +145,9 @@ class OssTestCase(unittest.TestCase):
             read = f.read()
             self.assertEqual(len(read), len(content))
             self.assertEqual(read, content)
+
+    def assertFileContentNotEqual(self, filename, content):
+        with open(filename, 'rb') as f:
+            read = f.read()
+            self.assertNotEqual(len(read), len(content))
+            self.assertNotEqual(read, content)
