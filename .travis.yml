@@ -1,19 +1,15 @@
 language: python
 python:
 - 2.6
-- 2.7
-- 3.3
-- 3.4
-- 3.5
 install:
 - pip install crcmod requests nose nose-cov python-coveralls aliyun-python-sdk-sts
 - pip install --upgrade mock
 script:
 - nosetests unittests/ --with-cov
 - export OSS_TEST_AUTH_VERSION=v1
-- if [ -n "$OSS_TEST_ACCESS_KEY_ID" ]; then travis_wait 30 nosetests -s tests/ --with-cov; fi
+- if [ -n "$OSS_TEST_ACCESS_KEY_ID" ]; then travis_wait 30 nosetests -s tests/ --with-cov --cover-xml-file=coverage.1.xml; fi
 - export OSS_TEST_AUTH_VERSION=v2
-- if [ -n "$OSS_TEST_ACCESS_KEY_ID" ]; then travis_wait 30 nosetests -s tests/ --with-cov; fi
+- if [ -n "$OSS_TEST_ACCESS_KEY_ID" ]; then travis_wait 30 nosetests -s tests/ --with-cov --cover-xml-file=coverage.2.xml; fi
 after_success:
 - coveralls
 env:
