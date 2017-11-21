@@ -120,7 +120,7 @@ Run the test in the following method:
 
 You can set environment variable to test sign v2: 
 
-.. code-blocks:: bash
+.. code-block:: bash
 
     $ export OSS_TEST_AUTH_VERSION=v2
 

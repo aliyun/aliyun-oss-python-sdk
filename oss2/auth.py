@@ -14,13 +14,23 @@ SIGN_VERSION_1 = 'v1'
 SIGN_VERSION_2 = 'v2'
 
 
+def make_sign(access_key_id, access_key_secret, sign_version):
+    if sign_version == SIGN_VERSION_2:
+        return SignV2(access_key_id.strip(), access_key_secret.strip())
+    else:
+        return SignV1(access_key_id.strip(), access_key_secret.strip())
+
+
 class Auth(object):
     """用户访问凭证，需要传入AccessKeyID与AccessKeySecret"""
-    def __init__(self, access_key_id, access_key_secret, sign_version=SIGN_VERSION_2):
-        if sign_version == SIGN_VERSION_2:
-            self.__sign = SignV2(access_key_id.strip(), access_key_secret.strip())
-        else:
-            self.__sign = SignV1(access_key_id.strip(), access_key_secret.strip())
+    def __init__(self, access_key_id, access_key_secret, sign_version=SIGN_VERSION_1):
+        """
+        初始化self.__sign
+        :param access_key_id:
+        :param access_key_secret:
+        :param sign_version: 需要生成sign的版本，默认为SIGN_VERSION_1(v1)
+        """
+        self.__sign = make_sign(access_key_id, access_key_secret, sign_version)
 
     def _sign_request(self, req, bucket_name, key):
         self.__sign._sign_request(req, bucket_name, key)
@@ -191,13 +201,10 @@ class StsAuth(object):
     :param str access_key_id: 临时AccessKeyId
     :param str access_key_secret: 临时AccessKeySecret
     :param str security_token: 临时安全令牌(SecurityToken)
+    :param str sign_version: 需要生成sign的版本，默认为SIGN_VERSION_1(v1)
     """
-    def __init__(self, access_key_id, access_key_secret, security_token, sign_version=SIGN_VERSION_2):
-        if sign_version == SIGN_VERSION_2:
-            self.__sign = SignV2(access_key_id.strip(), access_key_secret.strip())
-        else:
-            self.__sign = SignV1(access_key_id.strip(), access_key_secret.strip())
-
+    def __init__(self, access_key_id, access_key_secret, security_token, sign_version=SIGN_VERSION_1):
+        self.__sign = make_sign(access_key_id, access_key_secret, sign_version)
         self.__security_token = security_token
 
     def _sign_request(self, req, bucket_name, key):

@@ -34,7 +34,7 @@ for param in (access_key_id, access_key_secret, bucket_name, endpoint):
     assert '<' not in param, 'Please set variable: ' + param
 
 
-# 用oss2.SIGN_VERSION_2创建一个Auth对象，这样我们就可以用V2算法来签名请求
+# 用oss2.SIGN_VERSION_2创建一个Auth对象，这样我们就可以用V2算法来签名请求。默认采用V1算法
 auth = oss2.Auth(access_key_id, access_key_secret, sign_version=oss2.SIGN_VERSION_2)
 
 # 创建一个Bucket，利用它进行所有bucket与object相关操作
