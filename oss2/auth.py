@@ -193,12 +193,10 @@ class StsAuth(object):
     :param str security_token: 临时安全令牌(SecurityToken)
     """
     def __init__(self, access_key_id, access_key_secret, security_token, sign_version=SIGN_VERSION_2):
-        self.id = access_key_id.strip()
-        self.secret = access_key_secret.strip()
         if sign_version == SIGN_VERSION_2:
-            self.__sign = SignV2(self.id, self.secret)
+            self.__sign = SignV2(access_key_id.strip(), access_key_secret.strip())
         else:
-            self.__sign = SignV1(self.id, self.secret)
+            self.__sign = SignV1(access_key_id.strip(), access_key_secret.strip())
 
         self.__security_token = security_token
 
@@ -251,14 +249,14 @@ class SignV2(Sign):
     2. 参数计算包含所有的HTTP查询参数
     """
     def _sign_request(self, req, bucket_name, key, in_additional_headers=None):
-        """Insert Authorization header into a request.
+        """把authorization放入req的header里面
 
-        :param req: authorization information will be added into this request's Authorization HTTP header
+        :param req: authorization信息将会加入到这个请求的header里面
         :type req: oss2.http.Request
 
-        :param bucket_name: bucket name
-        :param key: object key
-        :param in_additional_headers: a list of additional header names to be included in signature calculation
+        :param bucket_name: bucket名称
+        :param key: OSS文件名
+        :param in_additional_headers: 加入签名计算的额外header列表
         """
         if in_additional_headers is None:
             additional_headers = self.__get_additional_headers(req, _DEFAULT_ADDITIONAL_HEADERS)
@@ -276,15 +274,15 @@ class SignV2(Sign):
             req.headers['authorization'] = "OSS2 AccessKeyId:{0},Signature:{1}".format(self.id, signature)
 
     def _sign_url(self, req, bucket_name, key, expires, in_additional_headers=None):
-        """Return a signed URL.
+        """返回一个签过名的URL
 
-        :param req: the request to be signed
+        :param req: 需要签名的请求
         :type req: oss2.http.Request
 
-        :param bucket_name: bucket name
-        :param key: object key
-        :param int expires: the signed request will be timed out after `expires` seconds.
-        :param in_additional_headers: a list of additional header names to be included in signature calculation
+        :param bucket_name: bucket名称
+        :param key: OSS文件名
+        :param int expires: 返回的url将在`expires`秒后过期.
+        :param in_additional_headers: 加入签名计算的额外header列表
 
         :return: a signed URL
         """
@@ -371,7 +369,7 @@ class SignV2(Sign):
 
     def __get_canonicalized_oss_headers(self, req, additional_headers):
         """
-        :param additional_headers: must be a list of headers in low case, and must not be 'x-oss-' prefixed.
+        :param additional_headers: 小写的headers列表, 并且这些headers都不以'x-oss-'为前缀.
         """
         canon_headers = []
 
