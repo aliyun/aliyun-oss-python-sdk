@@ -118,7 +118,7 @@ Run the test in the following method:
     $ nosetests                          # First install nose
 
 
-You can set environment variable to test sign v2:
+You can set environment variable to test sign v2: 
 
 .. code-blocks:: bash
 
