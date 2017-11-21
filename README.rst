@@ -124,7 +124,6 @@ You can set environment variable to test sign v2:
 
     $ export OSS_TEST_AUTH_VERSION=v2
 
-
 More resources
 --------------
 - `More examples <https://github.com/aliyun/aliyun-oss-python-sdk/tree/master/examples>`_. 
