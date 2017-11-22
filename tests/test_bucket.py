@@ -367,7 +367,7 @@ class TestBucket(OssTestCase):
         lifecycle = BucketLifecycle([rule])
 
         self.bucket.put_bucket_lifecycle(lifecycle)
-
+        wait_meta_sync()
         result = self.bucket.get_bucket_lifecycle()
         self.assertEqual(1, len(result.rules))
         self.assertEqual(356, result.rules[0].abort_multipart_upload.days)
@@ -543,4 +543,9 @@ class TestBucket(OssTestCase):
 
 
 if __name__ == '__main__':
+    os.environ['OSS_TEST_AUTH_VERSION'] = oss2.SIGN_VERSION_1
+    from common import *
+    unittest.main(exit=None)
+    os.environ['OSS_TEST_AUTH_VERSION'] = oss2.SIGN_VERSION_2
+    from common import *
     unittest.main()
