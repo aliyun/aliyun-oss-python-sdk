@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from test_object import TestObject
 import os
 import oss2
