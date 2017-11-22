@@ -22,7 +22,7 @@ OSS_STS_KEY = os.getenv("OSS_TEST_STS_KEY")
 OSS_STS_ARN = os.getenv("OSS_TEST_STS_ARN")
 OSS_STS_REGION = os.getenv("OSS_TEST_STS_REGION", "cn-hangzhou")
 
-OSS_AUTH_VERSION = os.getenv('OSS_TEST_AUTH_VERSION', oss2.SIGN_VERSION_2)
+OSS_AUTH_VERSION = None
 
 
 def random_string(n):
@@ -90,6 +90,9 @@ class OssTestCase(unittest.TestCase):
         oss2.defaults.multiget_threshold = self.default_multiget_threshold
         oss2.defaults.multiget_part_size = self.default_multiget_part_size
         oss2.defaults.multiget_num_threads = random.randint(1, 5)
+
+        global OSS_AUTH_VERSION
+        OSS_AUTH_VERSION = os.getenv('OSS_TEST_AUTH_VERSION')
 
         self.bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
 
