@@ -11,8 +11,14 @@ TestSign = TestObject
 if __name__ == '__main__':
     if os.getenv('OSS_TEST_AUTH_VERSION') == oss2.SIGN_VERSION_2:
         os.environ['OSS_TEST_AUTH_VERSION'] = oss2.SIGN_VERSION_1
+        from common import *
+        unittest.main()
+
+        os.environ['OSS_TEST_AUTH_VERSION'] = oss2.SIGN_VERSION_2
     else:
         os.environ['OSS_TEST_AUTH_VERSION'] = oss2.SIGN_VERSION_2
+        from common import *
+        unittest.main()
 
-    from common import *
-    unittest.main()
+        os.environ['OSS_TEST_AUTH_VERSION'] = oss2.SIGN_VERSION_1
+
