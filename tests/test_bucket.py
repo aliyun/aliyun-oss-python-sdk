@@ -543,9 +543,4 @@ class TestBucket(OssTestCase):
 
 
 if __name__ == '__main__':
-    os.environ['OSS_TEST_AUTH_VERSION'] = oss2.SIGN_VERSION_1
-    from common import *
-    unittest.main(exit=None)
-    os.environ['OSS_TEST_AUTH_VERSION'] = oss2.SIGN_VERSION_2
-    from common import *
     unittest.main()
