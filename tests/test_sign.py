@@ -4,10 +4,6 @@ from test_object import TestObject
 from common import *
 
 
-def empty_func():
-    pass
-
-
 class TestSign(TestObject):
     """
         这个类主要是用来增加测试覆盖率，当环境变量为oss2.SIGN_VERSION_2，则重新设置为oss2.SIGN_VERSION_1再运行TestObject，反之亦然

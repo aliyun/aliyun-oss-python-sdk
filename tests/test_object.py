@@ -361,7 +361,7 @@ class TestObject(OssTestCase):
         self.assertEqual(resp.status_code, 203)
 
     def test_private_download_url_with_extra_query(self):
-        if OSS_AUTH_VERSION != oss2.SIGN_VERSION_2:
+        if os.getenv('OSS_TEST_AUTH_VERSION') != oss2.SIGN_VERSION_2:
             return
         key = self.random_key()
         content = random_bytes(42)
