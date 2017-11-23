@@ -266,9 +266,9 @@ class SignV2(Sign):
         :param in_additional_headers: 加入签名计算的额外header列表
         """
         if in_additional_headers is None:
-            additional_headers = self.__get_additional_headers(req, _DEFAULT_ADDITIONAL_HEADERS)
-        else:
-            additional_headers = self.__get_additional_headers(req, in_additional_headers)
+            in_additional_headers = _DEFAULT_ADDITIONAL_HEADERS
+
+        additional_headers = self.__get_additional_headers(req, in_additional_headers)
 
         req.headers['date'] = utils.http_date()
 
@@ -295,9 +295,9 @@ class SignV2(Sign):
         """
 
         if in_additional_headers is None:
-            additional_headers = {}
-        else:
-            additional_headers = self.__get_additional_headers(req, in_additional_headers)
+            in_additional_headers = set()
+
+        additional_headers = self.__get_additional_headers(req, in_additional_headers)
 
         expiration_time = int(time.time()) + expires
 

@@ -300,7 +300,7 @@ class TestBucket(OssTestCase):
         lifecycle = BucketLifecycle([rule])
 
         self.bucket.put_bucket_lifecycle(lifecycle)
-
+        wait_meta_sync()
         result = self.bucket.get_bucket_lifecycle()
         self.assertEqual(1, len(result.rules))
         self.assertEqual(1, len(result.rules[0].storage_transitions))
