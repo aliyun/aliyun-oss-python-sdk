@@ -122,7 +122,7 @@ You can set environment variable to test sign v2:
 
 .. code-block:: bash
 
-    $ export OSS_TEST_AUTH_VERSION=v2
+    $ export OSS_TEST_SIGN_VERSION=v2
 
 More resources
 --------------

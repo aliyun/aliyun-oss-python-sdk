@@ -361,7 +361,7 @@ class TestObject(OssTestCase):
         self.assertEqual(resp.status_code, 203)
 
     def test_private_download_url_with_extra_query(self):
-        if os.getenv('OSS_TEST_AUTH_VERSION') != oss2.SIGN_VERSION_2:
+        if os.getenv('OSS_TEST_SIGN_VERSION') != oss2.SIGN_VERSION_2:
             return
         key = self.random_key()
         content = random_bytes(42)
@@ -686,17 +686,17 @@ class TestSign(TestObject):
         super(TestSign, self).__init__(*args, **kwargs)
 
     def setUp(self):
-        if os.getenv('OSS_TEST_AUTH_VERSION') == oss2.SIGN_VERSION_2:
-            os.environ['OSS_TEST_AUTH_VERSION'] = oss2.SIGN_VERSION_1
+        if os.getenv('OSS_TEST_SIGN_VERSION') == oss2.SIGN_VERSION_2:
+            os.environ['OSS_TEST_SIGN_VERSION'] = oss2.SIGN_VERSION_1
         else:
-            os.environ['OSS_TEST_AUTH_VERSION'] = oss2.SIGN_VERSION_2
+            os.environ['OSS_TEST_SIGN_VERSION'] = oss2.SIGN_VERSION_2
         super(TestSign, self).setUp()
 
     def tearDown(self):
-        if os.getenv('OSS_TEST_AUTH_VERSION') == oss2.SIGN_VERSION_2:
-            os.environ['OSS_TEST_AUTH_VERSION'] = oss2.SIGN_VERSION_1
+        if os.getenv('OSS_TEST_SIGN_VERSION') == oss2.SIGN_VERSION_2:
+            os.environ['OSS_TEST_SIGN_VERSION'] = oss2.SIGN_VERSION_1
         else:
-            os.environ['OSS_TEST_AUTH_VERSION'] = oss2.SIGN_VERSION_2
+            os.environ['OSS_TEST_SIGN_VERSION'] = oss2.SIGN_VERSION_2
         super(TestSign, self).tearDown()
 
 
