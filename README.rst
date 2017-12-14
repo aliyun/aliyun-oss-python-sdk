@@ -118,11 +118,11 @@ Run the test in the following method:
     $ nosetests                          # First install nose
 
 
-You can set environment variable to test sign v2: 
+You can set environment variable to test auth v2:
 
 .. code-block:: bash
 
-    $ export OSS_TEST_SIGN_VERSION=v2
+    $ export OSS_TEST_AUTH_VERSION=v2
 
 More resources
 --------------
