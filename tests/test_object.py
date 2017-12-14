@@ -686,17 +686,17 @@ class TestSign(TestObject):
         super(TestSign, self).__init__(*args, **kwargs)
 
     def setUp(self):
-        if os.getenv('OSS_TEST_SIGN_VERSION') == oss2.AUTH_VERSION_2:
-            os.environ['OSS_TEST_SIGN_VERSION'] = oss2.AUTH_VERSION_1
+        if os.getenv('OSS_TEST_AUTH_VERSION') == oss2.AUTH_VERSION_2:
+            os.environ['OSS_TEST_AUTH_VERSION'] = oss2.AUTH_VERSION_1
         else:
-            os.environ['OSS_TEST_SIGN_VERSION'] = oss2.AUTH_VERSION_2
+            os.environ['OSS_TEST_AUTH_VERSION'] = oss2.AUTH_VERSION_2
         super(TestSign, self).setUp()
 
     def tearDown(self):
-        if os.getenv('OSS_TEST_SIGN_VERSION') == oss2.AUTH_VERSION_2:
-            os.environ['OSS_TEST_SIGN_VERSION'] = oss2.AUTH_VERSION_1
+        if os.getenv('OSS_TEST_AUTH_VERSION') == oss2.AUTH_VERSION_2:
+            os.environ['OSS_TEST_AUTH_VERSION'] = oss2.AUTH_VERSION_1
         else:
-            os.environ['OSS_TEST_SIGN_VERSION'] = oss2.AUTH_VERSION_2
+            os.environ['OSS_TEST_AUTH_VERSION'] = oss2.AUTH_VERSION_2
         super(TestSign, self).tearDown()
 
 
