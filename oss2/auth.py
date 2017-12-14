@@ -10,39 +10,18 @@ from .compat import urlquote, to_bytes
 from .defaults import get_logger
 import logging
 
-SIGN_VERSION_1 = 'v1'
-SIGN_VERSION_2 = 'v2'
+AUTH_VERSION_1 = 'v1'
+AUTH_VERSION_2 = 'v2'
 
 
-def make_sign(access_key_id, access_key_secret, sign_version):
-    if sign_version == SIGN_VERSION_2:
-        return SignV2(access_key_id.strip(), access_key_secret.strip())
+def make_auth(access_key_id, access_key_secret, auth_version=AUTH_VERSION_1):
+    if auth_version == AUTH_VERSION_2:
+        return AuthV2(access_key_id.strip(), access_key_secret.strip())
     else:
-        return SignV1(access_key_id.strip(), access_key_secret.strip())
+        return Auth(access_key_id.strip(), access_key_secret.strip())
 
 
-class Auth(object):
-    """用户访问凭证，需要传入AccessKeyID与AccessKeySecret"""
-    def __init__(self, access_key_id, access_key_secret, sign_version=SIGN_VERSION_1):
-        """
-        初始化self.__sign
-        :param access_key_id:
-        :param access_key_secret:
-        :param sign_version: 需要生成sign的版本，默认为SIGN_VERSION_1(v1)
-        """
-        self.__sign = make_sign(access_key_id, access_key_secret, sign_version)
-
-    def _sign_request(self, req, bucket_name, key):
-        self.__sign._sign_request(req, bucket_name, key)
-
-    def _sign_url(self, req, bucket_name, key, expires):
-        return self.__sign._sign_url(req, bucket_name, key, expires)
-
-    def _sign_rtmp_url(self, url, bucket_name, channel_name, playlist_name, expires, params):
-        return self.__sign._sign_rtmp_url(url, bucket_name, channel_name, playlist_name, expires, params)
-
-
-class Sign(object):
+class AuthBase(object):
     """用于保存用户AccessKeyId、AccessKeySecret，以及计算签名的对象。"""
     def __init__(self, access_key_id, access_key_secret):
         self.id = access_key_id.strip()
@@ -79,7 +58,7 @@ class Sign(object):
         return url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in p.items())
 
 
-class SignV1(Sign):
+class Auth(AuthBase):
     """签名版本1"""
     _subresource_key_set = frozenset(
         ['response-content-type', 'response-content-language',
@@ -201,23 +180,23 @@ class StsAuth(object):
     :param str access_key_id: 临时AccessKeyId
     :param str access_key_secret: 临时AccessKeySecret
     :param str security_token: 临时安全令牌(SecurityToken)
-    :param str sign_version: 需要生成sign的版本，默认为SIGN_VERSION_1(v1)
+    :param str auth_version: 需要生成auth的版本，默认为AUTH_VERSION_1(v1)
     """
-    def __init__(self, access_key_id, access_key_secret, security_token, sign_version=SIGN_VERSION_1):
-        self.__sign = make_sign(access_key_id, access_key_secret, sign_version)
+    def __init__(self, access_key_id, access_key_secret, security_token, auth_version=AUTH_VERSION_1):
+        self.__auth = make_auth(access_key_id, access_key_secret, auth_version)
         self.__security_token = security_token
 
     def _sign_request(self, req, bucket_name, key):
         req.headers['x-oss-security-token'] = self.__security_token
-        self.__sign._sign_request(req, bucket_name, key)
+        self.__auth._sign_request(req, bucket_name, key)
 
     def _sign_url(self, req, bucket_name, key, expires):
         req.params['security-token'] = self.__security_token
-        return self.__sign._sign_url(req, bucket_name, key, expires)
-    
+        return self.__auth._sign_url(req, bucket_name, key, expires)
+
     def _sign_rtmp_url(self, url, bucket_name, channel_name, playlist_name, expires, params):
         params['security-token'] = self.__security_token
-        return self.__sign._sign_rtmp_url(url, bucket_name, channel_name, playlist_name, expires, params)
+        return self.__auth._sign_rtmp_url(url, bucket_name, channel_name, playlist_name, expires, params)
 
 
 def _param_to_quoted_query(k, v):
@@ -250,7 +229,7 @@ _DEFAULT_ADDITIONAL_HEADERS = set(['range',
                                    'if-modified-since'])
 
 
-class SignV2(Sign):
+class AuthV2(AuthBase):
     """签名版本2，与版本1的区别在：
     1. 使用SHA256算法，具有更高的安全性
     2. 参数计算包含所有的HTTP查询参数

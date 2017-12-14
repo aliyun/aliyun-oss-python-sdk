@@ -43,6 +43,13 @@ if oss2.compat.is_py2:
         return token
 
 
+    class TestSTSAuth(oss2.StsAuth):
+        def __init__(self, access_key_id, access_key_secret, security_token):
+            super(TestSTSAuth, self).__init__(access_key_id, access_key_secret, security_token, os.getenv('OSS_TEST_AUTH_VERSION'))
+
+
+    oss2.StsAuth = TestSTSAuth
+
     class TestSts(unittest.TestCase):
         def setUp(self):
             self.bucket = None

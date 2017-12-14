@@ -22,7 +22,7 @@ OSS_STS_KEY = os.getenv("OSS_TEST_STS_KEY")
 OSS_STS_ARN = os.getenv("OSS_TEST_STS_ARN")
 OSS_STS_REGION = os.getenv("OSS_TEST_STS_REGION", "cn-hangzhou")
 
-OSS_SIGN_VERSION = None
+OSS_AUTH_VERSION = None
 
 
 def random_string(n):
@@ -55,22 +55,6 @@ def wait_meta_sync():
         time.sleep(1)
 
 
-class TestAuth(oss2.Auth):
-    def __init__(self, access_key_id, access_key_secret):
-        super(TestAuth, self).__init__(access_key_id, access_key_secret, OSS_SIGN_VERSION)
-
-
-oss2.Auth = TestAuth
-
-
-class TestSTSAuth(oss2.StsAuth):
-    def __init__(self, access_key_id, access_key_secret, security_token):
-        super(TestSTSAuth, self).__init__(access_key_id, access_key_secret, security_token, OSS_SIGN_VERSION)
-
-
-oss2.StsAuth = TestSTSAuth
-
-
 class OssTestCase(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(OssTestCase, self).__init__(*args, **kwargs)
@@ -91,10 +75,10 @@ class OssTestCase(unittest.TestCase):
         oss2.defaults.multiget_part_size = self.default_multiget_part_size
         oss2.defaults.multiget_num_threads = random.randint(1, 5)
 
-        global OSS_SIGN_VERSION
-        OSS_SIGN_VERSION = os.getenv('OSS_TEST_SIGN_VERSION')
+        global OSS_AUTH_VERSION
+        OSS_AUTH_VERSION = os.getenv('OSS_TEST_AUTH_VERSION')
 
-        self.bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
+        self.bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET)
 
         self.bucket.create_bucket()
         self.key_list = []

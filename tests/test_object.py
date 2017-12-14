@@ -361,7 +361,7 @@ class TestObject(OssTestCase):
         self.assertEqual(resp.status_code, 203)
 
     def test_private_download_url_with_extra_query(self):
-        if os.getenv('OSS_TEST_SIGN_VERSION') != oss2.SIGN_VERSION_2:
+        if os.getenv('OSS_TEST_AUTH_VERSION') != oss2.AUTH_VERSION_2:
             return
         key = self.random_key()
         content = random_bytes(42)
@@ -680,23 +680,23 @@ class TestObject(OssTestCase):
 
 class TestSign(TestObject):
     """
-        这个类主要是用来增加测试覆盖率，当环境变量为oss2.SIGN_VERSION_2，则重新设置为oss2.SIGN_VERSION_1再运行TestObject，反之亦然
+        这个类主要是用来增加测试覆盖率，当环境变量为oss2.AUTH_VERSION_2，则重新设置为oss2.AUTH_VERSION_1再运行TestObject，反之亦然
     """
     def __init__(self, *args, **kwargs):
         super(TestSign, self).__init__(*args, **kwargs)
 
     def setUp(self):
-        if os.getenv('OSS_TEST_SIGN_VERSION') == oss2.SIGN_VERSION_2:
-            os.environ['OSS_TEST_SIGN_VERSION'] = oss2.SIGN_VERSION_1
+        if os.getenv('OSS_TEST_SIGN_VERSION') == oss2.AUTH_VERSION_2:
+            os.environ['OSS_TEST_SIGN_VERSION'] = oss2.AUTH_VERSION_1
         else:
-            os.environ['OSS_TEST_SIGN_VERSION'] = oss2.SIGN_VERSION_2
+            os.environ['OSS_TEST_SIGN_VERSION'] = oss2.AUTH_VERSION_2
         super(TestSign, self).setUp()
 
     def tearDown(self):
-        if os.getenv('OSS_TEST_SIGN_VERSION') == oss2.SIGN_VERSION_2:
-            os.environ['OSS_TEST_SIGN_VERSION'] = oss2.SIGN_VERSION_1
+        if os.getenv('OSS_TEST_SIGN_VERSION') == oss2.AUTH_VERSION_2:
+            os.environ['OSS_TEST_SIGN_VERSION'] = oss2.AUTH_VERSION_1
         else:
-            os.environ['OSS_TEST_SIGN_VERSION'] = oss2.SIGN_VERSION_2
+            os.environ['OSS_TEST_SIGN_VERSION'] = oss2.AUTH_VERSION_2
         super(TestSign, self).tearDown()
 
 
