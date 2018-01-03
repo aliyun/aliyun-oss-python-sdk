@@ -117,6 +117,13 @@ Run the test in the following method:
 
     $ nosetests                          # First install nose
 
+
+You can set environment variable to test auth v2:
+
+.. code-block:: bash
+
+    $ export OSS_TEST_AUTH_VERSION=v2
+
 More resources
 --------------
 - `More examples <https://github.com/aliyun/aliyun-oss-python-sdk/tree/master/examples>`_. 

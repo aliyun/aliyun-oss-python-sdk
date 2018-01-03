@@ -360,6 +360,38 @@ class TestObject(OssTestCase):
         resp = requests.put(url)
         self.assertEqual(resp.status_code, 203)
 
+    def test_private_download_url_with_extra_query(self):
+        if os.getenv('OSS_TEST_AUTH_VERSION') != oss2.AUTH_VERSION_2:
+            return
+        key = self.random_key()
+        content = random_bytes(42)
+
+        self.bucket.put_object(key, content)
+        url = self.bucket.sign_url('GET', key, 60, params={'extra-query': '1'})
+
+        resp = requests.get(url)
+        self.assertEqual(content, resp.content)
+
+        resp = requests.get(url + '&another-query=1')
+        self.assertEqual(resp.status_code, 403)
+
+        e = oss2.exceptions.make_exception(oss2.http.Response(resp))
+        self.assertEqual(e.status, 403)
+        self.assertEqual(e.code, 'SignatureDoesNotMatch')
+
+    def test_modified_since(self):
+        key = self.random_key()
+        content = random_bytes(16)
+
+        self.bucket.put_object(key, content)
+        self.assertRaises(oss2.exceptions.NotModified,
+                          self.bucket.get_object,
+                          key,
+                          headers={
+                              'if-modified-since': oss2.utils.http_date(int(time.time()) + 60),
+                          },
+                          byte_range=(0, 7))
+
     def test_copy_object(self):
         source_key = self.random_key()
         target_key = self.random_key()
@@ -644,6 +676,28 @@ class TestObject(OssTestCase):
         # get symlink normal
         result = self.bucket.get_symlink(symlink)
         self.assertEqual(result.target_key, key)
+
+
+class TestSign(TestObject):
+    """
+        这个类主要是用来增加测试覆盖率，当环境变量为oss2.AUTH_VERSION_2，则重新设置为oss2.AUTH_VERSION_1再运行TestObject，反之亦然
+    """
+    def __init__(self, *args, **kwargs):
+        super(TestSign, self).__init__(*args, **kwargs)
+
+    def setUp(self):
+        if os.getenv('OSS_TEST_AUTH_VERSION') == oss2.AUTH_VERSION_2:
+            os.environ['OSS_TEST_AUTH_VERSION'] = oss2.AUTH_VERSION_1
+        else:
+            os.environ['OSS_TEST_AUTH_VERSION'] = oss2.AUTH_VERSION_2
+        super(TestSign, self).setUp()
+
+    def tearDown(self):
+        if os.getenv('OSS_TEST_AUTH_VERSION') == oss2.AUTH_VERSION_2:
+            os.environ['OSS_TEST_AUTH_VERSION'] = oss2.AUTH_VERSION_1
+        else:
+            os.environ['OSS_TEST_AUTH_VERSION'] = oss2.AUTH_VERSION_2
+        super(TestSign, self).tearDown()
 
 
 if __name__ == '__main__':
