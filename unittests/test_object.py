@@ -206,6 +206,28 @@ x-oss-request-id: 566B6C3D6086505A0CFF0F68
         self.assertEqual(result.last_modified, 1449880553)
 
     @patch('oss2.Session.do_request')
+    def test_get_with_query_parameter(self, do_request):
+        request_text = '''GET /sjbhlsgsbecvlpbf?foo=foo&bar=bar HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:53 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:PAedG7U86ZxQ2WTB+GdpSltoiTI='''
+
+        content = random_bytes(1023)
+        _, response_text = make_get_object(content)
+        req_info = mock_response(do_request, response_text)
+
+        query_params = {'bar': 'bar', 'foo': 'foo'}
+
+        result = bucket().get_object('sjbhlsgsbecvlpbf', params=query_params)
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.read(), content)
+
+    @patch('oss2.Session.do_request')
     def test_get_with_progress(self, do_request):
         content = random_bytes(1024 * 1024 + 1)
 
@@ -238,6 +260,32 @@ x-oss-request-id: 566B6C3D6086505A0CFF0F68
 
         self.assertEqual(result.request_id, '566B6BE93A7B8CFD53D4BAA3')
         self.assertEqual(result.content_length, len(content))
+        self.assertEqual(os.path.getsize(filename), len(content))
+
+        with open(filename, 'rb') as f:
+            self.assertEqual(content, f.read())
+
+    @patch('oss2.Session.do_request')
+    def test_get_to_file_with_query_parameter(self, do_request):
+        request_text = '''GET /sjbhlsgsbecvlpbf?foo=foo&bar=bar HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:53 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:PAedG7U86ZxQ2WTB+GdpSltoiTI='''
+
+        content = random_bytes(1023)
+        _, response_text = make_get_object(content)
+        req_info = mock_response(do_request, response_text)
+
+        filename = self.tempname()
+        query_params = {'bar': 'bar', 'foo': 'foo'}
+
+        bucket().get_object_to_file('sjbhlsgsbecvlpbf', filename, params=query_params)
+
+        self.assertRequest(req_info, request_text)
         self.assertEqual(os.path.getsize(filename), len(content))
 
         with open(filename, 'rb') as f:
