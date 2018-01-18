@@ -7,8 +7,9 @@ oss2.models
 该模块包含Python SDK API接口所需要的输入参数以及返回值类型。
 """
 
-from .utils import http_to_unixtime, make_progress_adapter, make_crc_adapter
-from .exceptions import ClientError
+from .utils import (http_to_unixtime, make_progress_adapter, make_crc_adapter,
+                    make_cipher_operation_adapter, OP_UPLOAD, OP_DOWNLOAD)
+from .exceptions import ClientError, InconsistentError
 from .compat import urlunquote
 
 class PartInfo(object):
@@ -99,10 +100,14 @@ class GetSymlinkResult(RequestResult):
         
         
 class GetObjectResult(HeadObjectResult):
-    def __init__(self, resp, progress_callback=None, crc_enabled=False):
+    def __init__(self, resp, progress_callback=None, crc_enabled=False, crypto_provider=None):
         super(GetObjectResult, self).__init__(resp)
         self.__crc_enabled = crc_enabled
-        
+        self.crypto_provider = crypto_provider
+
+        if _hget(resp.headers, 'x-oss-meta-oss-crypto-key') and _hget(resp.headers, 'Content-Range'):
+            raise ClientError('Could not get an encrypted object using byte-range parameter')
+
         if progress_callback:
             self.stream = make_progress_adapter(self.resp, progress_callback, self.content_length)
         else:
@@ -111,7 +116,17 @@ class GetObjectResult(HeadObjectResult):
         self.__crc = _hget(self.headers, 'x-oss-hash-crc64ecma', int)
         if self.__crc_enabled:
             self.stream = make_crc_adapter(self.stream)
-            
+
+        if self.crypto_provider:
+            key = self.crypto_provider.get_oss_meta_data(resp.headers, 'x-oss-meta-oss-crypto-key')
+            start = self.crypto_provider.get_oss_meta_data(resp.headers, 'x-oss-meta-oss-crypto-start')
+            cek_alg = _hget(resp.headers, 'x-oss-meta-oss-cek-alg')
+            if key and start and cek_alg:
+                self.stream = make_cipher_operation_adapter(self.stream, OP_DOWNLOAD, key, int(start))
+            else:
+                raise InconsistentError('all metadata keys are required for decryption (x-oss-meta-oss-crypto-key, \
+                                        x-oss-meta-oss-crypto-start, x-oss-meta-oss-cek-alg)', self.request_id)
+
     def read(self, amt=None):
         return self.stream.read(amt)
 

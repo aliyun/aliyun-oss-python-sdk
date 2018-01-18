@@ -235,6 +235,7 @@ class TestObject(OssTestCase):
         self.assertEqual(len(content), len(content_got))
         self.assertEqual(content, content_got)
 
+    @single_conn_case
     def test_anonymous(self):
         key = self.random_key()
         content = random_bytes(512)

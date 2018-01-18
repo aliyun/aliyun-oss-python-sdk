@@ -28,7 +28,7 @@ if oss2.compat.is_py2:
         req.set_RoleArn(role_arn)
         req.set_RoleSessionName('oss-python-sdk-test')
 
-        body = clt.do_action(req)
+        body = clt.do_action_with_exception(req)
 
         j = json.loads(body)
 

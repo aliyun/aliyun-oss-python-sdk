@@ -41,7 +41,7 @@ auth = oss2.AuthV2(access_key_id, access_key_secret)
 # 创建一个Bucket，利用它进行所有bucket与object相关操作
 bucket = oss2.Bucket(auth, endpoint, bucket_name)
 
-content = 'Never give up. - Jack Ma'
+content = b'Never give up. - Jack Ma'
 
 # 上传一个Object
 bucket.put_object('motto.txt', content)
@@ -62,8 +62,8 @@ key = 'object-from-post.txt'
 
 boundary = 'arbitraryboundaryvalue'
 headers = {'Content-Type': 'multipart/form-data; boundary=' + boundary}
-encoded_policy = oss2.utils.b64encode_as_string('{ "expiration": "%s","conditions": [["starts-with", "$key", ""]]}'
-         % oss2.date_to_iso8601(datetime.datetime.utcfromtimestamp(int(time.time()) + 60)))
+encoded_policy = oss2.utils.b64encode_as_string(oss2.to_bytes('{ "expiration": "%s","conditions": [["starts-with", "$key", ""]]}'
+         % oss2.date_to_iso8601(datetime.datetime.utcfromtimestamp(int(time.time()) + 60))))
 
 digest = hmac.new(oss2.to_bytes(access_key_secret), oss2.to_bytes(encoded_policy), hashlib.sha256).digest()
 signature = oss2.utils.b64encode_as_string(digest)

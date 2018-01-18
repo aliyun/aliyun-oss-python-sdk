@@ -123,15 +123,17 @@ import time
 import shutil
 import oss2.utils
 
+
 class _Base(object):
     def __init__(self, auth, endpoint, is_cname, session, connect_timeout,
-                 app_name='', enable_crc=True):
+                 app_name='', enable_crc=True, crypto_provider=None):
         self.auth = auth
         self.endpoint = _normalize_endpoint(endpoint.strip())
         self.session = session or http.Session()
         self.timeout = defaults.get(connect_timeout, defaults.connect_timeout)
         self.app_name = app_name
         self.enable_crc = enable_crc
+        self.crypto_provider = crypto_provider
 
         self._make_url = _UrlMaker(self.endpoint, is_cname)
 
@@ -145,7 +147,7 @@ class _Base(object):
         resp = self.session.do_request(req, timeout=self.timeout)
         if resp.status // 100 != 2:
             raise exceptions.make_exception(resp)
-        
+
         # Note that connections are only released back to the pool for reuse once all body data has been read; 
         # be sure to either set stream to False or read the content property of the Response object.
         # For more details, please refer to http://docs.python-requests.org/en/master/user/advanced/#keep-alive.
@@ -184,6 +186,7 @@ class Service(_Base):
     :param str app_name: 应用名。该参数不为空，则在User Agent中加入其值。
         注意到，最终这个字符串是要作为HTTP Header的值传输的，所以必须要遵循HTTP标准。
     """
+
     def __init__(self, auth, endpoint,
                  session=None,
                  connect_timeout=None,
@@ -233,6 +236,13 @@ class Bucket(_Base):
 
     :param str app_name: 应用名。该参数不为空，则在User Agent中加入其值。
         注意到，最终这个字符串是要作为HTTP Header的值传输的，所以必须要遵循HTTP标准。
+
+    :param bool enable_crc: 如果开启crc校验则设为True；反之，则为False
+
+    :param crypto_provider: 客户端加密类。该参数默认为空
+    :type crypto_provider: oss2.crypto.LocalRsaProvider
+
+
     """
 
     ACL = 'acl'
@@ -255,10 +265,11 @@ class Bucket(_Base):
                  session=None,
                  connect_timeout=None,
                  app_name='',
-                 enable_crc=True):
+                 enable_crc=True,
+                 crypto_provider=None):
         super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout,
-                                     app_name, enable_crc)
-                
+                                     app_name, enable_crc, crypto_provider)
+
         self.bucket_name = bucket_name.strip()
 
     def sign_url(self, method, key, expires, headers=None, params=None):
@@ -298,8 +309,9 @@ class Bucket(_Base):
         :param params: 需要签名的HTTP查询参数
 
         :return: 签名URL。
-        """        
-        url = self._make_url(self.bucket_name, 'live').replace('http://', 'rtmp://').replace('https://', 'rtmp://') + '/' + channel_name
+        """
+        url = self._make_url(self.bucket_name, 'live').replace('http://', 'rtmp://').replace('https://',
+                                                                                             'rtmp://') + '/' + channel_name
         params = {}
         params['playlistName'] = playlist_name
         return self.auth._sign_rtmp_url(url, self.bucket_name, channel_name, playlist_name, expires, params)
@@ -348,16 +360,22 @@ class Bucket(_Base):
 
         if progress_callback:
             data = utils.make_progress_adapter(data, progress_callback)
-        
+
+        if self.crypto_provider:
+            random_key = self.crypto_provider.get_key()
+            start = self.crypto_provider.get_iv()
+            data = utils.make_cipher_operation_adapter(data, utils.OP_UPLOAD, random_key, start)
+            headers = self.crypto_provider.build_header(headers)
+
         if self.enable_crc:
             data = utils.make_crc_adapter(data)
 
         resp = self.__do_object('PUT', key, data=data, headers=headers)
         result = PutObjectResult(resp)
-        
+
         if self.enable_crc and result.crc is not None:
-            utils.check_crc('put', data.crc, result.crc)
-            
+            utils.check_crc('put', data.crc, result.crc, result.request_id)
+
         return result
 
     def put_object_from_file(self, key, filename,
@@ -408,7 +426,7 @@ class Bucket(_Base):
 
         if progress_callback:
             data = utils.make_progress_adapter(data, progress_callback)
-        
+
         if self.enable_crc and init_crc is not None:
             data = utils.make_crc_adapter(data, init_crc)
 
@@ -416,11 +434,11 @@ class Bucket(_Base):
                                 data=data,
                                 headers=headers,
                                 params={'append': '', 'position': str(position)})
-        result =  AppendObjectResult(resp)
-    
+        result = AppendObjectResult(resp)
+
         if self.enable_crc and result.crc is not None and init_crc is not None:
-            utils.check_crc('append', data.crc, result.crc)
-            
+            utils.check_crc('append', data.crc, result.crc, result.request_id)
+
         return result
 
     def get_object(self, key,
@@ -455,13 +473,13 @@ class Bucket(_Base):
         range_string = _make_range_string(byte_range)
         if range_string:
             headers['range'] = range_string
-        
+
         params = None
-        if process: 
-            params={'x-oss-process': process}
-        
+        if process:
+            params = {'x-oss-process': process}
+
         resp = self.__do_object('GET', key, headers=headers, params=params)
-        return GetObjectResult(resp, progress_callback, self.enable_crc)
+        return GetObjectResult(resp, progress_callback, self.enable_crc, crypto_provider=self.crypto_provider)
 
     def get_object_to_file(self, key, filename,
                            byte_range=None,
@@ -668,6 +686,9 @@ class Bucket(_Base):
 
         :return: :class:`InitMultipartUploadResult <oss2.models.InitMultipartUploadResult>`
         """
+        if self.crypto_provider:
+            raise ClientError('Could not put an encrypted object using multipart')
+
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), key)
 
         resp = self.__do_object('POST', key, params={'uploads': ''}, headers=headers)
@@ -687,6 +708,9 @@ class Bucket(_Base):
 
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
+        if self.crypto_provider:
+            raise ClientError('Could not upload a parted encrypted object')
+
         if progress_callback:
             data = utils.make_progress_adapter(data, progress_callback)
         
@@ -700,8 +724,8 @@ class Bucket(_Base):
         result = PutObjectResult(resp)
     
         if self.enable_crc and result.crc is not None:
-            utils.check_crc('put', data.crc, result.crc)
-        
+            utils.check_crc('put', data.crc, result.crc, result.request_id)
+
         return result
 
     def complete_multipart_upload(self, key, upload_id, parts, headers=None):
@@ -718,6 +742,8 @@ class Bucket(_Base):
 
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
+        if self.crypto_provider:
+            raise ClientError('Could not complete to upload a multi-parted encrypted object')
         data = xml_utils.to_complete_upload_request(sorted(parts, key=lambda p: p.part_number))
         resp = self.__do_object('POST', key,
                                 params={'uploadId': upload_id},
@@ -776,6 +802,9 @@ class Bucket(_Base):
 
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
+        if self.crypto_provider:
+            raise ClientError('Could not copy a parted encrypted object')
+
         headers = http.CaseInsensitiveDict(headers)
         headers['x-oss-copy-source'] = '/' + source_bucket_name + '/' + source_key
 

@@ -12,6 +12,8 @@ import re
 import xml
 from xml.dom import minidom
 
+import shutil
+
 import oss2
 
 DT_NONE = 0
@@ -31,9 +33,10 @@ def random_bytes(n):
     return oss2.to_bytes(random_string(n))
 
 
-def bucket():
+def bucket(crypto_provider=None):
     return oss2.Bucket(oss2.Auth('fake-access-key-id', 'fake-access-key-secret'),
-                                  'http://oss-cn-hangzhou.aliyuncs.com', BUCKET_NAME)
+                       'http://oss-cn-hangzhou.aliyuncs.com', BUCKET_NAME,
+                       crypto_provider=crypto_provider)
 
 
 def service():
@@ -273,6 +276,7 @@ def get_length(data):
     except TypeError:
         return None
 
+
 def calc_crc(data):
     crc = oss2.utils.Crc64()
     crc.update(data)
@@ -353,8 +357,11 @@ def head_fields_to_headers(head_fields):
 
 class MockRequest(object):
     def __init__(self, request_text):
-        fields = re.split('\n\n', request_text, 1)
-        head_fields = re.split('\n', fields[0])
+        if isinstance(request_text, bytes):
+            fields = re.split(b'\n\n', request_text, 1)
+        else:
+            fields = re.split('\n\n', request_text, 1)
+        head_fields = re.split('\n', oss2.to_string(fields[0]))
         request_line_fields = head_fields[0].split()
 
         uri_query_fields = request_line_fields[1].split('?')
@@ -375,8 +382,12 @@ class MockRequest(object):
 
 class MockResponse2(object):
     def __init__(self, response_text):
-        fields = re.split('\n\n', response_text, 1)
-        head_fields = re.split('\n', fields[0])
+
+        if isinstance(response_text, bytes):
+            fields = re.split(b'\n\n', response_text, 1)
+        else:
+            fields = re.split('\n\n', response_text, 1)
+        head_fields = re.split('\n', oss2.to_string(fields[0]))
         response_line_fields = head_fields[0].split(' ', 2)
 
         self.status = int(response_line_fields[1])
@@ -427,6 +438,12 @@ class OssTestCase(unittest.TestCase):
 
         self.previous = -1
         self.temp_files = []
+
+        dest = os.path.join(os.path.expanduser('~'), oss2.crypto._LOCAL_RSA_TMP_DIR)
+
+        oss2.utils.makedir_p(dest)
+        shutil.copy('tests/oss-test.private_key.pem', dest)
+        shutil.copy('tests/oss-test.public_key.pem', dest)
 
     def tearDown(self):
         for temp_file in self.temp_files:
@@ -492,3 +509,8 @@ class OssTestCase(unittest.TestCase):
         else:
             self.assertEqual(len(req_info.data), len(expected.body))
             self.assertEqual(req_info.data, expected.body)
+
+
+fixed_aes_key = b'1' * 32
+fixed_aes_start = 1
+
