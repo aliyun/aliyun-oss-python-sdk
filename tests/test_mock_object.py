@@ -773,13 +773,17 @@ x-oss-server-time: 39'''
     def test_crypto_get(self, do_request):
         content = unittests.common.random_bytes(1023)
 
+        md5_content = oss2.utils.md5_string(content)
+
         request_text, response_text = make_get_encrypted_object(content)
 
         req_info = unittests.common.mock_response(do_request, response_text)
 
         result = unittests.common.bucket(oss2.LocalRsaProvider(key='oss-test')).get_object('sjbhlsgsbecvlpbf')
 
-        result1 = unittests.common.bucket().get_object('sjbhlsgsbecvlpbf')
+        result1 = unittests.common.bucket().get_object('sjbhlsgsbecvlpbf', byte_range=(None, None),
+                                                       headers={'content-md5': md5_content,
+                                                                'content-length': len(content)})
 
         self.assertRequest(req_info, request_text)
 

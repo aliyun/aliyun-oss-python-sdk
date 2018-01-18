@@ -54,6 +54,35 @@ class TestObject(OssTestCase):
 
         self.assertRaises(NoSuchKey, self.bucket.get_object, key)
 
+    def test_crypto_object(self):
+        key = self.random_key('.js')
+        content = random_bytes(1024)
+
+        self.assertRaises(NotFound, self.crypto_bucket.head_object, key)
+
+        lower_bound = now() - 60 * 16
+        upper_bound = now() + 60 * 16
+
+        def assert_result(result):
+            self.assertEqual(result.content_length, len(content))
+            self.assertEqual(result.content_type, 'application/javascript')
+            self.assertEqual(result.object_type, 'Normal')
+
+            self.assertTrue(result.last_modified > lower_bound)
+            self.assertTrue(result.last_modified < upper_bound)
+
+            self.assertTrue(result.etag)
+
+        self.crypto_bucket.put_object(key, content)
+
+        get_result = self.crypto_bucket.get_object(key)
+        self.assertEqual(get_result.read(), content)
+        assert_result(get_result)
+        self.assertTrue(get_result.client_crc is not None)
+        self.assertTrue(get_result.server_crc is not None)
+        self.assertTrue(get_result.client_crc == get_result.server_crc)
+
+
     def test_restore_object(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())

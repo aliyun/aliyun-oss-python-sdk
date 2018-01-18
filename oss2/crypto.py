@@ -19,24 +19,6 @@ _AES_GCM = 'AES/GCM/NoPadding'
 _LOCAL_RSA_TMP_DIR = '.py-oss-rsa'
 
 
-class KMSProvider():
-
-    def __init__(self):
-        raise NotImplemented
-
-    def get_key(self):
-        raise NotImplemented
-
-    def get_iv(self):
-        raise NotImplemented
-
-    def build_header(self, headers=None):
-        raise NotImplemented
-
-    def get_oss_meta_data(self, headers, key):
-        raise NotImplemented
-
-
 class LocalRsaProvider():
     PUB_KEY_FILE = '.public_key.pem'
     PRIV_KEY_FILE = '.private_key.pem'
