@@ -118,8 +118,8 @@ class GetObjectResult(HeadObjectResult):
             self.stream = make_crc_adapter(self.stream)
 
         if self.crypto_provider:
-            key = self.crypto_provider.get_oss_meta_data(resp.headers, 'x-oss-meta-oss-crypto-key')
-            start = self.crypto_provider.get_oss_meta_data(resp.headers, 'x-oss-meta-oss-crypto-start')
+            key = self.crypto_provider.decrypt_oss_meta_data(resp.headers, 'x-oss-meta-oss-crypto-key')
+            start = self.crypto_provider.decrypt_oss_meta_data(resp.headers, 'x-oss-meta-oss-crypto-start')
             cek_alg = _hget(resp.headers, 'x-oss-meta-oss-cek-alg')
             if key and start and cek_alg:
                 self.stream = make_cipher_operation_adapter(self.stream, OP_DOWNLOAD, key, int(start))

@@ -254,13 +254,13 @@ def make_cipher_operation_adapter(data, operation=None, key=None, start=None):
     if _has_data_size_attr(data):
         return _BytesAndFileAdapter(data,
                                     size=_get_data_size(data),
-                                    cipher_callback=AESCipher(operation, key, start))
+                                    cipher_callback=AESCipher(key, start, operation))
     # file-like object
     elif hasattr(data, 'read'):
-        return _FileLikeAdapter(data, cipher_callback=AESCipher(operation, key, start))
+        return _FileLikeAdapter(data, cipher_callback=AESCipher(key, start, operation))
     # iterator
     elif hasattr(data, '__iter__'):
-        return _IterableAdapter(data, cipher_callback=AESCipher(operation, key, start))
+        return _IterableAdapter(data, cipher_callback=AESCipher(key, start, operation))
     else:
         raise ClientError('{0} is not a file object, nor an iterator'.format(data.__class__.__name__))
 
@@ -489,7 +489,7 @@ _AES_CTR_COUNTER_BITS_LEN = 8 * 16
 
 
 class AESCipher:
-    def __init__(self, operation=OP_UPLOAD, key=None, start=None):
+    def __init__(self, key=None, start=None, operation=OP_UPLOAD):
         self._op = operation
         self.key = key
         self.start = start

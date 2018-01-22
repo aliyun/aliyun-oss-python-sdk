@@ -16,11 +16,12 @@ OSS_SECRET = os.getenv("OSS_TEST_ACCESS_KEY_SECRET")
 OSS_ENDPOINT = os.getenv("OSS_TEST_ENDPOINT")
 OSS_BUCKET = os.getenv("OSS_TEST_BUCKET")
 OSS_CNAME = os.getenv("OSS_TEST_CNAME")
+OSS_CMK = os.getenv("OSS_TEST_CMK")
+OSS_REGION = os.getenv("OSS_TEST_REGION", "cn-hangzhou")
 
 OSS_STS_ID = os.getenv("OSS_TEST_STS_ID")
 OSS_STS_KEY = os.getenv("OSS_TEST_STS_KEY")
 OSS_STS_ARN = os.getenv("OSS_TEST_STS_ARN")
-OSS_STS_REGION = os.getenv("OSS_TEST_STS_REGION", "cn-hangzhou")
 
 OSS_AUTH_VERSION = None
 
@@ -50,7 +51,7 @@ class NonlocalObject(object):
 
 def wait_meta_sync():
     if os.environ.get('TRAVIS'):
-        time.sleep(1)
+        time.sleep(5)
     else:
         # time.sleep(1)
         pass
@@ -86,10 +87,17 @@ class OssTestCase(unittest.TestCase):
 
         self.bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET)
 
-        self.bucket.create_bucket()
+        try:
+            self.bucket.create_bucket()
+        except:
+            pass
 
-        self.crypto_bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET,
-                                         crypto_provider=oss2.LocalRsaProvider())
+        self.rsa_crypto_bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET,
+                                             crypto_provider=oss2.LocalRsaProvider())
+
+        self.kms_crypto_bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET,
+                                             crypto_provider=oss2.AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK))
+
         self.key_list = []
         self.temp_files = []
 

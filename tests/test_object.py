@@ -54,11 +54,11 @@ class TestObject(OssTestCase):
 
         self.assertRaises(NoSuchKey, self.bucket.get_object, key)
 
-    def test_crypto_object(self):
+    def test_rsa_crypto_object(self):
         key = self.random_key('.js')
         content = random_bytes(1024)
 
-        self.assertRaises(NotFound, self.crypto_bucket.head_object, key)
+        self.assertRaises(NotFound, self.rsa_crypto_bucket.head_object, key)
 
         lower_bound = now() - 60 * 16
         upper_bound = now() + 60 * 16
@@ -73,15 +73,43 @@ class TestObject(OssTestCase):
 
             self.assertTrue(result.etag)
 
-        self.crypto_bucket.put_object(key, content)
+        self.rsa_crypto_bucket.put_object(key, content)
 
-        get_result = self.crypto_bucket.get_object(key)
+        get_result = self.rsa_crypto_bucket.get_object(key)
         self.assertEqual(get_result.read(), content)
         assert_result(get_result)
         self.assertTrue(get_result.client_crc is not None)
         self.assertTrue(get_result.server_crc is not None)
         self.assertTrue(get_result.client_crc == get_result.server_crc)
 
+    def test_kms_crypto_object(self):
+        key = self.random_key('.js')
+        content = random_bytes(1024)
+
+        self.assertRaises(NotFound, self.kms_crypto_bucket.head_object, key)
+
+        lower_bound = now() - 60 * 16
+        upper_bound = now() + 60 * 16
+
+        def assert_result(result):
+            self.assertEqual(result.content_length, len(content))
+            self.assertEqual(result.content_type, 'application/javascript')
+            self.assertEqual(result.object_type, 'Normal')
+
+            self.assertTrue(result.last_modified > lower_bound)
+            self.assertTrue(result.last_modified < upper_bound)
+
+            self.assertTrue(result.etag)
+
+        self.kms_crypto_bucket.put_object(key, content, headers={'content-md5': oss2.utils.md5_string(content),
+                                                                        'content-length': str(len(content))})
+
+        get_result = self.kms_crypto_bucket.get_object(key)
+        self.assertEqual(get_result.read(), content)
+        assert_result(get_result)
+        self.assertTrue(get_result.client_crc is not None)
+        self.assertTrue(get_result.server_crc is not None)
+        self.assertTrue(get_result.client_crc == get_result.server_crc)
 
     def test_restore_object(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
@@ -279,7 +307,7 @@ class TestObject(OssTestCase):
         self.assertEqual(result.read(), content)
 
         # 测试sign_url
-        url = b.sign_url('GET', key, 100)
+        url = b.sign_url('GET', key, 100, params={'para1':'test'})
         resp = requests.get(url)
         self.assertEqual(content, resp.content)
 

@@ -773,17 +773,13 @@ x-oss-server-time: 39'''
     def test_crypto_get(self, do_request):
         content = unittests.common.random_bytes(1023)
 
-        md5_content = oss2.utils.md5_string(content)
-
         request_text, response_text = make_get_encrypted_object(content)
 
         req_info = unittests.common.mock_response(do_request, response_text)
 
         result = unittests.common.bucket(oss2.LocalRsaProvider(key='oss-test')).get_object('sjbhlsgsbecvlpbf')
 
-        result1 = unittests.common.bucket().get_object('sjbhlsgsbecvlpbf', byte_range=(None, None),
-                                                       headers={'content-md5': md5_content,
-                                                                'content-length': len(content)})
+        result1 = unittests.common.bucket().get_object('sjbhlsgsbecvlpbf', byte_range=(None, None))
 
         self.assertRequest(req_info, request_text)
 
@@ -880,7 +876,9 @@ x-oss-server-time: 39'''
         with patch.object(oss2.utils, 'random_aes256_key', return_value=unittests.common.fixed_aes_key, autospect=True):
             with patch.object(oss2.utils, 'random_counter', return_value=unittests.common.fixed_aes_start, autospect=True):
 
-                unittests.common.bucket(oss2.LocalRsaProvider(key='oss-test')).put_object('sjbhlsgsbecvlpbf.txt', content)
+                unittests.common.bucket(oss2.LocalRsaProvider(key='oss-test')).put_object('sjbhlsgsbecvlpbf.txt', content,
+                                                                headers={'content-md5': oss2.utils.md5_string(content),
+                                                                        'content-length': str(len(content))})
 
                 self.assertRequest(req_info, request_text)
 
