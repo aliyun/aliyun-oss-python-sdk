@@ -238,11 +238,10 @@ class TestObject(OssTestCase):
     def test_query_parameter(self):
         key = self.random_key()
         content = random_bytes(1024 * 1024)
-        self.bucket.put_object(key, content)
-        query_params = {'bar': 'bar', 'foo': 'foo'}
+        self.bucket.put_object(key, content, headers={'Content-Type': 'plain/text'})
+        query_params = {'response-content-type': 'image/jpeg'}
         result = self.bucket.get_object(key, params=query_params)
-
-        self.assertEqual(result.read(), content)
+        self.assertEqual(result.headers['content-type'], 'image/jpeg')
 
     def test_anonymous(self):
         key = self.random_key()

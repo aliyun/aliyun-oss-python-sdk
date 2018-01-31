@@ -207,7 +207,7 @@ x-oss-request-id: 566B6C3D6086505A0CFF0F68
 
     @patch('oss2.Session.do_request')
     def test_get_with_query_parameter(self, do_request):
-        request_text = '''GET /sjbhlsgsbecvlpbf?foo=foo&bar=bar HTTP/1.1
+        request_text = '''GET /sjbhlsgsbecvlpbf?response-content-type=override-content-type HTTP/1.1
 Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
 Accept-Encoding: identity
 Connection: keep-alive
@@ -216,16 +216,24 @@ User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
 Accept: */*
 authorization: OSS ZCDmm7TPZKHtx77j:PAedG7U86ZxQ2WTB+GdpSltoiTI='''
 
-        content = random_bytes(1023)
-        _, response_text = make_get_object(content)
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6C3D010B7A4314D2253D
+Date: Sat, 12 Dec 2015 00:37:17 GMT
+ETag: "5B3C1A2E053D763E1B002CC607C5A0FE"
+Last-Modified: Sat, 12 Dec 2015 00:37:17 GMT
+Content-Length: 344606
+Content-Type: override-content-type
+Connection: keep-alive
+Server: AliyunOSS'''
+
         req_info = mock_response(do_request, response_text)
 
-        query_params = {'bar': 'bar', 'foo': 'foo'}
+        query_params = {'response-content-type': 'override-content-type'}
 
         result = bucket().get_object('sjbhlsgsbecvlpbf', params=query_params)
 
         self.assertRequest(req_info, request_text)
-        self.assertEqual(result.read(), content)
+        self.assertEqual(result.content_type, 'override-content-type')
 
     @patch('oss2.Session.do_request')
     def test_get_with_progress(self, do_request):
@@ -267,7 +275,9 @@ authorization: OSS ZCDmm7TPZKHtx77j:PAedG7U86ZxQ2WTB+GdpSltoiTI='''
 
     @patch('oss2.Session.do_request')
     def test_get_to_file_with_query_parameter(self, do_request):
-        request_text = '''GET /sjbhlsgsbecvlpbf?foo=foo&bar=bar HTTP/1.1
+        content = random_bytes(1023)
+
+        request_text = '''GET /sjbhlsgsbecvlpbf?response-content-type=override-content-type HTTP/1.1
 Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
 Accept-Encoding: identity
 Connection: keep-alive
@@ -276,20 +286,29 @@ User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
 Accept: */*
 authorization: OSS ZCDmm7TPZKHtx77j:PAedG7U86ZxQ2WTB+GdpSltoiTI='''
 
-        content = random_bytes(1023)
-        _, response_text = make_get_object(content)
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:53 GMT
+Content-Type: override-content-type
+Content-Length: {0}
+Connection: keep-alive
+x-oss-request-id: 566B6BE93A7B8CFD53D4BAA3
+Accept-Ranges: bytes
+ETag: "D80CF0E5BE2436514894D64B2BCFB2AE"
+Last-Modified: Sat, 12 Dec 2015 00:35:53 GMT
+x-oss-object-type: Normal
+
+{1}'''.format(len(content), to_string(content))
+
         req_info = mock_response(do_request, response_text)
 
         filename = self.tempname()
-        query_params = {'bar': 'bar', 'foo': 'foo'}
+        query_params = {'response-content-type': 'override-content-type'}
 
-        bucket().get_object_to_file('sjbhlsgsbecvlpbf', filename, params=query_params)
+        result = bucket().get_object_to_file('sjbhlsgsbecvlpbf', filename, params=query_params)
 
         self.assertRequest(req_info, request_text)
-        self.assertEqual(os.path.getsize(filename), len(content))
-
-        with open(filename, 'rb') as f:
-            self.assertEqual(content, f.read())
+        self.assertEqual(result.content_type, 'override-content-type')
 
     @patch('oss2.Session.do_request')
     def test_get_to_file_with_progress(self, do_request):
