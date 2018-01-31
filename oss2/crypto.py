@@ -10,7 +10,7 @@ import json
 
 from oss2.utils import b64decode_from_string, b64encode_as_string
 from . import utils
-from .compat import to_string, to_bytes
+from .compat import to_string, to_bytes, to_unicode
 
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.PublicKey import RSA
@@ -188,7 +188,7 @@ class AliKMSProvider():
 
         body = self.clt.do_action_with_exception(req)
 
-        return json.loads(body)
+        return json.loads(to_unicode(body))
 
     def decrypt_oss_meta_data(self, headers, key, conv=lambda x: x):
         try:

@@ -30,7 +30,7 @@ if oss2.compat.is_py2:
 
         body = clt.do_action_with_exception(req)
 
-        j = json.loads(body)
+        j = json.loads(oss2.to_unicode(body))
 
         token = StsToken()
 

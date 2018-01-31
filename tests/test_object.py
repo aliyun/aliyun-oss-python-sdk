@@ -8,6 +8,8 @@ import base64
 
 from oss2.exceptions import (ClientError, RequestError, NoSuchBucket,
                              NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable)
+
+from oss2.compat import is_py2, is_py3
 from common import *
 
 
@@ -83,6 +85,9 @@ class TestObject(OssTestCase):
         self.assertTrue(get_result.client_crc == get_result.server_crc)
 
     def test_kms_crypto_object(self):
+        if is_py3:
+            return
+
         key = self.random_key('.js')
         content = random_bytes(1024)
 

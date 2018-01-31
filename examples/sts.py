@@ -67,7 +67,7 @@ def fetch_sts_token(access_key_id, access_key_secret, role_arn):
 
     body = clt.do_action_with_exception(req)
 
-    j = json.loads(body)
+    j = json.loads(oss2.to_unicode(body))
 
     token = StsToken()
 

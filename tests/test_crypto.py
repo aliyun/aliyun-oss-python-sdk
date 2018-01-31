@@ -48,26 +48,28 @@ class TestCrypto(unittests.common.OssTestCase):
         self.assertEqual(content, cipher1.decrypt(encrypted_cont))
 
     def test_kms_basic(self):
-        id, key, token = self.get_sts()
+        if oss2.compat.is_py2:
+            id, key, token = self.get_sts()
 
-        kms = AliKMSProvider(id, key, OSS_REGION, OSS_CMK, token, passphrase='1234')
+            kms = AliKMSProvider(id, key, OSS_REGION, OSS_CMK, token, passphrase='1234')
 
-        plain_key = kms.get_key()
-        iv = kms.get_iv()
-        header = kms.build_header()
-        self.assertEqual(plain_key, kms.decrypt_oss_meta_data(header, 'x-oss-meta-oss-crypto-key'))
-        self.assertEqual(iv, kms.decrypt_oss_meta_data(header, 'x-oss-meta-oss-crypto-start', lambda x: int(x)))
-        self.assertEqual(None, kms.decrypt_oss_meta_data(header, '1231'))
+            plain_key = kms.get_key()
+            iv = kms.get_iv()
+            header = kms.build_header()
+            self.assertEqual(plain_key, kms.decrypt_oss_meta_data(header, 'x-oss-meta-oss-crypto-key'))
+            self.assertEqual(iv, kms.decrypt_oss_meta_data(header, 'x-oss-meta-oss-crypto-start', lambda x: int(x)))
+            self.assertEqual(None, kms.decrypt_oss_meta_data(header, '1231'))
 
     def test_kms_raise(self):
+        if oss2.compat.is_py2:
 
-        kms = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, '123')
+            kms = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, '123')
 
-        self.assertRaises(ServerException, kms.get_key)
-        self.assertRaises(ServerException, kms._AliKMSProvider__encrypt_data, '123')
-        self.assertRaises(ServerException, kms._AliKMSProvider__decrypt_data, '123')
-        self.assertRaises(ServerException, kms._AliKMSProvider__generate_data_key)
-        self.assertRaises(ServerException, kms.decrypt_oss_meta_data, {'123':'456'}, '123')
+            self.assertRaises(ServerException, kms.get_key)
+            self.assertRaises(ServerException, kms._AliKMSProvider__encrypt_data, '123')
+            self.assertRaises(ServerException, kms._AliKMSProvider__decrypt_data, '123')
+            self.assertRaises(ServerException, kms._AliKMSProvider__generate_data_key)
+            self.assertRaises(ServerException, kms.decrypt_oss_meta_data, {'123':'456'}, '123')
 
     def get_sts(self):
         clt = client.AcsClient(OSS_STS_ID, OSS_STS_KEY, OSS_REGION)
@@ -79,6 +81,6 @@ class TestCrypto(unittests.common.OssTestCase):
 
         body = clt.do_action_with_exception(req)
 
-        j = json.loads(body)
+        j = json.loads(oss2.to_unicode(body))
 
         return j['Credentials']['AccessKeyId'], j['Credentials']['AccessKeySecret'], j['Credentials']['SecurityToken']
