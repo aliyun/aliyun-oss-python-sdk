@@ -12,10 +12,10 @@ install:
 script:
 - nosetests unittests/ --with-cov
 - export OSS_TEST_AUTH_VERSION=v1
-- if [ -n "$OSS_TEST_ACCESS_KEY_ID" ]; then travis_wait 60 nosetests -s tests/ --with-cov;
+- if [ -n "$OSS_TEST_ACCESS_KEY_ID" ]; then travis_wait 60 nosetests -sv tests/ --with-cov;
   fi
 - export OSS_TEST_AUTH_VERSION=v2
-- if [ -n "$OSS_TEST_ACCESS_KEY_ID" ]; then travis_wait 60 nosetests -s tests/ --with-cov;
+- if [ -n "$OSS_TEST_ACCESS_KEY_ID" ]; then travis_wait 60 nosetests -sv tests/ --with-cov;
   fi
 after_success:
 - coveralls
