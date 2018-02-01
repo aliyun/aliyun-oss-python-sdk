@@ -273,6 +273,7 @@ def get_length(data):
     except TypeError:
         return None
 
+
 def calc_crc(data):
     crc = oss2.utils.Crc64()
     crc.update(data)

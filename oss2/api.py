@@ -123,6 +123,7 @@ import time
 import shutil
 import oss2.utils
 
+
 class _Base(object):
     def __init__(self, auth, endpoint, is_cname, session, connect_timeout,
                  app_name='', enable_crc=True):
@@ -416,7 +417,7 @@ class Bucket(_Base):
                                 data=data,
                                 headers=headers,
                                 params={'append': '', 'position': str(position)})
-        result =  AppendObjectResult(resp)
+        result = AppendObjectResult(resp)
     
         if self.enable_crc and result.crc is not None and init_crc is not None:
             utils.check_crc('append', data.crc, result.crc)
@@ -427,7 +428,8 @@ class Bucket(_Base):
                    byte_range=None,
                    headers=None,
                    progress_callback=None,
-                   process=None):
+                   process=None,
+                   params=None):
         """下载一个文件。
 
         用法 ::
@@ -445,7 +447,10 @@ class Bucket(_Base):
         :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
 
         :param process: oss文件处理，如图像服务等。指定后process，返回的内容为处理后的文件。
-        
+
+        :param params: http 请求的查询字符串参数
+        :type params: dict
+
         :return: file-like object
 
         :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
@@ -455,10 +460,10 @@ class Bucket(_Base):
         range_string = _make_range_string(byte_range)
         if range_string:
             headers['range'] = range_string
-        
-        params = None
-        if process: 
-            params={'x-oss-process': process}
+
+        params = {} if params is None else params
+        if process:
+            params.update({'x-oss-process': process})
         
         resp = self.__do_object('GET', key, headers=headers, params=params)
         return GetObjectResult(resp, progress_callback, self.enable_crc)
@@ -467,7 +472,8 @@ class Bucket(_Base):
                            byte_range=None,
                            headers=None,
                            progress_callback=None,
-                           process=None):
+                           process=None,
+                           params=None):
         """下载一个文件到本地文件。
 
         :param key: 文件名
@@ -481,11 +487,14 @@ class Bucket(_Base):
     
         :param process: oss文件处理，如图像服务等。指定后process，返回的内容为处理后的文件。
 
+        :param params: http 请求的查询字符串参数
+        :type params: dict
+
         :return: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
         with open(to_unicode(filename), 'wb') as f:
             result = self.get_object(key, byte_range=byte_range, headers=headers, progress_callback=progress_callback,
-                                     process=process)
+                                     process=process, params=params)
 
             if result.content_length is None:
                 shutil.copyfileobj(result, f)
