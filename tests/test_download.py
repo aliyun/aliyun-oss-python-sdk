@@ -31,8 +31,8 @@ class SizedFileAdapterForMock(object):
 orig_get_object = oss2.Bucket.get_object
 
 
-def mock_get_object(b, k, byte_range=None, headers=None, progress_callback=None, process=None, content_length=None):
-    res = orig_get_object(b, k, byte_range, headers, progress_callback, process)
+def mock_get_object(b, k, byte_range=None, headers=None, progress_callback=None, process=None, content_length=None, params=None):
+    res = orig_get_object(b, k, byte_range, headers, progress_callback, process, params)
 
     return SizedFileAdapterForMock(res, 50, content_length)
 

@@ -297,6 +297,14 @@ class TestObject(OssTestCase):
         self.assertEqual(len(content), len(content_got))
         self.assertEqual(content, content_got)
 
+    def test_query_parameter(self):
+        key = self.random_key()
+        content = random_bytes(1024 * 1024)
+        self.bucket.put_object(key, content, headers={'Content-Type': 'plain/text'})
+        query_params = {'response-content-type': 'image/jpeg'}
+        result = self.bucket.get_object(key, params=query_params)
+        self.assertEqual(result.headers['content-type'], 'image/jpeg')
+
     @single_conn_case
     def test_anonymous(self):
         key = self.random_key()
