@@ -28,7 +28,7 @@ from Crypto import Random
 from Crypto.Util import Counter
 
 from .compat import to_string, to_bytes
-from .exceptions import ClientError, InconsistentError, RequestError
+from .exceptions import ClientError, InconsistentError, RequestError, FormatError
 
 
 _EXTRA_TYPES_MAP = {
@@ -52,7 +52,10 @@ def b64encode_as_string(data):
 
 
 def b64decode_from_string(data):
-    return base64.b64decode(to_string(data))
+    try:
+        return base64.b64decode(to_string(data))
+    except TypeError as e:
+        raise FormatError('Base64 Error: ' + to_string(data))
 
 
 def content_md5(data):

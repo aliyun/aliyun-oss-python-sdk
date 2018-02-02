@@ -9,10 +9,10 @@ import oss2
 import unittests
 from oss2 import LocalRsaProvider, AliKMSProvider
 from oss2.utils import AESCipher, silently_remove
+from oss2.exceptions import OpenApiServerError, FormatError, ClientError
 from mock import patch
 
 from common import OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK, OSS_STS_ID, OSS_STS_ARN, OSS_STS_KEY
-from aliyunsdkcore.acs_exception.exceptions import ServerException
 from aliyunsdksts.request.v20150401 import AssumeRoleRequest
 
 
@@ -65,11 +65,24 @@ class TestCrypto(unittests.common.OssTestCase):
 
             kms = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, '123')
 
-            self.assertRaises(ServerException, kms.get_key)
-            self.assertRaises(ServerException, kms._AliKMSProvider__encrypt_data, '123')
-            self.assertRaises(ServerException, kms._AliKMSProvider__decrypt_data, '123')
-            self.assertRaises(ServerException, kms._AliKMSProvider__generate_data_key)
-            self.assertRaises(ServerException, kms.decrypt_oss_meta_data, {'123':'456'}, '123')
+            self.assertRaises(OpenApiServerError, kms.get_key)
+            self.assertRaises(OpenApiServerError, kms._AliKMSProvider__encrypt_data, '123')
+            self.assertRaises(OpenApiServerError, kms._AliKMSProvider__decrypt_data, '123')
+            self.assertRaises(OpenApiServerError, kms._AliKMSProvider__generate_data_key)
+            self.assertRaises(OpenApiServerError, kms.decrypt_oss_meta_data, {'123':'456'}, '123')
+
+            class FakeReq:
+                def set_accept_format(self, format):
+                    pass
+
+            self.assertRaises(ClientError, kms._AliKMSProvider__do, FakeReq())
+
+            with patch.object(oss2.AliKMSProvider, '_AliKMSProvider__do', return_value={'Plaintext': '123', 'CiphertextBlob': '123'},
+                              autospect=True):
+                self.assertRaises(FormatError, kms.get_key)
+
+            with patch.object(client.AcsClient, 'do_action_with_exception', return_value='12iof..3', autospect=True):
+                self.assertRaises(FormatError, kms.get_key)
 
     def get_sts(self):
         clt = client.AcsClient(OSS_STS_ID, OSS_STS_KEY, OSS_REGION)

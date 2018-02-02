@@ -6,7 +6,7 @@ import calendar
 import json
 import base64
 
-from oss2.exceptions import (ClientError, RequestError, NoSuchBucket,
+from oss2.exceptions import (ClientError, RequestError, NoSuchBucket, OpenApiServerError,
                              NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable)
 
 from oss2.compat import is_py2, is_py3
@@ -612,6 +612,10 @@ class TestObject(OssTestCase):
 
         self.assertRaises(Conflict, self.bucket.append_object, key, len(content), b'more content')
         self.assertRaises(ObjectNotAppendable, self.bucket.append_object, key, len(content), b'more content')
+
+        tmpBucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET,
+                    crypto_provider=oss2.AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, '123'))
+        self.assertRaises(OpenApiServerError, tmpBucket.put_object, key, b'more content')
 
     def test_gzip_get(self):
         """OSS supports HTTP Compression, see https://en.wikipedia.org/wiki/HTTP_compression for details.

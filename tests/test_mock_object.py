@@ -936,6 +936,8 @@ x-oss-server-time: 39'''
 
         self.assertRaises(oss2.exceptions.ClientError, bucket.complete_multipart_upload, key, '123', None)
 
+        self.assertRaises(oss2.exceptions.ClientError, bucket.append_object, key, 0, '123')
+
     # for ci
     def test_oss_utils_negative(self):
         try:

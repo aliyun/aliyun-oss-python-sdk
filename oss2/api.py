@@ -422,6 +422,9 @@ class Bucket(_Base):
                  如果当前文件不是可追加类型，抛出 :class:`ObjectNotAppendable <oss2.exceptions.ObjectNotAppendable>` ；
                  还会抛出其他一些异常
         """
+        if self.crypto_provider:
+            raise ClientError('Could not append an encrypted object')
+
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), key)
 
         if progress_callback:

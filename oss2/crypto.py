@@ -11,6 +11,7 @@ import json
 from oss2.utils import b64decode_from_string, b64encode_as_string
 from . import utils
 from .compat import to_string, to_bytes, to_unicode
+from .exceptions import OssError, ClientError, FormatError, OpenApiServerError
 
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.PublicKey import RSA
@@ -183,12 +184,18 @@ class AliKMSProvider():
         resp = self.__do(req)
         return resp['Plaintext']
 
-
     def __do(self, req):
 
-        body = self.clt.do_action_with_exception(req)
+        try:
+            body = self.clt.do_action_with_exception(req)
 
-        return json.loads(to_unicode(body))
+            return json.loads(to_unicode(body))
+        except ServerException as e:
+            raise OpenApiServerError(e.http_status, e.request_id, e.message, e.error_code)
+        except ClientException as e:
+            raise ClientError(e.message)
+        except (ValueError, TypeError) as e:
+            raise FormatError('Json Error: ' + body)
 
     def decrypt_oss_meta_data(self, headers, key, conv=lambda x: x):
         try:
@@ -196,7 +203,7 @@ class AliKMSProvider():
                 return conv(b64decode_from_string(self.__decrypt_data(headers[key])))
             else:
                 return conv(self.__decrypt_data(headers[key]))
-        except (ServerException, ClientException) as e:
+        except OssError as e:
             raise e
         except:
             return None
