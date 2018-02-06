@@ -25,9 +25,9 @@ OSS_STS_ARN = os.getenv("OSS_TEST_STS_ARN")
 
 OSS_AUTH_VERSION = None
 
-
 def random_string(n):
     return ''.join(random.choice(string.ascii_lowercase) for i in range(n))
+
 
 
 def random_bytes(n):
@@ -53,8 +53,7 @@ def wait_meta_sync():
     if os.environ.get('TRAVIS'):
         time.sleep(5)
     else:
-        # time.sleep(1)
-        pass
+        time.sleep(1)
 
 
 class OssTestCase(unittest.TestCase):
@@ -78,9 +77,6 @@ class OssTestCase(unittest.TestCase):
         oss2.defaults.multiget_threshold = self.default_multiget_threshold
         oss2.defaults.multiget_part_size = self.default_multiget_part_size
         oss2.defaults.multiget_num_threads = random.randint(1, 5)
-
-        if self._testMethodDoc == self.SINGLE_THREAD_CASE:
-            oss2.defaults.connection_pool_size = 1
 
         global OSS_AUTH_VERSION
         OSS_AUTH_VERSION = os.getenv('OSS_TEST_AUTH_VERSION')
@@ -167,10 +163,3 @@ class OssTestCase(unittest.TestCase):
             self.assertNotEqual(len(read), len(content))
             self.assertNotEqual(read, content)
 
-
-def single_conn_case(func):
-    def wrapper(*args, **kwargs):
-        func.__doc__ = OssTestCase.SINGLE_THREAD_CASE
-        return func
-
-    return wrapper

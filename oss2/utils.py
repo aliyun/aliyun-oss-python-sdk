@@ -19,6 +19,8 @@ import calendar
 import datetime
 import time
 import errno
+
+import binascii
 import crcmod
 import re
 import random
@@ -54,7 +56,7 @@ def b64encode_as_string(data):
 def b64decode_from_string(data):
     try:
         return base64.b64decode(to_string(data))
-    except TypeError as e:
+    except (TypeError, binascii.Error) as e:
         raise FormatError('Base64 Error: ' + to_string(data))
 
 
@@ -237,11 +239,7 @@ def make_crc_adapter(data, init_crc=0):
         raise ClientError('{0} is not a file object, nor an iterator'.format(data.__class__.__name__))
 
 
-OP_UPLOAD = 'upload'
-OP_DOWNLOAD = 'download'
-
-
-def make_cipher_operation_adapter(data, operation=None, key=None, start=None):
+def make_cipher_adapter(data, cipher_callback):
     """返回一个适配器，从而在读取 `data` ，即调用read或者对其进行迭代的时候，能够进行加解密操作。
 
         :param data: 可以是bytes、file object或iterable
@@ -257,13 +255,13 @@ def make_cipher_operation_adapter(data, operation=None, key=None, start=None):
     if _has_data_size_attr(data):
         return _BytesAndFileAdapter(data,
                                     size=_get_data_size(data),
-                                    cipher_callback=AESCipher(key, start, operation))
+                                    cipher_callback=cipher_callback)
     # file-like object
     elif hasattr(data, 'read'):
-        return _FileLikeAdapter(data, cipher_callback=AESCipher(key, start, operation))
+        return _FileLikeAdapter(data, cipher_callback=cipher_callback)
     # iterator
     elif hasattr(data, '__iter__'):
-        return _IterableAdapter(data, cipher_callback=AESCipher(key, start, operation))
+        return _IterableAdapter(data, cipher_callback=cipher_callback)
     else:
         raise ClientError('{0} is not a file object, nor an iterator'.format(data.__class__.__name__))
 
@@ -272,10 +270,6 @@ def check_crc(operation, client_crc, oss_crc, request_id):
     if client_crc is not None and oss_crc is not None and client_crc != oss_crc:
         raise InconsistentError('the crc of {0} between client and oss is not inconsistent'.format(operation),
                                 request_id)
-
-
-
-
 
 def _invoke_crc_callback(crc_callback, content):
     if crc_callback:
@@ -490,10 +484,30 @@ _AES_256_KEY_SIZE = 32
 
 _AES_CTR_COUNTER_BITS_LEN = 8 * 16
 
+_AES_GCM = 'AES/GCM/NoPadding'
+
 
 class AESCipher:
-    def __init__(self, key=None, start=None, operation=OP_UPLOAD):
-        self._op = operation
+    """AES256 加密实现。
+        :param str key: 对称加密数据密钥
+        :param str start: 对称加密初始随机值
+    .. note::
+        用户可自行实现对称加密算法，需服务如下规则：
+        1、提供对称加密算法名，ALGORITHM
+        2、提供静态方法，返回加密密钥和初始随机值（若算法不需要初始随机值，也需要提供）
+        3、提供加密解密方法
+    """
+    ALGORITHM = _AES_GCM
+
+    @staticmethod
+    def get_key():
+        return random_aes256_key()
+
+    @staticmethod
+    def get_start():
+        return random_counter()
+
+    def __init__(self, key=None, start=None):
         self.key = key
         self.start = start
         if not self.key:
@@ -508,12 +522,6 @@ class AESCipher:
 
     def decrypt(self, enc):
         return self.__cipher.decrypt(enc)
-
-    def __call__(self, data):
-        if self._op == OP_UPLOAD:
-            return self.encrypt(data)
-        else:
-            return self.decrypt(data)
 
 
 _STRPTIME_LOCK = threading.Lock()

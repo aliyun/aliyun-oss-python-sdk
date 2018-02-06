@@ -363,8 +363,8 @@ class Bucket(_Base):
 
         if self.crypto_provider:
             random_key = self.crypto_provider.get_key()
-            start = self.crypto_provider.get_iv()
-            data = utils.make_cipher_operation_adapter(data, utils.OP_UPLOAD, random_key, start)
+            start = self.crypto_provider.get_start()
+            data = self.crypto_provider.make_encrypt_adapter(data, random_key, start)
             headers = self.crypto_provider.build_header(headers)
 
         if self.enable_crc:

@@ -9,7 +9,7 @@ import base64
 from oss2.exceptions import (ClientError, RequestError, NoSuchBucket, OpenApiServerError,
                              NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable)
 
-from oss2.compat import is_py2, is_py3
+from oss2.compat import is_py2, is_py33
 from common import *
 
 
@@ -85,7 +85,7 @@ class TestObject(OssTestCase):
         self.assertTrue(get_result.client_crc == get_result.server_crc)
 
     def test_kms_crypto_object(self):
-        if is_py3:
+        if is_py33:
             return
 
         key = self.random_key('.js')
@@ -305,14 +305,13 @@ class TestObject(OssTestCase):
         result = self.bucket.get_object(key, params=query_params)
         self.assertEqual(result.headers['content-type'], 'image/jpeg')
 
-    @single_conn_case
     def test_anonymous(self):
         key = self.random_key()
         content = random_bytes(512)
 
         # 设置bucket为public-read，并确认可以上传和下载
         self.bucket.put_bucket_acl('public-read-write')
-        time.sleep(2)
+        wait_meta_sync()
 
         b = oss2.Bucket(oss2.AnonymousAuth(), OSS_ENDPOINT, OSS_BUCKET)
         b.put_object(key, content)
@@ -612,10 +611,6 @@ class TestObject(OssTestCase):
 
         self.assertRaises(Conflict, self.bucket.append_object, key, len(content), b'more content')
         self.assertRaises(ObjectNotAppendable, self.bucket.append_object, key, len(content), b'more content')
-
-        tmpBucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET,
-                    crypto_provider=oss2.AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, '123'))
-        self.assertRaises(OpenApiServerError, tmpBucket.put_object, key, b'more content')
 
     def test_gzip_get(self):
         """OSS supports HTTP Compression, see https://en.wikipedia.org/wiki/HTTP_compression for details.

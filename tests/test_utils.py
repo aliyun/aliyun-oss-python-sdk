@@ -12,6 +12,7 @@ import requests
 import datetime
 import locale
 import io
+from functools import partial
 
 from common import *
 
@@ -122,7 +123,8 @@ class TestUtils(OssTestCase):
     def test_crc_and_cipher_adapter(self):
 
         crc_adapter = oss2.utils.make_crc_adapter('sss')
-        cipher_adapter = oss2.utils.make_cipher_operation_adapter(crc_adapter, oss2.OP_UPLOAD, b'1'*32, 1)
+        cipher_adapter = oss2.utils.make_cipher_adapter(crc_adapter,
+                    partial(oss2.utils.AESCipher.encrypt ,oss2.utils.AESCipher(b'1' * 32, 1)))
 
         content = cipher_adapter.read()
 
@@ -130,7 +132,8 @@ class TestUtils(OssTestCase):
 
         with io.BytesIO(oss2.to_bytes('sss')) as f:
             crc_adapter = oss2.utils.make_crc_adapter(f)
-            cipher_adapter = oss2.utils.make_cipher_operation_adapter(crc_adapter, oss2.OP_UPLOAD, b'1' * 32, 1)
+            cipher_adapter = oss2.utils.make_cipher_adapter(crc_adapter,
+                     partial(oss2.utils.AESCipher.encrypt, oss2.utils.AESCipher(b'1' * 32, 1)))
 
             content = cipher_adapter.read()
 

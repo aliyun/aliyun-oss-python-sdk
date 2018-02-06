@@ -58,7 +58,6 @@ class TestBucket(OssTestCase):
         wait_meta_sync()
         self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.delete_bucket)
 
-    @single_conn_case
     def test_acl(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
@@ -78,7 +77,6 @@ class TestBucket(OssTestCase):
 
         bucket.delete_bucket()
 
-    @single_conn_case
     def test_logging(self):
         other_bucket = oss2.Bucket(self.bucket.auth, OSS_ENDPOINT, random_string(63).lower())
         other_bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -101,7 +99,6 @@ class TestBucket(OssTestCase):
 
         other_bucket.delete_bucket()
 
-    @single_conn_case
     def test_website(self):
         key = self.random_key('/')
         content = random_bytes(32)
@@ -110,7 +107,7 @@ class TestBucket(OssTestCase):
 
         # 设置index页面和error页面
         self.bucket.put_bucket_website(oss2.models.BucketWebsite('index.html', 'error.html'))
-        # time.sleep(5)
+        wait_meta_sync()
 
         def same_website(website, index, error):
             return website.index_file == index and website.error_file == error
@@ -163,7 +160,6 @@ class TestBucket(OssTestCase):
 
         return True
 
-    @single_conn_case
     def test_lifecycle_days(self):
         from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle
 
@@ -214,7 +210,6 @@ class TestBucket(OssTestCase):
                                                                   storage_class=oss2.BUCKET_STORAGE_CLASS_STANDARD)]
         self.assertRaises(oss2.exceptions.InvalidArgument, self.bucket.put_bucket_lifecycle, BucketLifecycle([rule]))
 
-    @single_conn_case
     def test_lifecycle_date(self):
         from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle
 
@@ -241,7 +236,6 @@ class TestBucket(OssTestCase):
 
         self.bucket.delete_bucket_lifecycle()
 
-    @single_conn_case
     def test_lifecycle_abort_multipart_upload_days(self):
         from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, AbortMultipartUpload
 
@@ -262,7 +256,6 @@ class TestBucket(OssTestCase):
 
         self.bucket.delete_bucket_lifecycle()
 
-    @single_conn_case
     def test_lifecycle_abort_multipart_upload_date(self):
         from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, AbortMultipartUpload
 
@@ -295,7 +288,6 @@ class TestBucket(OssTestCase):
 
         self.assertRaises(oss2.exceptions.InvalidRequest, self.bucket.put_bucket_lifecycle, lifecycle)
 
-    @single_conn_case
     def test_lifecycle_storage_transitions_days(self):
         from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition
 
@@ -316,7 +308,6 @@ class TestBucket(OssTestCase):
 
         self.bucket.delete_bucket_lifecycle()
 
-    @single_conn_case
     def test_lifecycle_storage_transitions_more_days(self):
         from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition
 
@@ -344,7 +335,6 @@ class TestBucket(OssTestCase):
             self.assertEqual(oss2.BUCKET_STORAGE_CLASS_IA, result.rules[0].storage_transitions[1].storage_class)
         self.bucket.delete_bucket_lifecycle()
 
-    @single_conn_case
     def test_lifecycle_storage_transitions_date(self):
         from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition
 
@@ -365,7 +355,6 @@ class TestBucket(OssTestCase):
 
         self.bucket.delete_bucket_lifecycle()
 
-    @single_conn_case
     def test_lifecycle_all_without_object_expiration(self):
         from oss2.models import LifecycleRule, BucketLifecycle, AbortMultipartUpload, StorageTransition
 
@@ -387,7 +376,6 @@ class TestBucket(OssTestCase):
 
         self.bucket.delete_bucket_lifecycle()
 
-    @single_conn_case
     def test_lifecycle_all(self):
         from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, AbortMultipartUpload, StorageTransition
 
@@ -419,7 +407,6 @@ class TestBucket(OssTestCase):
 
         self.bucket.delete_bucket_lifecycle()
 
-    @single_conn_case
     def test_cors(self):
         rule = oss2.models.CorsRule(allowed_origins=['*'],
                                     allowed_methods=['HEAD', 'GET'],
@@ -443,7 +430,6 @@ class TestBucket(OssTestCase):
         wait_meta_sync()
         self.assertRaises(oss2.exceptions.NoSuchCors, self.bucket.get_bucket_cors)
 
-    @single_conn_case
     def test_bucket_stat(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
@@ -495,7 +481,6 @@ class TestBucket(OssTestCase):
         wait_meta_sync()
         self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.delete_bucket)
 
-    @single_conn_case
     def test_referer(self):
         referers = ['http://hello.com', 'mibrowser:home', '中文+referer', u'中文+referer']
         config = oss2.models.BucketReferer(True, referers)

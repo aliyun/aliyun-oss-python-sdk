@@ -48,7 +48,7 @@ User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
 Accept: */*
 authorization: OSS ZCDmm7TPZKHtx77j:PAedG7U86ZxQ2WTB+GdpSltoiTI='''
 
-    cipher = oss2.utils.AESCipher(operation=oss2.OP_DOWNLOAD ,key=unittests.common.fixed_aes_key, start=unittests.common.fixed_aes_start)
+    cipher = oss2.utils.AESCipher(key=unittests.common.fixed_aes_key, start=unittests.common.fixed_aes_start)
     encrypted_cont = cipher.encrypt(content)
 
     response_text = '''HTTP/1.1 200 OK
@@ -105,7 +105,7 @@ ETag: "D80CF0E5BE2436514894D64B2BCFB2AE"'''.format(unittests.common.calc_crc(con
 
 def make_put_encrypted_object(content):
 
-    cipher = oss2.utils.AESCipher(operation=oss2.OP_UPLOAD, key=unittests.common.fixed_aes_key, start=unittests.common.fixed_aes_start)
+    cipher = oss2.utils.AESCipher(key=unittests.common.fixed_aes_key, start=unittests.common.fixed_aes_start)
     encrypted_cont = cipher.encrypt(content)
 
     request_text = '''PUT /sjbhlsgsbecvlpbf.txt HTTP/1.1
