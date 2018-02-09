@@ -34,8 +34,8 @@ multipart_num_threads = 1
 part_size = 10 * 1024 * 1024
 
 
-#: 每个Session连接池大小
-connection_pool_size = 10
+#: 每个Session连接池大小, 只有一个目标主机的情况下，只用1个连接池缓存连接即可
+connection_pool_size = 1
 
 
 #: 对于断点下载，如果OSS文件大小大于该值就进行并行下载（multiget）
@@ -51,7 +51,7 @@ multiget_part_size = 10 * 1024 * 1024
 logger = logging.getLogger()
 
 #: 每个连接池缓存的连接数量 see: https://urllib3.readthedocs.io/en/1.4/pools.html
-pool_connection_numbers = multiget_num_threads
+pool_connection_numbers = multiget_num_threads + multipart_num_threads
 
 def get_logger():
     return logger
