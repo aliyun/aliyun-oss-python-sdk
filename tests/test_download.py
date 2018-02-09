@@ -85,7 +85,7 @@ class TestDownload(OssTestCase):
         self.__test_normal(2 * 1024 * 1024)
 
     def test_large_many_threads(self):
-        """线程数多余分片数"""
+        """线程数多于分片数"""
 
         oss2.defaults.multiget_threshold = 1024 * 1024
         oss2.defaults.multiget_part_size = 100 * 1024

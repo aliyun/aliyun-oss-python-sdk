@@ -50,6 +50,8 @@ multiget_part_size = 10 * 1024 * 1024
 #: 缺省 Logger
 logger = logging.getLogger()
 
+#: 每个连接池缓存的连接数量 see: https://urllib3.readthedocs.io/en/1.4/pools.html
+pool_connection_numbers = multiget_num_threads
 
 def get_logger():
     return logger
