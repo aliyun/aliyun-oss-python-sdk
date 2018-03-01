@@ -916,7 +916,7 @@ x-oss-server-time: 39'''
                 self.assertEqual(result.etag, 'D80CF0E5BE2436514894D64B2BCFB2AE')
 
     @patch('oss2.Session.do_request')
-    def test_crypto_disabled_operation(self, do_request):
+    def test_crypto_operation_exception(self, do_request):
         content = unittests.common.random_bytes(1024 * 1024 + 1)
 
         request_text, response_text = make_get_encrypted_object(content, oss2.api._make_range_string((1024, 2047)))
@@ -926,17 +926,11 @@ x-oss-server-time: 39'''
 
         key = 'sjbhlsgsbecvlpbf'
 
-        self.assertRaises(oss2.exceptions.ClientError, bucket.get_object, key, (1024, 2047))
+        self.assertRaises(oss2.exceptions.ClientError, bucket.get_object, key, {'range':'bytes=1024-2047'})
 
-        self.assertRaises(oss2.exceptions.ClientError, bucket.init_multipart_upload, key)
+        self.assertRaises(oss2.exceptions.ClientError, oss2.CryptoBucket, oss2.Auth('fake-access-key-id', 'fake-access-key-secret'),
+                          'http://oss-cn-hangzhou.aliyuncs.com', '123', None)
 
-        self.assertRaises(oss2.exceptions.ClientError, bucket.upload_part, key, '123', 0, content)
-
-        self.assertRaises(oss2.exceptions.ClientError, bucket.upload_part_copy, '123', key, None, '234', '345', 0)
-
-        self.assertRaises(oss2.exceptions.ClientError, bucket.complete_multipart_upload, key, '123', None)
-
-        self.assertRaises(oss2.exceptions.ClientError, bucket.append_object, key, 0, '123')
 
     # for ci
     def test_oss_utils_negative(self):

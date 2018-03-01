@@ -60,7 +60,7 @@ class TestObject(OssTestCase):
         key = self.random_key('.js')
         content = random_bytes(1024)
 
-        self.assertRaises(NotFound, self.rsa_crypto_bucket.head_object, key)
+        self.assertRaises(NotFound, self.bucket.head_object, key)
 
         lower_bound = now() - 60 * 16
         upper_bound = now() + 60 * 16
@@ -91,7 +91,7 @@ class TestObject(OssTestCase):
         key = self.random_key('.js')
         content = random_bytes(1024)
 
-        self.assertRaises(NotFound, self.kms_crypto_bucket.head_object, key)
+        self.assertRaises(NotFound, self.bucket.head_object, key)
 
         lower_bound = now() - 60 * 16
         upper_bound = now() + 60 * 16

@@ -88,10 +88,10 @@ class OssTestCase(unittest.TestCase):
         except:
             pass
 
-        self.rsa_crypto_bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET,
+        self.rsa_crypto_bucket = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET,
                                              crypto_provider=oss2.LocalRsaProvider())
 
-        self.kms_crypto_bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET,
+        self.kms_crypto_bucket = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET,
                                              crypto_provider=oss2.AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK))
 
         self.key_list = []

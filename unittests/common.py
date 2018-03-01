@@ -34,9 +34,13 @@ def random_bytes(n):
 
 
 def bucket(crypto_provider=None):
-    return oss2.Bucket(oss2.Auth('fake-access-key-id', 'fake-access-key-secret'),
+    if crypto_provider:
+        return oss2.CryptoBucket(oss2.Auth('fake-access-key-id', 'fake-access-key-secret'),
                        'http://oss-cn-hangzhou.aliyuncs.com', BUCKET_NAME,
                        crypto_provider=crypto_provider)
+    else:
+        return oss2.Bucket(oss2.Auth('fake-access-key-id', 'fake-access-key-secret'),
+                       'http://oss-cn-hangzhou.aliyuncs.com', BUCKET_NAME)
 
 
 def service():

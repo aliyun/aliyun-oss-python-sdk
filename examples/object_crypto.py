@@ -32,15 +32,12 @@ filename = 'download.txt'
 
 
 # 创建Bucket对象，可以进行客户端数据加密(用户端RSA)，此模式下只提供对象整体上传下载操作
-bucket = oss2.Bucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name, crypto_provider=LocalRsaProvider())
+bucket = oss2.CryptoBucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name, crypto_provider=LocalRsaProvider())
 
 key1 = 'motto-copy.txt'
 
 # 上传文件
 bucket.put_object(key, content, headers={'content-length': str(1024 * 1024)})
-
-# 复制文件
-bucket.copy_object(bucket_name, key, key1)
 
 """
 文件下载
@@ -56,24 +53,8 @@ for chunk in result:
     content_got += chunk
 assert content_got == content
 
-# 复制文件
-result = bucket.get_object(key1)
-
-# 验证一下
-content_got = b''
-for chunk in result:
-    content_got += chunk
-assert content_got == content
-
 # 下载原文件到本地文件
 result = bucket.get_object_to_file(key, filename)
-
-# 验证一下
-with open(filename, 'rb') as fileobj:
-    assert fileobj.read() == content
-
-# 下载复制文件到本地文件
-result = bucket.get_object_to_file(key1, filename)
 
 # 验证一下
 with open(filename, 'rb') as fileobj:
@@ -83,16 +64,13 @@ os.remove(filename)
 
 
 # 创建Bucket对象，可以进行客户端数据加密(使用阿里云KMS)，此模式下只提供对象整体上传下载操作
-bucket = oss2.Bucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name,
+bucket = oss2.CryptoBucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name,
                      crypto_provider=AliKMSProvider(access_key_id, access_key_secret, region, cmk, '1234'))
 
 key1 = 'motto-copy.txt'
 
 # 上传文件
 bucket.put_object(key, content, headers={'content-length': str(1024 * 1024)})
-
-# 复制文件
-bucket.copy_object(bucket_name, key, key1)
 
 """
 文件下载
@@ -108,24 +86,8 @@ for chunk in result:
     content_got += chunk
 assert content_got == content
 
-# 复制文件
-result = bucket.get_object(key1)
-
-# 验证一下
-content_got = b''
-for chunk in result:
-    content_got += chunk
-assert content_got == content
-
 # 下载原文件到本地文件
 result = bucket.get_object_to_file(key, filename)
-
-# 验证一下
-with open(filename, 'rb') as fileobj:
-    assert fileobj.read() == content
-
-# 下载复制文件到本地文件
-result = bucket.get_object_to_file(key1, filename)
 
 # 验证一下
 with open(filename, 'rb') as fileobj:

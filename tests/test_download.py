@@ -43,12 +43,14 @@ def modify_one(store, store_key, r, key=None, value=None):
 
 
 class TestDownload(OssTestCase):
-    def __prepare(self, file_size, suffix=''):
+    def __prepare(self, file_size, suffix='', useCrypto = False):
         content = random_bytes(file_size)
         key = self.random_key(suffix)
         filename = self.random_filename()
-
-        self.bucket.put_object(key, content)
+        if useCrypto:
+            self.rsa_crypto_bucket.put_object(key, content)
+        else:
+            self.bucket.put_object(key, content)
 
         return key, filename, content
 
@@ -63,10 +65,17 @@ class TestDownload(OssTestCase):
 
         self.assertFileContent(filename, content)
 
+    def __test_crypto_normal(self, file_size):
+        key, filename, content = self.__prepare(file_size, useCrypto=True)
+        oss2.resumable_download(self.rsa_crypto_bucket, key, filename)
+
+        self.assertFileContent(filename, content)
+
     def test_small(self):
         oss2.defaults.multiget_threshold = 1024 * 1024
 
         self.__test_normal(1023)
+        self.__test_crypto_normal(1023)
 
     def test_large_single_threaded(self):
         oss2.defaults.multiget_threshold = 1024 * 1024
@@ -74,6 +83,7 @@ class TestDownload(OssTestCase):
         oss2.defaults.multiget_num_threads = 1
 
         self.__test_normal(2 * 1024 * 1024 + 1)
+        self.__test_crypto_normal(2 * 1024 * 1024 + 1)
 
     def test_large_multi_threaded(self):
         """多线程，线程数少于分片数"""
