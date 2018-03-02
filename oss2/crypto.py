@@ -237,7 +237,7 @@ class AliKMSProvider(_BaseProvider):
         except ClientException as e:
             raise ClientError(e.message)
         except (ValueError, TypeError) as e:
-            raise FormatError('Json Error: ' + body)
+            raise FormatError('Json Error: ' + str(e))
 
     def decrypt_oss_meta_data(self, headers, key, conv=lambda x: x):
         try:

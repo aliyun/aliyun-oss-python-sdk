@@ -94,7 +94,7 @@ class TestCrypto(unittests.common.OssTestCase):
         self.assertEqual(None, kms.decrypt_oss_meta_data(header, '1231'))
 
     def test_kms_with_error_parameter(self):
-        if oss2.compat.is_py33:
+        if oss2.compat.is_py3:
             return
 
         def assertKmsFuncRaises(kms, error=OpenApiServerError):
