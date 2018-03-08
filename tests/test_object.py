@@ -600,6 +600,45 @@ class TestObject(OssTestCase):
 
         os.remove(filename)
 
+    def test_crypto_progress(self):
+        stats = {'previous': -1}
+
+        def progress_callback(bytes_consumed, total_bytes):
+            self.assertTrue(bytes_consumed <= total_bytes)
+            self.assertTrue(bytes_consumed > stats['previous'])
+
+            stats['previous'] = bytes_consumed
+
+        key = self.random_key()
+        content = random_bytes(2 * 1024 * 1024)
+
+        # 上传内存中的内容
+        stats = {'previous': -1}
+        self.rsa_crypto_bucket.put_object(key, content, progress_callback=progress_callback)
+        self.assertEqual(stats['previous'], len(content))
+
+        # 下载到文件
+        stats = {'previous': -1}
+        filename = random_string(12) + '.txt'
+        self.rsa_crypto_bucket.get_object_to_file(key, filename, progress_callback=progress_callback)
+        self.assertEqual(stats['previous'], len(content))
+
+        # 上传本地文件
+        stats = {'previous': -1}
+        self.rsa_crypto_bucket.put_object_from_file(key, filename, progress_callback=progress_callback)
+        self.assertEqual(stats['previous'], len(content))
+
+        # 下载到本地，采用iterator语法
+        stats = {'previous': -1}
+        result = self.rsa_crypto_bucket.get_object(key, progress_callback=progress_callback)
+        content_got = b''
+        for chunk in result:
+            content_got += chunk
+        self.assertEqual(stats['previous'], len(content))
+        self.assertEqual(content, content_got)
+
+        os.remove(filename)
+
     def test_exceptions(self):
         key = self.random_key()
         content = random_bytes(16)

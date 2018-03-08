@@ -1137,8 +1137,8 @@ class Bucket(_Base):
             return data
 
 
-class CryptoBucket(_Base):
-    """用于加密Bucket和Object操作的类，诸如创建、删除Bucket，上传、下载Object等。
+class CryptoBucket():
+    """用于加密Bucket和Object操作的类，诸如上传、下载Object等。创建、删除bucket的操作需使用Bucket类接口。
 
     用法（假设Bucket属于杭州区域） ::
 
@@ -1175,14 +1175,15 @@ class CryptoBucket(_Base):
                  connect_timeout=None,
                  app_name='',
                  enable_crc=True):
-        super(CryptoBucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout,
-                                     app_name, enable_crc)
 
         if not isinstance(crypto_provider, _BaseProvider):
             raise ClientError('Crypto bucket must provide a valid crypto_provider')
 
         self.crypto_provider = crypto_provider
         self.bucket_name = bucket_name.strip()
+        self.enable_crc = enable_crc
+        self.bucket = Bucket(auth, endpoint, bucket_name, is_cname, session, connect_timeout,
+                             app_name, enable_crc=False)
 
     def put_object(self, key, data,
                    headers=None,
@@ -1206,8 +1207,6 @@ class CryptoBucket(_Base):
 
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
-        headers = utils.set_content_type(http.CaseInsensitiveDict(headers), key)
-
         if progress_callback:
             data = utils.make_progress_adapter(data, progress_callback)
 
@@ -1219,13 +1218,7 @@ class CryptoBucket(_Base):
         if self.enable_crc:
             data = utils.make_crc_adapter(data)
 
-        resp = self.__do_object('PUT', key, data=data, headers=headers)
-        result = PutObjectResult(resp)
-
-        if self.enable_crc and result.crc is not None:
-            utils.check_crc('put', data.crc, result.crc, result.request_id)
-
-        return result
+        return self.bucket.put_object(key, data, headers, progress_callback=None)
 
     def put_object_from_file(self, key, filename,
                              headers=None,
@@ -1279,10 +1272,9 @@ class CryptoBucket(_Base):
         if 'range' in headers:
             raise ClientError('Crypto bucket do not support range get')
 
-        params = {} if params is None else params
+        encrypted_result = self.bucket.get_object(key, headers=headers, params=params, progress_callback=None)
 
-        resp = self.__do_object('GET', key, headers=headers, params=params)
-        return GetObjectResult(resp, progress_callback, self.enable_crc, crypto_provider=self.crypto_provider)
+        return GetObjectResult(encrypted_result.resp, progress_callback, self.enable_crc, crypto_provider=self.crypto_provider)
 
     def get_object_to_file(self, key, filename,
                            headers=None,
@@ -1313,9 +1305,6 @@ class CryptoBucket(_Base):
                 utils.copyfileobj_and_verify(result, f, result.content_length, request_id=result.request_id)
 
             return result
-
-    def __do_object(self, method, key, **kwargs):
-        return self._do(method, self.bucket_name, key, **kwargs)
 
 
 def _normalize_endpoint(endpoint):
