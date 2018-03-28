@@ -4,12 +4,7 @@ import string
 import unittest
 import time
 import tempfile
-import errno
-import logging
-
 import oss2
-
-logging.basicConfig(level=logging.DEBUG)
 
 OSS_ID = os.getenv("OSS_TEST_ACCESS_KEY_ID")
 OSS_SECRET = os.getenv("OSS_TEST_ACCESS_KEY_SECRET")

@@ -8,7 +8,7 @@ import base64
 
 from oss2.exceptions import (ClientError, RequestError, NoSuchBucket,
                              NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable)
-from common import *
+from .common import *
 
 
 def now():

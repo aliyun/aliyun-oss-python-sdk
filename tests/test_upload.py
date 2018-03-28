@@ -6,7 +6,7 @@ import os
 import sys
 import time
 
-from common import *
+from .common import *
 
 from mock import patch
 
