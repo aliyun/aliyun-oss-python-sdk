@@ -6,7 +6,7 @@ import oss2
 
 from oss2 import to_bytes, to_string
 
-from common import *
+from .common import *
 
 
 class TestChinese(OssTestCase):

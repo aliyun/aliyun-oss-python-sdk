@@ -17,17 +17,19 @@ from . import defaults
 from .models import PartInfo
 from .compat import json, stringify, to_unicode
 from .task_queue import TaskQueue
-from .defaults import get_logger
 
 import functools
 import threading
 import random
 import string
+import logging
 
 import shutil
 
 _MAX_PART_COUNT = 10000
 _MIN_PART_SIZE = 100 * 1024
+
+logger = logging.getLogger(__name__)
 
 
 def resumable_upload(bucket, key, filename,
@@ -71,7 +73,7 @@ def resumable_upload(bucket, key, filename,
             result = bucket.put_object(key, f,
                               headers=headers,
                               progress_callback=progress_callback)
-    
+
     return result
 
 def resumable_download(bucket, key, filename,
@@ -187,7 +189,7 @@ class _ResumableOperation(object):
 
         self.__store = store
         self.__record_key = self.__store.make_store_key(bucket.bucket_name, key, self._abspath)
-        get_logger().info('key is {0}'.format(self.__record_key))
+        logger.info('key is {0}'.format(self.__record_key))
 
         # protect self.__progress_callback
         self.__plock = threading.Lock()
@@ -331,20 +333,20 @@ class _ResumableDownloader(_ResumableOperation):
         try:
             for key in ('etag', 'tmp_suffix', 'abspath', 'bucket', 'key'):
                 if not isinstance(record[key], str):
-                    get_logger().info('{0} is not a string: {1}, but {2}'.format(key, record[key], record[key].__class__))
+                    logger.info('{0} is not a string: {1}, but {2}'.format(key, record[key], record[key].__class__))
                     return False
 
             for key in ('part_size', 'size', 'mtime'):
                 if not isinstance(record[key], int):
-                    get_logger().info('{0} is not an integer: {1}, but {2}'.format(key, record[key], record[key].__class__))
+                    logger.info('{0} is not an integer: {1}, but {2}'.format(key, record[key], record[key].__class__))
                     return False
 
             for key in ('parts'):
                 if not isinstance(record['parts'], list):
-                    get_logger().info('{0} is not a list: {1}, but {2}'.format(key, record[key], record[key].__class__))
+                    logger.info('{0} is not a list: {1}, but {2}'.format(key, record[key], record[key].__class__))
                     return False
         except KeyError as e:
-            get_logger().info('Key not found: {0}'.format(e.args))
+            logger.info('Key not found: {0}'.format(e.args))
             return False
 
         return True
@@ -355,7 +357,7 @@ class _ResumableDownloader(_ResumableOperation):
             record['etag'] != self.objectInfo.etag)
 
     def __finish_part(self, part):
-        get_logger().debug('finishing part: part_number={0}, start={1}, end={2}'.format(part.part_number, part.start, part.end))
+        logger.debug('finishing part: part_number={0}, start={1}, end={2}'.format(part.part_number, part.start, part.end))
 
         with self.__lock:
             self.__finished_parts.append(part)
@@ -422,7 +424,7 @@ class _ResumableUploader(_ResumableOperation):
 
         result = self.bucket.complete_multipart_upload(self.key, self.__upload_id, self.__finished_parts)
         self._del_record()
-        
+
         return result
 
     def __producer(self, q, parts_to_upload=None):
@@ -463,12 +465,12 @@ class _ResumableUploader(_ResumableOperation):
             record = None
 
         if record and self.__file_changed(record):
-            get_logger().debug('{0} was changed, clear the record.'.format(self.filename))
+            logger.debug('{0} was changed, clear the record.'.format(self.filename))
             self._del_record()
             record = None
 
         if record and not self.__upload_exists(record['upload_id']):
-            get_logger().debug('{0} upload not exist, clear the record.'.format(record['upload_id']))
+            logger.debug('{0} upload not exist, clear the record.'.format(record['upload_id']))
             self._del_record()
             record = None
 
@@ -479,7 +481,7 @@ class _ResumableUploader(_ResumableOperation):
                       'abspath': self._abspath, 'bucket': self.bucket.bucket_name, 'key': self.key,
                       'part_size': part_size}
 
-            get_logger().debug('put new record upload_id={0} part_size={1}'.format(upload_id, part_size))
+            logger.debug('put new record upload_id={0} part_size={1}'.format(upload_id, part_size))
             self._put_record(record)
 
         self.__record = record
@@ -545,7 +547,7 @@ class _ResumableStoreBase(object):
     def get(self, key):
         pathname = self.__path(key)
 
-        get_logger().debug('get key={0}, pathname={1}'.format(key, pathname))
+        logger.debug('get key={0}, pathname={1}'.format(key, pathname))
 
         if not os.path.exists(pathname):
             return None
@@ -568,13 +570,13 @@ class _ResumableStoreBase(object):
         with open(to_unicode(pathname), 'w') as f:
             json.dump(value, f)
 
-        get_logger().debug('put key={0}, pathname={1}'.format(key, pathname))
+        logger.debug('put key={0}, pathname={1}'.format(key, pathname))
 
     def delete(self, key):
         pathname = self.__path(key)
         os.remove(pathname)
 
-        get_logger().debug('del key={0}, pathname={1}'.format(key, pathname))
+        logger.debug('del key={0}, pathname={1}'.format(key, pathname))
 
     def __path(self, key):
         return os.path.join(self.dir, key)
@@ -655,23 +657,23 @@ def _is_record_sane(record):
     try:
         for key in ('upload_id', 'abspath', 'key'):
             if not isinstance(record[key], str):
-                get_logger().info('{0} is not a string: {1}, but {2}'.format(key, record[key], record[key].__class__))
+                logger.info('{0} is not a string: {1}, but {2}'.format(key, record[key], record[key].__class__))
                 return False
 
         for key in ('size', 'part_size'):
             if not isinstance(record[key], int):
-                get_logger().info('{0} is not an integer: {1}'.format(key, record[key]))
+                logger.info('{0} is not an integer: {1}'.format(key, record[key]))
                 return False
 
         if not isinstance(record['mtime'], int) and not isinstance(record['mtime'], float):
-            get_logger().info('mtime is not a float or an integer: {0}'.format(record['mtime']))
+            logger.info('mtime is not a float or an integer: {0}'.format(record['mtime']))
             return False
 
         if not isinstance(record['parts'], list):
-            get_logger().info('parts is not a list: {0}'.format(record['parts'].__class__.__name__))
+            logger.info('parts is not a list: {0}'.format(record['parts'].__class__.__name__))
             return False
     except KeyError as e:
-        get_logger().info('Key not found: {0}'.format(e.args))
+        logger.info('Key not found: {0}'.format(e.args))
         return False
 
     return True

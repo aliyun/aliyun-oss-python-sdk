@@ -5,7 +5,7 @@ import sys
 import oss2
 import json
 
-from common import *
+from .common import *
 
 
 class TestImage(OssTestCase):

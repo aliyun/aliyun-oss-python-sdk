@@ -3,7 +3,7 @@
 import unittest
 import oss2
 
-from common import *
+from .common import *
 
 
 class TestMultipart(OssTestCase):
