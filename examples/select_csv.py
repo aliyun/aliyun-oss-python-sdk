@@ -12,10 +12,15 @@ def select_call_back(consumed_bytes, total_bytes = None):
 #   http://oss-cn-hangzhou.aliyuncs.com
 #   https://oss-cn-hangzhou.aliyuncs.com
 # 分别以HTTP、HTTPS协议访问。
-access_key_id = os.getenv('OSS_TEST_ACCESS_KEY_ID', '<你的AccessKeyId>')
-access_key_secret = os.getenv('OSS_TEST_ACCESS_KEY_SECRET', '<你的AccessKeySecret>')
-bucket_name = os.getenv('OSS_TEST_BUCKET', '<你的Bucket>')
-endpoint = os.getenv('OSS_TEST_ENDPOINT', '<你的访问域名>')
+#access_key_id = os.getenv('OSS_TEST_ACCESS_KEY_ID', '<你的AccessKeyId>')
+#access_key_secret = os.getenv('OSS_TEST_ACCESS_KEY_SECRET', '<你的AccessKeySecret>')
+#bucket_name = os.getenv('OSS_TEST_BUCKET', '<你的Bucket>')
+#endpoint = os.getenv('OSS_TEST_ENDPOINT', '<你的访问域名>')
+access_key_id = 'LTAIJPXxMLocA0fD'
+access_key_secret = 'l8SjZPosYFR8cHn7jR05SOUFd2u0T7'
+bucket_name = 'oss-select'
+endpoint = '10.101.200.203:8088'
+
 # 确认上面的参数都填写正确了
 for param in (access_key_id, access_key_secret, bucket_name, endpoint):
     assert '<' not in param, '请设置参数：' + param
@@ -38,7 +43,6 @@ csv_header = bucket.head_csv_object(key, input_format)
 print(csv_header.CsvRows)
 
 result = bucket.select_object(key, "select * from ossobject where _3 > 44 limit 100000", (500,1000), select_call_back, input_format)
-# 验证一下
 content_got = b''
 for chunk in result:
     content_got += chunk

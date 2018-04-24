@@ -10,7 +10,7 @@ oss2.models
 from .utils import http_to_unixtime, make_progress_adapter, make_crc_adapter
 from .exceptions import ClientError
 from .compat import urlunquote
-from .select import SelectFrameResponse
+from .select_response import SelectFrameResponse
 
 class PartInfo(object):
     """表示分片信息的文件。
