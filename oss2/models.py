@@ -10,6 +10,7 @@ oss2.models
 from .utils import http_to_unixtime, make_progress_adapter, make_crc_adapter
 from .exceptions import ClientError
 from .compat import urlunquote
+from .select import SelectFrameResponse
 
 class PartInfo(object):
     """表示分片信息的文件。
@@ -75,6 +76,10 @@ class HeadObjectResult(RequestResult):
         #: HTTP ETag
         self.etag = _get_etag(self.headers)
 
+class HeadCsvObjectResult(HeadObjectResult):
+    def __init__(self, resp):
+        super(HeadCsvObjectResult, self).__init__(resp)
+        self.CsvRows = int(self.headers['x-oss-select-csv-rows'])
 
 class GetObjectMetaResult(RequestResult):
     def __init__(self, resp):
@@ -102,7 +107,7 @@ class GetObjectResult(HeadObjectResult):
     def __init__(self, resp, progress_callback=None, crc_enabled=False):
         super(GetObjectResult, self).__init__(resp)
         self.__crc_enabled = crc_enabled
-        
+
         if progress_callback:
             self.stream = make_progress_adapter(self.resp, progress_callback, self.content_length)
         else:
@@ -129,6 +134,22 @@ class GetObjectResult(HeadObjectResult):
     def server_crc(self):
         return self.__crc
 
+class SelectObjectResult(HeadObjectResult):
+    def __init__(self, resp, progress_callback=None, crc_enabled=False):
+        super(SelectObjectResult, self).__init__(resp)
+        self.__crc_enabled = crc_enabled
+        self.select_resp = SelectFrameResponse(resp, progress_callback)
+        
+        if progress_callback:
+            self.stream = make_progress_adapter(self.select_resp, progress_callback, self.content_length)
+        else:
+            self.stream = self.select_resp
+            
+    def read(self, amt=None):
+        return self.stream.read(amt)
+
+    def __iter__(self):
+        return iter(self.stream)
 
 class PutObjectResult(RequestResult):
     def __init__(self, resp):

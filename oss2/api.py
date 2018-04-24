@@ -461,6 +461,41 @@ class Bucket(_Base):
         resp = self.__do_object('GET', key, headers=headers, params=params)
         return GetObjectResult(resp, progress_callback, self.enable_crc)
 
+    def select_object(self, key, sql,
+                   line_range=None,
+                   progress_callback=None,
+                   input_format=None
+                   ):
+        """Select一个文件。
+
+        用法 ::
+
+            >>> result = bucket.select_object('access.log', 'select * from ossobject where _4 > 40')
+            >>> print(result.read())
+            'hello world'
+
+        :param key: 文件名
+        :param sql: sql statement
+        :param line_range: 指定下载范围。参见 :ref:`line_range`
+
+        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
+        :return: file-like object
+
+        :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
+        """
+        headers = http.CaseInsensitiveDict()
+        range_string = _make_line_range_string(line_range)
+        if range_string:
+            headers['x-oss-select-line-range'] = range_string
+        
+        _fill_headers_from_select_input_format(headers, input_format)
+        params = {'x-oss-process':  'csv/select',
+                 'sql': sql}
+
+        self.timeout = 3600
+        resp = self.__do_object('GET', key, headers=headers, params=params)
+        return SelectObjectResult(resp, progress_callback, False)
+
     def get_object_to_file(self, key, filename,
                            byte_range=None,
                            headers=None,
@@ -492,6 +527,30 @@ class Bucket(_Base):
 
             return result
 
+    def select_object_to_file(self, key, filename, sql,
+                   line_range=None,
+                   progress_callback=None,
+                   input_format=None
+                   ):
+        """Select Content from OSS file to a local file
+
+        :param key: OSS key name
+        :param filename: local file name。The parent directory should exist
+        :param line_range: Specify the line range. Refer to :ref:`byte_range`
+
+        :param progress_callback: progress callback。参考 :ref:`progress_callback`
+
+        :return: If file does not exist, throw :class:`NoSuchKey <oss2.exceptions.NoSuchKey>`
+        """
+        with open(to_unicode(filename), 'wb') as f:
+            result = self.select_object(key, sql, line_range=line_range, progress_callback=progress_callback,
+                                     input_format=input_format)
+
+            for chunk in result:
+                f.write(chunk)
+           
+            return result
+
     def head_object(self, key, headers=None):
         """获取文件元信息。
 
@@ -514,6 +573,31 @@ class Bucket(_Base):
         resp = self.__do_object('HEAD', key, headers=headers)
         return HeadObjectResult(resp)
     
+    def head_csv_object(self, key, input_format=None):
+        """获取CSV文件元信息。
+
+        HTTP响应的头部包含了文件元信息，可以通过 `RequestResult` 的 `headers` 成员获得。
+        用法 ::
+
+            >>> result = bucket.head_csv_object('csv.txt')
+            >>> print(result.content_type)
+            text/plain
+
+        :param key: object name
+
+        :return: :class:`HeadObjectResult <oss2.models.HeadObjectResult>`
+
+        :raises: If Bucket or object does not exist, throw:class:`NotFound <oss2.exceptions.NotFound>`
+        """
+        headers = http.CaseInsensitiveDict()
+    
+        _fill_headers_from_select_input_format(headers, input_format)
+        params = {'x-oss-process':  'csv/meta'}
+
+        self.timeout = 3600
+        resp = self.__do_object('GET', key, headers=headers, params=params)
+        return HeadCsvObjectResult(resp)
+
     def get_object_meta(self, key):
         """获取文件基本元信息，包括该Object的ETag、Size（文件大小）、LastModified，并不返回其内容。
 
@@ -1097,6 +1181,30 @@ def _make_range_string(range):
 
     return 'bytes=' + _range(start, last)
 
+def _make_line_range_string(range):
+    if range is None:
+        return ''
+
+    start = range[0]
+    last = range[1]
+
+    if start is None and last is None:
+        return ''
+
+    return _range(start, last)
+
+def _fill_headers_from_select_input_format(headers, input_format):
+    if (input_format is not None):
+        if 'FileHeaderInfo' in input_format:
+            headers['x-oss-select-file-header'] = input_format['FileHeaderInfo']
+        if 'CommentCharacter' in input_format:
+            headers['x-oss-select-input-comment-character'] = input_format['CommentCharacter']
+        if 'RecordDelimiter' in input_format:
+            headers['x-oss-select-input-record-delimiter'] = input_format['RecordDelimiter']
+        if 'FieldDelimiter' in input_format:
+            headers['x-oss-select-input-field-delimiter'] = input_format['FieldDelimiter']
+        if 'QuoteCharacter' in input_format:
+            headers['x-oss-select-input-quote-character'] = input_format['QuoteCharacter']
 
 def _range(start, last):
     def to_str(pos):
