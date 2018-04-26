@@ -55,6 +55,20 @@ HTTP包体。
 后续的调用使用返回值中的 `next_marker` 、 `next_key_marker` 等。每次调用后检查返回值中的 `is_truncated` ，其值为 `False` 说明
 已经到了最后一页。
 
+.. _line_range:
+
+指定查询CSV文件范围
+------------
+诸如 :func:`select_csv_object <Bucket.select_csv_object>` 以及 :func:`select_csv_object_into_file <Bucket.select_csv_object_into_file>` 这样的函数，可以接受
+`line_range` 参数，表明读取CSV数据的范围。该参数是一个二元tuple：(start, last)。这些接口会把它转换为x-oss-select-line-range头部的值，如：
+    - line_range 为 (0, 99) 转换为 'x-oss-select-line-range=0-99'，表示读取前100行
+    - line_range 为 (None, 99) 转换为 'x-oss-select-line-range=-99'，表示读取最后99行
+    - line_range 为 (100, None) 转换为 'x-oss-select-line-range=100-'，表示读取第101行到文件结尾的部分（包含第101行）
+
+
+分页查询
+-------
+和head_csv_object配合使用，先获取文件总的行数，然后把文件以line_range分成若干部分并行查询，以提高查询效率
 
 .. _progress_callback:
 
@@ -108,6 +122,16 @@ datetime.date之间相互转换。如 ::
     >>> d = oss2.iso8601_to_date('2015-12-05T00:00:00.000Z')  # 得到 datetime.date(2015, 12, 5)
     >>> date_str = oss2.date_to_iso8601(d)                    # 得到 '2015-12-05T00:00:00.000Z'
     >>> oss2.iso8601_to_unixtime(date_str)                    # 得到 1449273600
+
+.. csv_input_format::
+
+    指定OSS Select的CSV文件格式，支持如下Keys:
+    >>> FileHeaderInfo: None|Use|Ignore   #None表示没有CSV Schema头，Use表示启用CSV Schema头，可以在Select语句中使用Name，Ignore表示有CSV Schema头，但忽略它（Select语句中不可以使用Name)
+                        默认值是None
+    >>> CommentCharacter: Comment字符,默认值是#,不支持多个字符
+    >>> RecordDelimiter: 行分隔符，默认是\n,最多支持两个字符分隔符（比如:\r\n)
+    >>> FieldDelimiter: 列分隔符，默认是逗号(,), 不支持多个字符
+    >>> QuoteCharacter: 列Quote字符，默认是双引号("),不支持多个字符。注意转义符合Quote字符相同。
 """
 
 from . import xml_utils
@@ -461,12 +485,12 @@ class Bucket(_Base):
         resp = self.__do_object('GET', key, headers=headers, params=params)
         return GetObjectResult(resp, progress_callback, self.enable_crc)
 
-    def select_object(self, key, sql,
+    def select_csv_object(self, key, sql,
                    line_range=None,
                    progress_callback=None,
                    input_format=None
                    ):
-        """Select一个文件。
+        """Select一个CSV文件内容.
 
         用法 ::
 
@@ -479,6 +503,7 @@ class Bucket(_Base):
         :param line_range: 指定下载范围。参见 :ref:`line_range`
 
         :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
+        :param input_format: 设置CSV文件的格式，参考 :ref:`csv_input_format`
         :return: file-like object
 
         :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
@@ -527,7 +552,7 @@ class Bucket(_Base):
 
             return result
 
-    def select_object_to_file(self, key, filename, sql,
+    def select_csv_object_to_file(self, key, filename, sql,
                    line_range=None,
                    progress_callback=None,
                    input_format=None
@@ -543,7 +568,7 @@ class Bucket(_Base):
         :return: If file does not exist, throw :class:`NoSuchKey <oss2.exceptions.NoSuchKey>`
         """
         with open(to_unicode(filename), 'wb') as f:
-            result = self.select_object(key, sql, line_range=line_range, progress_callback=progress_callback,
+            result = self.select_csv_object(key, sql, line_range=line_range, progress_callback=progress_callback,
                                      input_format=input_format)
 
             for chunk in result:
@@ -1196,7 +1221,7 @@ def _make_line_range_string(range):
 def _fill_headers_from_select_input_format(headers, input_format):
     if (input_format is not None):
         if 'FileHeaderInfo' in input_format:
-            headers['x-oss-select-file-header'] = input_format['FileHeaderInfo']
+            headers['x-oss-select-input-file-header'] = input_format['FileHeaderInfo']
         if 'CommentCharacter' in input_format:
             headers['x-oss-select-input-comment-character'] = input_format['CommentCharacter']
         if 'RecordDelimiter' in input_format:

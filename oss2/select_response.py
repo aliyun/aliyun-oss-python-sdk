@@ -76,7 +76,7 @@ class SelectFrameResponse(object):
         while self.finished == 0:
             if self.frame_off_set < self.frame_length:
                 frame_data = self.read_raw(self.frame_length - self.frame_off_set)
-                print("Reading FrameData:" + str(len(frame_data)) + " buffer size" + str(self.frame_length - self.frame_off_set))
+                #print("Reading FrameData:" + str(len(frame_data)) + " buffer size" + str(self.frame_length - self.frame_off_set))
                 self.frame_length = self.frame_off_set = 0
                 return frame_data
             else:
@@ -132,11 +132,11 @@ class SelectFrameResponse(object):
             self.frame_length = payload_length_val - 8
             self.frame_off_set = 0
             self.check_sum_flag=1
-            print("Get Data Frame:" + str(self.frame_length))
+            #print("Get Data Frame:" + str(self.frame_length))
         elif frame_type_val == _CONTINIOUS_FRAME_TYPE:
             self.frame_length = self.frame_off_set = 0
             self.check_sum_flag=1
-            print("GetContiniousFrame:" + str(self.frame_length))
+            #print("GetContiniousFrame:" + str(self.frame_length))
         elif frame_type_val == _END_FRAME_TYPE:
             self.frame_off_set = 0
             payload_length.reverse()

@@ -42,12 +42,12 @@ input_format = {'FileHeaderInfo': 'None',
 csv_header = bucket.head_csv_object(key, input_format)
 print(csv_header.CsvRows)
 
-result = bucket.select_object(key, "select * from ossobject where _3 > 44 limit 100000", (500,1000), select_call_back, input_format)
+result = bucket.select_csv_object(key, "select * from ossobject where _3 > 44 limit 100000", (500,1000), select_call_back, input_format)
 content_got = b''
 for chunk in result:
     content_got += chunk
 print(content_got)
-result = bucket.select_object_to_file(key, filename, 
+result = bucket.select_csv_object_to_file(key, filename, 
         "select * from ossobject where _3 > 44 limit 100000", (500,1000), select_call_back, input_format)
 
 bucket.delete_object(key)
