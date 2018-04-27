@@ -82,6 +82,10 @@ class SelectFrameResponse(object):
                 return frame_data
             else:
                 self.read_next_frame()
+                self.frames_since_last_progress_report += 1
+                if (self.frames_since_last_progress_report >= _FRAMES_FOR_PROGRESS_UPDATE and self.callback is not None):
+                    self.callback(self.file_offset, self.content_length)
+                    self.frames_since_last_progress_report = 0
         
         raise StopIteration
 
