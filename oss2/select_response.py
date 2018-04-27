@@ -12,7 +12,7 @@ _DATA_FRAME_TYPE = 8388609
 _END_FRAME_TYPE = 8388613
 _FRAMES_FOR_PROGRESS_UPDATE = 10
 class SelectFrameResponse(object):
-    def __init__(self, response, progress_callback = None):
+    def __init__(self, response, progress_callback = None, content_length = None):
        self.response = response
        self.frame_off_set = 0
        self.frame_length = 0
@@ -25,6 +25,7 @@ class SelectFrameResponse(object):
        self.resp_content_iter = response.__iter__()
        self.callback = progress_callback
        self.frames_since_last_progress_report = 0
+       self.content_length = content_length
     def read(self, amt=None):
         if self.finished:
             return b''
@@ -61,7 +62,7 @@ class SelectFrameResponse(object):
                     break
 
             if (self.frames_since_last_progress_report >= _FRAMES_FOR_PROGRESS_UPDATE and self.callback):
-                self.callback(self.file_offset)
+                self.callback(self.file_offset, self.content_length)
                 self.frames_since_last_progress_report = 0
 
         return b''.join(content_list)
@@ -142,7 +143,6 @@ class SelectFrameResponse(object):
             payload_length.reverse()
             payload_length_val = struct.unpack("I", bytearray(payload_length))[0]
             scanned_size_bytes = bytearray(self.read_raw(8))
-            self.read_raw(4) # skip the payload checksum
             status_bytes = bytearray(self.read_raw(4))
             status_bytes.reverse()
             status = struct.unpack("I", bytearray(status_bytes))[0]
@@ -150,6 +150,7 @@ class SelectFrameResponse(object):
             error_msg=b'';
             if error_msg_size > 0:
                 error_msg = self.read_raw(error_msg_size)
+            self.read_raw(4) # read the payload checksum
             if status >= 400:
                 raise SelectOperationFailed(status, error_msg)
             self.frame_length = 0

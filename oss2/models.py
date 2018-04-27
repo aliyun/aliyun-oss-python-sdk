@@ -138,12 +138,8 @@ class SelectObjectResult(HeadObjectResult):
     def __init__(self, resp, progress_callback=None, crc_enabled=False):
         super(SelectObjectResult, self).__init__(resp)
         self.__crc_enabled = crc_enabled
-        self.select_resp = SelectFrameResponse(resp, progress_callback)
-        
-        if progress_callback:
-            self.stream = make_progress_adapter(self.select_resp, progress_callback, self.content_length)
-        else:
-            self.stream = self.select_resp
+        self.select_resp = SelectFrameResponse(resp, progress_callback, self.content_length)
+        self.stream = self.select_resp
             
     def read(self, amt=None):
         return self.stream.read(amt)
