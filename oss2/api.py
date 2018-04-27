@@ -59,7 +59,7 @@ HTTP包体。
 
 指定查询CSV文件范围
 ------------
-诸如 :func:`select_csv_object <Bucket.select_csv_object>` 以及 :func:`select_csv_object_into_file <Bucket.select_csv_object_into_file>` 这样的函数，可以接受
+诸如 :func:`select_csv_object <Bucket.select_csv_object>` 以及 :func:`select_csv_object_to_file <Bucket.select_csv_object_to_file>` 这样的函数，可以接受
 `line_range` 参数，表明读取CSV数据的范围。该参数是一个二元tuple：(start, last)。这些接口会把它转换为x-oss-select-line-range头部的值，如：
     - line_range 为 (0, 99) 转换为 'x-oss-select-line-range=0-99'，表示读取前100行
     - line_range 为 (None, 99) 转换为 'x-oss-select-line-range=-99'，表示读取最后99行
