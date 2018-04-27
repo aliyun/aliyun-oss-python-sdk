@@ -138,7 +138,8 @@ class SelectObjectResult(HeadObjectResult):
     def __init__(self, resp, progress_callback=None, crc_enabled=False):
         super(SelectObjectResult, self).__init__(resp)
         self.__crc_enabled = crc_enabled
-        self.select_resp = SelectFrameResponse(resp, progress_callback, self.content_length)
+        self.total_bytes_to_scan = _hget(self.headers, 'x-oss-select-total-bytes-to-scan', int)
+        self.select_resp = SelectFrameResponse(resp, progress_callback, self.total_bytes_to_scan)
         self.stream = self.select_resp
             
     def read(self, amt=None):
