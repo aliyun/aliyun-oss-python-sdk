@@ -158,5 +158,7 @@ class SelectFrameResponse(object):
             if status >= 400:
                 raise SelectOperationFailed(status, error_msg)
             self.frame_length = 0
+            if self.callback is not None:
+                self.callback(file_offset_bytes, scanned_size_bytes)
         else:
             raise SelectOperationFailed(400, "Unexpected frame type:" + str(frame_type_val))

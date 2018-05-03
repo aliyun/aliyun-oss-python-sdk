@@ -16,6 +16,10 @@ def now():
 class TestSelectCsvObjectHelper(object):
     def __init__(self, bucket):
         self.bucket = bucket
+        self.scannedSize = 0
+
+    def select_call_back(self, consumed_bytes, total_bytes = None):
+        self.scannedSize = consumed_bytes
 
     def test_select_csv_object(self, testCase, sql, line_range = None):
         key = "city_sample_data.csv"
@@ -23,14 +27,15 @@ class TestSelectCsvObjectHelper(object):
         result = self.bucket.head_csv_object(key)
         file_size = result.content_length
         input_format = {'FileHeaderInfo' : 'Use'}
-        result = self.bucket.select_csv_object(key, sql, line_range, None, input_format)
+        result = self.bucket.select_csv_object(key, sql, line_range, self.select_call_back, input_format)
         content = b''
         for chunk in result:
             content += chunk
         #print(content)
         testCase.assertEqual(result.status, 206)
         testCase.assertGreater(len(content), 0)
-        testCase.assertEqual(result.total_bytes_to_scan, file_size)
+        if line_range is None:
+            testCase.assertEqual(self.scannedSize, file_size)
         return content
 
     def test_select_csv_object_invalid_request(self, testCase, sql, line_range = None):
