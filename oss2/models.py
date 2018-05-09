@@ -80,6 +80,7 @@ class HeadCsvObjectResult(HeadObjectResult):
     def __init__(self, resp):
         super(HeadCsvObjectResult, self).__init__(resp)
         self.CsvRows = int(self.headers['x-oss-select-csv-rows'])
+        self.CsvSplits = int(self.headers['x-oss-select-csv-splits'])
 
 class GetObjectMetaResult(RequestResult):
     def __init__(self, resp):

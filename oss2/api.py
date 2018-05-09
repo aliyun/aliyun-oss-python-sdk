@@ -65,6 +65,16 @@ HTTP包体。
     - line_range 为 (None, 99) 转换为 'x-oss-select-line-range=-99'，表示读取最后99行
     - line_range 为 (100, None) 转换为 'x-oss-select-line-range=100-'，表示读取第101行到文件结尾的部分（包含第101行）
 
+.. _split_range:
+
+指定查询CSV文件范围
+------------
+split可以认为是切分好的大小大致相等的csv行簇。每个Split大小大致相等，这样以便更好的做到负载均衡。
+func:`select_csv_object_by_splits <Bucket.select_csv_object>`接受
+`split_range` 参数，表明读取CSV数据的范围。该参数是一个二元tuple：(start, last)。这些接口会把它转换为x-oss-select-split-range头部的值，如：
+    - split_range 为 (0, 9) 转换为 'x-oss-select-split-range=0-9'，表示读取前10个Split
+    - split_range 为 (None, 9) 转换为 'x-oss-select-split-range=-9'，表示读取最后9个split
+    - split_range 为 (10, None) 转换为 'x-oss-select-split-range=10-'，表示读取第11个split到文件结尾的部分（包含第11个Split）
 
 分页查询
 -------
@@ -521,6 +531,40 @@ class Bucket(_Base):
         resp = self.__do_object('GET', key, headers=headers, params=params)
         return SelectObjectResult(resp, progress_callback, False)
 
+    def select_csv_object_by_splits(self, key, sql,split_range,
+                   progress_callback=None,
+                   input_format=None
+                   ):
+        """根据split range 来Select一个CSV文件内容.
+
+        用法 ::
+            >>> result = bucket.select_object('access.log', 'select * from ossobject where _4 > 40', (0, 2))
+            >>> print(result.read())
+            'hello world, 41\n'
+
+        :param key: 文件名
+        :param sql: sql statement
+        :param split_range: 指定下载范围。参见 :ref:`split_range`
+
+        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
+        :param input_format: 设置CSV文件的格式，参考 :ref:`csv_input_format`
+        :return: file-like object
+
+        :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
+        """
+        headers = http.CaseInsensitiveDict()
+        split_string = _make_split_range_string(split_range)
+        if split_string:
+            headers['x-oss-select-split-range'] = split_string
+        
+        _fill_headers_from_select_input_format(headers, input_format)
+        params = {'x-oss-process':  'csv/select',
+                 'sql': sql}
+
+        self.timeout = 3600
+        resp = self.__do_object('GET', key, headers=headers, params=params)
+        return SelectObjectResult(resp, progress_callback, False)
+
     def get_object_to_file(self, key, filename,
                            byte_range=None,
                            headers=None,
@@ -610,7 +654,12 @@ class Bucket(_Base):
 
         :param key: object name
 
-        :return: :class:`HeadObjectResult <oss2.models.HeadObjectResult>`
+        :return: :class:`HeadCsvObjectResult <oss2.models.HeadObjectResult>`. 
+          Beside the CsvRows, CsvSplits field, it also include x-oss-select-csv-rows, x-oss-select-csv-splits and x-oss-select-csv-columns headers.
+          CsvRows are the total lines of the csv file.
+          CsvSplits are the total splits of the csv file. One split a bunch of rows and each split has very similar size.
+          Header x-oss-select-csv-rows and x-oss-select-csv-splits are the raw data for CsvRows and CsvSplits.
+          x-oss-select-csv-columns header specifies the first line's column count.
 
         :raises: If Bucket or object does not exist, throw:class:`NotFound <oss2.exceptions.NotFound>`
         """
@@ -1217,6 +1266,18 @@ def _make_line_range_string(range):
         return ''
 
     return _range(start, last)
+
+def _make_split_range_string(range):
+    if range is None:
+        return ''
+
+    start = range[0]
+    last = range[1]
+
+    if start is None and last is None:
+        return ''
+
+    return _range(start, last) 
 
 def _fill_headers_from_select_input_format(headers, input_format):
     if (input_format is not None):
