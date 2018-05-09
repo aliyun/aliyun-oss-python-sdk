@@ -83,7 +83,7 @@ class InconsistentError(OssError):
         return self._str_with_body()
 
 
-class FormatError(OssError):
+class OpenApiFormatError(OssError):
     def __init__(self, message):
         OssError.__init__(self, OSS_FORMAT_ERROR_STATUS, {}, message, {})
 

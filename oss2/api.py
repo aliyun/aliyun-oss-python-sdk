@@ -123,7 +123,7 @@ from . import defaults
 
 from .models import *
 from .compat import urlquote, urlparse, to_unicode, to_string
-from .crypto import _BaseProvider
+from .crypto import BaseCryptoProvider
 
 import time
 import shutil
@@ -1144,7 +1144,7 @@ class CryptoBucket():
 
         >>> import oss2
         >>> auth = oss2.Auth('your-access-key-id', 'your-access-key-secret')
-        >>> bucket = oss2.EncryptionBucket(auth, 'http://oss-cn-hangzhou.aliyuncs.com', 'your-bucket', oss2.LocalRsaProvider())
+        >>> bucket = oss2.CryptoBucket(auth, 'http://oss-cn-hangzhou.aliyuncs.com', 'your-bucket', oss2.LocalRsaProvider())
         >>> bucket.put_object('readme.txt', 'content of the object')
         <oss2.models.PutObjectResult object at 0x029B9930>
 
@@ -1176,7 +1176,7 @@ class CryptoBucket():
                  app_name='',
                  enable_crc=True):
 
-        if not isinstance(crypto_provider, _BaseProvider):
+        if not isinstance(crypto_provider, BaseCryptoProvider):
             raise ClientError('Crypto bucket must provide a valid crypto_provider')
 
         self.crypto_provider = crypto_provider

@@ -9,7 +9,7 @@ import oss2
 import unittests
 from oss2 import LocalRsaProvider, AliKMSProvider
 from oss2.utils import AESCipher, silently_remove
-from oss2.exceptions import OpenApiServerError, FormatError, ClientError
+from oss2.exceptions import OpenApiServerError, OpenApiFormatError, ClientError
 from mock import patch
 
 from common import OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK, OSS_STS_ID, OSS_STS_ARN, OSS_STS_KEY
@@ -134,14 +134,14 @@ class TestCrypto(unittests.common.OssTestCase):
 
         with patch.object(oss2.AliKMSProvider, '_AliKMSProvider__do', return_value={'Plaintext': '123', 'CiphertextBlob': '123'},
                           autospect=True):
-            self.assertRaises(FormatError, kms.get_key)
+            self.assertRaises(OpenApiFormatError, kms.get_key)
 
         with patch.object(client.AcsClient, 'do_action_with_exception', return_value='12iof..3', autospect=True):
-            self.assertRaises(FormatError, kms.get_key)
-            self.assertRaises(FormatError, kms._AliKMSProvider__encrypt_data, '123')
-            self.assertRaises(FormatError, kms._AliKMSProvider__decrypt_data, '123')
-            self.assertRaises(FormatError, kms._AliKMSProvider__generate_data_key)
-            self.assertRaises(FormatError, kms.decrypt_oss_meta_data, {'1231':'1234'}, '1231')
+            self.assertRaises(OpenApiFormatError, kms.get_key)
+            self.assertRaises(OpenApiFormatError, kms._AliKMSProvider__encrypt_data, '123')
+            self.assertRaises(OpenApiFormatError, kms._AliKMSProvider__decrypt_data, '123')
+            self.assertRaises(OpenApiFormatError, kms._AliKMSProvider__generate_data_key)
+            self.assertRaises(OpenApiFormatError, kms.decrypt_oss_meta_data, {'1231': '1234'}, '1231')
 
     def test_kms_adapter(self):
         if oss2.compat.is_py33:

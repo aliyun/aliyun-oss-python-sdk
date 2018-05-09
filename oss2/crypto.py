@@ -12,7 +12,7 @@ from functools import partial
 from oss2.utils import b64decode_from_string, b64encode_as_string
 from . import utils
 from .compat import to_string, to_bytes, to_unicode
-from .exceptions import OssError, ClientError, FormatError, OpenApiServerError
+from .exceptions import OssError, ClientError, OpenApiFormatError, OpenApiServerError
 
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.PublicKey import RSA
@@ -26,7 +26,7 @@ from aliyunsdkkms.request.v20160120 import ListKeysRequest, GenerateDataKeyReque
 import os
 
 
-class _BaseProvider(object):
+class BaseCryptoProvider(object):
     """CryptoProvider 基类，提供基础的数据加密解密adapter
 
     """
@@ -42,10 +42,10 @@ class _BaseProvider(object):
         return utils.make_cipher_adapter(stream, partial(self.cipher.decrypt, self.cipher(key, start)))
 
 
-_LOCAL_RSA_TMP_DIR = '.py-oss-rsa'
+_LOCAL_RSA_TMP_DIR = '.oss-local-rsa'
 
 
-class LocalRsaProvider(_BaseProvider):
+class LocalRsaProvider(BaseCryptoProvider):
     """使用本地RSA加密数据密钥。
 
         :param str dir: 本地RSA公钥私钥存储路径
@@ -57,7 +57,7 @@ class LocalRsaProvider(_BaseProvider):
     PUB_KEY_FILE = '.public_key.pem'
     PRIV_KEY_FILE = '.private_key.pem'
 
-    def __init__(self, dir=None, key='default', passphrase=None, cipher=utils.AESCipher):
+    def __init__(self, dir=None, key='', passphrase=None, cipher=utils.AESCipher):
         super(LocalRsaProvider, self).__init__(cipher=cipher)
         self.dir = dir or os.path.join(os.path.expanduser('~'), _LOCAL_RSA_TMP_DIR)
 
@@ -125,7 +125,7 @@ class LocalRsaProvider(_BaseProvider):
             return None
 
 
-class AliKMSProvider(_BaseProvider):
+class AliKMSProvider(BaseCryptoProvider):
     """使用aliyun kms服务加密数据密钥。kms的详细说明参见
         https://help.aliyun.com/product/28933.html?spm=a2c4g.11186623.3.1.jlYT4v
         此接口在py3.3下暂时不可用，详见
@@ -237,7 +237,7 @@ class AliKMSProvider(_BaseProvider):
         except ClientException as e:
             raise ClientError(e.message)
         except (ValueError, TypeError) as e:
-            raise FormatError('Json Error: ' + str(e))
+            raise OpenApiFormatError('Json Error: ' + str(e))
 
     def decrypt_oss_meta_data(self, headers, key, conv=lambda x: x):
         try:

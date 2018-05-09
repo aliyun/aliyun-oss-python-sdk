@@ -65,7 +65,7 @@ os.remove(filename)
 
 # 创建Bucket对象，可以进行客户端数据加密(使用阿里云KMS)，此模式下只提供对象整体上传下载操作
 bucket = oss2.CryptoBucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name,
-                     crypto_provider=AliKMSProvider(access_key_id, access_key_secret, region, cmk, '1234'))
+                           crypto_provider=AliKMSProvider(access_key_id, access_key_secret, region, cmk, '1234'))
 
 key1 = 'motto-copy.txt'
 

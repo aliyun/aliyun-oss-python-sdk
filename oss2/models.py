@@ -121,7 +121,7 @@ class GetObjectResult(HeadObjectResult):
             start = self.__crypto_provider.decrypt_oss_meta_data(resp.headers, 'x-oss-meta-oss-crypto-start')
             cek_alg = _hget(resp.headers, 'x-oss-meta-oss-cek-alg')
             if key and start and cek_alg:
-                self.stream = self.__crypto_provider.make_decrypt_adapter(self.stream, key, int(start))
+                self.stream = self.__crypto_provider.make_decrypt_adapter(self.stream, key, start)
             else:
                 raise InconsistentError('all metadata keys are required for decryption (x-oss-meta-oss-crypto-key, \
                                         x-oss-meta-oss-crypto-start, x-oss-meta-oss-cek-alg)', self.request_id)

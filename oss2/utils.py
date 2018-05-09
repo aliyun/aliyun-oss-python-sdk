@@ -30,7 +30,7 @@ from Crypto import Random
 from Crypto.Util import Counter
 
 from .compat import to_string, to_bytes
-from .exceptions import ClientError, InconsistentError, RequestError, FormatError
+from .exceptions import ClientError, InconsistentError, RequestError, OpenApiFormatError
 
 
 _EXTRA_TYPES_MAP = {
@@ -50,14 +50,14 @@ _EXTRA_TYPES_MAP = {
 
 
 def b64encode_as_string(data):
-    return to_string(base64.b64encode(data))
+    return to_string(base64.b64encode(to_bytes(data)))
 
 
 def b64decode_from_string(data):
     try:
         return base64.b64decode(to_string(data))
     except (TypeError, binascii.Error) as e:
-        raise FormatError('Base64 Error: ' + to_string(data))
+        raise OpenApiFormatError('Base64 Error: ' + to_string(data))
 
 
 def content_md5(data):
@@ -509,11 +509,12 @@ class AESCipher:
 
     def __init__(self, key=None, start=None):
         self.key = key
-        self.start = start
         if not self.key:
             self.key = random_aes256_key()
-        if not self.start:
+        if not start:
             self.start = random_counter()
+        else:
+            self.start = int(start)
         ctr = Counter.new(_AES_CTR_COUNTER_BITS_LEN, initial_value=self.start)
         self.__cipher = AES.new(self.key, AES.MODE_CTR, counter=ctr)
 

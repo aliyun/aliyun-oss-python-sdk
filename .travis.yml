@@ -6,7 +6,7 @@ python:
 - 3.4
 - 3.5
 install:
-- pip install crcmod requests nose nose-cov python-coveralls pycrypto aliyun-python-sdk-sts
+- pip install crcmod requests nose nose-cov python-coveralls pycryptodome aliyun-python-sdk-sts
   aliyun-python-sdk-kms
 - pip install --upgrade mock
 script:
