@@ -3,6 +3,7 @@
 import os
 import oss2
 
+
 def select_call_back(consumed_bytes, total_bytes = None):
     print('Consumed Bytes:' + str(consumed_bytes) + '\n')
 # 首先初始化AccessKeyId、AccessKeySecret、Endpoint等信息。
@@ -12,14 +13,14 @@ def select_call_back(consumed_bytes, total_bytes = None):
 #   http://oss-cn-hangzhou.aliyuncs.com
 #   https://oss-cn-hangzhou.aliyuncs.com
 # 分别以HTTP、HTTPS协议访问。
-#access_key_id = os.getenv('OSS_TEST_ACCESS_KEY_ID', '<你的AccessKeyId>')
-#access_key_secret = os.getenv('OSS_TEST_ACCESS_KEY_SECRET', '<你的AccessKeySecret>')
-#bucket_name = os.getenv('OSS_TEST_BUCKET', '<你的Bucket>')
-#endpoint = os.getenv('OSS_TEST_ENDPOINT', '<你的访问域名>')
-access_key_id = 'LTAIJPXxMLocA0fD'
-access_key_secret = 'l8SjZPosYFR8cHn7jR05SOUFd2u0T7'
-bucket_name = 'oss-select'
-endpoint = '10.101.200.203:8088'
+access_key_id = os.getenv('OSS_TEST_ACCESS_KEY_ID', '<你的AccessKeyId>')
+access_key_secret = os.getenv('OSS_TEST_ACCESS_KEY_SECRET', '<你的AccessKeySecret>')
+bucket_name = os.getenv('OSS_TEST_BUCKET', '<你的Bucket>')
+endpoint = os.getenv('OSS_TEST_ENDPOINT', '<你的访问域名>')
+#access_key_id = 'LTAIJPXxMLocA0fD'
+#access_key_secret = 'l8SjZPosYFR8cHn7jR05SOUFd2u0T7'
+#bucket_name = 'oss-select'
+#endpoint = '10.101.200.203:8088'
 
 # 确认上面的参数都填写正确了
 for param in (access_key_id, access_key_secret, bucket_name, endpoint):
@@ -36,18 +37,23 @@ filename = 'python_select.csv'
 # 上传文件
 bucket.put_object(key, content)
 
-input_format = {'FileHeaderInfo': 'None',
-                'RecordDelimiter': '\\r\\n'}
+csv_meta_params = {'FileHeaderInfo': 'None',
+                'RecordDelimiter': '\r\n'}
 
-csv_header = bucket.head_csv_object(key, input_format)
+select_csv_params = {'FileHeaderInfo': 'None',
+                'RecordDelimiter': '\r\n',
+                'LineRange': (500, 1000)}
+
+csv_header = bucket.get_csv_object_meta(key, csv_meta_params)
 print(csv_header.CsvRows)
+print(csv_header.CsvSplits)
 
-result = bucket.select_csv_object(key, "select * from ossobject where _3 > 44 limit 100000", (500,1000), select_call_back, input_format)
+result = bucket.select_csv_object(key, "select * from ossobject where _3 > 44 limit 100000", select_call_back, select_csv_params)
 content_got = b''
 for chunk in result:
-    content_got += chunk
+   content_got += chunk
 print(content_got)
 result = bucket.select_csv_object_to_file(key, filename, 
-        "select * from ossobject where _3 > 44 limit 100000", (500,1000), select_call_back, input_format)
+        "select * from ossobject where _3 > 44 limit 100000", select_call_back, select_csv_params)
 
 bucket.delete_object(key)

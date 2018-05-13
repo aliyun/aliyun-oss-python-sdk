@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+
 import requests
 import filecmp
 import calendar
@@ -24,10 +25,12 @@ class TestSelectCsvObjectHelper(object):
     def test_select_csv_object(self, testCase, sql, line_range = None):
         key = "city_sample_data.csv"
         self.bucket.put_object_from_file(key, 'tests/sample_data.csv')
-        result = self.bucket.head_csv_object(key)
+        result = self.bucket.get_csv_object_meta(key)
         file_size = result.content_length
         input_format = {'FileHeaderInfo' : 'Use'}
-        result = self.bucket.select_csv_object(key, sql, line_range, self.select_call_back, input_format)
+        if (line_range is not None):
+            input_format['LineRange'] = line_range
+        result = self.bucket.select_csv_object(key, sql, self.select_call_back, input_format)
         content = b''
         for chunk in result:
             content += chunk
@@ -41,11 +44,13 @@ class TestSelectCsvObjectHelper(object):
     def test_select_csv_object_invalid_request(self, testCase, sql, line_range = None):
         key = "city_sample_data.csv"
         self.bucket.put_object_from_file(key, 'tests/sample_data.csv')
-        result = self.bucket.head_csv_object(key)
+        result = self.bucket.get_csv_object_meta(key)
         file_size = result.content_length
         input_format = {'FileHeaderInfo' : 'Use'}
+        if (line_range is not None):
+            input_format['Range'] = line_range
         try:
-            result = self.bucket.select_csv_object(key, sql, line_range, None, input_format)
+            result = self.bucket.select_csv_object(key, sql, None, input_format)
             testCase.assertEqual(result.status, 400)
         except oss2.exceptions.ServerError as e:
             testCase.assertEqual(e.status, 400)

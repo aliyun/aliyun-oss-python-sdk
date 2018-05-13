@@ -36,7 +36,6 @@ HTTP包体。
     - :class:`RequestError <oss2.exceptions.RequestError>` ：底层requests库抛出的异常，如DNS解析错误，超时等；
 当然，`Bucket.put_object_from_file` 和 `Bucket.get_object_to_file` 这类函数还会抛出文件相关的异常。
 
-
 .. _byte_range:
 
 指定下载范围
@@ -59,26 +58,28 @@ HTTP包体。
 
 指定查询CSV文件范围
 ------------
-诸如 :func:`select_csv_object <Bucket.select_csv_object>` 以及 :func:`select_csv_object_to_file <Bucket.select_csv_object_to_file>` 这样的函数，可以接受
-`line_range` 参数，表明读取CSV数据的范围。该参数是一个二元tuple：(start, last)。这些接口会把它转换为x-oss-select-line-range头部的值，如：
-    - line_range 为 (0, 99) 转换为 'x-oss-select-line-range=0-99'，表示读取前100行
-    - line_range 为 (None, 99) 转换为 'x-oss-select-line-range=-99'，表示读取最后99行
-    - line_range 为 (100, None) 转换为 'x-oss-select-line-range=100-'，表示读取第101行到文件结尾的部分（包含第101行）
+诸如 :func:`select_csv_object <Bucket.select_csv_object>` 以及 :func:`select_csv_object_to_file <Bucket.select_csv_object_to_file>` 这样的函数的select_csv_params参数，可以接受
+`LineRange` 参数，表明读取CSV数据的范围。该参数是一个二元tuple：(start, last):
+    - LineRange 为 (0, 99) 表示读取前100行
+    - LineRange 为 (None, 99) 表示读取最后99行
+    - LineRange 为 (100, None) 表示读取第101行到文件结尾的部分（包含第101行）
 
 .. _split_range:
 
 指定查询CSV文件范围
 ------------
 split可以认为是切分好的大小大致相等的csv行簇。每个Split大小大致相等，这样以便更好的做到负载均衡。
-func:`select_csv_object_by_splits <Bucket.select_csv_object>`接受
-`split_range` 参数，表明读取CSV数据的范围。该参数是一个二元tuple：(start, last)。这些接口会把它转换为x-oss-select-split-range头部的值，如：
-    - split_range 为 (0, 9) 转换为 'x-oss-select-split-range=0-9'，表示读取前10个Split
-    - split_range 为 (None, 9) 转换为 'x-oss-select-split-range=-9'，表示读取最后9个split
-    - split_range 为 (10, None) 转换为 'x-oss-select-split-range=10-'，表示读取第11个split到文件结尾的部分（包含第11个Split）
+诸如 :func:`select_csv_object <Bucket.select_csv_object>` 以及 :func:`select_csv_object_to_file <Bucket.select_csv_object_to_file>` 这样的函数的select_csv_params参数，可以接受
+`SplitRange` 参数，表明读取CSV数据的范围。该参数是一个二元tuple：(start, last):
+    - SplitRange 为 (0, 9) 表示读取前10个Split
+    - SplitRange 为 (None, 9) 表示读取最后9个split
+    - SplitRange 为 (10, None) 表示读取第11个split到文件结尾的部分（包含第11个Split）
 
 分页查询
 -------
-和head_csv_object配合使用，先获取文件总的行数，然后把文件以line_range分成若干部分并行查询，以提高查询效率
+和get_csv_object_meta配合使用，有两种方法：
+    - 方法1：先获取文件总的行数(get_csv_object_meta返回)，然后把文件以line_range分成若干部分并行查询
+    - 方法2：先获取文件总的Split数(get_csv_object_meta返回), 然后把文件分成若干个请求，每个请求含有大致相等的Split
 
 .. _progress_callback:
 
@@ -133,7 +134,7 @@ datetime.date之间相互转换。如 ::
     >>> date_str = oss2.date_to_iso8601(d)                    # 得到 '2015-12-05T00:00:00.000Z'
     >>> oss2.iso8601_to_unixtime(date_str)                    # 得到 1449273600
 
-.. csv_input_format::
+.. _select_csv_params:
 
     指定OSS Select的CSV文件格式，支持如下Keys:
     >>> FileHeaderInfo: None|Use|Ignore   #None表示没有CSV Schema头，Use表示启用CSV Schema头，可以在Select语句中使用Name，Ignore表示有CSV Schema头，但忽略它（Select语句中不可以使用Name)
@@ -142,6 +143,18 @@ datetime.date之间相互转换。如 ::
     >>> RecordDelimiter: 行分隔符，默认是\n,最多支持两个字符分隔符（比如:\r\n)
     >>> FieldDelimiter: 列分隔符，默认是逗号(,), 不支持多个字符
     >>> QuoteCharacter: 列Quote字符，默认是双引号("),不支持多个字符。注意转义符合Quote字符相同。
+    >>> LineRange: 指定查询CSV文件的行范围，参见 `line_range`。
+    >>> SplitRange: 指定查询CSV文件的Split范围，参见 `split_range`.
+        注意LineRange和SplitRange两种不能同时指定。若同时指定LineRange会被忽略。
+        
+.. _csv_meta_params:
+
+    get_csv_object_meta参数集合，支持如下Keys:
+    - RecordDelimiter: CSV换行符，最多支持两个字符
+    - FieldDelimiter: CSV列分隔符，最多支持一个字符
+    - QuoteCharacter: CSV转移Quote符，最多支持一个字符
+    - OverwriteIfExists: true|false. true表示重新获得csv meta，并覆盖原有的meta。一般情况下不需要使用
+
 """
 
 from . import xml_utils
@@ -496,9 +509,8 @@ class Bucket(_Base):
         return GetObjectResult(resp, progress_callback, self.enable_crc)
 
     def select_csv_object(self, key, sql,
-                   line_range=None,
                    progress_callback=None,
-                   input_format=None
+                   select_csv_params=None
                    ):
         """Select一个CSV文件内容.
 
@@ -510,59 +522,19 @@ class Bucket(_Base):
 
         :param key: 文件名
         :param sql: sql statement
-        :param line_range: 指定下载范围。参见 :ref:`line_range`
+        :param select_params: select参数集合。参见 :ref:`select_csv_params`
 
         :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
-        :param input_format: 设置CSV文件的格式，参考 :ref:`csv_input_format`
         :return: file-like object
 
         :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
         headers = http.CaseInsensitiveDict()
-        range_string = _make_line_range_string(line_range)
-        if range_string:
-            headers['x-oss-select-line-range'] = range_string
-        
-        _fill_headers_from_select_input_format(headers, input_format)
-        params = {'x-oss-process':  'csv/select',
-                 'sql': sql}
+        body = xml_utils.to_create_select_body(sql, select_csv_params)
+        params = {'x-oss-process':  'csv/select'}
 
         self.timeout = 3600
-        resp = self.__do_object('GET', key, headers=headers, params=params)
-        return SelectObjectResult(resp, progress_callback, False)
-
-    def select_csv_object_by_splits(self, key, sql,split_range,
-                   progress_callback=None,
-                   input_format=None
-                   ):
-        """根据split range 来Select一个CSV文件内容.
-
-        用法 ::
-            >>> result = bucket.select_object('access.log', 'select * from ossobject where _4 > 40', (0, 2))
-            >>> print(result.read())
-            'hello world, 41\n'
-
-        :param key: 文件名
-        :param sql: sql statement
-        :param split_range: 指定下载范围。参见 :ref:`split_range`
-
-        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
-        :param input_format: 设置CSV文件的格式，参考 :ref:`csv_input_format`
-        :return: file-like object
-
-        :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
-        """
-        headers = http.CaseInsensitiveDict()
-        split_string = _make_split_range_string(split_range)
-        if split_string:
-            headers['x-oss-select-split-range'] = split_string
-        
-        _fill_headers_from_select_input_format(headers, input_format)
-        params = {'x-oss-process':  'csv/select',
-                 'sql': sql}
-
-        self.timeout = 3600
-        resp = self.__do_object('GET', key, headers=headers, params=params)
+        resp = self.__do_object('POST', key, data=body, headers=headers, params=params)
         return SelectObjectResult(resp, progress_callback, False)
 
     def get_object_to_file(self, key, filename,
@@ -597,23 +569,22 @@ class Bucket(_Base):
             return result
 
     def select_csv_object_to_file(self, key, filename, sql,
-                   line_range=None,
                    progress_callback=None,
-                   input_format=None
+                   select_csv_params=None
                    ):
         """Select Content from OSS file to a local file
 
         :param key: OSS key name
         :param filename: local file name。The parent directory should exist
-        :param line_range: Specify the line range. Refer to :ref:`byte_range`
 
         :param progress_callback: progress callback。参考 :ref:`progress_callback`
+        :param select_params: select参数集合。参见 :ref:`select_csv_params`
 
         :return: If file does not exist, throw :class:`NoSuchKey <oss2.exceptions.NoSuchKey>`
         """
         with open(to_unicode(filename), 'wb') as f:
-            result = self.select_csv_object(key, sql, line_range=line_range, progress_callback=progress_callback,
-                                     input_format=input_format)
+            result = self.select_csv_object(key, sql, progress_callback=progress_callback,
+                                     select_csv_params=select_csv_params)
 
             for chunk in result:
                 f.write(chunk)
@@ -642,18 +613,22 @@ class Bucket(_Base):
         resp = self.__do_object('HEAD', key, headers=headers)
         return HeadObjectResult(resp)
     
-    def head_csv_object(self, key, input_format=None):
+    def get_csv_object_meta(self, key, csv_meta_params=None):
         """获取CSV文件元信息。
 
         HTTP响应的头部包含了文件元信息，可以通过 `RequestResult` 的 `headers` 成员获得。
         用法 ::
 
-            >>> result = bucket.head_csv_object('csv.txt')
+            >>> csv_params = {  'FieldDelimiter': ',', 
+                                'RecordDelimiter': '\r\n',
+                                'QuoteCharacter': '"',
+                                'OverwriteIfExists' : 'false'}
+            >>> result = bucket.get_csv_object_meta('csv.txt', csv_params)
             >>> print(result.content_type)
             text/plain
 
         :param key: object name
-
+        :param csv_meta_params: the parameter dictionary. For the supported keys, refer to :ref:`csv_meta_params`
         :return: :class:`HeadCsvObjectResult <oss2.models.HeadObjectResult>`. 
           Beside the CsvRows, CsvSplits field, it also include x-oss-select-csv-rows, x-oss-select-csv-splits and x-oss-select-csv-columns headers.
           CsvRows are the total lines of the csv file.
@@ -665,11 +640,11 @@ class Bucket(_Base):
         """
         headers = http.CaseInsensitiveDict()
     
-        _fill_headers_from_select_input_format(headers, input_format)
+        body = xml_utils.to_create_head_body(csv_meta_params)
         params = {'x-oss-process':  'csv/meta'}
 
         self.timeout = 3600
-        resp = self.__do_object('GET', key, headers=headers, params=params)
+        resp = self.__do_object('POST', key, data = body, headers=headers, params=params)
         return HeadCsvObjectResult(resp)
 
     def get_object_meta(self, key):
@@ -1265,7 +1240,7 @@ def _make_line_range_string(range):
     if start is None and last is None:
         return ''
 
-    return _range(start, last)
+    return 'line-range=' + _range(start, last)
 
 def _make_split_range_string(range):
     if range is None:
@@ -1277,7 +1252,7 @@ def _make_split_range_string(range):
     if start is None and last is None:
         return ''
 
-    return _range(start, last) 
+    return 'split-range=' + _range(start, last) 
 
 def _fill_headers_from_select_input_format(headers, input_format):
     if (input_format is not None):
