@@ -1230,30 +1230,6 @@ def _make_range_string(range):
 
     return 'bytes=' + _range(start, last)
 
-def _make_line_range_string(range):
-    if range is None:
-        return ''
-
-    start = range[0]
-    last = range[1]
-
-    if start is None and last is None:
-        return ''
-
-    return 'line-range=' + _range(start, last)
-
-def _make_split_range_string(range):
-    if range is None:
-        return ''
-
-    start = range[0]
-    last = range[1]
-
-    if start is None and last is None:
-        return ''
-
-    return 'split-range=' + _range(start, last) 
-
 def _fill_headers_from_select_input_format(headers, input_format):
     if (input_format is not None):
         if 'FileHeaderInfo' in input_format:

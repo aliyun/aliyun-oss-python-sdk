@@ -28,8 +28,7 @@ from .models import (SimplifiedObjectInfo,
                      LiveChannelAudioStat)
 
 from .compat import urlunquote, to_unicode, to_string
-from .utils import iso8601_to_unixtime, date_to_iso8601, iso8601_to_date
-from . import api
+from . import utils
 
 import base64
 
@@ -512,9 +511,9 @@ def to_create_select_body(sql, select_csv_params):
         if 'QuoteCharacter' in select_csv_params:
             _add_text_child(csv, 'QuoteCharacter', base64.b64encode(str.encode(select_csv_params['QuoteCharacter'])))
         if 'SplitRange' in select_csv_params:
-            _add_text_child(csv, 'Range', api._make_split_range_string(select_csv_params['SplitRange']))
+            _add_text_child(csv, 'Range', utils._make_split_range_string(select_csv_params['SplitRange']))
         elif 'LineRange' in select_csv_params:
-            _add_text_child(csv, 'Range', api._make_line_range_string(select_csv_params['LineRange']))
+            _add_text_child(csv, 'Range', utils._make_line_range_string(select_csv_params['LineRange']))
 
     return _node_to_string(root)
 def to_create_head_body(csv_meta_param):
