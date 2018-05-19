@@ -6,12 +6,38 @@ from .compat import to_bytes
 from .exceptions import RequestError
 from .exceptions import SelectOperationFailed
 
-_CHUNK_SIZE = 8 * 1024
-_CONTINIOUS_FRAME_TYPE=8388612
-_DATA_FRAME_TYPE = 8388609
-_END_FRAME_TYPE = 8388613
-_FRAMES_FOR_PROGRESS_UPDATE = 10
-class SelectFrameResponse(object):
+
+"""
+The adapter class for Select object's response.
+The response consists of frames. Each frame has the following format:
+
+Type  |   Payload Length |  Header Checksum | Payload | Payload Checksum
+
+|<4-->|  <--4 bytes------><---4 bytes-------><-n/a-----><--4 bytes--------->
+And we have three kind of frames.
+Data Frame:
+Type:8388609
+Payload:   Offset    |    Data
+           <-8 bytes>
+
+Continuous Frame
+Type:8388612
+Payload: Offset  (8-bytes)
+
+End Frame
+Type:8388613
+Payload: Offset | total scanned bytes | http status code | error message
+    <-- 8bytes--><-----8 bytes--------><---4 bytes-------><---variabe--->
+
+"""
+class SelectResponseAdapter(object):
+
+    _CHUNK_SIZE = 8 * 1024
+    _CONTINIOUS_FRAME_TYPE=8388612
+    _DATA_FRAME_TYPE = 8388609
+    _END_FRAME_TYPE = 8388613
+    _FRAMES_FOR_PROGRESS_UPDATE = 10
+
     def __init__(self, response, progress_callback = None, content_length = None):
        self.response = response
        self.frame_off_set = 0
@@ -61,7 +87,7 @@ class SelectFrameResponse(object):
                 else:
                     break
 
-            if (self.frames_since_last_progress_report >= _FRAMES_FOR_PROGRESS_UPDATE and self.callback):
+            if (self.frames_since_last_progress_report >= SelectResponseAdapter._FRAMES_FOR_PROGRESS_UPDATE and self.callback):
                 self.callback(self.file_offset, self.content_length)
                 self.frames_since_last_progress_report = 0
 
@@ -83,7 +109,7 @@ class SelectFrameResponse(object):
             else:
                 self.read_next_frame()
                 self.frames_since_last_progress_report += 1
-                if (self.frames_since_last_progress_report >= _FRAMES_FOR_PROGRESS_UPDATE and self.callback is not None):
+                if (self.frames_since_last_progress_report >= SelectResponseAdapter._FRAMES_FOR_PROGRESS_UPDATE and self.callback is not None):
                     self.callback(self.file_offset, self.content_length)
                     self.frames_since_last_progress_report = 0
         
@@ -131,18 +157,18 @@ class SelectFrameResponse(object):
         file_offset_bytes = bytearray(self.read_raw(8))
         file_offset_bytes.reverse()
         self.file_offset = struct.unpack("Q", bytearray(file_offset_bytes))[0]
-        if frame_type_val == _DATA_FRAME_TYPE:
+        if frame_type_val == SelectResponseAdapter._DATA_FRAME_TYPE:
             payload_length.reverse() # convert to little endian
             payload_length_val = struct.unpack("I", bytearray(payload_length))[0]
             self.frame_length = payload_length_val - 8
             self.frame_off_set = 0
             self.check_sum_flag=1
             #print("Get Data Frame:" + str(self.frame_length))
-        elif frame_type_val == _CONTINIOUS_FRAME_TYPE:
+        elif frame_type_val == SelectResponseAdapter._CONTINIOUS_FRAME_TYPE:
             self.frame_length = self.frame_off_set = 0
             self.check_sum_flag=1
             #print("GetContiniousFrame:" + str(self.frame_length))
-        elif frame_type_val == _END_FRAME_TYPE:
+        elif frame_type_val == SelectResponseAdapter._END_FRAME_TYPE:
             self.frame_off_set = 0
             payload_length.reverse()
             payload_length_val = struct.unpack("I", bytearray(payload_length))[0]

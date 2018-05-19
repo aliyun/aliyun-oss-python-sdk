@@ -494,29 +494,30 @@ def to_create_live_channel(live_channel):
 
     return _node_to_string(root)
 
-def to_create_select_body(sql, select_csv_params):
+def to_select_object(sql, select_params):
     root = ElementTree.Element('SelectRequest')
     _add_text_child(root, 'Expression', base64.b64encode(str.encode(sql)))
     input_ser = ElementTree.SubElement(root, 'InputSerialization')
     csv = ElementTree.SubElement(input_ser, 'CSV')
-    if (select_csv_params is not None):
-        if 'FileHeaderInfo' in select_csv_params:
-            _add_text_child(csv, 'FileHeaderInfo', select_csv_params['FileHeaderInfo'])
-        if 'CommentCharacter' in select_csv_params:
-            _add_text_child(csv, 'CommentCharacter', base64.b64encode(str.encode(select_csv_params['CommentCharacter'])))
-        if 'RecordDelimiter' in select_csv_params:
-            _add_text_child(csv, 'RecordDelimiter', base64.b64encode(str.encode(select_csv_params['RecordDelimiter'])))
-        if 'FieldDelimiter' in select_csv_params:
-            _add_text_child(csv, 'FieldDelimiter', base64.b64encode(str.encode(select_csv_params['FieldDelimiter'])))
-        if 'QuoteCharacter' in select_csv_params:
-            _add_text_child(csv, 'QuoteCharacter', base64.b64encode(str.encode(select_csv_params['QuoteCharacter'])))
-        if 'SplitRange' in select_csv_params:
-            _add_text_child(csv, 'Range', utils._make_split_range_string(select_csv_params['SplitRange']))
-        elif 'LineRange' in select_csv_params:
-            _add_text_child(csv, 'Range', utils._make_line_range_string(select_csv_params['LineRange']))
+    if (select_params is not None):
+        if 'CsvHeaderInfo' in select_params:
+            _add_text_child(csv, 'FileHeaderInfo', select_params['CsvHeaderInfo'])
+        if 'CommentCharacter' in select_params:
+            _add_text_child(csv, 'CommentCharacter', base64.b64encode(str.encode(select_params['CommentCharacter'])))
+        if 'RecordDelimiter' in select_params:
+            _add_text_child(csv, 'RecordDelimiter', base64.b64encode(str.encode(select_params['RecordDelimiter'])))
+        if 'FieldDelimiter' in select_params:
+            _add_text_child(csv, 'FieldDelimiter', base64.b64encode(str.encode(select_params['FieldDelimiter'])))
+        if 'QuoteCharacter' in select_params:
+            _add_text_child(csv, 'QuoteCharacter', base64.b64encode(str.encode(select_params['QuoteCharacter'])))
+        if 'SplitRange' in select_params:
+            _add_text_child(csv, 'Range', utils._make_split_range_string(select_params['SplitRange']))
+        elif 'LineRange' in select_params:
+            _add_text_child(csv, 'Range', utils._make_line_range_string(select_params['LineRange']))
 
     return _node_to_string(root)
-def to_create_head_body(csv_meta_param):
+    
+def to_get_select_object_meta(csv_meta_param):
     root = ElementTree.Element('CsvMetaRequest')
     input_ser = ElementTree.SubElement(root, 'InputSerialization')
     csv = ElementTree.SubElement(input_ser, 'CSV')

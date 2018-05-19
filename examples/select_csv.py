@@ -17,7 +17,6 @@ access_key_id = os.getenv('OSS_TEST_ACCESS_KEY_ID', '<你的AccessKeyId>')
 access_key_secret = os.getenv('OSS_TEST_ACCESS_KEY_SECRET', '<你的AccessKeySecret>')
 bucket_name = os.getenv('OSS_TEST_BUCKET', '<你的Bucket>')
 endpoint = os.getenv('OSS_TEST_ENDPOINT', '<你的访问域名>')
-
 # 确认上面的参数都填写正确了
 for param in (access_key_id, access_key_secret, bucket_name, endpoint):
     assert '<' not in param, '请设置参数：' + param
@@ -33,23 +32,23 @@ filename = 'python_select.csv'
 # 上传文件
 bucket.put_object(key, content)
 
-csv_meta_params = {'FileHeaderInfo': 'None',
+csv_meta_params = {'CsvHeaderInfo': 'None',
                 'RecordDelimiter': '\r\n'}
 
-select_csv_params = {'FileHeaderInfo': 'None',
+select_csv_params = {'CsvHeaderInfo': 'None',
                 'RecordDelimiter': '\r\n',
                 'LineRange': (500, 1000)}
 
-csv_header = bucket.get_csv_object_meta(key, csv_meta_params)
-print(csv_header.CsvRows)
-print(csv_header.CsvSplits)
+csv_header = bucket.get_select_object_meta(key, csv_meta_params)
+print(csv_header.csv_rows)
+print(csv_header.csv_splits)
 
-result = bucket.select_csv_object(key, "select * from ossobject where _3 > 44 limit 100000", select_call_back, select_csv_params)
+result = bucket.select_object(key, "select * from ossobject where _3 > 44 limit 100000", select_call_back, select_csv_params)
 content_got = b''
 for chunk in result:
    content_got += chunk
 print(content_got)
-result = bucket.select_csv_object_to_file(key, filename, 
+result = bucket.select_object_to_file(key, filename, 
         "select * from ossobject where _3 > 44 limit 100000", select_call_back, select_csv_params)
 
 bucket.delete_object(key)

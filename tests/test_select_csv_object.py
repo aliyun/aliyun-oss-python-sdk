@@ -25,32 +25,40 @@ class TestSelectCsvObjectHelper(object):
     def test_select_csv_object(self, testCase, sql, line_range = None):
         key = "city_sample_data.csv"
         self.bucket.put_object_from_file(key, 'tests/sample_data.csv')
-        result = self.bucket.get_csv_object_meta(key)
+
+        result = self.bucket.get_select_object_meta(key)
         file_size = result.content_length
-        input_format = {'FileHeaderInfo' : 'Use'}
+
+        input_format = {'CsvHeaderInfo' : 'Use'}
         if (line_range is not None):
             input_format['LineRange'] = line_range
-        result = self.bucket.select_csv_object(key, sql, self.select_call_back, input_format)
+
+        result = self.bucket.select_object(key, sql, self.select_call_back, input_format)
         content = b''
         for chunk in result:
             content += chunk
-        #print(content)
+        
         testCase.assertEqual(result.status, 206)
         testCase.assertGreater(len(content), 0)
+
         if line_range is None:
             testCase.assertEqual(self.scannedSize, file_size)
+
         return content
 
     def test_select_csv_object_invalid_request(self, testCase, sql, line_range = None):
         key = "city_sample_data.csv"
         self.bucket.put_object_from_file(key, 'tests/sample_data.csv')
-        result = self.bucket.get_csv_object_meta(key)
+
+        result = self.bucket.get_select_object_meta(key)
         file_size = result.content_length
-        input_format = {'FileHeaderInfo' : 'Use'}
+
+        input_format = {'CsvHeaderInfo' : 'Use'}
         if (line_range is not None):
             input_format['Range'] = line_range
+
         try:
-            result = self.bucket.select_csv_object(key, sql, None, input_format)
+            result = self.bucket.select_object(key, sql, None, input_format)
             testCase.assertEqual(result.status, 400)
         except oss2.exceptions.ServerError as e:
             testCase.assertEqual(e.status, 400)
@@ -81,10 +89,12 @@ class TestSelectCsvObject(OssTestCase):
     def test_select_csv_object_like(self):
         helper = TestSelectCsvObjectHelper(self.bucket) 
         content = helper.test_select_csv_object(self, "select Year, StateAbbr, CityName, Short_Question_Text from ossobject where Measure like '%blood pressure%Years'")
+
         with open('tests/sample_data.csv') as csvfile:
             spamreader = csv.DictReader(csvfile, delimiter=',', quotechar='"')
             select_data = b''
             matcher = re.compile('^.*blood pressure.*Years$')
+
             for row in spamreader:
                 line = b''
                 if matcher.match(row['Measure']):
@@ -135,6 +145,7 @@ class TestSelectCsvObject(OssTestCase):
         helper = TestSelectCsvObjectHelper(self.bucket) 
         content = helper.test_select_csv_object(self, "select avg(cast(data_value as double)), max(cast(data_value as double)), sum(cast(data_value as double)) from ossobject")
         select_data = b''
+
         with open('tests/sample_data.csv') as csvfile:
             spamreader = csv.DictReader(csvfile, delimiter=',', quotechar='"')
             sum = 0.0
@@ -152,12 +163,14 @@ class TestSelectCsvObject(OssTestCase):
             
             avg = sum/line_count
             select_data = ("{:.4f}".format(avg) + "," + str(max) + "," + "{:.1f}".format(sum) + '\n').encode('utf-8');
+            
             self.assertEqual(select_data, content)
 
     def test_select_csv_object_concat(self):
         helper = TestSelectCsvObjectHelper(self.bucket) 
         content = helper.test_select_csv_object(self, "select Year,StateAbbr, CityName, Short_Question_Text from ossobject where (data_value || data_value_unit) = '14.8%'")
         select_data = b''
+
         with open('tests/sample_data.csv') as csvfile:
             spamreader = csv.DictReader(csvfile, delimiter=',', quotechar='"')
             for row in spamreader:
@@ -179,6 +192,7 @@ class TestSelectCsvObject(OssTestCase):
         helper = TestSelectCsvObjectHelper(self.bucket) 
         content = helper.test_select_csv_object(self, "select Year,StateAbbr, CityName, Short_Question_Text from ossobject where data_value > 14.8 and data_value_unit = '%' or Measure like '%18 Years' and Category = 'Unhealthy Behaviors' or high_confidence_limit > 70.0 ")
         select_data = b''
+
         matcher = re.compile('^.*18 Years$')
         with open('tests/sample_data.csv') as csvfile:
             spamreader = csv.DictReader(csvfile, delimiter=',', quotechar='"')
@@ -199,6 +213,7 @@ class TestSelectCsvObject(OssTestCase):
 
     def test_select_csv_object_invalid_sql(self):
         helper = TestSelectCsvObjectHelper(self.bucket) 
+
         helper.test_select_csv_object_invalid_request(self, "select * from ossobject where avg(cast(year as int)) > 2016")
         helper.test_select_csv_object_invalid_request(self, "")
         helper.test_select_csv_object_invalid_request(self, "select year || CityName from ossobject")

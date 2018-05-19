@@ -58,7 +58,7 @@ HTTP包体。
 
 指定查询CSV文件范围
 ------------
-诸如 :func:`select_csv_object <Bucket.select_csv_object>` 以及 :func:`select_csv_object_to_file <Bucket.select_csv_object_to_file>` 这样的函数的select_csv_params参数，可以接受
+诸如 :func:`select_object <Bucket.select_object>` 以及 :func:`select_object_to_file <Bucket.select_object_to_file>` 这样的函数的select_csv_params参数，可以接受
 `LineRange` 参数，表明读取CSV数据的范围。该参数是一个二元tuple：(start, last):
     - LineRange 为 (0, 99) 表示读取前100行
     - LineRange 为 (None, 99) 表示读取最后99行
@@ -69,7 +69,7 @@ HTTP包体。
 指定查询CSV文件范围
 ------------
 split可以认为是切分好的大小大致相等的csv行簇。每个Split大小大致相等，这样以便更好的做到负载均衡。
-诸如 :func:`select_csv_object <Bucket.select_csv_object>` 以及 :func:`select_csv_object_to_file <Bucket.select_csv_object_to_file>` 这样的函数的select_csv_params参数，可以接受
+诸如 :func:`select_object <Bucket.select_object>` 以及 :func:`select_object_to_file <Bucket.select_object_to_file>` 这样的函数的select_csv_params参数，可以接受
 `SplitRange` 参数，表明读取CSV数据的范围。该参数是一个二元tuple：(start, last):
     - SplitRange 为 (0, 9) 表示读取前10个Split
     - SplitRange 为 (None, 9) 表示读取最后9个split
@@ -134,10 +134,10 @@ datetime.date之间相互转换。如 ::
     >>> date_str = oss2.date_to_iso8601(d)                    # 得到 '2015-12-05T00:00:00.000Z'
     >>> oss2.iso8601_to_unixtime(date_str)                    # 得到 1449273600
 
-.. _select_csv_params:
+.. _select_params:
 
     指定OSS Select的CSV文件格式，支持如下Keys:
-    >>> FileHeaderInfo: None|Use|Ignore   #None表示没有CSV Schema头，Use表示启用CSV Schema头，可以在Select语句中使用Name，Ignore表示有CSV Schema头，但忽略它（Select语句中不可以使用Name)
+    >>> CsvHeaderInfo: None|Use|Ignore   #None表示没有CSV Schema头，Use表示启用CSV Schema头，可以在Select语句中使用Name，Ignore表示有CSV Schema头，但忽略它（Select语句中不可以使用Name)
                         默认值是None
     >>> CommentCharacter: Comment字符,默认值是#,不支持多个字符
     >>> RecordDelimiter: 行分隔符，默认是\n,最多支持两个字符分隔符（比如:\r\n)
@@ -147,9 +147,9 @@ datetime.date之间相互转换。如 ::
     >>> SplitRange: 指定查询CSV文件的Split范围，参见 `split_range`.
         注意LineRange和SplitRange两种不能同时指定。若同时指定LineRange会被忽略。
         
-.. _csv_meta_params:
+.. _select_meta_params:
 
-    get_csv_object_meta参数集合，支持如下Keys:
+    get_select_object_meta参数集合，支持如下Keys:
     - RecordDelimiter: CSV换行符，最多支持两个字符
     - FieldDelimiter: CSV列分隔符，最多支持一个字符
     - QuoteCharacter: CSV转移Quote符，最多支持一个字符
@@ -508,9 +508,9 @@ class Bucket(_Base):
         resp = self.__do_object('GET', key, headers=headers, params=params)
         return GetObjectResult(resp, progress_callback, self.enable_crc)
 
-    def select_csv_object(self, key, sql,
+    def select_object(self, key, sql,
                    progress_callback=None,
-                   select_csv_params=None
+                   select_params=None
                    ):
         """Select一个CSV文件内容.
 
@@ -530,7 +530,7 @@ class Bucket(_Base):
         :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
         headers = http.CaseInsensitiveDict()
-        body = xml_utils.to_create_select_body(sql, select_csv_params)
+        body = xml_utils.to_select_object(sql, select_params)
         params = {'x-oss-process':  'csv/select'}
 
         self.timeout = 3600
@@ -568,9 +568,9 @@ class Bucket(_Base):
 
             return result
 
-    def select_csv_object_to_file(self, key, filename, sql,
+    def select_object_to_file(self, key, filename, sql,
                    progress_callback=None,
-                   select_csv_params=None
+                   select_params=None
                    ):
         """Select Content from OSS file to a local file
 
@@ -583,8 +583,8 @@ class Bucket(_Base):
         :return: If file does not exist, throw :class:`NoSuchKey <oss2.exceptions.NoSuchKey>`
         """
         with open(to_unicode(filename), 'wb') as f:
-            result = self.select_csv_object(key, sql, progress_callback=progress_callback,
-                                     select_csv_params=select_csv_params)
+            result = self.select_object(key, sql, progress_callback=progress_callback,
+                                     select_params=select_params)
 
             for chunk in result:
                 f.write(chunk)
@@ -613,39 +613,39 @@ class Bucket(_Base):
         resp = self.__do_object('HEAD', key, headers=headers)
         return HeadObjectResult(resp)
     
-    def get_csv_object_meta(self, key, csv_meta_params=None):
+    def get_select_object_meta(self, key, select_meta_params=None):
         """获取CSV文件元信息。
 
         HTTP响应的头部包含了文件元信息，可以通过 `RequestResult` 的 `headers` 成员获得。
         用法 ::
 
-            >>> csv_params = {  'FieldDelimiter': ',', 
+            >>> select_meta_params = {  'FieldDelimiter': ',', 
                                 'RecordDelimiter': '\r\n',
                                 'QuoteCharacter': '"',
                                 'OverwriteIfExists' : 'false'}
-            >>> result = bucket.get_csv_object_meta('csv.txt', csv_params)
+            >>> result = bucket.get_select_object_meta('csv.txt', csv_params)
             >>> print(result.content_type)
             text/plain
 
         :param key: object name
-        :param csv_meta_params: the parameter dictionary. For the supported keys, refer to :ref:`csv_meta_params`
-        :return: :class:`HeadCsvObjectResult <oss2.models.HeadObjectResult>`. 
-          Beside the CsvRows, CsvSplits field, it also include x-oss-select-csv-rows, x-oss-select-csv-splits and x-oss-select-csv-columns headers.
-          CsvRows are the total lines of the csv file.
-          CsvSplits are the total splits of the csv file. One split a bunch of rows and each split has very similar size.
-          Header x-oss-select-csv-rows and x-oss-select-csv-splits are the raw data for CsvRows and CsvSplits.
+        :param select_meta_params: the parameter dictionary. For the supported keys, refer to :ref:`csv_meta_params`
+        :return: :class:`GetSelectObjectMetaResult <oss2.models.HeadObjectResult>`. 
+          Beside the csv_rows, csv_splits field, it also include x-oss-select-csv-rows, x-oss-select-csv-splits and x-oss-select-csv-columns headers.
+          csv_rows are the total lines of the csv file.
+          csv_splits are the total splits of the csv file. One split a bunch of rows and each split has very similar size.
+          Header x-oss-select-csv-rows and x-oss-select-csv-splits are the raw data for csv_rows and csv_splits.
           x-oss-select-csv-columns header specifies the first line's column count.
 
         :raises: If Bucket or object does not exist, throw:class:`NotFound <oss2.exceptions.NotFound>`
         """
         headers = http.CaseInsensitiveDict()
     
-        body = xml_utils.to_create_head_body(csv_meta_params)
+        body = xml_utils.to_get_select_object_meta(select_meta_params)
         params = {'x-oss-process':  'csv/meta'}
 
         self.timeout = 3600
         resp = self.__do_object('POST', key, data = body, headers=headers, params=params)
-        return HeadCsvObjectResult(resp)
+        return GetSelectObjectMetaResult(resp)
 
     def get_object_meta(self, key):
         """获取文件基本元信息，包括该Object的ETag、Size（文件大小）、LastModified，并不返回其内容。
@@ -1232,8 +1232,8 @@ def _make_range_string(range):
 
 def _fill_headers_from_select_input_format(headers, input_format):
     if (input_format is not None):
-        if 'FileHeaderInfo' in input_format:
-            headers['x-oss-select-input-file-header'] = input_format['FileHeaderInfo']
+        if 'CsvHeaderInfo' in input_format:
+            headers['x-oss-select-input-file-header'] = input_format['CsvHeaderInfo']
         if 'CommentCharacter' in input_format:
             headers['x-oss-select-input-comment-character'] = input_format['CommentCharacter']
         if 'RecordDelimiter' in input_format:
