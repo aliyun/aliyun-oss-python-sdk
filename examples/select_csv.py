@@ -39,7 +39,7 @@ select_csv_params = {'CsvHeaderInfo': 'None',
                 'RecordDelimiter': '\r\n',
                 'LineRange': (500, 1000)}
 
-csv_header = bucket.get_select_object_meta(key, csv_meta_params)
+csv_header = bucket.create_select_object_meta(key, csv_meta_params)
 print(csv_header.csv_rows)
 print(csv_header.csv_splits)
 

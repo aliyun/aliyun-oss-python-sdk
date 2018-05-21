@@ -26,7 +26,7 @@ class TestSelectCsvObjectHelper(object):
         key = "city_sample_data.csv"
         self.bucket.put_object_from_file(key, 'tests/sample_data.csv')
 
-        result = self.bucket.get_select_object_meta(key)
+        result = self.bucket.create_select_object_meta(key)
         file_size = result.content_length
 
         input_format = {'CsvHeaderInfo' : 'Use'}
@@ -50,7 +50,7 @@ class TestSelectCsvObjectHelper(object):
         key = "city_sample_data.csv"
         self.bucket.put_object_from_file(key, 'tests/sample_data.csv')
 
-        result = self.bucket.get_select_object_meta(key)
+        result = self.bucket.create_select_object_meta(key)
         file_size = result.content_length
 
         input_format = {'CsvHeaderInfo' : 'Use'}

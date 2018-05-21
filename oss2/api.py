@@ -149,7 +149,7 @@ datetime.date之间相互转换。如 ::
         
 .. _select_meta_params:
 
-    get_select_object_meta参数集合，支持如下Keys:
+    create_select_object_meta参数集合，支持如下Keys:
     - RecordDelimiter: CSV换行符，最多支持两个字符
     - FieldDelimiter: CSV列分隔符，最多支持一个字符
     - QuoteCharacter: CSV转移Quote符，最多支持一个字符
@@ -613,8 +613,8 @@ class Bucket(_Base):
         resp = self.__do_object('HEAD', key, headers=headers)
         return HeadObjectResult(resp)
     
-    def get_select_object_meta(self, key, select_meta_params=None):
-        """获取CSV文件元信息。
+    def create_select_object_meta(self, key, select_meta_params=None):
+        """获取或创建CSV文件元信息。如果元信息存在，返回之；不然则创建后返回之
 
         HTTP响应的头部包含了文件元信息，可以通过 `RequestResult` 的 `headers` 成员获得。
         用法 ::
@@ -623,7 +623,7 @@ class Bucket(_Base):
                                 'RecordDelimiter': '\r\n',
                                 'QuoteCharacter': '"',
                                 'OverwriteIfExists' : 'false'}
-            >>> result = bucket.get_select_object_meta('csv.txt', csv_params)
+            >>> result = bucket.create_select_object_meta('csv.txt', csv_params)
             >>> print(result.content_type)
             text/plain
 
