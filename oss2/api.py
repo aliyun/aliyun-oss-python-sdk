@@ -1230,19 +1230,6 @@ def _make_range_string(range):
 
     return 'bytes=' + _range(start, last)
 
-def _fill_headers_from_select_input_format(headers, input_format):
-    if (input_format is not None):
-        if 'CsvHeaderInfo' in input_format:
-            headers['x-oss-select-input-file-header'] = input_format['CsvHeaderInfo']
-        if 'CommentCharacter' in input_format:
-            headers['x-oss-select-input-comment-character'] = input_format['CommentCharacter']
-        if 'RecordDelimiter' in input_format:
-            headers['x-oss-select-input-record-delimiter'] = input_format['RecordDelimiter']
-        if 'FieldDelimiter' in input_format:
-            headers['x-oss-select-input-field-delimiter'] = input_format['FieldDelimiter']
-        if 'QuoteCharacter' in input_format:
-            headers['x-oss-select-input-quote-character'] = input_format['QuoteCharacter']
-
 def _range(start, last):
     def to_str(pos):
         if pos is None:

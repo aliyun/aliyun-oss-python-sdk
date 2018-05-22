@@ -142,9 +142,6 @@ class SelectObjectResult(HeadObjectResult):
         self.select_resp = SelectResponseAdapter(resp, progress_callback, None)
         self.stream = self.select_resp
             
-    def read(self, amt=None):
-        return self.stream.read(amt)
-
     def __iter__(self):
         return iter(self.stream)
 
