@@ -5,9 +5,11 @@ import unittest
 import time
 import tempfile
 import errno
+import logging
 
 import oss2
 
+logging.basicConfig(level=logging.DEBUG)
 
 OSS_ID = os.getenv("OSS_TEST_ACCESS_KEY_ID")
 OSS_SECRET = os.getenv("OSS_TEST_ACCESS_KEY_SECRET")
@@ -19,6 +21,8 @@ OSS_STS_ID = os.getenv("OSS_TEST_STS_ID")
 OSS_STS_KEY = os.getenv("OSS_TEST_STS_KEY")
 OSS_STS_ARN = os.getenv("OSS_TEST_STS_ARN")
 OSS_STS_REGION = os.getenv("OSS_TEST_STS_REGION", "cn-hangzhou")
+
+OSS_AUTH_VERSION = None
 
 
 def random_string(n):
@@ -46,7 +50,7 @@ class NonlocalObject(object):
 
 def wait_meta_sync():
     if os.environ.get('TRAVIS'):
-        time.sleep(15)
+        time.sleep(5)
     else:
         time.sleep(1)
 
@@ -71,7 +75,11 @@ class OssTestCase(unittest.TestCase):
         oss2.defaults.multiget_part_size = self.default_multiget_part_size
         oss2.defaults.multiget_num_threads = random.randint(1, 5)
 
-        self.bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
+        global OSS_AUTH_VERSION
+        OSS_AUTH_VERSION = os.getenv('OSS_TEST_AUTH_VERSION')
+
+        self.bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET)
+
         self.bucket.create_bucket()
         self.key_list = []
         self.temp_files = []

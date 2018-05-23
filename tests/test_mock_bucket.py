@@ -459,6 +459,39 @@ x-oss-request-id: 566B6BDB1BA604C27DD419B0
         self.assertEqual(rule.expiration.days, days)
 
     @patch('oss2.Session.do_request')
+    def test_get_stat(self, do_request):
+        request_text = '''GET /?stat HTTP/1.1
+Host: sbowspxjhmccpmesjqcwagfw.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:37:17 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:wopWcmMd/70eNKYOc9M6ZA21yY8='''
+
+        response_text = '''HTTP/1.1 403
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:37:17 GMT
+Content-Type: application/xml
+Content-Length: 287
+Connection: keep-alive
+x-oss-request-id: 566B6C3D6086505A0CFF0F68
+
+<?xml version="1.0" encoding="UTF-8"?>
+<Error>
+  <Code>AccessDenied</Code>
+  <Message>AccessDenied</Message>
+  <RequestId>566B6C3D6086505A0CFF0F68</RequestId>
+  <HostId>sbowspxjhmccpmesjqcwagfw.oss-cn-hangzhou.aliyuncs.com</HostId>
+</Error>'''
+
+        req_info = unittests.common.mock_response(do_request, response_text)
+        bucket = unittests.common.bucket()
+        bucket.bucket_name = 'sbowspxjhmccpmesjqcwagfw'
+        self.assertRaises(oss2.exceptions.AccessDenied, bucket.get_bucket_stat)
+        self.assertRequest(req_info, request_text)
+
+    @patch('oss2.Session.do_request')
     def test_delete_lifecycle(self, do_request):
         request_text = '''DELETE /?lifecycle= HTTP/1.1
 Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
