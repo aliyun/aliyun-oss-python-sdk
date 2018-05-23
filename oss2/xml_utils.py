@@ -33,7 +33,9 @@ from .models import (SimplifiedObjectInfo,
 
 from .compat import urlunquote, to_unicode, to_string
 from .utils import iso8601_to_unixtime, date_to_iso8601, iso8601_to_date
+from . import utils
 
+import base64
 
 def _find_tag(parent, path):
     child = parent.find(path)
@@ -583,4 +585,43 @@ def to_create_live_channel(live_channel):
     _add_text_child(target_node, 'FragCount', str(live_channel.target.frag_count))
     _add_text_child(target_node, 'PlaylistName', str(live_channel.target.playlist_name))
 
+    return _node_to_string(root)
+
+def to_select_object(sql, select_params):
+    root = ElementTree.Element('SelectRequest')
+    _add_text_child(root, 'Expression', base64.b64encode(str.encode(sql)))
+    input_ser = ElementTree.SubElement(root, 'InputSerialization')
+    csv = ElementTree.SubElement(input_ser, 'CSV')
+    if (select_params is not None):
+        if 'CsvHeaderInfo' in select_params:
+            _add_text_child(csv, 'FileHeaderInfo', select_params['CsvHeaderInfo'])
+        if 'CommentCharacter' in select_params:
+            _add_text_child(csv, 'CommentCharacter', base64.b64encode(str.encode(select_params['CommentCharacter'])))
+        if 'RecordDelimiter' in select_params:
+            _add_text_child(csv, 'RecordDelimiter', base64.b64encode(str.encode(select_params['RecordDelimiter'])))
+        if 'FieldDelimiter' in select_params:
+            _add_text_child(csv, 'FieldDelimiter', base64.b64encode(str.encode(select_params['FieldDelimiter'])))
+        if 'QuoteCharacter' in select_params:
+            _add_text_child(csv, 'QuoteCharacter', base64.b64encode(str.encode(select_params['QuoteCharacter'])))
+        if 'SplitRange' in select_params:
+            _add_text_child(csv, 'Range', utils._make_split_range_string(select_params['SplitRange']))
+        elif 'LineRange' in select_params:
+            _add_text_child(csv, 'Range', utils._make_line_range_string(select_params['LineRange']))
+
+    return _node_to_string(root)
+    
+def to_get_select_object_meta(csv_meta_param):
+    root = ElementTree.Element('CsvMetaRequest')
+    input_ser = ElementTree.SubElement(root, 'InputSerialization')
+    csv = ElementTree.SubElement(input_ser, 'CSV')
+    if (csv_meta_param is not None):
+        if 'RecordDelimiter' in csv_meta_param:
+            _add_text_child(csv, 'RecordDelimiter', base64.b64encode(str.encode(csv_meta_param['RecordDelimiter'])))
+        if 'FieldDelimiter' in csv_meta_param:
+            _add_text_child(csv, 'FieldDelimiter', base64.b64encode(str.encode(csv_meta_param['FieldDelimiter'])))
+        if 'QuoteCharacter' in csv_meta_param:
+            _add_text_child(csv, 'QuoteCharacter', base64.b64encode(str.encode(csv_meta_param['QuoteCharacter'])))
+    
+        if 'OverwriteIfExists' in csv_meta_param:
+            _add_text_child(root, 'OverwriteIfExists', str(csv_meta_param['OverwriteIfExists']))
     return _node_to_string(root)

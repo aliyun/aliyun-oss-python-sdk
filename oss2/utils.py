@@ -539,3 +539,36 @@ def copyfileobj_and_verify(fsrc, fdst, expected_len,
 
     if num_read != expected_len:
         raise InconsistentError("IncompleteRead from source", request_id)
+
+def _make_line_range_string(range):
+    if range is None:
+        return ''
+
+    start = range[0]
+    last = range[1]
+
+    if start is None and last is None:
+        return ''
+
+    return 'line-range=' + _range_internal(start, last)
+
+def _make_split_range_string(range):
+    if range is None:
+        return ''
+
+    start = range[0]
+    last = range[1]
+
+    if start is None and last is None:
+        return ''
+
+    return 'split-range=' + _range_internal(start, last)
+
+def _range_internal(start, last):
+    def to_str(pos):
+        if pos is None:
+            return ''
+        else:
+            return str(pos)
+
+    return to_str(start) + '-' + to_str(last)

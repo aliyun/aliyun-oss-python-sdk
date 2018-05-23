@@ -176,7 +176,6 @@ class BucketNotEmpty(Conflict):
     status = 409
     code = 'BucketNotEmpty'
 
-
 class PositionNotEqualToLength(Conflict):
     status = 409
     code = 'PositionNotEqualToLength'
@@ -215,6 +214,16 @@ class AccessDenied(ServerError):
     status = 403
     code = 'AccessDenied'
 
+class SelectOperationFailed(ServerError):
+    code = 'SelectOperationFailed'
+    def __init__(self, status, message):
+        self.status = status
+        self.message = message
+
+    def __str__(self):
+        error = {'status': self.status,
+                 'details': self.message}
+        return str(error)
 
 def make_exception(resp):
     status = resp.status

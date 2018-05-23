@@ -10,6 +10,7 @@ oss2.models
 from .utils import http_to_unixtime, make_progress_adapter, make_crc_adapter
 from .exceptions import ClientError
 from .compat import urlunquote
+from .select_response import SelectResponseAdapter
 
 class PartInfo(object):
     """表示分片信息的文件。
@@ -75,6 +76,11 @@ class HeadObjectResult(RequestResult):
         #: HTTP ETag
         self.etag = _get_etag(self.headers)
 
+class GetSelectObjectMetaResult(HeadObjectResult):
+    def __init__(self, resp):
+        super(GetSelectObjectMetaResult, self).__init__(resp)
+        self.csv_rows = int(self.headers['x-oss-select-csv-rows'])
+        self.csv_splits = int(self.headers['x-oss-select-csv-splits'])
 
 class GetObjectMetaResult(RequestResult):
     def __init__(self, resp):
@@ -102,7 +108,7 @@ class GetObjectResult(HeadObjectResult):
     def __init__(self, resp, progress_callback=None, crc_enabled=False):
         super(GetObjectResult, self).__init__(resp)
         self.__crc_enabled = crc_enabled
-        
+
         if progress_callback:
             self.stream = make_progress_adapter(self.resp, progress_callback, self.content_length)
         else:
@@ -129,6 +135,15 @@ class GetObjectResult(HeadObjectResult):
     def server_crc(self):
         return self.__crc
 
+class SelectObjectResult(HeadObjectResult):
+    def __init__(self, resp, progress_callback=None, crc_enabled=False):
+        super(SelectObjectResult, self).__init__(resp)
+        self.__crc_enabled = crc_enabled
+        self.select_resp = SelectResponseAdapter(resp, progress_callback, None)
+        self.stream = self.select_resp
+            
+    def __iter__(self):
+        return iter(self.stream)
 
 class PutObjectResult(RequestResult):
     def __init__(self, resp):
