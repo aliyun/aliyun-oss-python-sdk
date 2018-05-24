@@ -13,6 +13,7 @@ from . import utils
 from . import iterators
 from . import exceptions
 from . import defaults
+from .api import Bucket
 
 from .models import PartInfo
 from .compat import json, stringify, to_unicode
@@ -46,7 +47,10 @@ def resumable_upload(bucket, key, filename,
     缺省条件下，该函数会在用户 `HOME` 目录下保存断点续传的信息。当待上传的本地文件没有发生变化，
     且目标文件名没有变化时，会根据本地保存的信息，从断点开始上传。
 
-    :param bucket: :class:`Bucket <oss2.Bucket>` 对象
+    使用该函数应注意如下细节：
+        #. 如果使用CryptoBucket，函数会退化为普通上传
+
+    :param bucket: :class:`Bucket <oss2.Bucket>` 或者 ：:class:`CryptoBucket <oss2.CryptoBucket>` 对象
     :param key: 上传到用户空间的文件名
     :param filename: 待上传本地文件名
     :param store: 用来保存断点信息的持久存储，参见 :class:`ResumableStore` 的接口。如不指定，则使用 `ResumableStore` 。
@@ -59,7 +63,7 @@ def resumable_upload(bucket, key, filename,
     size = os.path.getsize(filename)
     multipart_threshold = defaults.get(multipart_threshold, defaults.multipart_threshold)
 
-    if size >= multipart_threshold:
+    if isinstance(bucket, Bucket) and size >= multipart_threshold:
         uploader = _ResumableUploader(bucket, key, filename, size, store,
                                       part_size=part_size,
                                       headers=headers,
@@ -96,9 +100,10 @@ def resumable_download(bucket, key, filename,
         #. 对同样的源文件、目标文件，避免多个程序（线程）同时调用该函数。因为断点信息会在磁盘上互相覆盖，或临时文件名会冲突。
         #. 避免使用太小的范围（分片），即 `part_size` 不宜过小，建议大于或等于 `oss2.defaults.multiget_part_size` 。
         #. 如果目标文件已经存在，那么该函数会覆盖此文件。
+        #. 如果使用CryptoBucket，函数会退化为普通下载
 
 
-    :param bucket: :class:`Bucket <oss2.Bucket>` 对象。
+    :param bucket: :class:`Bucket <oss2.Bucket>` 或者 ：:class:`CryptoBucket <oss2.CryptoBucket>` 对象
     :param str key: 待下载的远程文件名。
     :param str filename: 本地的目标文件名。
     :param int multiget_threshold: 文件长度大于该值时，则使用断点下载。
@@ -114,14 +119,18 @@ def resumable_download(bucket, key, filename,
 
     multiget_threshold = defaults.get(multiget_threshold, defaults.multiget_threshold)
 
-    result = bucket.head_object(key)
-    if result.content_length >= multiget_threshold:
-        downloader = _ResumableDownloader(bucket, key, filename, _ObjectInfo.make(result),
-                                          part_size=part_size,
-                                          progress_callback=progress_callback,
-                                          num_threads=num_threads,
-                                          store=store)
-        downloader.download()
+    if isinstance(bucket, Bucket):
+        result = bucket.head_object(key)
+        if result.content_length >= multiget_threshold:
+            downloader = _ResumableDownloader(bucket, key, filename, _ObjectInfo.make(result),
+                                              part_size=part_size,
+                                              progress_callback=progress_callback,
+                                              num_threads=num_threads,
+                                              store=store)
+            downloader.download()
+        else:
+            bucket.get_object_to_file(key, filename,
+                                  progress_callback=progress_callback)
     else:
         bucket.get_object_to_file(key, filename,
                                   progress_callback=progress_callback)

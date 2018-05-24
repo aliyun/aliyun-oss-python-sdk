@@ -29,6 +29,23 @@ class TestUpload(OssTestCase):
 
         self.bucket.delete_object(key)
 
+    def test_crypto_upload_small(self):
+        key = random_string(16)
+        content = random_bytes(100)
+
+        pathname = self._prepare_temp_file(content)
+
+        result = oss2.resumable_upload(self.rsa_crypto_bucket, key, pathname)
+        self.assertTrue(result is not None)
+        self.assertTrue(result.etag is not None)
+        self.assertTrue(result.request_id is not None)
+
+        result = self.rsa_crypto_bucket.get_object(key)
+        self.assertEqual(content, result.read())
+        self.assertEqual(result.headers['x-oss-object-type'], 'Normal')
+
+        self.bucket.delete_object(key)
+
     def test_upload_large(self):
         key = random_string(16)
         content = random_bytes(5 * 100 * 1024)
