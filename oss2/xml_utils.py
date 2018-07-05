@@ -607,9 +607,11 @@ def to_select_object(sql, select_params):
             _add_text_child(csv, 'Range', utils._make_split_range_string(select_params['SplitRange']))
         elif 'LineRange' in select_params:
             _add_text_child(csv, 'Range', utils._make_line_range_string(select_params['LineRange']))
+        if 'CompressionType' in select_params:
+            _add_text_child(input_ser, 'CompressionType', select_params['CompressionType'])
 
     return _node_to_string(root)
-    
+
 def to_get_select_object_meta(csv_meta_param):
     root = ElementTree.Element('CsvMetaRequest')
     input_ser = ElementTree.SubElement(root, 'InputSerialization')

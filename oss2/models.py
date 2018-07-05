@@ -141,7 +141,7 @@ class SelectObjectResult(HeadObjectResult):
         self.__crc_enabled = crc_enabled
         self.select_resp = SelectResponseAdapter(resp, progress_callback, None)
         self.stream = self.select_resp
-            
+
     def __iter__(self):
         return iter(self.stream)
 
