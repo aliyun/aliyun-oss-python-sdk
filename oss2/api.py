@@ -738,13 +738,21 @@ class Bucket(_Base):
 
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
-        data = xml_utils.to_complete_upload_request(sorted(parts, key=lambda p: p.part_number))
+        parts = sorted(parts, key=lambda p: p.part_number);
+        data = xml_utils.to_complete_upload_request(parts);
+
         resp = self.__do_object('POST', key,
                                 params={'uploadId': upload_id},
                                 data=data,
                                 headers=headers)
 
-        return PutObjectResult(resp)
+        result = PutObjectResult(resp);
+
+        if self.enable_crc:
+            object_crc = utils.calc_obj_crc_from_parts(parts)
+            utils.check_crc('resumable upload', object_crc, result.crc, result.request_id)
+
+        return result
 
     def abort_multipart_upload(self, key, upload_id):
         """取消分片上传。
