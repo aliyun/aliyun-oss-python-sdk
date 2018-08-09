@@ -720,7 +720,7 @@ class Bucket(_Base):
         result = PutObjectResult(resp)
 
         if self.enable_crc and result.crc is not None:
-            utils.check_crc('put', data.crc, result.crc, result.request_id)
+            utils.check_crc('upload part', data.crc, result.crc, result.request_id)
 
         return result
 
