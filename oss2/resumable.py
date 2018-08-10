@@ -379,7 +379,8 @@ class _ResumableDownloader(_ResumableOperation):
 
             self.__record['parts'].append({'part_number': part.part_number,
                                            'start': part.start,
-                                           'end': part.end})
+                                           'end': part.end,
+                                           'part_crc': part.part_crc})
             self._put_record(self.__record)
 
     def __gen_tmp_suffix(self):
