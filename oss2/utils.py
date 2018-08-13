@@ -22,7 +22,6 @@ import errno
 
 import binascii
 import crcmod
-from crc64_combine import mkCombineFun
 import re
 import random
 
@@ -30,6 +29,7 @@ from Crypto.Cipher import AES
 from Crypto import Random
 from Crypto.Util import Counter
 
+from .crc64_combine import mkCombineFun
 from .compat import to_string, to_bytes
 from .exceptions import ClientError, InconsistentError, RequestError, OpenApiFormatError
 

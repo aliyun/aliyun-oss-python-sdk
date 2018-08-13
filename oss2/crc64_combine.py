@@ -1,6 +1,16 @@
 import sys
 
 #-----------------------------------------------------------------------------
+# Some code below reference to crcmod which base on python2 version
+# Replace some functions to compat python3+ version
+#
+is_py3 = (sys.version_info[0] == 3)
+if is_py3:
+    xrange = range
+    long = int
+    sys.maxint = sys.maxsize
+
+#-----------------------------------------------------------------------------
 # Export mkCombineFun to user to support crc64 combine feature.
 #
 # Example:
@@ -24,12 +34,12 @@ import sys
 #    combine_fun(crc64_a.crcValue, crc64_b.crcValue, len(string_b))
 #
 
-def mkCombineFun(poly, initCrc=~0L, rev=True, xorOut=0):
+def mkCombineFun(poly, initCrc=~long(0), rev=True, xorOut=0):
     # mask = (1L<<n) - 1
 
     (sizeBits, initCrc, xorOut) = _verifyParams(poly, initCrc, xorOut)
 
-    mask = (1L<<sizeBits) - 1
+    mask = (long(1)<<sizeBits) - 1
     if rev:
         poly = _bitrev(long(poly) & mask, sizeBits)
     else:
@@ -102,14 +112,14 @@ def _combine64(poly, initCrc, rev, xorOut, crc1, crc2, len2):
 
     while True:
         gf2_matrix_square(even, odd)
-        if len2 & 1L:
+        if len2 & long(1):
             crc1 = gf2_matrix_times(even, crc1)
         len2 >>= 1
         if len2 == 0:
             break
 
         gf2_matrix_square(odd, even)
-        if len2 & 1L:
+        if len2 & long(1):
             crc1 = gf2_matrix_times(odd, crc1)
         len2 >>= 1
 
@@ -132,7 +142,7 @@ def _verifyPoly(poly):
     msg = 'The degree of the polynomial must be 8, 16, 24, 32 or 64'
     poly = long(poly) # Use a common representation for all operations
     for n in (8,16,24,32,64):
-        low = 1L<<n
+        low = long(1)<<n
         high = low*2
         if low <= poly < high:
             return n
@@ -143,11 +153,11 @@ def _verifyPoly(poly):
 
 def _bitrev(x, n):
     x = long(x)
-    y = 0L
+    y = long(0)
     for i in xrange(n):
-        y = (y << 1) | (x & 1L)
+        y = (y << 1) | (x & long(1))
         x = x >> 1
-    if ((1L<<n)-1) <= sys.maxint:
+    if ((long(1)<<n)-1) <= sys.maxint:
         return int(y)
     return y
 
@@ -159,7 +169,7 @@ def _bitrev(x, n):
 def _verifyParams(poly, initCrc, xorOut):
     sizeBits = _verifyPoly(poly)
 
-    mask = (1L<<sizeBits) - 1
+    mask = (long(1)<<sizeBits) - 1
 
     # Adjust the initial CRC to the correct data type (unsigned value).
     initCrc = long(initCrc) & mask
@@ -186,20 +196,20 @@ if __name__ == '__main__':
     combine_fun = mkCombineFun(_POLY, 0, True, _XOROUT)
 
     crc64_a = crcmod.Crc(_POLY, initCrc=0, xorOut=_XOROUT)
-    crc64_a.update(string_a)
+    crc64_a.update(string_a.encode('utf-8'))
     crc1 = crc64_a.crcValue
 
     crc64_b = crcmod.Crc(_POLY, initCrc=0, xorOut=_XOROUT)
-    crc64_b.update(string_b)
+    crc64_b.update(string_b.encode('utf-8'))
     crc2 = crc64_b.crcValue
 
     crc_combine = combine_fun(crc1, crc2, len(string_b))
 
     crc64_c = crcmod.Crc(_POLY, initCrc=0, xorOut=_XOROUT)
-    crc64_c.update(string_a + string_b)
+    crc64_c.update((string_a + string_b).encode('utf-8'))
     crc_raw = crc64_c.crcValue
 
-    print "The", string_a, "crc64 value crc1 =", crc1
-    print "The", string_b, "crc64 value crc2 =", crc2
-    print "Combine crc1 and crc2, the crc64 value, crc_combine =", crc_combine
-    print "The", (string_a + string_b), "crc64 value,  crc_raw =", crc_raw 
+    print('The', string_a, 'crc64 value crc1 =', crc1)
+    print("The", string_b, "crc64 value crc2 =", crc2)
+    print("Combine crc1 and crc2, the crc64 value, crc_combine =", crc_combine)
+    print("The", (string_a + string_b), "crc64 value,  crc_raw =", crc_raw)
