@@ -78,7 +78,7 @@ with open(filename, 'rb') as fileobj:
         num_to_upload = min(part_size, total_size - offset)
         result = bucket.upload_part(key, upload_id, part_number,
                                     oss2.SizedFileAdapter(fileobj, num_to_upload))
-        parts.append(oss2.models.PartInfo(part_number, result.etag))
+        parts.append(oss2.models.PartInfo(part_number, result.etag, size = num_to_upload, part_crc = result.crc))
 
         offset += num_to_upload
         part_number += 1
