@@ -139,7 +139,7 @@ class SelectObjectResult(HeadObjectResult):
     def __init__(self, resp, progress_callback=None, crc_enabled=False):
         super(SelectObjectResult, self).__init__(resp)
         self.__crc_enabled = crc_enabled
-        self.select_resp = SelectResponseAdapter(resp, progress_callback, None)
+        self.select_resp = SelectResponseAdapter(resp, progress_callback, None, enable_crc = self.__crc_enabled)
         self.stream = self.select_resp
 
     def __iter__(self):

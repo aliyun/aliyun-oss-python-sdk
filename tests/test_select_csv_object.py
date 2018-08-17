@@ -36,7 +36,7 @@ class SelectCsvObjectTestHelper(object):
         for chunk in result:
             content += chunk
         
-        testCase.assertEqual(result.status, 206)
+        testCase.assertEqual(result.status, 206, result.request_id)
         testCase.assertGreater(len(content), 0)
 
         if line_range is None:
@@ -226,7 +226,7 @@ class TestSelectCsvObject(OssTestCase):
         helper.test_select_csv_object_invalid_request(self, "select * from ossobject oss join s3object s3 on oss.CityName = s3.CityName")
 
     def test_select_csv_object_with_invalid_data(self):
-        key = "city_sample_data.csv"
+        key = "invalid_city_sample_data.csv"
         self.bucket.put_object_from_file(key, 'tests/invalid_sample_data.csv')
         input_format = {'CsvHeaderInfo' : 'Use'}
         result = self.bucket.select_object(key, "select _1 from ossobject", None, input_format)
@@ -314,6 +314,81 @@ class TestSelectCsvObject(OssTestCase):
                 content += chunk
 
             self.assertTrue(len(content) > 0)
+    
+    def test_select_csv_object_with_output_delimiters(self):
+        key = "test_select_csv_object_with_output_delimiters"
+        content = "abc,def\n"
+        self.bucket.put_object(key, content.encode('utf_8'))
+        select_params = {'OutputRecordDelimiter':'\r\n', 'OutputFieldDelimiter':'|'}
+        result = self.bucket.select_object(key, "select _1, _2 from ossobject", None, select_params)
+        content = b''
+        for chunk in result:
+            content += chunk
+        
+        self.assertEqual(content, 'abc|def\r\n'.encode('utf-8'))
+
+    def test_select_csv_object_with_crc(self):
+        key = "test_select_csv_object_with_crc"
+        content = "abc,def\n"
+        self.bucket.put_object(key, content.encode('utf_8'))
+        select_params = {'EnablePayloadCrc':'true'}
+        result = self.bucket.select_object(key, "select * from ossobject", None, select_params)
+        content = b''
+        for chunk in result:
+            content += chunk
+        
+        self.assertEqual(content, 'abc,def\n'.encode('utf-8'))
+    
+    def test_select_csv_object_with_skip_partial_data(self):
+        key = "test_select_csv_object_with_skip_partial_data"
+        content = "abc,def\nefg\n"
+        self.bucket.put_object(key, content.encode('utf_8'))
+        select_params = {'SkipPartialDataRecord':'true'}
+        result = self.bucket.select_object(key, "select _1, _2 from ossobject", None, select_params)
+        content = b''
+        try:
+            for chunk in result:
+                content += chunk
+        except SelectOperationFailed:
+            print "expected error occurs"
+        
+        self.assertEqual(content, 'abc,def\n'.encode('utf-8'))
+
+    def test_select_csv_object_with_output_raw(self):
+        key = "test_select_csv_object_with_output_raw"
+        content = "abc,def\n"
+        self.bucket.put_object(key, content.encode('utf_8'))
+        select_params = {'OutputRawData':'true'}
+        result = self.bucket.select_object(key, "select _1 from ossobject", None, select_params)
+        content = b''
+        for chunk in result:
+            content += chunk
+        
+        self.assertEqual(content, 'abc\n'.encode('utf-8'))
+    
+    def test_select_csv_object_with_keep_columns(self):
+        key = "test_select_csv_object_with_keep_columns"
+        content = "abc,def\n"
+        self.bucket.put_object(key, content.encode('utf_8'))
+        select_params = {'KeepAllColumns':'true'}
+        result = self.bucket.select_object(key, "select _1 from ossobject", None, select_params)
+        content = b''
+        for chunk in result:
+            content += chunk
+        
+        self.assertEqual(content, 'abc,\n'.encode('utf-8'))
+    
+    def test_select_csv_object_with_output_header(self):
+        key = "test_select_csv_object_with_output_header"
+        content = "name,job\nabc,def\n"
+        self.bucket.put_object(key, content.encode('utf_8'))
+        select_params = {'OutputHeader':'true', 'CsvHeaderInfo':'Use'}
+        result = self.bucket.select_object(key, "select name from ossobject", None, select_params)
+        content = b''
+        for chunk in result:
+            content += chunk
+        
+        self.assertEqual(content, 'name\nabc\n'.encode('utf-8'))
 
 if __name__ == '__main__':
     unittest.main()

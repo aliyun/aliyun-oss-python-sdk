@@ -77,9 +77,9 @@ split可以认为是切分好的大小大致相等的csv行簇。每个Split大�
 
 分页查询
 -------
-和get_csv_object_meta配合使用，有两种方法：
-    - 方法1：先获取文件总的行数(get_csv_object_meta返回)，然后把文件以line_range分成若干部分并行查询
-    - 方法2：先获取文件总的Split数(get_csv_object_meta返回), 然后把文件分成若干个请求，每个请求含有大致相等的Split
+和create_csv_object_meta配合使用，有两种方法：
+    - 方法1：先获取文件总的行数(create_csv_object_meta返回)，然后把文件以line_range分成若干部分并行查询
+    - 方法2：先获取文件总的Split数(create_csv_object_meta返回), 然后把文件分成若干个请求，每个请求含有大致相等的Split
 
 .. _progress_callback:
 
@@ -543,7 +543,11 @@ class Bucket(_Base):
 
         self.timeout = 3600
         resp = self.__do_object('POST', key, data=body, headers=headers, params=params)
-        return SelectObjectResult(resp, progress_callback, False)
+        crc_enabled = False
+        if 'EnablePayloadCrc' in select_params:
+            if select_params['EnablePayloadCrc'] == True:
+                crc_enabled = True
+        return SelectObjectResult(resp, progress_callback, crc_enabled)
 
     def get_object_to_file(self, key, filename,
                            byte_range=None,

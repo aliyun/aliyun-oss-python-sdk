@@ -1,6 +1,7 @@
 import platform
 import struct
 import requests
+import binascii
 
 from .compat import to_bytes
 from .exceptions import RequestError
@@ -38,7 +39,7 @@ class SelectResponseAdapter(object):
     _END_FRAME_TYPE = 8388613
     _FRAMES_FOR_PROGRESS_UPDATE = 10
 
-    def __init__(self, response, progress_callback = None, content_length = None):
+    def __init__(self, response, progress_callback = None, content_length = None, enable_crc = False):
        self.response = response
        self.frame_off_set = 0
        self.frame_length = 0
@@ -52,6 +53,9 @@ class SelectResponseAdapter(object):
        self.callback = progress_callback
        self.frames_since_last_progress_report = 0
        self.content_length = content_length
+       self.enable_crc = enable_crc
+       self.payload = b''
+       self.output_raw_data = response.headers.get("x-oss-select-output-raw", '') == "true"
 
     """
     def read(self, amt=None):
@@ -103,12 +107,18 @@ class SelectResponseAdapter(object):
         return self.next()
     
     def next(self):
+        if self.output_raw_data == True:
+             data = next(self.resp_content_iter) 
+             if len(data) != 0:
+                 return data
+             else: raise StopIteration
+
         while self.finished == 0:
             if self.frame_off_set < self.frame_length:
-                frame_data = self.read_raw(self.frame_length - self.frame_off_set)
+                data = self.frame_data[self.frame_off_set : self.frame_length]
                 #print("Reading FrameData:" + str(len(frame_data)) + " buffer size" + str(self.frame_length - self.frame_off_set))
                 self.frame_length = self.frame_off_set = 0
-                return frame_data
+                return data
             else:
                 self.read_next_frame()
                 self.frames_since_last_progress_report += 1
@@ -148,46 +158,53 @@ class SelectResponseAdapter(object):
         return ret
 
     def read_next_frame(self):
-        if (self.check_sum_flag == 1):
-            self.read_raw(4)
-
         frame_type = bytearray(self.read_raw(4))
         payload_length = bytearray(self.read_raw(4))
+        payload_length.reverse() # convert to little endian
+        payload_length_val = struct.unpack("I", bytearray(payload_length))[0]
         header_checksum = bytearray(self.read_raw(4))
+
         frame_type[0] = 0 #mask the version bit
         frame_type.reverse() # convert to little endian
         frame_type_val = struct.unpack("I", bytearray(frame_type))[0]
-        file_offset_bytes = bytearray(self.read_raw(8))
+        if frame_type_val != SelectResponseAdapter._DATA_FRAME_TYPE and frame_type_val != SelectResponseAdapter._CONTINIOUS_FRAME_TYPE and frame_type_val != SelectResponseAdapter._END_FRAME_TYPE:
+           raise SelectOperationFailed(400, "Unexpected frame type:" + str(frame_type_val)) 
+
+        self.payload = self.read_raw(payload_length_val)
+        file_offset_bytes = bytearray(self.payload[0:8])
         file_offset_bytes.reverse()
         self.file_offset = struct.unpack("Q", bytearray(file_offset_bytes))[0]
         if frame_type_val == SelectResponseAdapter._DATA_FRAME_TYPE:
-            payload_length.reverse() # convert to little endian
-            payload_length_val = struct.unpack("I", bytearray(payload_length))[0]
             self.frame_length = payload_length_val - 8
             self.frame_off_set = 0
             self.check_sum_flag=1
+            self.frame_data = self.payload[8:]
+            checksum = bytearray(self.read_raw(4))  #read checksum crc32
+            checksum.reverse();
+            checksum_val = struct.unpack("I", bytearray(checksum))[0]
+            if self.enable_crc:
+                checksum_calc = binascii.crc32(self.payload) & 0xffffffff
+                if checksum_val != checksum_calc:
+                    raise SelectOperationFailed(400, "Incorrect checksum: Actual" + str(checksum_val) + ". Calculated:" + str(checksum_calc))
+            
             #print("Get Data Frame:" + str(self.frame_length))
         elif frame_type_val == SelectResponseAdapter._CONTINIOUS_FRAME_TYPE:
             self.frame_length = self.frame_off_set = 0
             self.check_sum_flag=1
+            self.read_raw(4)
             #print("GetContiniousFrame:" + str(self.frame_length))
         elif frame_type_val == SelectResponseAdapter._END_FRAME_TYPE:
             self.frame_off_set = 0
-            payload_length.reverse()
-            payload_length_val = struct.unpack("I", bytearray(payload_length))[0]
-            scanned_size_bytes = bytearray(self.read_raw(8))
-            status_bytes = bytearray(self.read_raw(4))
+            scanned_size_bytes = bytearray(self.payload[8:16])
+            status_bytes = bytearray(self.payload[16:20])
             status_bytes.reverse()
             status = struct.unpack("I", bytearray(status_bytes))[0]
             error_msg_size = payload_length_val - 20
             error_msg=b'';
             if error_msg_size > 0:
-                error_msg = self.read_raw(error_msg_size)
-            self.read_raw(4) # read the payload checksum
+                error_msg = self.payload[20:error_msg_size + 12]
             if status >= 400:
                 raise SelectOperationFailed(status, error_msg)
             self.frame_length = 0
             if self.callback is not None:
                 self.callback(self.file_offset, self.content_length)
-        else:
-            raise SelectOperationFailed(400, "Unexpected frame type:" + str(frame_type_val))
