@@ -62,6 +62,15 @@ with open(filename, 'rb') as fileobj:
 
 os.remove(filename)
 
+# 下载部分文件
+result = bucket.get_object(key, byte_range=(32,1024))
+
+#验证一下
+content_got = b''
+for chunk in result:
+    content_got +=chunk
+assert content_got == content[32:1025]
+
 
 # 创建Bucket对象，可以进行客户端数据加密(使用阿里云KMS)，此模式下只提供对象整体上传下载操作
 bucket = oss2.CryptoBucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name,
@@ -94,3 +103,12 @@ with open(filename, 'rb') as fileobj:
     assert fileobj.read() == content
 
 os.remove(filename)
+
+# 下载部分文件
+result = bucket.get_object(key, byte_range=(32,1024))
+
+#验证一下
+content_got = b''
+for chunk in result:
+    content_got +=chunk
+assert content_got == content[32:1025]
