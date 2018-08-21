@@ -49,7 +49,7 @@ def set_file_logger(file_path, name="oss2", level=logging.INFO, format_string=No
 def set_stream_logger(name='oss2', level=logging.DEBUG, format_string=None):
     global logger
     if not format_string:
-        format_string = "%(asctime)s %(name)s [%(levelname)s]:%(message)s"
+        format_string = "%(asctime)s %(name)s [%(levelname)s] %(thread)d : %(message)s"
     logger = logging.getLogger(name)
     logger.setLevel(level)
     fh = logging.StreamHandler()

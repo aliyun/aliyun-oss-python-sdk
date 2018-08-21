@@ -201,8 +201,8 @@ class Service(_Base):
                  session=None,
                  connect_timeout=None,
                  app_name=''):
-        logger.info("Init oss service, auth: {0}, endpoint: {1}, connect_timeout: {2}, app_name: {3}".format(
-            auth, endpoint, connect_timeout, app_name))
+        logger.info("Init oss service, endpoint: {0}, connect_timeout: {1}, app_name: {2}".format(
+            endpoint, connect_timeout, app_name))
         super(Service, self).__init__(auth, endpoint, False, session, connect_timeout,
                                       app_name=app_name)
 
@@ -273,8 +273,8 @@ class Bucket(_Base):
                  connect_timeout=None,
                  app_name='',
                  enable_crc=True):
-        logger.info("Init oss bucket, auth: {0}, endpoint: {1}, isCname: {2}, connect_timeout: {3}, app_name: {4}, "
-                    "enabled_crc: {5}, ".format(auth, endpoint, is_cname, connect_timeout, app_name, enable_crc))
+        logger.info("Init oss bucket, endpoint: {0}, isCname: {1}, connect_timeout: {2}, app_name: {3}, enabled_crc: "
+                    "{4}".format(endpoint, is_cname, connect_timeout, app_name, enable_crc))
         super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout,
                                      app_name, enable_crc)
 
