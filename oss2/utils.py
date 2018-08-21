@@ -595,6 +595,8 @@ _AES_GCM = 'AES/GCM/NoPadding'
 
 
 def is_multiple_sizeof_encrypt_block(byte_range_start):
+    if byte_range_start is None:
+        byte_range_start = 0
     return (byte_range_start % _AES_CTR_COUNTER_LEN == 0)
 
 def calc_aes_ctr_offset_by_range(byte_range_start):

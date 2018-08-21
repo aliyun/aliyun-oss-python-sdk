@@ -84,6 +84,27 @@ class TestObject(OssTestCase):
         self.assertTrue(get_result.server_crc is not None)
         self.assertTrue(get_result.client_crc == get_result.server_crc)
 
+    def test_rsa_crypto_range_get(self):
+        key = self.random_key()
+        content = random_bytes(1024)
+
+        self.rsa_crypto_bucket.put_object(key, content)
+
+        get_result = self.rsa_crypto_bucket.get_object(key, byte_range=(None, None))
+        self.assertEqual(get_result.read(), content[:])
+
+        get_result = self.rsa_crypto_bucket.get_object(key, byte_range=(32, None))
+        self.assertEqual(get_result.read(), content[32:])
+
+        get_result = self.rsa_crypto_bucket.get_object(key, byte_range=(None, 32))
+        self.assertEqual(get_result.read(), content[-32:])
+
+        get_result = self.rsa_crypto_bucket.get_object(key, byte_range=(32, 103))
+        self.assertEqual(get_result.read(), content[32:103+1])
+
+        self.assertRaises(oss2.exceptions.ClientError, self.rsa_crypto_bucket.get_object, key, byte_range=(31, None))
+        self.assertRaises(oss2.exceptions.ClientError, self.rsa_crypto_bucket.get_object, key, byte_range=(None, 31))
+
     def test_kms_crypto_object(self):
         if is_py33:
             return
@@ -115,6 +136,31 @@ class TestObject(OssTestCase):
         self.assertTrue(get_result.client_crc is not None)
         self.assertTrue(get_result.server_crc is not None)
         self.assertTrue(get_result.client_crc == get_result.server_crc)
+
+    def test_kms_crypto_range_get(self):
+        if is_py33:
+            return
+
+        key = self.random_key()
+        content = random_bytes(1024)
+
+        self.kms_crypto_bucket.put_object(key, content, headers={'content-md5': oss2.utils.md5_string(content),
+                                                                        'content-length': str(len(content))})
+
+        get_result = self.kms_crypto_bucket.get_object(key, byte_range=(None, None))
+        self.assertEqual(get_result.read(), content[:])
+
+        get_result = self.kms_crypto_bucket.get_object(key, byte_range=(32, None))
+        self.assertEqual(get_result.read(), content[32:])
+
+        get_result = self.kms_crypto_bucket.get_object(key, byte_range=(None, 32))
+        self.assertEqual(get_result.read(), content[-32:])
+
+        get_result = self.kms_crypto_bucket.get_object(key, byte_range=(32, 103))
+        self.assertEqual(get_result.read(), content[32:103+1])
+
+        self.assertRaises(oss2.exceptions.ClientError, self.rsa_crypto_bucket.get_object, key, byte_range=(31, None))
+        self.assertRaises(oss2.exceptions.ClientError, self.rsa_crypto_bucket.get_object, key, byte_range=(None, 31))
 
     def test_restore_object(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
