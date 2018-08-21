@@ -164,9 +164,12 @@ class TestObject(OssTestCase):
         self.assertEqual(result.headers['content-type'], 'application/javascript')
 
         # 下载到本地文件
-        self.bucket.get_object_to_file(key, filename2)
+        get_result = self.bucket.get_object_to_file(key, filename2)
 
         self.assertTrue(filecmp.cmp(filename, filename2))
+        self.assertTrue(get_result.client_crc is not None)
+        self.assertTrue(get_result.server_crc is not None)
+        self.assertTrue(get_result.client_crc == get_result.server_crc)
 
         # 上传本地文件的一部分到OSS
         key_partial = self.random_key('-partial.txt')
