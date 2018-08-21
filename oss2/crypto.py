@@ -35,11 +35,11 @@ class BaseCryptoProvider(object):
         self.plain_start = None
         self.cipher = cipher
 
-    def make_encrypt_adapter(self, stream, key, start):
-        return utils.make_cipher_adapter(stream, partial(self.cipher.encrypt, self.cipher(key, start)))
+    def make_encrypt_adapter(self, stream, key, count_start, count_offset=0):
+        return utils.make_cipher_adapter(stream, partial(self.cipher.encrypt, self.cipher(key, count_start, count_offset)))
 
-    def make_decrypt_adapter(self, stream, key, start):
-        return utils.make_cipher_adapter(stream, partial(self.cipher.decrypt, self.cipher(key, start)))
+    def make_decrypt_adapter(self, stream, key, count_start, count_offset=0):
+        return utils.make_cipher_adapter(stream, partial(self.cipher.decrypt, self.cipher(key, count_start, count_offset)))
 
 
 _LOCAL_RSA_TMP_DIR = '.oss-local-rsa'

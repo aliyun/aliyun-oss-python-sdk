@@ -588,10 +588,19 @@ def random_counter(begin=1, end=10):
 # aes 256, key always is 32 bytes
 _AES_256_KEY_SIZE = 32
 
-_AES_CTR_COUNTER_BITS_LEN = 8 * 16
+_AES_CTR_COUNTER_LEN = 16
+_AES_CTR_COUNTER_BITS_LEN = 8 * _AES_CTR_COUNTER_LEN
 
 _AES_GCM = 'AES/GCM/NoPadding'
 
+
+def is_multiple_sizeof_encrypt_block(byte_range_start):
+    return (byte_range_start % _AES_CTR_COUNTER_LEN == 0)
+
+def calc_aes_ctr_offset_by_range(byte_range_start):
+    if not is_multiple_sizeof_encrypt_block(byte_range_start):
+        raise ClientError('Invalid get range value for client encryption')
+    return byte_range_start / _AES_CTR_COUNTER_LEN
 
 class AESCipher:
     """AES256 加密实现。
@@ -613,15 +622,16 @@ class AESCipher:
     def get_start():
         return random_counter()
 
-    def __init__(self, key=None, start=None):
+    def __init__(self, key=None, count_start=None, count_offset=0):
         self.key = key
+        self.count_offset = count_offset
         if not self.key:
             self.key = random_aes256_key()
-        if not start:
-            self.start = random_counter()
+        if not count_start:
+            self.count_start = random_counter()
         else:
-            self.start = int(start)
-        ctr = Counter.new(_AES_CTR_COUNTER_BITS_LEN, initial_value=self.start)
+            self.count_start = int(count_start)
+        ctr = Counter.new(_AES_CTR_COUNTER_BITS_LEN, initial_value=(self.count_start + self.count_offset))
         self.__cipher = AES.new(self.key, AES.MODE_CTR, counter=ctr)
 
     def encrypt(self, raw):
