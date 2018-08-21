@@ -2,8 +2,9 @@
 
 import threading
 import sys
+import logging
 
-from .defaults import get_logger
+logger = logging.getLogger(__name__)
 
 try:
     import Queue as queue
@@ -39,7 +40,7 @@ class TaskQueue(object):
                 t.join(1)
 
         if self.__exc_info:
-            get_logger().debug('An exception was thrown by producer or consumer, backtrace: {0}'.format(self.__exc_stack))
+            logger.error('An exception was thrown by producer or consumer, backtrace: {0}'.format(self.__exc_stack))
             raise self.__exc_info[1]
 
     def put(self, data):

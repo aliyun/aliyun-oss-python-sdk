@@ -52,7 +52,7 @@ class RequestResult(object):
         self.headers = resp.headers
 
         #: 请求ID，用于跟踪一个OSS请求。提交工单时，最后能够提供请求ID
-        self.request_id = resp.headers.get('x-oss-request-id', '')
+        self.request_id = resp.request_id
 
 
 class HeadObjectResult(RequestResult):

@@ -11,7 +11,7 @@ XML处理相关。
     - to_开头的函数：用来生成发往服务器端的XML
 
 """
-
+import logging
 import xml.etree.ElementTree as ElementTree
 
 from .models import (SimplifiedObjectInfo,
@@ -34,6 +34,7 @@ from .models import (SimplifiedObjectInfo,
 from .compat import urlunquote, to_unicode, to_string
 from .utils import iso8601_to_unixtime, date_to_iso8601, iso8601_to_date
 
+logger = logging.getLogger(__name__)
 
 def _find_tag(parent, path):
     child = parent.find(path)
@@ -115,6 +116,7 @@ def parse_list_objects(result, body):
     for prefix_node in root.findall('CommonPrefixes'):
         result.prefix_list.append(_find_object(prefix_node, 'Prefix', url_encoded))
 
+    #logger.debug("List objects done, result: {0}".format(result))
     return result
 
 
@@ -135,6 +137,9 @@ def parse_list_buckets(result, body):
             _find_tag(bucket_node, 'Location'),
             iso8601_to_unixtime(_find_tag(bucket_node, 'CreationDate'))
         ))
+
+    #logger.debug("List buckets done, result: {0}".format(result))
+    return result
 
 
 def parse_init_multipart_upload(result, body):
@@ -201,7 +206,12 @@ def parse_get_bucket_acl(result, body):
 
     return result
 
-parse_get_object_acl = parse_get_bucket_acl
+
+def parse_get_object_acl(result, body):
+    root = ElementTree.fromstring(body)
+    result.acl = _find_tag(root, 'AccessControlList/Grant')
+
+    return result
 
 
 def parse_get_bucket_location(result, body):

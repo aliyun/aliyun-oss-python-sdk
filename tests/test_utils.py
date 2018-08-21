@@ -143,17 +143,19 @@ class TestUtils(OssTestCase):
 
     def test_default_logger_basic(self):
         # verify default logger
-        self.assertEqual(oss2.defaults.get_logger(), logging.getLogger())
+        # self.assertEqual(oss2.defaults.get_logger(), logging.getLogger())
 
         # verify custom logger
-        custom_logger = logging.getLogger('oss2')
-        oss2.defaults.logger = custom_logger
+        # custom_logger = logging.getLogger('oss2')
+        # oss2.defaults.logger = custom_logger
 
-        self.assertEqual(oss2.defaults.get_logger(), custom_logger)
+        # self.assertEqual(oss2.defaults.get_logger(), custom_logger)
+        custom_logger = logging.getLogger('oss2')
+        self.assertEqual(oss2.logger, custom_logger)
 
     def test_default_logger_put(self):
         custom_logger = logging.getLogger('oss2')
-        oss2.defaults.logger = custom_logger
+        # oss2.defaults.logger = custom_logger
 
         custom_logger.addHandler(logging.StreamHandler(sys.stdout))
         custom_logger.setLevel(logging.DEBUG)

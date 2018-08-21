@@ -9,6 +9,7 @@ oss2.utils
 
 from email.utils import formatdate
 
+import logging
 import os.path
 import mimetypes
 import socket
@@ -32,6 +33,7 @@ from Crypto.Util import Counter
 from .compat import to_string, to_bytes
 from .exceptions import ClientError, InconsistentError, RequestError, OpenApiFormatError
 
+logger = logging.getLogger(__name__)
 
 _EXTRA_TYPES_MAP = {
     ".js": "application/javascript",
@@ -268,8 +270,11 @@ def make_cipher_adapter(data, cipher_callback):
 
 def check_crc(operation, client_crc, oss_crc, request_id):
     if client_crc is not None and oss_crc is not None and client_crc != oss_crc:
-        raise InconsistentError('the crc of {0} between client and oss is not inconsistent'.format(operation),
-                                request_id)
+        e = InconsistentError("InconsistentError: req_id: {0}, operation: {1}, CRC checksum of client: {2} is mismatch "
+                              "with oss: {3}".format(request_id, operation, client_crc, oss_crc))
+        logger.error("Exception: {0}".format(e))
+        raise e
+
 
 def _invoke_crc_callback(crc_callback, content):
     if crc_callback:
