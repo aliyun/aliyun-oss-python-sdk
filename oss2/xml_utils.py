@@ -116,7 +116,6 @@ def parse_list_objects(result, body):
     for prefix_node in root.findall('CommonPrefixes'):
         result.prefix_list.append(_find_object(prefix_node, 'Prefix', url_encoded))
 
-    #logger.debug("List objects done, result: {0}".format(result))
     return result
 
 
@@ -135,10 +134,12 @@ def parse_list_buckets(result, body):
         result.buckets.append(SimplifiedBucketInfo(
             _find_tag(bucket_node, 'Name'),
             _find_tag(bucket_node, 'Location'),
-            iso8601_to_unixtime(_find_tag(bucket_node, 'CreationDate'))
+            iso8601_to_unixtime(_find_tag(bucket_node, 'CreationDate')),
+            _find_tag(bucket_node, 'ExtranetEndpoint'),
+            _find_tag(bucket_node, 'IntranetEndpoint'),
+            _find_tag(bucket_node, 'StorageClass')
         ))
 
-    #logger.debug("List buckets done, result: {0}".format(result))
     return result
 
 

@@ -244,7 +244,7 @@ class GetObjectAclResult(RequestResult):
 
 class SimplifiedBucketInfo(object):
     """:func:`list_buckets <oss2.Service.list_objects>` 结果中的单个元素类型。"""
-    def __init__(self, name, location, creation_date):
+    def __init__(self, name, location, creation_date, extranet_endpoint, intranet_endpoint, storage_class):
         #: Bucket名
         self.name = name
 
@@ -253,6 +253,15 @@ class SimplifiedBucketInfo(object):
 
         #: Bucket的创建时间，类型为int。参考 :ref:`unix_time`。
         self.creation_date = creation_date
+
+        #: Bucket访问的外网域名
+        self.extranet_endpoint = extranet_endpoint
+
+        #: 同区域ECS访问Bucket的内网域名
+        self.intranet_endpoint = intranet_endpoint
+
+        #: Bucket存储类型，支持“Standard”、“IA”、“Archive”
+        self.storage_class = storage_class
 
 
 class ListBucketsResult(RequestResult):
