@@ -101,16 +101,27 @@ def set_content_type(headers, name):
 
 def is_ip_or_localhost(netloc):
     """判断网络地址是否为IP或localhost。"""
-    loc = netloc.split(':')[0]
+    is_ipv6 = False
+    right_bracket_index = netloc.find(']')
+    if netloc[0] == '[' and right_bracket_index > 0:
+        loc = netloc[1:right_bracket_index]
+        is_ipv6 = True
+    else:
+        loc = netloc.split(':')[0]
+
     if loc == 'localhost':
         return True
 
     try:
-        socket.inet_aton(loc)
+        if is_ipv6:
+            socket.inet_pton(socket.AF_INET6, loc)  # IPv6
+        else:
+            socket.inet_aton(loc) #Only IPv4
     except socket.error:
-        return False
+            return False
 
     return True
+    '''
 
 
 _ALPHA_NUM = 'abcdefghijklmnopqrstuvwxyz0123456789'
