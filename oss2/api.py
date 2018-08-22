@@ -863,8 +863,7 @@ class Bucket(_Base):
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         headers = http.CaseInsensitiveDict(headers)
-        # 这个地方生成key为"x-oss-copy-source"的http header, value的组成部分source_key需要编码
-        headers['x-oss-copy-source'] = '/' + source_bucket_name + '/' + source_key
+        headers['x-oss-copy-source'] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
 
         range_string = _make_range_string(byte_range)
         if range_string:
