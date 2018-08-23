@@ -13,16 +13,14 @@ class requestHeader(dict):
         super(requestHeader, self).__init__(*arg, **kw)
 
     def setServerSideEncryption(self, algorithm=None, cmk_id=None):
+        if OSS_SERVER_SIDE_ENCRYPTION in self:
+            del self[OSS_SERVER_SIDE_ENCRYPTION]
+        if OSS_SERVER_SIDE_ENCRYPTION_KEY_ID in self:
+            del self[OSS_SERVER_SIDE_ENCRYPTION_KEY_ID]
+
         if algorithm is "AES256":
             self[OSS_SERVER_SIDE_ENCRYPTION] = "AES256"
-
         elif algorithm is "KMS":
             self[OSS_SERVER_SIDE_ENCRYPTION] = "KMS"
             if cmk_id is not None:
                 self[OSS_SERVER_SIDE_ENCRYPTION_KEY_ID] = cmk_id
-
-        else:
-            if OSS_SERVER_SIDE_ENCRYPTION in self:
-                del self[OSS_SERVER_SIDE_ENCRYPTION]
-            if OSS_SERVER_SIDE_ENCRYPTION_KEY_ID in self:
-                del self[OSS_SERVER_SIDE_ENCRYPTION_KEY_ID]

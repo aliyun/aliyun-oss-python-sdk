@@ -10,13 +10,13 @@ class TestHeaders(unittest.TestCase):
         myHeader = requestHeader()
         
         myHeader.setServerSideEncryption(algorithm="AES256")
-        self.assertTrue(myHeader[OSS_SERVER_SIDE_ENCRYPTION] is "AES256")
+        self.assertTrue(myHeader["x-oss-server-side-encryption"] is "AES256")
 
         myHeader.setServerSideEncryption(algorithm="KMS", cmk_id="1111")
-        self.assertTrue(myHeader[OSS_SERVER_SIDE_ENCRYPTION] is "KMS")
-        self.assertTrue(myHeader[OSS_SERVER_SIDE_ENCRYPTION_KEY_ID] is "1111")
+        self.assertTrue(myHeader["x-oss-server-side-encryption"] is "KMS")
+        self.assertTrue(myHeader["x-oss-server-side-encryption-key-id"] is "1111")
 
         myHeader.setServerSideEncryption(algorithm="aaa")
-        self.assertTrue(OSS_SERVER_SIDE_ENCRYPTION not in myHeader)
-        self.assertTrue(OSS_SERVER_SIDE_ENCRYPTION_KEY_ID not in myHeader)
+        self.assertTrue("x-oss-server-side-encryption" not in myHeader)
+        self.assertTrue("x-oss-server-side-encryption-key-id" not in myHeader)
 
