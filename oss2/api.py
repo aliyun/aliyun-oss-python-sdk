@@ -124,6 +124,7 @@ from . import defaults
 from .models import *
 from .compat import urlquote, urlparse, to_unicode, to_string
 from .crypto import BaseCryptoProvider
+from .headers import *
 
 import time
 import shutil
@@ -580,7 +581,7 @@ class Bucket(_Base):
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         headers = http.CaseInsensitiveDict(headers)
-        headers['x-oss-copy-source'] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
+        headers[OSS_COPY_OBJECT_SOURCE] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
 
         resp = self.__do_object('PUT', target_key, headers=headers)
 
@@ -644,7 +645,7 @@ class Bucket(_Base):
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
-        resp = self.__do_object('PUT', key, params={'acl': ''}, headers={'x-oss-object-acl': permission})
+        resp = self.__do_object('PUT', key, params={'acl': ''}, headers={OSS_OBJECT_ACL : permission})
         return RequestResult(resp)
 
     def get_object_acl(self, key):
@@ -794,11 +795,11 @@ class Bucket(_Base):
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         headers = http.CaseInsensitiveDict(headers)
-        headers['x-oss-copy-source'] = '/' + source_bucket_name + '/' + source_key
+        headers[OSS_COPY_OBJECT_SOURCE] = '/' + source_bucket_name + '/' + source_key
 
         range_string = _make_range_string(byte_range)
         if range_string:
-            headers['x-oss-copy-source-range'] = range_string
+            headers[OSS_COPY_SOURCE_RANGE] = range_string
 
         resp = self.__do_object('PUT', target_key,
                                 params={'uploadId': target_upload_id,
@@ -833,7 +834,7 @@ class Bucket(_Base):
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
         headers = headers or {}
-        headers['x-oss-symlink-target'] = urlquote(target_key, '')
+        headers[OSS_HEADER_SYMLINK_TARGET] = urlquote(target_key, '')
         resp = self.__do_object('PUT', symlink_key, headers=headers, params={Bucket.SYMLINK: ''})
         return RequestResult(resp)
 
@@ -858,7 +859,7 @@ class Bucket(_Base):
         :param input: :class:`BucketCreateConfig <oss2.models.BucketCreateConfig>` object
         """
         if permission:
-            headers = {'x-oss-acl': permission}
+            headers = {OSS_CANNED_ACL: permission}
         else:
             headers = None
 
@@ -882,7 +883,7 @@ class Bucket(_Base):
         :param str permission: 新的ACL，可以是oss2.BUCKET_ACL_PRIVATE、oss2.BUCKET_ACL_PUBLIC_READ或
             oss2.BUCKET_ACL_PUBLIC_READ_WRITE
         """
-        resp = self.__do_bucket('PUT', headers={'x-oss-acl': permission}, params={Bucket.ACL: ''})
+        resp = self.__do_bucket('PUT', headers={OSS_CANNED_ACL: permission}, params={Bucket.ACL: ''})
         return RequestResult(resp)
 
     def get_bucket_acl(self):
