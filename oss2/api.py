@@ -129,6 +129,7 @@ from .crypto import BaseCryptoProvider
 
 import time
 import shutil
+import base64
 
 logger = logging.getLogger(__name__)
 
@@ -159,6 +160,23 @@ class _Base(object):
             raise e
 
         # Note that connections are only released back to the pool for reuse once all body data has been read; 
+        # be sure to either set stream to False or read the content property of the Response object.
+        # For more details, please refer to http://docs.python-requests.org/en/master/user/advanced/#keep-alive.
+        content_length = models._hget(resp.headers, 'content-length', int)
+        if content_length is not None and content_length == 0:
+            resp.read()
+
+        return resp
+
+    def _do(self, method, sign_url, **kwargs):
+        req = http.Request(method, sign_url, app_name=self.app_name, **kwargs)
+        resp = self.session.do_request(req, timeout=self.timeout)
+        if resp.status // 100 != 2:
+            e = exceptions.make_exception(resp)
+            logger.error("Exception: {0}".format(e))
+            raise e
+
+        # Note that connections are only released back to the pool for reuse once all body data has been read;
         # be sure to either set stream to False or read the content property of the Response object.
         # For more details, please refer to http://docs.python-requests.org/en/master/user/advanced/#keep-alive.
         content_length = models._hget(resp.headers, 'content-length', int)
@@ -266,6 +284,7 @@ class Bucket(_Base):
     SYMLINK = 'symlink'
     STAT = 'stat'
     BUCKET_INFO = 'bucketInfo'
+    PROCESS = 'x-oss-process'
 
     def __init__(self, auth, endpoint, bucket_name,
                  is_cname=False,
@@ -382,7 +401,7 @@ class Bucket(_Base):
         logger.info("Start to put object, bucket: {0}, key: {1}, headers: {2}".format(self.bucket_name, to_string(key),
                                                                                       headers))
         resp = self.__do_object('PUT', key, data=data, headers=headers)
-        logger.info("List objects done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.info("Put object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         result = PutObjectResult(resp)
 
         if self.enable_crc and result.crc is not None:
@@ -410,6 +429,52 @@ class Bucket(_Base):
             self.bucket_name, to_string(key), filename))
         with open(to_unicode(filename), 'rb') as f:
             return self.put_object(key, f, headers=headers, progress_callback=progress_callback)
+
+    def put_object_with_url(self, sign_url, data, headers=None, progress_callback=None):
+
+        """ 使用加签的url上传对象
+
+        :param sign_url: 加签的url
+        :param data: 待上传的数据
+        :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-meta-开头的头部等，必须和签名时保持一致
+        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
+        :return:
+        """
+        headers = http.CaseInsensitiveDict(headers)
+
+        if progress_callback:
+            data = utils.make_progress_adapter(data, progress_callback)
+
+        if self.enable_crc:
+            data = utils.make_crc_adapter(data)
+
+        logger.info("Start to put object with signed url, bucket: {0}, sign_url: {1}, headers: {2}".format(
+            self.bucket_name, sign_url, headers))
+
+        resp = self._do('PUT', sign_url, data=data, headers=headers)
+        logger.info("Put object with url done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        result = PutObjectResult(resp)
+
+        if self.enable_crc and result.crc is not None:
+            utils.check_crc('put object', data.crc, result.crc, result.request_id)
+
+        return result
+
+    def put_object_with_url_from_file(self, sign_url, filename,
+                                      headers=None,
+                                      progress_callback=None):
+        """ 使用加签的url上传本地文件到oss
+
+        :param sign_url: 加签的url
+        :param filename: 本地文件路径
+        :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-meta-开头的头部等，必须和签名时保持一致
+        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
+        :return:
+        """
+        logger.info("Put object from file with signed url, bucket: {0}, sign_url: {1}, file path: {2}".format(
+            self.bucket_name, sign_url, filename))
+        with open(to_unicode(filename), 'rb') as f:
+            return self.put_object_with_url(sign_url, f, headers=headers, progress_callback=progress_callback)
 
     def append_object(self, key, position, data,
                       headers=None,
@@ -496,10 +561,10 @@ class Bucket(_Base):
 
         params = {} if params is None else params
         if process:
-            params.update({'x-oss-process': process})
+            params.update({Bucket.PROCESS: process})
 
         logger.info("Start to get object, bucket: {0}， key: {1}, range: {2}, headers: {3}, params: {4}".format(
-            self.bucket_name, to_string(key), byte_range, headers, params))
+            self.bucket_name, to_string(key), range_string, headers, params))
         resp = self.__do_object('GET', key, headers=headers, params=params)
         logger.info("Get object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
@@ -529,12 +594,73 @@ class Bucket(_Base):
 
         :return: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
-        logger.debug("Start to get object to file, bucket: {0}, key: {1}, file path: {2}".format(
+        logger.info("Start to get object to file, bucket: {0}, key: {1}, file path: {2}".format(
             self.bucket_name, to_string(key), filename))
         with open(to_unicode(filename), 'wb') as f:
             result = self.get_object(key, byte_range=byte_range, headers=headers, progress_callback=progress_callback,
                                      process=process, params=params)
 
+            if result.content_length is None:
+                shutil.copyfileobj(result, f)
+            else:
+                utils.copyfileobj_and_verify(result, f, result.content_length, request_id=result.request_id)
+
+            return result
+
+    def get_object_with_url(self, sign_url,
+                            byte_range=None,
+                            headers=None,
+                            progress_callback=None):
+        """使用加签的url下载文件
+
+        :param sign_url: 加签的url
+        :param byte_range: 指定下载范围。参见 :ref:`byte_range`
+
+        :param headers: HTTP头部
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict，必须和签名时保持一致
+
+        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
+
+        :return: file-like object
+
+        :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
+        """
+        headers = http.CaseInsensitiveDict(headers)
+
+        range_string = _make_range_string(byte_range)
+        if range_string:
+            headers['range'] = range_string
+
+        logger.info("Start to get object with url, bucket: {0}, sign_url: {1}, range: {2}, headers: {3}".format(
+            self.bucket_name, range_string, headers))
+        resp = self._do('GET', sign_url, headers=headers)
+        return GetObjectResult(resp, progress_callback, self.enable_crc)
+
+    def get_object_with_url_to_file(self, sign_url,
+                                    filename,
+                                    byte_range=None,
+                                    headers=None,
+                                    progress_callback=None):
+        """使用加签的url下载文件
+
+        :param sign_url: 加签的url
+        :param filename: 本地文件名。要求父目录已经存在，且有写权限。
+        :param byte_range: 指定下载范围。参见 :ref:`byte_range`
+
+        :param headers: HTTP头部
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict，，必须和签名时保持一致
+
+        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
+
+        :return: file-like object
+
+        :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
+        """
+        logger.info("Start to get object with url, bucket: {0}, sign_url: {1}, file path: {2}, range: {3}, headers: {4}"
+                    .format(self.bucket_name, sign_url, filename, byte_range, headers))
+
+        with open(to_unicode(filename), 'wb') as f:
+            result = self.get_object_with_url(sign_url, byte_range, headers, progress_callback)
             if result.content_length is None:
                 shutil.copyfileobj(result, f)
             else:
@@ -1264,6 +1390,14 @@ class Bucket(_Base):
         resp = self.__do_object('POST', key, params={Bucket.VOD: '', 'startTime': str(start_time),
                                                      'endTime': str(end_time)})
         logger.info("Post vod playlist done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
+
+    def process_object(self, key, process):
+        logger.info("Start to process object, bucket: {0}, key: {1}, process: {2}".format(
+            self.bucket_name, to_string(key), process))
+        process_data = "%s=%s" % (Bucket.PROCESS, process)
+        resp = self.__do_object('POST', key, params={Bucket.PROCESS: ''}, data=process_data)
+        logger.info("Process object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def _get_bucket_config(self, config):

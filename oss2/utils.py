@@ -121,7 +121,6 @@ def is_ip_or_localhost(netloc):
             return False
 
     return True
-    '''
 
 
 _ALPHA_NUM = 'abcdefghijklmnopqrstuvwxyz0123456789'
