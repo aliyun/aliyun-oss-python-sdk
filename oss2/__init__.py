@@ -30,13 +30,14 @@ from .models import BUCKET_STORAGE_CLASS_STANDARD, BUCKET_STORAGE_CLASS_IA, BUCK
 from .crypto import LocalRsaProvider, AliKMSProvider
 import logging
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s [%(levelname)s] %(thread)d : %(message)s')
 logger = logging.getLogger('oss2')
 
 
 def set_file_logger(file_path, name="oss2", level=logging.INFO, format_string=None):
     global logger
     if not format_string:
-        format_string = "%(asctime)s %(name)s [%(levelname)s]:%(message)s"
+        format_string = "%(asctime)s %(name)s [%(levelname)s] %(thread)d : %(message)s"
     logger = logging.getLogger(name)
     logger.setLevel(level)
     fh = logging.FileHandler(file_path)

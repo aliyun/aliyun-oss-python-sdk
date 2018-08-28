@@ -16,10 +16,10 @@ logger = logging.getLogger(__name__)
 
 def make_auth(access_key_id, access_key_secret, auth_version=AUTH_VERSION_1):
     if auth_version == AUTH_VERSION_2:
-        logger.info("Init Auth V1: access_key_id: {0}, access_key_secret: {1}", access_key_id, access_key_secret)
+        logger.info("Init Auth V2: access_key_id: {0}, access_key_secret: ******".format(access_key_id))
         return AuthV2(access_key_id.strip(), access_key_secret.strip())
     else:
-        logger.info("Init Auth v2: access_key_id: {0}, access_key_secret: {1}", access_key_id, access_key_secret)
+        logger.info("Init Auth v1: access_key_id: {0}, access_key_secret: ******".format(access_key_id))
         return Auth(access_key_id.strip(), access_key_secret.strip())
 
 
@@ -186,8 +186,7 @@ class StsAuth(object):
     :param str auth_version: 需要生成auth的版本，默认为AUTH_VERSION_1(v1)
     """
     def __init__(self, access_key_id, access_key_secret, security_token, auth_version=AUTH_VERSION_1):
-        logger.info("Init StsAuth: access_key_id: {0}, access_key_secret: {1}, security_token: {2}", access_key_id,
-                    access_key_secret, security_token)
+        logger.info("Init StsAuth: access_key_id: {0}, access_key_secret: ******, security_token: ******".format(access_key_id))
         self.__auth = make_auth(access_key_id, access_key_secret, auth_version)
         self.__security_token = security_token
 

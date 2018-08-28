@@ -168,7 +168,7 @@ class _Base(object):
 
         return resp
 
-    def _do(self, method, sign_url, **kwargs):
+    def _do_url(self, method, sign_url, **kwargs):
         req = http.Request(method, sign_url, app_name=self.app_name, **kwargs)
         resp = self.session.do_request(req, timeout=self.timeout)
         if resp.status // 100 != 2:
@@ -451,7 +451,7 @@ class Bucket(_Base):
         logger.info("Start to put object with signed url, bucket: {0}, sign_url: {1}, headers: {2}".format(
             self.bucket_name, sign_url, headers))
 
-        resp = self._do('PUT', sign_url, data=data, headers=headers)
+        resp = self._do_url('PUT', sign_url, data=data, headers=headers)
         logger.info("Put object with url done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         result = PutObjectResult(resp)
 
@@ -632,8 +632,8 @@ class Bucket(_Base):
             headers['range'] = range_string
 
         logger.info("Start to get object with url, bucket: {0}, sign_url: {1}, range: {2}, headers: {3}".format(
-            self.bucket_name, range_string, headers))
-        resp = self._do('GET', sign_url, headers=headers)
+            self.bucket_name, sign_url,range_string, headers))
+        resp = self._do_url('GET', sign_url, headers=headers)
         return GetObjectResult(resp, progress_callback, self.enable_crc)
 
     def get_object_with_url_to_file(self, sign_url,
@@ -660,7 +660,7 @@ class Bucket(_Base):
                     .format(self.bucket_name, sign_url, filename, byte_range, headers))
 
         with open(to_unicode(filename), 'wb') as f:
-            result = self.get_object_with_url(sign_url, byte_range, headers, progress_callback)
+            result = self.get_object_with_url(sign_url, byte_range=byte_range, headers=headers, progress_callback=progress_callback)
             if result.content_length is None:
                 shutil.copyfileobj(result, f)
             else:
@@ -1213,7 +1213,7 @@ class Bucket(_Base):
         :param input: :class:`BucketReferer <oss2.models.BucketReferer>` 对象或其他
         """
         data = self.__convert_data(BucketReferer, xml_utils.to_put_bucket_referer, input)
-        logger.info("Start to put bucket referer, bucket: {0}, referer: {1}".format(self.bucket_name, data))
+        logger.info("Start to put bucket referer, bucket: {0}, referer: {1}".format(self.bucket_name, to_string(data)))
         resp = self.__do_bucket('PUT', data=data, params={Bucket.REFERER: ''})
         logger.info("Put bucket referer done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
@@ -1254,7 +1254,7 @@ class Bucket(_Base):
         :param input: :class:`BucketWebsite <oss2.models.BucketWebsite>`
         """
         data = self.__convert_data(BucketWebsite, xml_utils.to_put_bucket_website, input)
-        logger.info("Start to put bucket website, bucket: {0}, website: {1}".format(self.bucket_name, data))
+        logger.info("Start to put bucket website, bucket: {0}, website: {1}".format(self.bucket_name, to_string(data)))
         resp = self.__do_bucket('PUT', data=data, params={Bucket.WEBSITE: ''})
         logger.info("Put bucket website done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
@@ -1290,7 +1290,7 @@ class Bucket(_Base):
         """
         data = self.__convert_data(LiveChannelInfo, xml_utils.to_create_live_channel, input)
         logger.info("Start to create live-channel, bucket: {0}, channel_name: {1}, info: {2}".format(
-            self.bucket_name, to_string(channel_name), data))
+            self.bucket_name, to_string(channel_name), to_string(data)))
         resp = self.__do_object('PUT', channel_name, data=data, params={Bucket.LIVE: ''})
         logger.info("Create live-channel done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_create_live_channel, CreateLiveChannelResult)
