@@ -79,8 +79,13 @@ class HeadObjectResult(RequestResult):
 class GetSelectObjectMetaResult(HeadObjectResult):
     def __init__(self, resp):
         super(GetSelectObjectMetaResult, self).__init__(resp)
-        self.csv_rows = int(self.headers['x-oss-select-csv-rows'])
-        self.csv_splits = int(self.headers['x-oss-select-csv-splits'])
+        self.select_resp = SelectResponseAdapter(resp, None, None, False)
+
+        for data in self.select_resp: # waiting the response body to finish
+            pass
+
+        self.csv_rows = self.select_resp.rows;
+        self.csv_splits = self.select_resp.splits;
 
 class GetObjectMetaResult(RequestResult):
     def __init__(self, resp):

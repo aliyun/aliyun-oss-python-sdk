@@ -37,6 +37,7 @@ class SelectResponseAdapter(object):
     _CONTINIOUS_FRAME_TYPE=8388612
     _DATA_FRAME_TYPE = 8388609
     _END_FRAME_TYPE = 8388613
+    _META_END_FRAME_TYPE = 8388614
     _FRAMES_FOR_PROGRESS_UPDATE = 10
 
     def __init__(self, response, progress_callback = None, content_length = None, enable_crc = False):
@@ -56,6 +57,9 @@ class SelectResponseAdapter(object):
        self.enable_crc = enable_crc
        self.payload = b''
        self.output_raw_data = response.headers.get("x-oss-select-output-raw", '') == "true"
+       self.splits = 0
+       self.rows = 0
+       self.columns = 0
 
     """
     def read(self, amt=None):
@@ -167,7 +171,7 @@ class SelectResponseAdapter(object):
         frame_type[0] = 0 #mask the version bit
         frame_type.reverse() # convert to little endian
         frame_type_val = struct.unpack("I", bytearray(frame_type))[0]
-        if frame_type_val != SelectResponseAdapter._DATA_FRAME_TYPE and frame_type_val != SelectResponseAdapter._CONTINIOUS_FRAME_TYPE and frame_type_val != SelectResponseAdapter._END_FRAME_TYPE:
+        if frame_type_val != SelectResponseAdapter._DATA_FRAME_TYPE and frame_type_val != SelectResponseAdapter._CONTINIOUS_FRAME_TYPE and frame_type_val != SelectResponseAdapter._END_FRAME_TYPE and frame_type_val != SelectResponseAdapter._META_END_FRAME_TYPE:
            raise SelectOperationFailed(400, "Unexpected frame type:" + str(frame_type_val)) 
 
         self.payload = self.read_raw(payload_length_val)
@@ -208,3 +212,23 @@ class SelectResponseAdapter(object):
             self.frame_length = 0
             if self.callback is not None:
                 self.callback(self.file_offset, self.content_length)
+        elif frame_type_val == SelectResponseAdapter._META_END_FRAME_TYPE:
+            self.frame_off_set = 0
+            scanned_size_bytes = bytearray(self.payload[8:16])
+            status_bytes = bytearray(self.payload[16:20])
+            status_bytes.reverse()
+            status = struct.unpack("I", bytearray(status_bytes))[0]
+            splits_bytes = bytearray(self.payload[20:24])
+            splits_bytes.reverse()
+            self.splits = struct.unpack("I", bytearray(splits_bytes))[0]
+            lines_bytes = bytearray(self.payload[24:32])
+            lines_bytes.reverse()
+            self.rows =  struct.unpack("Q", bytearray(lines_bytes))[0]
+            column_bytes = bytearray(self.payload[32:36])
+            column_bytes.reverse()
+            self.columns = struct.unpack("I", bytearray(column_bytes))[0]
+            self.read_raw(4) # read the payload checksum
+            self.final_status = status
+            self.frame_length = 0
+            self.finished = 1
+
