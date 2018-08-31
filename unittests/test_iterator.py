@@ -26,13 +26,19 @@ class TestIterator(OssTestCase):
           <Buckets>
             <Bucket>
               <CreationDate>2015-12-12T00:35:31.000Z</CreationDate>
+              <ExtranetEndpoint>oss-cn-hangzhou.aliyuncs.com</ExtranetEndpoint>
+              <IntranetEndpoint>oss-cn-hangzhou-internal.aliyuncs.com</IntranetEndpoint>
               <Location>oss-cn-hangzhou</Location>
               <Name>bucket-1</Name>
+              <StorageClass>Standard</StorageClass>
             </Bucket>
             <Bucket>
               <CreationDate>2015-12-11T09:01:57.000Z</CreationDate>
+              <ExtranetEndpoint>oss-us-west-1.aliyuncs.com</ExtranetEndpoint>
+              <IntranetEndpoint>oss-us-west-internal-1.aliyuncs.com</IntranetEndpoint>
               <Location>oss-us-west-1</Location>
               <Name>bucket-2</Name>
+              <StorageClass>Standard</StorageClass>
             </Bucket>
           </Buckets>
         </ListAllMyBucketsResult>
@@ -43,8 +49,10 @@ class TestIterator(OssTestCase):
         do_request.auto_spec = True
         do_request.side_effect = make_do4body(req_infos=[req_info], body_list=body_list)
 
-        expected = [SimplifiedBucketInfo('bucket-1', 'oss-cn-hangzhou', 1449880531),
-                    SimplifiedBucketInfo('bucket-2', 'oss-us-west-1', 1449824517)]
+        expected = [SimplifiedBucketInfo('bucket-1', 'oss-cn-hangzhou', 1449880531, 'oss-cn-hangzhou.aliyuncs.com',
+                                         'oss-cn-hangzhou-internal.aliyuncs.com', 'Standard'),
+                    SimplifiedBucketInfo('bucket-2', 'oss-us-west-1', 1449824517, 'oss-us-west-1.aliyuncs.com',
+                                         'oss-us-west-internal-1.aliyuncs.com', 'Standard')]
 
         got = list(oss2.BucketIterator(service()))
 
@@ -70,6 +78,7 @@ class TestIterator(OssTestCase):
               <IntranetEndpoint>oss-cn-beijing-internal.aliyuncs.com</IntranetEndpoint>
               <Location>oss-cn-beijing</Location>
               <Name>ming-bj</Name>
+              <StorageClass>Standard</StorageClass>
             </Bucket>
             <Bucket>
               <CreationDate>2014-09-06T13:20:33.000Z</CreationDate>
@@ -77,6 +86,7 @@ class TestIterator(OssTestCase):
               <IntranetEndpoint>oss-cn-hangzhou-internal.aliyuncs.com</IntranetEndpoint>
               <Location>oss-cn-hangzhou</Location>
               <Name>ming-oss-share</Name>
+              <StorageClass>Standard</StorageClass>
             </Bucket>
           </Buckets>
           <Prefix></Prefix>
@@ -99,6 +109,7 @@ class TestIterator(OssTestCase):
               <IntranetEndpoint>oss-cn-qingdao-internal.aliyuncs.com</IntranetEndpoint>
               <Location>oss-cn-qingdao</Location>
               <Name>ming-qd</Name>
+              <StorageClass>Standard</StorageClass>
             </Bucket>
             <Bucket>
               <CreationDate>2015-06-29T13:43:52.000Z</CreationDate>
@@ -106,6 +117,7 @@ class TestIterator(OssTestCase):
               <IntranetEndpoint>oss-cn-hangzhou-internal.aliyuncs.com</IntranetEndpoint>
               <Location>oss-cn-hangzhou</Location>
               <Name>ming-spike</Name>
+              <StorageClass>Standard</StorageClass>
             </Bucket>
           </Buckets>
           <Prefix></Prefix>
@@ -128,15 +140,21 @@ class TestIterator(OssTestCase):
               <IntranetEndpoint>oss-cn-hangzhou-internal.aliyuncs.com</IntranetEndpoint>
               <Location>oss-cn-hangzhou</Location>
               <Name>zzy-share</Name>
+              <StorageClass>Standard</StorageClass>
             </Bucket>
           </Buckets>
         </ListAllMyBucketsResult>''']
 
-        expected = [SimplifiedBucketInfo('ming-bj', 'oss-cn-beijing', 1450854535),
-                    SimplifiedBucketInfo('ming-oss-share', 'oss-cn-hangzhou', 1410009633),
-                    SimplifiedBucketInfo('ming-qd', 'oss-cn-qingdao', 1451017363),
-                    SimplifiedBucketInfo('ming-spike', 'oss-cn-hangzhou', 1435585432),
-                    SimplifiedBucketInfo('zzy-share', 'oss-cn-hangzhou',1450187570)]
+        expected = [SimplifiedBucketInfo('ming-bj', 'oss-cn-beijing', 1450854535, 'oss-cn-beijing.aliyuncs.com',
+                                         'oss-cn-beijing-internal.aliyuncs.com', 'Standard'),
+                    SimplifiedBucketInfo('ming-oss-share', 'oss-cn-hangzhou', 1410009633, 'oss-cn-hangzhou.aliyuncs.com'
+                                         , 'oss-cn-hangzhou-internal.aliyuncs.com', 'Standard'),
+                    SimplifiedBucketInfo('ming-qd', 'oss-cn-qingdao', 1451017363, 'oss-cn-qingdao.aliyuncs.com',
+                                         'oss-cn-qingdao-internal.aliyuncs.com', 'Standard'),
+                    SimplifiedBucketInfo('ming-spike', 'oss-cn-hangzhou', 1435585432, 'oss-cn-hangzhou.aliyuncs.com'
+                                         , 'oss-cn-hangzhou-internal.aliyuncs.com', 'Standard'),
+                    SimplifiedBucketInfo('zzy-share', 'oss-cn-hangzhou',1450187570, 'oss-cn-hangzhou.aliyuncs.com'
+                                         , 'oss-cn-hangzhou-internal.aliyuncs.com', 'Standard')]
 
         nreq = 3
 

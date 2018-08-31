@@ -230,6 +230,11 @@ class AccessDenied(ServerError):
     code = 'AccessDenied'
 
 
+class SignatureDoesNotMatch(ServerError):
+    status = 403
+    code = 'SignatureDoesNotMatch'
+
+
 def make_exception(resp):
     status = resp.status
     headers = resp.headers
