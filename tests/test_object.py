@@ -452,6 +452,80 @@ class TestObject(OssTestCase):
         self.assertEqual(e.status, 403)
         self.assertEqual(e.code, 'SignatureDoesNotMatch')
 
+    def test_put_object_with_sign_url(self):
+        key = self.random_key(".jpg")
+        with open("tests/example.jpg", 'rb') as fr:
+            data = fr.read()
+
+        url = self.bucket.sign_url('PUT', key, 3600)
+        result = self.bucket.put_object_with_url(url, data)
+        self.assertEqual(result.status, 200)
+        result = self.bucket.head_object(key)
+        self.assertEqual(result.content_type, "application/octet-stream")
+
+        headers = {('Content-Type', "image/jpeg")}
+        self.assertRaises(oss2.exceptions.SignatureDoesNotMatch, self.bucket.put_object_with_url, url, data, headers=headers)
+
+        url = self.bucket.sign_url('PUT', key, 3600, headers=headers)
+        self.assertRaises(oss2.exceptions.SignatureDoesNotMatch, self.bucket.put_object_with_url, url, data)
+        result = self.bucket.put_object_with_url(url, data, headers)
+        self.assertEqual(result.status, 200)
+        result = self.bucket.head_object(key)
+        self.assertEqual(result.content_type, "image/jpeg")
+
+    def test_get_object_with_sign_url(self):
+        key = self.random_key('.txt')
+        content = random_bytes(100)
+
+        result = self.bucket.put_object(key, content)
+        self.assertEqual(result.status, 200)
+
+        # normal get with signed url
+        url = self.bucket.sign_url("GET", key, 3600)
+        result = self.bucket.get_object_with_url(url)
+        self.assertEqual(result.status, 200)
+
+        # signed without range, and get with range
+        result = self.bucket.get_object_with_url(url, byte_range=(50, 99))
+        self.assertEqual(result.status, 206)
+        range_content = result.read()
+        self.assertEqual(content[50:], range_content)
+
+        # signed with range, and get without range
+        headers = {('Range', 'bytes=50-99')}
+        url = self.bucket.sign_url("GET", key, 3600, headers=headers)
+        result = self.bucket.get_object_with_url(url)
+        self.assertEqual(result.status, 200)
+        range_content = result.read()
+        self.assertEqual(content, range_content)
+
+    def test_put_object_from_file_with_sign_url(self):
+        key = self.random_key()
+        file_name = self.random_filename()
+        content = random_bytes(100)
+
+        with open(file_name, 'wb') as fw:
+            fw.write(content)
+
+        headers = {('Content-Type', "text/plain")}
+        url = self.bucket.sign_url('PUT', key, 3600, headers)
+        result = self.bucket.put_object_with_url_from_file(url, file_name, headers=headers)
+        self.assertEqual(result.status, 200)
+        result = self.bucket.head_object(key)
+        self.assertEqual(result.content_type, "text/plain")
+
+    def test_get_object_to_file_with_sign_url(self):
+        key = self.random_key('txt')
+        file_name = self.random_filename()
+        content = random_bytes(100)
+
+        result = self.bucket.put_object(key, content)
+        self.assertEqual(result.status, 200)
+
+        url = self.bucket.sign_url("GET", key, 3600)
+        result = self.bucket.get_object_with_url_to_file(url, file_name)
+        self.assertEqual(result.status, 200)
+
     def test_modified_since(self):
         key = self.random_key()
         content = random_bytes(16)
@@ -739,7 +813,7 @@ class TestObject(OssTestCase):
             self.bucket.append_object(key, 0, content, init_crc=1)
         except oss2.exceptions.InconsistentError as e:
             self.assertEqual(e.status, -3)
-            self.assertTrue(e.body.startswith('InconsistentError: the crc of'))
+            self.assertTrue(e.body.startswith('InconsistentError'))
         else:
             self.assertTrue(False)
 

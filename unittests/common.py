@@ -309,6 +309,7 @@ class MockResponse(object):
         self.status = status
         self.headers = oss2.CaseInsensitiveDict(headers)
         self.body = oss2.to_bytes(body)
+        self.request_id = headers.get('x-oss-request-id', '')
 
         self.offset = 0
 
@@ -396,6 +397,7 @@ class MockResponse2(object):
 
         self.status = int(response_line_fields[1])
         self.headers = head_fields_to_headers(head_fields[1:])
+        self.request_id = self.headers.get('x-oss-request-id', '')
 
         if len(fields) == 2:
             self.body = oss2.to_bytes(fields[1])

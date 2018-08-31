@@ -6,18 +6,20 @@ import time
 
 from . import utils
 from .compat import urlquote, to_bytes
-
-from .defaults import get_logger
 import logging
 
 AUTH_VERSION_1 = 'v1'
 AUTH_VERSION_2 = 'v2'
 
+logger = logging.getLogger(__name__)
+
 
 def make_auth(access_key_id, access_key_secret, auth_version=AUTH_VERSION_1):
     if auth_version == AUTH_VERSION_2:
+        logger.info("Init Auth V2: access_key_id: {0}, access_key_secret: ******".format(access_key_id))
         return AuthV2(access_key_id.strip(), access_key_secret.strip())
     else:
+        logger.info("Init Auth v1: access_key_id: {0}, access_key_secret: ******".format(access_key_id))
         return Auth(access_key_id.strip(), access_key_secret.strip())
 
 
@@ -46,7 +48,8 @@ class AuthBase(object):
 
         p = params if params else {}
         string_to_sign = str(expiration_time) + "\n" + canon_params_str + canonicalized_resource
-        get_logger().debug('string_to_sign={0}'.format(string_to_sign))
+        logger.info('Sign Rtmp url: string to be signed = {0}'.format(string_to_sign))
+
 
         h = hmac.new(to_bytes(self.secret), to_bytes(string_to_sign), hashlib.sha1)
         signature = utils.b64encode_as_string(h.digest())
@@ -92,7 +95,7 @@ class Auth(AuthBase):
     def __make_signature(self, req, bucket_name, key):
         string_to_sign = self.__get_string_to_sign(req, bucket_name, key)
 
-        get_logger().debug('string_to_sign={0}'.format(string_to_sign))
+        logger.info('Make signature: string to be signed = {0}'.format(string_to_sign))
 
         h = hmac.new(to_bytes(self.secret), to_bytes(string_to_sign), hashlib.sha1)
         return utils.b64encode_as_string(h.digest())
@@ -183,6 +186,7 @@ class StsAuth(object):
     :param str auth_version: 需要生成auth的版本，默认为AUTH_VERSION_1(v1)
     """
     def __init__(self, access_key_id, access_key_secret, security_token, auth_version=AUTH_VERSION_1):
+        logger.info("Init StsAuth: access_key_id: {0}, access_key_secret: ******, security_token: ******".format(access_key_id))
         self.__auth = make_auth(access_key_id, access_key_secret, auth_version)
         self.__security_token = security_token
 
@@ -295,7 +299,7 @@ class AuthV2(AuthBase):
     def __make_signature(self, req, bucket_name, key, additional_headers):
         string_to_sign = self.__get_string_to_sign(req, bucket_name, key, additional_headers)
 
-        logging.info('string_to_sign={0}'.format(string_to_sign))
+        logger.info('Make signature: string to be signed = {0}'.format(string_to_sign))
 
         h = hmac.new(to_bytes(self.secret), to_bytes(string_to_sign), hashlib.sha256)
         return utils.b64encode_as_string(h.digest())
