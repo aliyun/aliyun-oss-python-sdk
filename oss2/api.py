@@ -1393,6 +1393,12 @@ class Bucket(_Base):
         return RequestResult(resp)
 
     def process_object(self, key, process):
+        """处理图片的接口，支持包括调整大小，旋转，裁剪，水印，格式转换等，支持多种方式组合处理。
+
+        :param str key: 处理的图片的对象名称
+        :param str process: 处理的字符串，例如"image/resize,w_100|sys/saveas,o_dGVzdC5qcGc,b_dGVzdA"
+        """
+
         logger.info("Start to process object, bucket: {0}, key: {1}, process: {2}".format(
             self.bucket_name, to_string(key), process))
         process_data = "%s=%s" % (Bucket.PROCESS, process)
