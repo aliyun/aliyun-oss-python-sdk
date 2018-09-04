@@ -1,12 +1,11 @@
 import platform
 import struct
 import requests
-import utils
 
 from .compat import to_bytes
 from .exceptions import RequestError
 from .exceptions import SelectOperationFailed
-
+from . import utils
 
 """
 The adapter class for Select object's response.
