@@ -144,8 +144,8 @@ def callback(offset, length):
     print(offset)
     print(length)
 
-class TestHelper(object):
-    def test_create_csv_meta(self, tester, do_request, head_params = None):
+class SelectCaseHelper(object):
+    def create_csv_meta(self, tester, do_request, head_params = None):
         scanned_size = 10000
         splits = 100
         rows = 1000
@@ -164,7 +164,7 @@ class TestHelper(object):
         tester.assertEqual(result.csv_splits, splits)
         tester.assertEqual(result.request_id, '566B6BE93A7B8CFD53D4BAA3')
     
-    def test_select_csv(self, tester, do_request, callback = None, select_params = None):
+    def select_csv(self, tester, do_request, callback = None, select_params = None):
         sql = "select * from ossobject limit 10"
         resp_content = b'a,b,c,d,e,f,,n,g,l,o,p'
         output_raw = False
@@ -187,14 +187,14 @@ class TestSelectObject(OssTestCase):
     @patch('oss2.Session.do_request')
     def test_create_csv_meta_with_none_params(self, do_request):
         head_params = None
-        helper = TestHelper()
-        helper.test_create_csv_meta(self, do_request, head_params)
+        helper = SelectCaseHelper()
+        helper.create_csv_meta(self, do_request, head_params)
     
     @patch('oss2.Session.do_request')
     def test_create_csv_meta_with_params(self, do_request):
         head_params = {'RecordDelimiter':'\n', 'FieldDelimiter':',', 'QuoteCharacter':'"', 'CompressionType':'None', 'OverwriteIfExists':'True'}
-        helper = TestHelper()
-        helper.test_create_csv_meta(self, do_request, head_params)
+        helper = SelectCaseHelper()
+        helper.create_csv_meta(self, do_request, head_params)
 
     @patch('oss2.Session.do_request')
     def test_select_csv(self, do_request):
@@ -236,22 +236,22 @@ class TestSelectObject(OssTestCase):
 
     @patch('oss2.Session.do_request')
     def test_select_csv_read(self, do_request):
-        helper = TestHelper()
-        helper.test_select_csv(self, do_request)
+        helper = SelectCaseHelper()
+        helper.select_csv(self, do_request)
     
     @patch('oss2.Session.do_request')
     def test_select_csv_read_with_params(self, do_request):
         select_params = {'CsvHeaderInfo':'Use', 'CommentCharacter':'#', 'RecordDelimiter':'\n', 'OutputRecordDelimiter':'\n',
                          'FieldDelimiter':',', 'OutputFieldDelimiter':',', 'QuoteCharacter':'"', 'SplitRange':[0,10], 'CompressionType':'GZIP',
                          'KeepAllColumns':True, 'OutputRawData':False, 'EnablePayloadCrc':True, 'OutputHeader':False, 'SkipPartialDataRecord':False}
-        helper = TestHelper()
-        helper.test_select_csv(self, do_request, None, select_params)
+        helper = SelectCaseHelper()
+        helper.select_csv(self, do_request, None, select_params)
 
     @patch('oss2.Session.do_request')
     def test_select_csv_read_output_raw(self, do_request):
         select_params = {'OutputRawData':True}
-        helper = TestHelper()
-        helper.test_select_csv(self, do_request, None, select_params)
+        helper = SelectCaseHelper()
+        helper.select_csv(self, do_request, None, select_params)
 
     @patch('oss2.Session.do_request')
     def test_select_csv_with_bad_response(self, do_request):
@@ -288,8 +288,8 @@ class TestSelectObject(OssTestCase):
 
     @patch('oss2.Session.do_request')
     def test_select_csv_with_callback(self, do_request):
-        helper = TestHelper()
-        helper.test_select_csv(self, do_request, callback)
+        helper = SelectCaseHelper()
+        helper.select_csv(self, do_request, callback)
     
     @patch('oss2.Session.do_request')
     def test_select_csv_with_error(self, do_request):
