@@ -544,7 +544,7 @@ class Bucket(_Base):
         self.timeout = 3600
         resp = self.__do_object('POST', key, data=body, headers=headers, params=params)
         crc_enabled = False
-        if 'EnablePayloadCrc' in select_params:
+        if select_params is not None and 'EnablePayloadCrc' in select_params:
             if select_params['EnablePayloadCrc'] == True:
                 crc_enabled = True
         return SelectObjectResult(resp, progress_callback, crc_enabled)

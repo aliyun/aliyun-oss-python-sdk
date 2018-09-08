@@ -617,7 +617,7 @@ def to_select_object(sql, select_params):
         if 'CompressionType' in select_params:
             _add_text_child(input_ser, 'CompressionType', select_params['CompressionType'])
         if 'KeepAllColumns' in select_params:
-            _add_text_child(output_ser, 'KeepAllColumns', select_params['KeepAllColumns'])
+            _add_text_child(output_ser, 'KeepAllColumns', str(select_params['KeepAllColumns']))
         if 'OutputRawData' in select_params:
             _add_text_child(output_ser, 'OutputRawData', str(select_params['OutputRawData']))
         if 'EnablePayloadCrc' in select_params:

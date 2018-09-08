@@ -5,6 +5,8 @@ import requests
 from .compat import to_bytes
 from .exceptions import RequestError
 from .exceptions import SelectOperationFailed
+from .exceptions import SelectOperationClientError
+from .exceptions import InconsistentError
 from . import utils
 
 """
@@ -49,7 +51,7 @@ class SelectResponseAdapter(object):
        self.finished = 0
        self.raw_buffer = b''
        self.raw_buffer_offset = 0
-       self.resp_content_iter = response.__iter__()
+       #self.resp_content_iter = response.__iter__()
        self.callback = progress_callback
        self.frames_since_last_progress_report = 0
        self.content_length = content_length
@@ -61,48 +63,15 @@ class SelectResponseAdapter(object):
        self.rows = 0
        self.columns = 0
 
-    """
-    def read(self, amt=None):
+    def read(self):
         if self.finished:
             return b''
-
-        content_list = []
-        while(1):
-            if amt is None:
-                if self.frame_off_set < self.frame_length:
-                    frame_data = self.read_raw(self.frame_length - self.frame_off_set)
-                    content_list.append(frame_data)
-                    self.frame_length = 0
-                    self.frame_off_set = 0
-                elif self.finished == 0 :
-                    self.read_next_frame()
-                    self.frames_since_last_progress_report += 1
-                else:
-                    break
-            else:
-                if self.frame_off_set < self.frame_length:
-                    if amt < self.frame_length - self.frame_off_set:
-                        frame_data = self.read_raw(amt)
-                        content_list.append(frame_data)
-                        self.frame_off_set += amt
-                    else:
-                        frame_data = self.read_raw(self.frame_length - self.frame_off_set)
-                        content_list.append(frame_data)
-                        amt -= len(frame_data)
-                        self.frame_off_set += len(frame_data)
-                        break
-                elif self.finished == 0 :
-                    self.read_next_frame()
-                    self.frames_since_last_progress_report += 1
-                else:
-                    break
-
-            if (self.frames_since_last_progress_report >= SelectResponseAdapter._FRAMES_FOR_PROGRESS_UPDATE and self.callback):
-                self.callback(self.file_offset, self.content_length)
-                self.frames_since_last_progress_report = 0
-
-        return b''.join(content_list)
-    """
+        
+        content=b''
+        for data in self:
+            content += data
+        
+        return content
     
     def __iter__(self):
         return self
@@ -112,7 +81,7 @@ class SelectResponseAdapter(object):
     
     def next(self):
         if self.output_raw_data == True:
-             data = next(self.resp_content_iter) 
+             data = next(self.response) 
              if len(data) != 0:
                  return data
              else: raise StopIteration
@@ -137,7 +106,7 @@ class SelectResponseAdapter(object):
         while amt > 0 and self.finished == 0:
             size = len(self.raw_buffer)
             if size == 0:
-                self.raw_buffer = next(self.resp_content_iter)
+                self.raw_buffer = next(self.response)
                 self.raw_buffer_offset = 0
                 size = len(self.raw_buffer)
                 if size == 0:
@@ -211,6 +180,9 @@ class SelectResponseAdapter(object):
             self.frame_length = 0
             if self.callback is not None:
                 self.callback(self.file_offset, self.content_length)
+            self.read_raw(4) # read the payload checksum
+            self.frame_length = 0
+            self.finished = 1
         elif frame_type_val == SelectResponseAdapter._META_END_FRAME_TYPE:
             self.frame_off_set = 0
             scanned_size_bytes = bytearray(self.payload[8:16])

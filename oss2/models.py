@@ -128,7 +128,7 @@ class GetObjectResult(HeadObjectResult):
 
     def __iter__(self):
         return iter(self.stream)
-    
+
     @property
     def client_crc(self):
         if self.__crc_enabled:
@@ -145,10 +145,15 @@ class SelectObjectResult(HeadObjectResult):
         super(SelectObjectResult, self).__init__(resp)
         self.__crc_enabled = crc_enabled
         self.select_resp = SelectResponseAdapter(resp, progress_callback, None, enable_crc = self.__crc_enabled)
-        self.stream = self.select_resp
 
+    def read(self):
+        return self.select_resp.read()
+        
     def __iter__(self):
-        return iter(self.stream)
+        return iter(self.select_resp)
+    
+    def __next__(self):
+        return self.select_resp.next()
 
 class PutObjectResult(RequestResult):
     def __init__(self, resp):
