@@ -178,7 +178,7 @@ for chunk in result:
 assert result.client_crc == result.server_crc
 
 
-# 下载文件到本地,自动开启CRC校验
+# 下载文件到本地,默认开启CRC校验
 local_file = 'download.txt'
 result = bucket.get_object_to_file(key, local_file)
 os.remove(local_file)

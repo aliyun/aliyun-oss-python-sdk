@@ -69,18 +69,18 @@ key = 'remote-multipart2.txt'
 upload_id = bucket.init_multipart_upload(key).upload_id
 
 # 逐个上传分片
-# 其中oss2.SizedFileAdapter()把fileobj转换为一个新的文件对象，新的文件对象可读的长度等于num_to_upload
+# 其中oss2.SizedFileAdapter()把fileobj转换为一个新的文件对象，新的文件对象可读的长度等于size_to_upload
 with open(filename, 'rb') as fileobj:
     parts = []
     part_number = 1
     offset = 0
     while offset < total_size:
-        num_to_upload = min(part_size, total_size - offset)
+        size_to_upload = min(part_size, total_size - offset)
         result = bucket.upload_part(key, upload_id, part_number,
-                                    oss2.SizedFileAdapter(fileobj, num_to_upload))
-        parts.append(oss2.models.PartInfo(part_number, result.etag, size = num_to_upload, part_crc = result.crc))
+                                    oss2.SizedFileAdapter(fileobj, size_to_upload))
+        parts.append(oss2.models.PartInfo(part_number, result.etag, size = size_to_upload, part_crc = result.crc))
 
-        offset += num_to_upload
+        offset += size_to_upload
         part_number += 1
 
     # 完成分片上传

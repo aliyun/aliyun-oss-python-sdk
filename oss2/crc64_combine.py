@@ -183,33 +183,33 @@ def _verifyParams(poly, initCrc, xorOut):
 
     return (sizeBits, initCrc, xorOut)
 
-if __name__ == '__main__':
-
-    import crcmod
-
-    _POLY = 0x142F0E1EBA9EA3693
-    _XOROUT = 0XFFFFFFFFFFFFFFFF
-
-    string_a = '12345'
-    string_b = '67890'
-
-    combine_fun = mkCombineFun(_POLY, 0, True, _XOROUT)
-
-    crc64_a = crcmod.Crc(_POLY, initCrc=0, xorOut=_XOROUT)
-    crc64_a.update(string_a.encode('utf-8'))
-    crc1 = crc64_a.crcValue
-
-    crc64_b = crcmod.Crc(_POLY, initCrc=0, xorOut=_XOROUT)
-    crc64_b.update(string_b.encode('utf-8'))
-    crc2 = crc64_b.crcValue
-
-    crc_combine = combine_fun(crc1, crc2, len(string_b))
-
-    crc64_c = crcmod.Crc(_POLY, initCrc=0, xorOut=_XOROUT)
-    crc64_c.update((string_a + string_b).encode('utf-8'))
-    crc_raw = crc64_c.crcValue
-
-    print('The', string_a, 'crc64 value crc1 =', crc1)
-    print("The", string_b, "crc64 value crc2 =", crc2)
-    print("Combine crc1 and crc2, the crc64 value, crc_combine =", crc_combine)
-    print("The", (string_a + string_b), "crc64 value,  crc_raw =", crc_raw)
+#if __name__ == '__main__':
+#
+#    import crcmod
+#
+#    _POLY = 0x142F0E1EBA9EA3693
+#    _XOROUT = 0XFFFFFFFFFFFFFFFF
+#
+#    string_a = '12345'
+#    string_b = '67890'
+#
+#    combine_fun = mkCombineFun(_POLY, 0, True, _XOROUT)
+#
+#    crc64_a = crcmod.Crc(_POLY, initCrc=0, xorOut=_XOROUT)
+#    crc64_a.update(string_a.encode('utf-8'))
+#    crc1 = crc64_a.crcValue
+#
+#    crc64_b = crcmod.Crc(_POLY, initCrc=0, xorOut=_XOROUT)
+#    crc64_b.update(string_b.encode('utf-8'))
+#    crc2 = crc64_b.crcValue
+#
+#    crc_combine = combine_fun(crc1, crc2, len(string_b))
+#
+#    crc64_c = crcmod.Crc(_POLY, initCrc=0, xorOut=_XOROUT)
+#    crc64_c.update((string_a + string_b).encode('utf-8'))
+#    crc_raw = crc64_c.crcValue
+#
+#    print('The', string_a, 'crc64 value crc1 =', crc1)
+#    print("The", string_b, "crc64 value crc2 =", crc2)
+#    print("Combine crc1 and crc2, the crc64 value, crc_combine =", crc_combine)
+#    print("The", (string_a + string_b), "crc64 value,  crc_raw =", crc_raw)
