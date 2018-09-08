@@ -744,7 +744,7 @@ class Bucket(_Base):
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         headers = http.CaseInsensitiveDict(headers)
-        headers[OSS_COPY_OBJECT_SOURCE] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
+        headers[COPY_OBJECT_SOURCE] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
 
         logger.info("Start to copy object, source bucket: {0}, source key: {1}, bucket: {2}, key: {3}, headers: {4}".format(
             source_bucket_name, to_string(source_key), self.bucket_name, to_string(target_key), headers))
@@ -990,11 +990,11 @@ class Bucket(_Base):
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         headers = http.CaseInsensitiveDict(headers)
-        headers[OSS_COPY_OBJECT_SOURCE] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
+        headers[COPY_OBJECT_SOURCE] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
 
         range_string = _make_range_string(byte_range)
         if range_string:
-            headers[OSS_COPY_SOURCE_RANGE] = range_string
+            headers[COPY_SOURCE_RANGE] = range_string
 
         logger.info("Start to upload part copy, source bucket: {0}, source key: {1}, bucket: {2}, key: {3}, range"
                     ": {4}, upload id: {5}, part_number: {6}, headers: {7}".format(source_bucket_name, to_string(source_key),

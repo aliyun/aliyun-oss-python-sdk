@@ -12,8 +12,8 @@ OSS_CANNED_ACL = "x-oss-acl";
 OSS_OBJECT_IF_UNMODIFIED_SINCE = "If-Unmodified-Since";
 OSS_OBJECT_IF_MATCH = "If-Match";
 
-OSS_COPY_OBJECT_SOURCE = "x-oss-copy-source";
-OSS_COPY_SOURCE_RANGE = "x-oss-copy-source-range";
+COPY_OBJECT_SOURCE = "x-oss-copy-source";
+COPY_SOURCE_RANGE = "x-oss-copy-source-range";
 
 OSS_HEADER_REQUEST_ID = "x-oss-request-id";
 
