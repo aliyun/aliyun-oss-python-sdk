@@ -9,8 +9,8 @@ class TestCrc64Combine(unittest.TestCase):
         _POLY = 0x142F0E1EBA9EA3693
         _XOROUT = 0XFFFFFFFFFFFFFFFF
 
-        string_a = '12345'
-        string_b = '67890'
+        string_a = oss2.to_bytes('12345')
+        string_b = oss2.to_bytes('67890')
 
         combine_fun = oss2.crc64_combine.mkCombineFun(_POLY, 0, True, _XOROUT)
 
