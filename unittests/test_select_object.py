@@ -2,6 +2,7 @@
 
 import os
 import oss2
+import sys
 import struct
 
 from functools import partial
@@ -33,7 +34,7 @@ class ContiniousFrame(object):
     def header_str(self):
          return struct.pack('!III', self.frame_type, self.payload_length, ContiniousFrame._HEAD_CHECK_SUM)
 
-    def __str__(self):
+    def to_bytes(self):
          header = self.header_str()
          crc32 = utils.Crc32()
          crc32.update(self.payload)
@@ -69,18 +70,18 @@ def generate_data(resp_content, output_raw, error = b'', status = 206, simulate_
     else:
         continiousFrame = ContiniousFrame(100)
         dataFrame = DataFrame(len(resp_content), resp_content)
-        frameStr = str(dataFrame)
+        frameStr = dataFrame.to_bytes()
         if (simulate_bad_crc):
-            frameStr = frameStr[0:len(frameStr)-2] + 'X'  # 'X' is the character that does not exist in the content
+            frameStr = frameStr[0:len(frameStr)-2] + b'X'  # 'X' is the character that does not exist in the content
 
         endFrame = EndFrame(len(resp_content), len(resp_content), status, error)
 
-        return str(continiousFrame) + frameStr + str(endFrame)
+        return continiousFrame.to_bytes() + frameStr + endFrame.to_bytes()
 
 def generate_head_data(scanned_size, splits, rows, cols, error = None, status = 200):
     continiousFrame = ContiniousFrame(100)
     endFrame = EndMetaFrame(scanned_size, scanned_size, status, splits, rows, cols)
-    return str(continiousFrame) + str(endFrame)
+    return continiousFrame.to_bytes() + endFrame.to_bytes()
 
 def make_select_object(sql, resp_content, req_params = None, output_raw = False, simulate_bad_frame = False, simulate_bad_crc = False, status = 206, error = b''):
     req_body = xml_utils.to_select_object(sql, req_params)
@@ -95,7 +96,6 @@ authorization: OSS ZCDmm7TPZKHtx77j:W6whAowN4aImQ0dfbMHyFfD0t1g=
 Accept: */*
 
 {1}'''.format(len(req_body), to_string(req_body))
-
     resp_body = generate_data(resp_content, output_raw, simulate_bad_crc=simulate_bad_crc, status=status, error = error)
     if (simulate_bad_frame):
         resp_body = resp_content
@@ -107,11 +107,14 @@ Content-Length: {0}
 Connection: keep-alive
 x-oss-request-id: 566B6BE93A7B8CFD53D4BAA3
 ETag: "D80CF0E5BE2436514894D64B2BCFB2AE"
-x-oss-select-output-raw:{2}
+x-oss-select-output-raw:{1}
 
-{1}'''.format(len(resp_body), resp_body, str(output_raw).lower())
+'''.format(len(resp_body), str(output_raw).lower())
 
-    return request_text, response_text
+    if (sys.version_info[0] == 3 and type(resp_body).__name__ == 'str'):
+        resp_body = str.encode(resp_body)
+
+    return request_text, str.encode(response_text) + resp_body
 
 def make_head_object(req_params, scanned_size, splits, rows, cols, status, error):
     req_body = xml_utils.to_get_select_object_meta(req_params)
@@ -127,6 +130,7 @@ Accept: */*
 
 
 {1}'''.format(len(req_body), to_string(req_body))
+   
     resp_body = generate_head_data(scanned_size, splits, rows, cols, error, status)
     response_text = '''HTTP/1.1 200 OK
 Server: AliyunOSS
@@ -136,9 +140,9 @@ Connection: keep-alive
 x-oss-request-id: 566B6BE93A7B8CFD53D4BAA3
 ETag: "D80CF0E5BE2436514894D64B2BCFB2AE"
 
-{1}'''.format(len(resp_body), resp_body)
+'''.format(len(resp_body))
 
-    return request_text, response_text
+    return request_text, str.encode(response_text) + resp_body
 
 def callback(offset, length):
     print(offset)
@@ -184,6 +188,7 @@ class SelectCaseHelper(object):
         tester.assertEqual(content, resp_content)
 
 class TestSelectObject(OssTestCase):
+    
     @patch('oss2.Session.do_request')
     def test_create_csv_meta_with_none_params(self, do_request):
         head_params = None
@@ -246,7 +251,7 @@ class TestSelectObject(OssTestCase):
                          'KeepAllColumns':True, 'OutputRawData':False, 'EnablePayloadCrc':True, 'OutputHeader':False, 'SkipPartialDataRecord':False}
         helper = SelectCaseHelper()
         helper.select_csv(self, do_request, None, select_params)
-
+    
     @patch('oss2.Session.do_request')
     def test_select_csv_read_output_raw(self, do_request):
         select_params = {'OutputRawData':True}
@@ -297,7 +302,7 @@ class TestSelectObject(OssTestCase):
         resp_content = b'a,b,c,d,e,f,,n,g,l,o,p'
         select_params = {'EnablePayloadCrc':True}
 
-        req, resp = make_select_object(sql, resp_content, status=400, error = "test error")
+        req, resp = make_select_object(sql, resp_content, status=400, error = b"test error")
 
         req_info = mock_response(do_request, resp)
 
