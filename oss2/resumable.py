@@ -137,7 +137,7 @@ def resumable_download(bucket, key, filename,
                                               progress_callback=progress_callback,
                                               num_threads=num_threads,
                                               store=store)
-            downloader.download(result.server_crc, result.request_id)
+            downloader.download(result.server_crc)
         else:
             bucket.get_object_to_file(key, filename, progress_callback=progress_callback)
     else:

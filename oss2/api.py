@@ -606,7 +606,8 @@ class Bucket(_Base):
                 utils.copyfileobj_and_verify(result, f, result.content_length, request_id=result.request_id)
 
             if self.enable_crc and byte_range is None:
-                utils.check_crc('get', result.client_crc, result.server_crc, result.request_id)
+                if (headers is None) or ('Accept-Encoding' not in headers) or (headers['Accept-Encoding'] != 'gzip'):
+                    utils.check_crc('get', result.client_crc, result.server_crc, result.request_id)
 
             return result
 
