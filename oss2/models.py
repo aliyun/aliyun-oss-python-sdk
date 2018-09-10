@@ -79,8 +79,13 @@ class HeadObjectResult(RequestResult):
 class GetSelectObjectMetaResult(HeadObjectResult):
     def __init__(self, resp):
         super(GetSelectObjectMetaResult, self).__init__(resp)
-        self.csv_rows = int(self.headers['x-oss-select-csv-rows'])
-        self.csv_splits = int(self.headers['x-oss-select-csv-splits'])
+        self.select_resp = SelectResponseAdapter(resp, None, None, False)
+
+        for data in self.select_resp: # waiting the response body to finish
+            pass
+
+        self.csv_rows = self.select_resp.rows;
+        self.csv_splits = self.select_resp.splits;
 
 class GetObjectMetaResult(RequestResult):
     def __init__(self, resp):
@@ -123,7 +128,7 @@ class GetObjectResult(HeadObjectResult):
 
     def __iter__(self):
         return iter(self.stream)
-    
+
     @property
     def client_crc(self):
         if self.__crc_enabled:
@@ -139,11 +144,16 @@ class SelectObjectResult(HeadObjectResult):
     def __init__(self, resp, progress_callback=None, crc_enabled=False):
         super(SelectObjectResult, self).__init__(resp)
         self.__crc_enabled = crc_enabled
-        self.select_resp = SelectResponseAdapter(resp, progress_callback, None)
-        self.stream = self.select_resp
-            
+        self.select_resp = SelectResponseAdapter(resp, progress_callback, None, enable_crc = self.__crc_enabled)
+
+    def read(self):
+        return self.select_resp.read()
+        
     def __iter__(self):
-        return iter(self.stream)
+        return iter(self.select_resp)
+    
+    def __next__(self):
+        return self.select_resp.next()
 
 class PutObjectResult(RequestResult):
     def __init__(self, resp):

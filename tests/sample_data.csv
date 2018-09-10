@@ -302,4 +302,3 @@ Year,StateAbbr,StateDesc,CityName,GeographicLevel,DataSource,Category,UniqueID,M
 2015,AL,Alabama,Birmingham,Census Tract,BRFSS,Unhealthy Behaviors,0107000-01073005000,Binge drinking among adults aged >=18 Years,%,CrdPrv,Crude prevalence,16.1,15.6,16.7,,,3482,"(33.4866689795, -86.8173262831)",UNHBEH,BINGE,0107000,01073005000,Binge Drinking
 2015,AL,Alabama,Birmingham,Census Tract,BRFSS,Unhealthy Behaviors,0107000-01073005101,Binge drinking among adults aged >=18 Years,%,CrdPrv,Crude prevalence,7.9,7.5,8.3,,,1507,"(33.4945909008, -86.834763936)",UNHBEH,BINGE,0107000,01073005101,Binge Drinking
 2015,AL,Alabama,Birmingham,Census Tract,BRFSS,Unhealthy Behaviors,0107000-01073005103,Binge drinking among adults aged >=18 Years,%,CrdPrv,Crude prevalence,7.7,7.4,8.0,,,2587,"(33.485714885, -86.8327817467)",UNHBEH,BINGE,0107000,01073005103,Binge Drinking
-

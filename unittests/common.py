@@ -8,6 +8,7 @@ import os
 import io
 import functools
 import re
+import sys
 
 import xml
 from xml.dom import minidom
@@ -376,17 +377,30 @@ class MockRequest(object):
 
 class MockResponse2(object):
     def __init__(self, response_text):
-        fields = re.split('\n\n', response_text, 1)
-        head_fields = re.split('\n', fields[0])
-        response_line_fields = head_fields[0].split(' ', 2)
+        fields = ''
+        head_fields = ''
+        self.body = b''
+        if sys.version_info[0] == 3 and type(response_text).__name__ == 'bytes':
+            i = 0
+            while i < len(response_text):
+                if (response_text[i] == 10 and response_text[i+1] == 10):
+                    break
+                else:
+                    i+=1
 
+            head_str = response_text[0:i].decode('utf-8')
+            head_fields = re.split('\n', head_str)
+            self.body = response_text[i+2:]
+        else:
+            fields = re.split('\n\n', response_text, 1)
+            head_fields = re.split('\n', fields[0])
+
+        response_line_fields = head_fields[0].split(' ', 2)
         self.status = int(response_line_fields[1])
         self.headers = head_fields_to_headers(head_fields[1:])
 
         if len(fields) == 2:
             self.body = oss2.to_bytes(fields[1])
-        else:
-            self.body = b''
 
         self.__io = io.BytesIO(self.body)
 

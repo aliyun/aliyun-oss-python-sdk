@@ -77,9 +77,9 @@ split可以认为是切分好的大小大致相等的csv行簇。每个Split大�
 
 分页查询
 -------
-和get_csv_object_meta配合使用，有两种方法：
-    - 方法1：先获取文件总的行数(get_csv_object_meta返回)，然后把文件以line_range分成若干部分并行查询
-    - 方法2：先获取文件总的Split数(get_csv_object_meta返回), 然后把文件分成若干个请求，每个请求含有大致相等的Split
+和create_csv_object_meta配合使用，有两种方法：
+    - 方法1：先获取文件总的行数(create_csv_object_meta返回)，然后把文件以line_range分成若干部分并行查询
+    - 方法2：先获取文件总的Split数(create_csv_object_meta返回), 然后把文件分成若干个请求，每个请求含有大致相等的Split
 
 .. _progress_callback:
 
@@ -146,6 +146,7 @@ datetime.date之间相互转换。如 ::
     >>> LineRange: 指定查询CSV文件的行范围，参见 `line_range`。
     >>> SplitRange: 指定查询CSV文件的Split范围，参见 `split_range`.
         注意LineRange和SplitRange两种不能同时指定。若同时指定LineRange会被忽略。
+    >>> CompressionType: 文件的压缩格式，默认值是None, 支持GZIP。
         
 .. _select_meta_params:
 
@@ -529,7 +530,7 @@ class Bucket(_Base):
 
         :param key: 文件名
         :param sql: sql statement
-        :param select_params: select参数集合。参见 :ref:`select_csv_params`
+        :param select_params: select参数集合。参见 :ref:`select_params`
 
         :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
         :return: file-like object
@@ -542,7 +543,11 @@ class Bucket(_Base):
 
         self.timeout = 3600
         resp = self.__do_object('POST', key, data=body, headers=headers, params=params)
-        return SelectObjectResult(resp, progress_callback, False)
+        crc_enabled = False
+        if select_params is not None and 'EnablePayloadCrc' in select_params:
+            if select_params['EnablePayloadCrc'] == True:
+                crc_enabled = True
+        return SelectObjectResult(resp, progress_callback, crc_enabled)
 
     def get_object_to_file(self, key, filename,
                            byte_range=None,
@@ -589,7 +594,7 @@ class Bucket(_Base):
         :param filename: local file name。The parent directory should exist
 
         :param progress_callback: progress callback。参考 :ref:`progress_callback`
-        :param select_params: select参数集合。参见 :ref:`select_csv_params`
+        :param select_params: select参数集合。参见 :ref:`select_params`
 
         :return: If file does not exist, throw :class:`NoSuchKey <oss2.exceptions.NoSuchKey>`
         """

@@ -22,6 +22,7 @@ _OSS_ERROR_TO_EXCEPTION = {}  # populated at end of module
 OSS_CLIENT_ERROR_STATUS = -1
 OSS_REQUEST_ERROR_STATUS = -2
 OSS_INCONSISTENT_ERROR_STATUS = -3
+OSS_SELECT_CLIENT_ERROR_STATUS = -4
 
 
 class OssError(Exception):
@@ -223,6 +224,15 @@ class SelectOperationFailed(ServerError):
     def __str__(self):
         error = {'status': self.status,
                  'details': self.message}
+        return str(error)
+
+class SelectOperationClientError(OssError):
+    def __init__(self, message, request_id):
+        OssError.__init__(self, OSS_SELECT_CLIENT_ERROR_STATUS, {'x-oss-request-id': request_id}, 'SelectOperationClientError: ' + message, {})
+        
+    def __str__(self):
+        error = {'x-oss-request-id':self.request_id,
+                'message': self.message}
         return str(error)
 
 def make_exception(resp):

@@ -10,7 +10,6 @@ from oss2.exceptions import (ClientError, RequestError, NoSuchBucket,
                              NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable, SelectOperationFailed)
 from common import *
 
-
 def now():
     return int(calendar.timegm(time.gmtime()))
 
@@ -24,11 +23,10 @@ class SelectCsvObjectTestHelper(object):
 
     def test_select_csv_object(self, testCase, sql, line_range = None):
         key = "city_sample_data.csv"
-        self.bucket.put_object_from_file(key, 'tests/sample_data.csv')
-
+        result = self.bucket.put_object_from_file(key, 'tests/sample_data.csv')
         result = self.bucket.create_select_object_meta(key)
+        result = self.bucket.head_object(key)
         file_size = result.content_length
-
         input_format = {'CsvHeaderInfo' : 'Use'}
         if (line_range is not None):
             input_format['LineRange'] = line_range
@@ -38,7 +36,7 @@ class SelectCsvObjectTestHelper(object):
         for chunk in result:
             content += chunk
         
-        testCase.assertEqual(result.status, 206)
+        testCase.assertEqual(result.status, 206, result.request_id)
         testCase.assertGreater(len(content), 0)
 
         if line_range is None:
@@ -64,6 +62,7 @@ class SelectCsvObjectTestHelper(object):
             testCase.assertEqual(e.status, 400)
 
 class TestSelectCsvObject(OssTestCase):
+    
     def test_select_csv_object_not_empty_city(self):
         helper = SelectCsvObjectTestHelper(self.bucket)
         content = helper.test_select_csv_object(self, "select Year, StateAbbr, CityName, PopulationCount from ossobject where CityName != ''")
@@ -163,8 +162,13 @@ class TestSelectCsvObject(OssTestCase):
             
             avg = sum/line_count
             select_data = ("{:.4f}".format(avg) + "," + str(max) + "," + "{:.1f}".format(sum) + '\n').encode('utf-8');
-            
-            self.assertEqual(select_data, content)
+            aggre_results = content.split(',')
+            avg_result = float(aggre_results[0])
+            max_result = float(aggre_results[1])
+            sum_result = float(aggre_results[2])
+            self.assertEqual(avg, avg_result)
+            self.assertEqual(max, max_result)
+            self.assertEqual(sum, sum_result)
 
     def test_select_csv_object_concat(self):
         helper = SelectCsvObjectTestHelper(self.bucket) 
@@ -218,10 +222,11 @@ class TestSelectCsvObject(OssTestCase):
         helper.test_select_csv_object_invalid_request(self, "")
         helper.test_select_csv_object_invalid_request(self, "select year || CityName from ossobject")
         helper.test_select_csv_object_invalid_request(self, "select * from ossobject group by CityName")
+        helper.test_select_csv_object_invalid_request(self, "select * from ossobject order by _1")
         helper.test_select_csv_object_invalid_request(self, "select * from ossobject oss join s3object s3 on oss.CityName = s3.CityName")
 
     def test_select_csv_object_with_invalid_data(self):
-        key = "city_sample_data.csv"
+        key = "invalid_city_sample_data.csv"
         self.bucket.put_object_from_file(key, 'tests/invalid_sample_data.csv')
         input_format = {'CsvHeaderInfo' : 'Use'}
         result = self.bucket.select_object(key, "select _1 from ossobject", None, input_format)
@@ -266,6 +271,30 @@ class TestSelectCsvObject(OssTestCase):
         os.remove(output_file)
         self.assertEqual(content1, content2)
 
+    def test_select_gzip_csv_object_into_file(self):
+        key = "city_sample_data.csv.gz"
+        self.bucket.put_object_from_file(key, 'tests/sample_data.csv.gz')
+        input_format = {'CsvHeaderInfo' : 'None',
+                        'CommentCharacter' : '#',
+                        'RecordDelimiter' : '\n',
+                        'FieldDelimiter' : ',',
+                        'QuoteCharacter' : '"',
+                        'CompressionType' : 'GZIP'
+                        }
+        output_file = 'tests/sample_data_out.csv'
+
+        self.bucket.select_object_to_file(key, output_file, "select * from ossobject", None, input_format)
+        f1 = open('tests/sample_data.csv')
+        content1 = f1.read()
+        f1.close()
+
+        f2 = open(output_file)
+        content2 = f2.read()
+        f2.close()
+
+        os.remove(output_file)
+        self.assertEqual(content1, content2)
+
     def test_select_csv_object_none_range(self):
         key = "city_sample_data.csv"
         self.bucket.put_object_from_file(key, 'tests/sample_data.csv')
@@ -285,6 +314,81 @@ class TestSelectCsvObject(OssTestCase):
                 content += chunk
 
             self.assertTrue(len(content) > 0)
+    
+    def test_select_csv_object_with_output_delimiters(self):
+        key = "test_select_csv_object_with_output_delimiters"
+        content = "abc,def\n"
+        self.bucket.put_object(key, content.encode('utf_8'))
+        select_params = {'OutputRecordDelimiter':'\r\n', 'OutputFieldDelimiter':'|'}
+        result = self.bucket.select_object(key, "select _1, _2 from ossobject", None, select_params)
+        content = b''
+        for chunk in result:
+            content += chunk
+        
+        self.assertEqual(content, 'abc|def\r\n'.encode('utf-8'))
+
+    def test_select_csv_object_with_crc(self):
+        key = "test_select_csv_object_with_crc"
+        content = "abc,def\n"
+        self.bucket.put_object(key, content.encode('utf_8'))
+        select_params = {'EnablePayloadCrc':'true'}
+        result = self.bucket.select_object(key, "select * from ossobject", None, select_params)
+        content = b''
+        for chunk in result:
+            content += chunk
+        
+        self.assertEqual(content, 'abc,def\n'.encode('utf-8'))
+    
+    def test_select_csv_object_with_skip_partial_data(self):
+        key = "test_select_csv_object_with_skip_partial_data"
+        content = "abc,def\nefg\n"
+        self.bucket.put_object(key, content.encode('utf_8'))
+        select_params = {'SkipPartialDataRecord':'true'}
+        result = self.bucket.select_object(key, "select _1, _2 from ossobject", None, select_params)
+        content = b''
+        try:
+            for chunk in result:
+                content += chunk
+        except SelectOperationFailed:
+            print "expected error occurs"
+        
+        self.assertEqual(content, 'abc,def\n'.encode('utf-8'))
+
+    def test_select_csv_object_with_output_raw(self):
+        key = "test_select_csv_object_with_output_raw"
+        content = "abc,def\n"
+        self.bucket.put_object(key, content.encode('utf_8'))
+        select_params = {'OutputRawData':'true'}
+        result = self.bucket.select_object(key, "select _1 from ossobject", None, select_params)
+        content = b''
+        for chunk in result:
+            content += chunk
+        
+        self.assertEqual(content, 'abc\n'.encode('utf-8'))
+    
+    def test_select_csv_object_with_keep_columns(self):
+        key = "test_select_csv_object_with_keep_columns"
+        content = "abc,def\n"
+        self.bucket.put_object(key, content.encode('utf_8'))
+        select_params = {'KeepAllColumns':'true'}
+        result = self.bucket.select_object(key, "select _1 from ossobject", None, select_params)
+        content = b''
+        for chunk in result:
+            content += chunk
+        
+        self.assertEqual(content, 'abc,\n'.encode('utf-8'))
+    
+    def test_select_csv_object_with_output_header(self):
+        key = "test_select_csv_object_with_output_header"
+        content = "name,job\nabc,def\n"
+        self.bucket.put_object(key, content.encode('utf_8'))
+        select_params = {'OutputHeader':'true', 'CsvHeaderInfo':'Use'}
+        result = self.bucket.select_object(key, "select name from ossobject", None, select_params)
+        content = b''
+        for chunk in result:
+            content += chunk
+        
+        self.assertEqual(content, 'name\nabc\n'.encode('utf-8'))
 
 if __name__ == '__main__':
     unittest.main()

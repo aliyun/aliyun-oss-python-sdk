@@ -21,6 +21,7 @@ import time
 import errno
 import crcmod
 import re
+import sys
 
 from .compat import to_string, to_bytes
 from .exceptions import ClientError, InconsistentError, RequestError
@@ -114,6 +115,10 @@ def is_valid_bucket_name(name):
         return False
 
     return set(name) <= _BUCKET_NAME_CHARS
+
+def change_endianness_if_needed(bytes_array):
+    if sys.byteorder == 'little':
+        bytes_array.reverse();
 
 
 class SizedFileAdapter(object):
@@ -399,6 +404,22 @@ class Crc64(object):
     def crc(self):
         return self.crc64.crcValue
 
+class Crc32(object):
+    _POLY = 0x104C11DB7
+    _XOROUT = 0xFFFFFFFF
+    
+    def __init__(self, init_crc=0):
+        self.crc32 = crcmod.Crc(self._POLY, initCrc=init_crc, rev=True, xorOut=self._XOROUT)
+
+    def __call__(self, data):
+        self.update(data)
+    
+    def update(self, data):
+        self.crc32.update(data)
+    
+    @property
+    def crc(self):
+        return self.crc32.crcValue
 
 _STRPTIME_LOCK = threading.Lock()
 
