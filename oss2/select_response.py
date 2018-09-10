@@ -55,6 +55,7 @@ class SelectResponseAdapter(object):
        self.callback = progress_callback
        self.frames_since_last_progress_report = 0
        self.content_length = content_length
+       self.resp_content_iter = response.__iter__()
        self.enable_crc = enable_crc
        self.payload = b''
        self.output_raw_data = response.headers.get("x-oss-select-output-raw", '') == "true"
@@ -81,7 +82,7 @@ class SelectResponseAdapter(object):
     
     def next(self):
         if self.output_raw_data == True:
-             data = next(self.response) 
+             data = next(self.resp_content_iter) 
              if len(data) != 0:
                  return data
              else: raise StopIteration
@@ -106,7 +107,7 @@ class SelectResponseAdapter(object):
         while amt > 0 and self.finished == 0:
             size = len(self.raw_buffer)
             if size == 0:
-                self.raw_buffer = next(self.response)
+                self.raw_buffer = next(self.resp_content_iter)
                 self.raw_buffer_offset = 0
                 size = len(self.raw_buffer)
                 if size == 0:
