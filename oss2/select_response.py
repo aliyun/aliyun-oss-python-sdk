@@ -175,7 +175,7 @@ class SelectResponseAdapter(object):
             error_msg_size = payload_length_val - 20
             error_msg=b'';
             if error_msg_size > 0:
-                error_msg = self.payload[20:error_msg_size + 12]
+                error_msg = self.payload[20:error_msg_size + 20]
             if status // 100 != 2:
                 raise SelectOperationFailed(status, error_msg)
             self.frame_length = 0
@@ -199,8 +199,14 @@ class SelectResponseAdapter(object):
             column_bytes = bytearray(self.payload[32:36])
             utils.change_endianness_if_needed(column_bytes)
             self.columns = struct.unpack("I", bytes(column_bytes))[0]
+            error_size = payload_length_val - 36
+            error_msg = b''
+            if (error_size > 0):
+                error_msg = self.payload[36:36 + error_size]
             self.read_raw(4) # read the payload checksum
             self.final_status = status
             self.frame_length = 0
             self.finished = 1
+            if (status / 100 != 2):
+                raise SelectOperationFailed(status, error_msg)
 
