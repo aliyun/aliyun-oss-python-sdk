@@ -126,6 +126,7 @@ from . import models
 from .models import *
 from .compat import urlquote, urlparse, to_unicode, to_string
 from .crypto import BaseCryptoProvider
+from .headers import *
 
 import time
 import shutil
@@ -747,7 +748,7 @@ class Bucket(_Base):
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         headers = http.CaseInsensitiveDict(headers)
-        headers['x-oss-copy-source'] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
+        headers[COPY_OBJECT_SOURCE] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
 
         logger.info("Start to copy object, source bucket: {0}, source key: {1}, bucket: {2}, key: {3}, headers: {4}".format(
             source_bucket_name, to_string(source_key), self.bucket_name, to_string(target_key), headers))
@@ -821,7 +822,7 @@ class Bucket(_Base):
         """
         logger.info("Start to put object acl, bucket: {0}, key: {1}, acl: {2}".format(
             self.bucket_name, to_string(key), permission))
-        resp = self.__do_object('PUT', key, params={'acl': ''}, headers={'x-oss-object-acl': permission})
+        resp = self.__do_object('PUT', key, params={'acl': ''}, headers={OSS_OBJECT_ACL : permission})
         logger.info("Put object acl done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
@@ -1002,11 +1003,11 @@ class Bucket(_Base):
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         headers = http.CaseInsensitiveDict(headers)
-        headers['x-oss-copy-source'] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
+        headers[COPY_OBJECT_SOURCE] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
 
         range_string = _make_range_string(byte_range)
         if range_string:
-            headers['x-oss-copy-source-range'] = range_string
+            headers[COPY_SOURCE_RANGE] = range_string
 
         logger.info("Start to upload part copy, source bucket: {0}, source key: {1}, bucket: {2}, key: {3}, range"
                     ": {4}, upload id: {5}, part_number: {6}, headers: {7}".format(source_bucket_name, to_string(source_key),
@@ -1050,7 +1051,7 @@ class Bucket(_Base):
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
         headers = headers or {}
-        headers['x-oss-symlink-target'] = urlquote(target_key, '')
+        headers[OSS_HEADER_SYMLINK_TARGET] = urlquote(target_key, '')
         logger.info("Start to put symlink, bucket: {0}, target_key: {1}, symlink_key: {2}, headers: {3}".format(
             self.bucket_name, to_string(target_key), to_string(symlink_key), headers))
         resp = self.__do_object('PUT', symlink_key, headers=headers, params={Bucket.SYMLINK: ''})
@@ -1080,7 +1081,7 @@ class Bucket(_Base):
         :param input: :class:`BucketCreateConfig <oss2.models.BucketCreateConfig>` object
         """
         if permission:
-            headers = {'x-oss-acl': permission}
+            headers = {OSS_CANNED_ACL: permission}
         else:
             headers = None
 
@@ -1110,7 +1111,7 @@ class Bucket(_Base):
             oss2.BUCKET_ACL_PUBLIC_READ_WRITE
         """
         logger.info("Start to put bucket acl, bucket: {0}, acl: {1}".format(self.bucket_name, permission))
-        resp = self.__do_bucket('PUT', headers={'x-oss-acl': permission}, params={Bucket.ACL: ''})
+        resp = self.__do_bucket('PUT', headers={OSS_CANNED_ACL: permission}, params={Bucket.ACL: ''})
         logger.info("Put bucket acl done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 

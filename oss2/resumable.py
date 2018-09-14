@@ -18,6 +18,7 @@ from .api import Bucket
 from .models import PartInfo
 from .compat import json, stringify, to_unicode, to_string
 from .task_queue import TaskQueue
+from .headers import *
 
 import functools
 import threading
@@ -308,8 +309,8 @@ class _ResumableDownloader(_ResumableOperation):
         with open(self.__tmp_file, 'rb+') as f:
             f.seek(part.start, os.SEEK_SET)
 
-            headers = {'If-Match': self.objectInfo.etag,
-                       'If-Unmodified-Since': utils.http_date(self.objectInfo.mtime)}
+            headers = {OSS_OBJECT_IF_MATCH : self.objectInfo.etag,
+                       OSS_OBJECT_IF_UNMODIFIED_SINCE : utils.http_date(self.objectInfo.mtime)}
             result = self.bucket.get_object(self.key, byte_range=(part.start, part.end - 1), headers=headers)
             utils.copyfileobj_and_verify(result, f, part.end - part.start, request_id=result.request_id)
 

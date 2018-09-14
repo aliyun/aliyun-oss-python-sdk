@@ -6,6 +6,7 @@ import time
 
 from . import utils
 from .compat import urlquote, to_bytes
+from .headers import *
 import logging
 
 AUTH_VERSION_1 = 'v1'
@@ -191,7 +192,7 @@ class StsAuth(object):
         self.__security_token = security_token
 
     def _sign_request(self, req, bucket_name, key):
-        req.headers['x-oss-security-token'] = self.__security_token
+        req.headers[OSS_SECURITY_TOKEN] = self.__security_token
         self.__auth._sign_request(req, bucket_name, key)
 
     def _sign_url(self, req, bucket_name, key, expires):
