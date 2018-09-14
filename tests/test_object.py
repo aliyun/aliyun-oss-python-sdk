@@ -164,7 +164,7 @@ class TestObject(OssTestCase):
         self.assertEqual(result.headers['content-type'], 'application/javascript')
 
         # 下载到本地文件
-        self.bucket.get_object_to_file(key, filename2)
+        get_result = self.bucket.get_object_to_file(key, filename2)
 
         self.assertTrue(filecmp.cmp(filename, filename2))
 
@@ -460,7 +460,7 @@ class TestObject(OssTestCase):
         result = self.bucket.head_object(key)
         self.assertEqual(result.content_type, "application/octet-stream")
 
-        headers = {('Content-Type', "image/jpeg")}
+        headers = {'Content-Type': "image/jpeg"}
         self.assertRaises(oss2.exceptions.SignatureDoesNotMatch, self.bucket.put_object_with_url, url, data, headers=headers)
 
         url = self.bucket.sign_url('PUT', key, 3600, headers=headers)
@@ -489,7 +489,7 @@ class TestObject(OssTestCase):
         self.assertEqual(content[50:], range_content)
 
         # signed with range, and get without range
-        headers = {('Range', 'bytes=50-99')}
+        headers = {'Range': 'bytes=50-99'}
         url = self.bucket.sign_url("GET", key, 3600, headers=headers)
         result = self.bucket.get_object_with_url(url)
         self.assertEqual(result.status, 200)
@@ -504,7 +504,7 @@ class TestObject(OssTestCase):
         with open(file_name, 'wb') as fw:
             fw.write(content)
 
-        headers = {('Content-Type', "text/plain")}
+        headers = {'Content-Type': "text/plain"}
         url = self.bucket.sign_url('PUT', key, 3600, headers)
         result = self.bucket.put_object_with_url_from_file(url, file_name, headers=headers)
         self.assertEqual(result.status, 200)
@@ -859,6 +859,29 @@ class TestObject(OssTestCase):
         # get symlink normal
         result = self.bucket.get_symlink(symlink)
         self.assertEqual(result.target_key, key)
+
+    def test_process_object(self):
+        key = self.random_key(".jpg")
+        result = self.bucket.put_object_from_file(key, "tests/example.jpg")
+        self.assertEqual(result.status, 200)
+
+        dest_key = self.random_key(".jpg")
+        process = "image/resize,w_100|sys/saveas,o_{0},b_{1}".format(
+            oss2.compat.to_string(base64.urlsafe_b64encode(oss2.compat.to_bytes(dest_key))),
+            oss2.compat.to_string(base64.urlsafe_b64encode(oss2.compat.to_bytes(self.bucket.bucket_name))))
+        result = self.bucket.process_object(key, process)
+        self.assertEqual(result.status, 200)
+        result = self.bucket.object_exists(dest_key)
+        self.assertEqual(result, True)
+
+        # If bucket-name not specified, it is saved to the current bucket by default.
+        dest_key = self.random_key(".jpg")
+        process = "image/resize,w_100|sys/saveas,o_{0}".format(
+            oss2.compat.to_string(base64.urlsafe_b64encode(oss2.compat.to_bytes(dest_key))))
+        result = self.bucket.process_object(key, process)
+        self.assertEqual(result.status, 200)
+        result = self.bucket.object_exists(dest_key)
+        self.assertEqual(result, True)
 
 
 class TestSign(TestObject):

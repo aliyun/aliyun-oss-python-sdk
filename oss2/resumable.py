@@ -138,7 +138,7 @@ def resumable_download(bucket, key, filename,
                                               progress_callback=progress_callback,
                                               num_threads=num_threads,
                                               store=store)
-            downloader.download()
+            downloader.download(result.server_crc)
         else:
             bucket.get_object_to_file(key, filename, progress_callback=progress_callback)
     else:
@@ -268,7 +268,7 @@ class _ResumableDownloader(_ResumableOperation):
         logger.info("Init _ResumableDownloader, bucket: {0}, key: {1}, part_size: {2}, num_thread: {3}".format(
             bucket.bucket_name, to_string(key), self.__part_size, self.__num_threads))
 
-    def download(self):
+    def download(self, server_crc = None):
         self.__load_record()
 
         parts_to_download = self.__get_parts_to_download()
@@ -280,6 +280,11 @@ class _ResumableDownloader(_ResumableOperation):
         q = TaskQueue(functools.partial(self.__producer, parts_to_download=parts_to_download),
                       [self.__consumer] * self.__num_threads)
         q.run()
+
+        if self.bucket.enable_crc:
+            parts = sorted(self.__finished_parts, key=lambda p: p.part_number)
+            object_crc = utils.calc_obj_crc_from_parts(parts)
+            utils.check_crc('resume download', object_crc, server_crc, None)
 
         utils.force_rename(self.__tmp_file, self.filename)
 
@@ -309,8 +314,10 @@ class _ResumableDownloader(_ResumableOperation):
             result = self.bucket.get_object(self.key, byte_range=(part.start, part.end - 1), headers=headers)
             utils.copyfileobj_and_verify(result, f, part.end - part.start, request_id=result.request_id)
 
+        part.part_crc = result.client_crc
         logger.debug("down part success, add part info to record, part_number: {0}, start: {1}, end: {2}".format(
             part.part_number, part.start, part.end))
+
         self.__finish_part(part)
 
     def __load_record(self):
@@ -345,7 +352,7 @@ class _ResumableDownloader(_ResumableOperation):
 
         self.__tmp_file = self.filename + record['tmp_suffix']
         self.__part_size = record['part_size']
-        self.__finished_parts = list(_PartToProcess(p['part_number'], p['start'], p['end']) for p in record['parts'])
+        self.__finished_parts = list(_PartToProcess(p['part_number'], p['start'], p['end'], p['part_crc']) for p in record['parts'])
         self.__finished_size = sum(p.size for p in self.__finished_parts)
         self.__record = record
 
@@ -391,7 +398,8 @@ class _ResumableDownloader(_ResumableOperation):
 
             self.__record['parts'].append({'part_number': part.part_number,
                                            'start': part.start,
-                                           'end': part.end})
+                                           'end': part.end,
+                                           'part_crc': part.part_crc})
             self._put_record(self.__record)
 
     def __gen_tmp_suffix(self):
@@ -478,14 +486,14 @@ class _ResumableUploader(_ResumableOperation):
 
             logger.debug("Upload part success, add part info to record, part_number: {0}, etag: {1}, size: {2}".format(
                 part.part_number, result.etag, part.size))
-            self.__finish_part(PartInfo(part.part_number, result.etag, size=part.size))
+            self.__finish_part(PartInfo(part.part_number, result.etag, size=part.size, part_crc=result.crc))
 
     def __finish_part(self, part_info):
         with self.__lock:
             self.__finished_parts.append(part_info)
             self.__finished_size += part_info.size
 
-            self.__record['parts'].append({'part_number': part_info.part_number, 'etag': part_info.etag})
+            self.__record['parts'].append({'part_number': part_info.part_number, 'etag': part_info.etag, 'part_crc':part_info.part_crc})
             self._put_record(self.__record)
 
     def __load_record(self):
@@ -532,7 +540,7 @@ class _ResumableUploader(_ResumableOperation):
         parts = []
 
         for p in self.__record['parts']:
-            part_info = PartInfo(int(p['part_number']), p['etag'])
+            part_info = PartInfo(int(p['part_number']), p['etag'], part_crc=p['part_crc'])
             if part_info.part_number == last_part_number:
                 part_info.size = self.size % self.__part_size
             else:
@@ -681,7 +689,7 @@ def _rebuild_record(filename, store, bucket, key, upload_id, part_size=None):
 
     for p in iterators.PartIterator(bucket, key, upload_id):
         record['parts'].append({'part_number': p.part_number,
-                                'etag': p.etag})
+                                'etag': p.etag, 'part_crc': p.part_crc})
 
         if not part_size:
             part_size = p.size
@@ -718,10 +726,11 @@ def _is_record_sane(record):
 
 
 class _PartToProcess(object):
-    def __init__(self, part_number, start, end):
+    def __init__(self, part_number, start, end, part_crc = None):
         self.part_number = part_number
         self.start = start
         self.end = end
+        self.part_crc = part_crc
 
     @property
     def size(self):

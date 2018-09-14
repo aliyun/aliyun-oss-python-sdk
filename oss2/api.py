@@ -606,6 +606,10 @@ class Bucket(_Base):
             else:
                 utils.copyfileobj_and_verify(result, f, result.content_length, request_id=result.request_id)
 
+            if self.enable_crc and byte_range is None:
+                if (headers is None) or ('Accept-Encoding' not in headers) or (headers['Accept-Encoding'] != 'gzip'):
+                    utils.check_crc('get', result.client_crc, result.server_crc, result.request_id)
+
             return result
 
     def get_object_with_url(self, sign_url,
@@ -902,7 +906,7 @@ class Bucket(_Base):
         result = PutObjectResult(resp)
 
         if self.enable_crc and result.crc is not None:
-            utils.check_crc('put', data.crc, result.crc, result.request_id)
+            utils.check_crc('upload part', data.crc, result.crc, result.request_id)
 
         return result
 
@@ -920,16 +924,25 @@ class Bucket(_Base):
 
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
-        data = xml_utils.to_complete_upload_request(sorted(parts, key=lambda p: p.part_number))
+        parts = sorted(parts, key=lambda p: p.part_number);
+        data = xml_utils.to_complete_upload_request(parts);
+        
         logger.info("Start to complete multipart upload, bucket: {0}, key: {1}, upload_id: {2}, parts: {3}".format(
             self.bucket_name, to_string(key), upload_id, data))
+
         resp = self.__do_object('POST', key,
                                 params={'uploadId': upload_id},
                                 data=data,
                                 headers=headers)
         logger.info("Complete multipart upload done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
-        return PutObjectResult(resp)
+        result = PutObjectResult(resp);
+
+        if self.enable_crc:
+            object_crc = utils.calc_obj_crc_from_parts(parts)
+            utils.check_crc('resumable upload', object_crc, result.crc, result.request_id)
+
+        return result
 
     def abort_multipart_upload(self, key, upload_id):
         """取消分片上传。
