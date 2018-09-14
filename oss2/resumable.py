@@ -267,7 +267,7 @@ class _ResumableDownloader(_ResumableOperation):
         logger.info("Init _ResumableDownloader, bucket: {0}, key: {1}, part_size: {2}, num_thread: {3}".format(
             bucket.bucket_name, to_string(key), self.__part_size, self.__num_threads))
 
-    def download(self, server_crc = None, request_id = None):
+    def download(self, server_crc = None):
         self.__load_record()
 
         parts_to_download = self.__get_parts_to_download()
@@ -283,7 +283,7 @@ class _ResumableDownloader(_ResumableOperation):
         if self.bucket.enable_crc:
             parts = sorted(self.__finished_parts, key=lambda p: p.part_number)
             object_crc = utils.calc_obj_crc_from_parts(parts)
-            utils.check_crc('resume download', object_crc, server_crc, request_id)
+            utils.check_crc('resume download', object_crc, server_crc, None)
 
         utils.force_rename(self.__tmp_file, self.filename)
 
