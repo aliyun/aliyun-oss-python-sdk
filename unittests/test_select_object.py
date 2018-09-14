@@ -56,8 +56,8 @@ class EndFrame(ContiniousFrame):
         self.error = error
 
 class EndMetaFrame(ContiniousFrame):
-    def __init__(self, offset, scannedsize, status, splits, rows, cols):
-        super(EndMetaFrame, self).__init__(offset, struct.pack('!QIIQI', scannedsize, status, splits, rows, cols), 36, ContiniousFrame._META_END_FRAME_TYPE)
+    def __init__(self, offset, scannedsize, status, splits, rows, cols, error):
+        super(EndMetaFrame, self).__init__(offset, struct.pack('!QIIQI', scannedsize, status, splits, rows, cols) + error, 36 + len(error), ContiniousFrame._META_END_FRAME_TYPE)
         self.scanned_size = scannedsize
         self.status = status
         self.splits = splits
@@ -78,9 +78,9 @@ def generate_data(resp_content, output_raw, error = b'', status = 206, simulate_
 
         return continiousFrame.to_bytes() + frameStr + endFrame.to_bytes()
 
-def generate_head_data(scanned_size, splits, rows, cols, error = None, status = 200):
+def generate_head_data(scanned_size, splits, rows, cols, error = b'', status = 200):
     continiousFrame = ContiniousFrame(100)
-    endFrame = EndMetaFrame(scanned_size, scanned_size, status, splits, rows, cols)
+    endFrame = EndMetaFrame(scanned_size, scanned_size, status, splits, rows, cols, error)
     return continiousFrame.to_bytes() + endFrame.to_bytes()
 
 def make_select_object(sql, resp_content, req_params = None, output_raw = False, simulate_bad_frame = False, simulate_bad_crc = False, status = 206, error = b''):
@@ -149,16 +149,13 @@ def callback(offset, length):
     print(length)
 
 class SelectCaseHelper(object):
-    def create_csv_meta(self, tester, do_request, head_params = None):
+    def create_csv_meta(self, tester, do_request, head_params = None, error = b'', status = 200):
         scanned_size = 10000
         splits = 100
         rows = 1000
         cols = 20
-        error = None
-        status = 200
 
         req, resp = make_head_object(head_params, scanned_size, splits, rows, cols, status, error)
-
         req_info = mock_response(do_request, resp)
 
         result = bucket().create_select_object_meta('select-test.txt', head_params)
@@ -310,8 +307,20 @@ class TestSelectObject(OssTestCase):
             result = bucket().select_object('select-test.txt', sql, None, select_params)
             result.read()
             self.assertFalse(True, "expect SelectOperationFailed")
-        except SelectOperationFailed:
-            pass
+        except SelectOperationFailed as errorException:
+            self.assertEqual(errorException.status, 400)
+            self.assertEqual(errorException.message, b'test error')
+    
+    @patch('oss2.Session.do_request')
+    def test_head_csv_with_error(self, do_request):
+        head_params = None
+        helper = SelectCaseHelper()
+        try:
+            helper.create_csv_meta(self, do_request, head_params, b'error code:invalid csv', 400)
+            self.assertFalse(True, "expect SelectOperationFailed")
+        except SelectOperationFailed as errorException:
+            self.assertEqual(errorException.status, 400)
+            self.assertEqual(errorException.message, b'error code:invalid csv')
 
 if __name__ == '__main__':
     unittest.main()
