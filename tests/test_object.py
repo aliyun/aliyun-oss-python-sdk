@@ -164,7 +164,7 @@ class TestObject(OssTestCase):
         self.assertEqual(result.headers['content-type'], 'application/javascript')
 
         # 下载到本地文件
-        self.bucket.get_object_to_file(key, filename2)
+        get_result = self.bucket.get_object_to_file(key, filename2)
 
         self.assertTrue(filecmp.cmp(filename, filename2))
 
