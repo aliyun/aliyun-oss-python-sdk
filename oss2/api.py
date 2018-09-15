@@ -126,6 +126,7 @@ from . import models
 from .models import *
 from .compat import urlquote, urlparse, to_unicode, to_string
 from .crypto import BaseCryptoProvider
+from .headers import *
 
 import time
 import shutil
@@ -605,6 +606,10 @@ class Bucket(_Base):
             else:
                 utils.copyfileobj_and_verify(result, f, result.content_length, request_id=result.request_id)
 
+            if self.enable_crc and byte_range is None:
+                if (headers is None) or ('Accept-Encoding' not in headers) or (headers['Accept-Encoding'] != 'gzip'):
+                    utils.check_crc('get', result.client_crc, result.server_crc, result.request_id)
+
             return result
 
     def get_object_with_url(self, sign_url,
@@ -743,7 +748,7 @@ class Bucket(_Base):
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         headers = http.CaseInsensitiveDict(headers)
-        headers['x-oss-copy-source'] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
+        headers[COPY_OBJECT_SOURCE] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
 
         logger.info("Start to copy object, source bucket: {0}, source key: {1}, bucket: {2}, key: {3}, headers: {4}".format(
             source_bucket_name, to_string(source_key), self.bucket_name, to_string(target_key), headers))
@@ -817,7 +822,7 @@ class Bucket(_Base):
         """
         logger.info("Start to put object acl, bucket: {0}, key: {1}, acl: {2}".format(
             self.bucket_name, to_string(key), permission))
-        resp = self.__do_object('PUT', key, params={'acl': ''}, headers={'x-oss-object-acl': permission})
+        resp = self.__do_object('PUT', key, params={'acl': ''}, headers={OSS_OBJECT_ACL : permission})
         logger.info("Put object acl done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
@@ -901,7 +906,7 @@ class Bucket(_Base):
         result = PutObjectResult(resp)
 
         if self.enable_crc and result.crc is not None:
-            utils.check_crc('put', data.crc, result.crc, result.request_id)
+            utils.check_crc('upload part', data.crc, result.crc, result.request_id)
 
         return result
 
@@ -919,16 +924,25 @@ class Bucket(_Base):
 
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
-        data = xml_utils.to_complete_upload_request(sorted(parts, key=lambda p: p.part_number))
+        parts = sorted(parts, key=lambda p: p.part_number);
+        data = xml_utils.to_complete_upload_request(parts);
+        
         logger.info("Start to complete multipart upload, bucket: {0}, key: {1}, upload_id: {2}, parts: {3}".format(
             self.bucket_name, to_string(key), upload_id, data))
+
         resp = self.__do_object('POST', key,
                                 params={'uploadId': upload_id},
                                 data=data,
                                 headers=headers)
         logger.info("Complete multipart upload done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
-        return PutObjectResult(resp)
+        result = PutObjectResult(resp);
+
+        if self.enable_crc:
+            object_crc = utils.calc_obj_crc_from_parts(parts)
+            utils.check_crc('resumable upload', object_crc, result.crc, result.request_id)
+
+        return result
 
     def abort_multipart_upload(self, key, upload_id):
         """取消分片上传。
@@ -989,11 +1003,11 @@ class Bucket(_Base):
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         headers = http.CaseInsensitiveDict(headers)
-        headers['x-oss-copy-source'] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
+        headers[COPY_OBJECT_SOURCE] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
 
         range_string = _make_range_string(byte_range)
         if range_string:
-            headers['x-oss-copy-source-range'] = range_string
+            headers[COPY_SOURCE_RANGE] = range_string
 
         logger.info("Start to upload part copy, source bucket: {0}, source key: {1}, bucket: {2}, key: {3}, range"
                     ": {4}, upload id: {5}, part_number: {6}, headers: {7}".format(source_bucket_name, to_string(source_key),
@@ -1037,7 +1051,7 @@ class Bucket(_Base):
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
         headers = headers or {}
-        headers['x-oss-symlink-target'] = urlquote(target_key, '')
+        headers[OSS_HEADER_SYMLINK_TARGET] = urlquote(target_key, '')
         logger.info("Start to put symlink, bucket: {0}, target_key: {1}, symlink_key: {2}, headers: {3}".format(
             self.bucket_name, to_string(target_key), to_string(symlink_key), headers))
         resp = self.__do_object('PUT', symlink_key, headers=headers, params={Bucket.SYMLINK: ''})
@@ -1067,7 +1081,7 @@ class Bucket(_Base):
         :param input: :class:`BucketCreateConfig <oss2.models.BucketCreateConfig>` object
         """
         if permission:
-            headers = {'x-oss-acl': permission}
+            headers = {OSS_CANNED_ACL: permission}
         else:
             headers = None
 
@@ -1097,7 +1111,7 @@ class Bucket(_Base):
             oss2.BUCKET_ACL_PUBLIC_READ_WRITE
         """
         logger.info("Start to put bucket acl, bucket: {0}, acl: {1}".format(self.bucket_name, permission))
-        resp = self.__do_bucket('PUT', headers={'x-oss-acl': permission}, params={Bucket.ACL: ''})
+        resp = self.__do_bucket('PUT', headers={OSS_CANNED_ACL: permission}, params={Bucket.ACL: ''})
         logger.info("Put bucket acl done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 

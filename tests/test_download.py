@@ -27,6 +27,13 @@ class SizedFileAdapterForMock(object):
     def len(self):
         return self.f.len
 
+    @property
+    def server_crc(self):
+        return None
+
+    @property
+    def client_crc(self):
+        return None
 
 orig_get_object = oss2.Bucket.get_object
 
@@ -443,7 +450,7 @@ class TestDownload(OssTestCase):
 
         orig_download = oss2.resumable._ResumableDownloader.download
 
-        def mock_download(downloader):
+        def mock_download(downloader, server_crc = None, request_id = None):
             context['part_size'] = downloader._ResumableDownloader__part_size
             context['num_threads'] = downloader._ResumableDownloader__num_threads
 

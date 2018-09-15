@@ -30,6 +30,7 @@ from Crypto.Cipher import AES
 from Crypto import Random
 from Crypto.Util import Counter
 
+from .crc64_combine import mkCombineFun
 from .compat import to_string, to_bytes
 from .exceptions import ClientError, InconsistentError, RequestError, OpenApiFormatError
 
@@ -251,6 +252,16 @@ def make_crc_adapter(data, init_crc=0):
         raise ClientError('{0} is not a file object, nor an iterator'.format(data.__class__.__name__))
 
 
+def calc_obj_crc_from_parts(parts, init_crc = 0):
+    object_crc = 0
+    crc_obj = Crc64(init_crc)
+    for part in parts:
+        if part.part_crc is None or part.size <= 0:
+            return None
+        else:
+            object_crc = crc_obj.combine(object_crc, part.part_crc, part.size)
+    return object_crc
+
 def make_cipher_adapter(data, cipher_callback):
     """返回一个适配器，从而在读取 `data` ，即调用read或者对其进行迭代的时候，能够进行加解密操作。
 
@@ -277,14 +288,12 @@ def make_cipher_adapter(data, cipher_callback):
     else:
         raise ClientError('{0} is not a file object, nor an iterator'.format(data.__class__.__name__))
 
-
 def check_crc(operation, client_crc, oss_crc, request_id):
     if client_crc is not None and oss_crc is not None and client_crc != oss_crc:
         e = InconsistentError("InconsistentError: req_id: {0}, operation: {1}, CRC checksum of client: {2} is mismatch "
                               "with oss: {3}".format(request_id, operation, client_crc, oss_crc))
         logger.error("Exception: {0}".format(e))
         raise e
-
 
 def _invoke_crc_callback(crc_callback, content):
     if crc_callback:
@@ -475,11 +484,16 @@ class Crc64(object):
     def __init__(self, init_crc=0):
         self.crc64 = crcmod.Crc(self._POLY, initCrc=init_crc, rev=True, xorOut=self._XOROUT)
 
+        self.crc64_combineFun = mkCombineFun(self._POLY, initCrc=init_crc, rev=True, xorOut=self._XOROUT)
+
     def __call__(self, data):
         self.update(data)
     
     def update(self, data):
         self.crc64.update(data)
+
+    def combine(self, crc1, crc2, len2):
+        return self.crc64_combineFun(crc1, crc2, len2)
     
     @property
     def crc(self):
