@@ -4,7 +4,7 @@ import os
 import shutil
 
 import oss2
-from oss2.headers import requestHeader
+from oss2.headers import RequestHeader
 
 
 # 以下代码展示了其用服务端加密功能的各项操作
@@ -36,8 +36,8 @@ bucket = oss2.Bucket(oss2.Auth(access_key_id, access_key_secret), endpoint, buck
 
 
 # 上传文件使用服务端AES256进行加密
-myHeader = requestHeader()
-myHeader.setServerSideEncryption("AES256")
+myHeader = RequestHeader()
+myHeader.set_server_side_encryption("AES256")
 bucket.put_object(key, content, headers = myHeader)
 
 # 下载文件验证一下
@@ -48,8 +48,8 @@ for chunk in result:
 assert content_got == content
 
 # 上传文件使用服务端KMS进行加密
-myHeader = requestHeader()
-myHeader.setServerSideEncryption("KMS", cmk_id = "11111")
+myHeader = RequestHeader()
+myHeader.set_server_side_encryption("KMS", cmk_id = "11111")
 bucket.put_object(key, content, headers = myHeader)
 
 # 下载文件验证一下

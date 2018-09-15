@@ -104,7 +104,7 @@ class GetSymlinkResult(RequestResult):
         super(GetSymlinkResult, self).__init__(resp)
 
         #: 符号连接的目标文件
-        self.target_key = urlunquote(_hget(self.headers, OSS_HEADER_SYMLINK_TARGET))
+        self.target_key = urlunquote(_hget(self.headers, OSS_SYMLINK_TARGET))
         
         
 class GetObjectResult(HeadObjectResult):

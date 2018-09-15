@@ -32,7 +32,7 @@ class OssError(Exception):
         self.status = status
 
         #: 请求ID，用于跟踪一个OSS请求。提交工单时，最好能够提供请求ID
-        self.request_id = headers.get(OSS_HEADER_REQUEST_ID, '')
+        self.request_id = headers.get(OSS_REQUEST_ID, '')
 
         #: HTTP响应体（部分）
         self.body = body
@@ -48,13 +48,13 @@ class OssError(Exception):
 
     def __str__(self):
         error = {'status': self.status,
-                 OSS_HEADER_REQUEST_ID : self.request_id,
+                 OSS_REQUEST_ID : self.request_id,
                  'details': self.details}
         return str(error)
 
     def _str_with_body(self):
         error = {'status': self.status,
-                 OSS_HEADER_REQUEST_ID : self.request_id,
+                 OSS_REQUEST_ID : self.request_id,
                  'details': self.body}
         return str(error)
 
@@ -78,7 +78,7 @@ class RequestError(OssError):
 
 class InconsistentError(OssError):
     def __init__(self, message, request_id=''):
-        OssError.__init__(self, OSS_INCONSISTENT_ERROR_STATUS, {OSS_HEADER_REQUEST_ID : request_id}, 'InconsistentError: ' + message, {})
+        OssError.__init__(self, OSS_INCONSISTENT_ERROR_STATUS, {OSS_REQUEST_ID : request_id}, 'InconsistentError: ' + message, {})
 
     def __str__(self):
         return self._str_with_body()
@@ -94,7 +94,7 @@ class OpenApiFormatError(OssError):
 
 class OpenApiServerError(OssError):
     def __init__(self, status, request_id, message, error_code):
-        OssError.__init__(self, status, {OSS_HEADER_REQUEST_ID : request_id}, '', {'Code': error_code, 'Message': message})
+        OssError.__init__(self, status, {OSS_REQUEST_ID : request_id}, '', {'Code': error_code, 'Message': message})
 
 
 class ServerError(OssError):
