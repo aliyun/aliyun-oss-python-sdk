@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import unittest
-import oss2
-import logging
-from unittests.common import *
+from common import *
 
 
 class TestInit(OssTestCase):
@@ -13,7 +10,7 @@ class TestInit(OssTestCase):
         self.assertTrue(oss2.logger.name, 'oss2')
         self.assertTrue(oss2.logger.level, logging.DEBUG)
 
-        log_file_path = self.tempname()
+        log_file_path = self.random_filename()
         oss2.set_file_logger(log_file_path, 'oss2', logging.INFO)
         self.assertTrue(oss2.logger.name, 'oss2')
         self.assertTrue(oss2.logger.level, logging.INFO)

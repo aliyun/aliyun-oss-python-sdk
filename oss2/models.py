@@ -11,6 +11,7 @@ from .utils import http_to_unixtime, make_progress_adapter, make_crc_adapter
 from .exceptions import ClientError, InconsistentError
 from .compat import urlunquote
 from .headers import *
+import json
 
 class PartInfo(object):
     """表示分片信息的文件。
@@ -830,3 +831,21 @@ class GetLiveChannelHistoryResult(RequestResult, LiveChannelHistory):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         LiveChannelHistory.__init__(self)
+
+
+class ProcessObjectResult(RequestResult):
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        self.bucket = ""
+        self.fileSize = 0
+        self.object = ""
+        self.process_status = ""
+        result = json.loads(resp.read())
+        if 'bucket' in result:
+            self.bucket = result['bucket']
+        if 'fileSize' in result:
+            self.fileSize = result['fileSize']
+        if 'object' in result:
+            self.object = result['object']
+        if 'status' in result:
+            self.process_status = result['status']

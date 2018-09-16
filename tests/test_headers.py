@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 
-import unittest
-import oss2
+from common import *
 from oss2.headers import *
 
 
-class TestHeaders(unittest.TestCase):
+class TestHeaders(OssTestCase):
     def test_check_requestHeader(self):
         myHeader = RequestHeader()
         

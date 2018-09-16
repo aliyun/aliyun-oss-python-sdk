@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 
-import unittest
+from common import *
 import oss2
 import crcmod
 
-class TestCrc64Combine(unittest.TestCase):
+class TestCrc64Combine(OssTestCase):
     def test_crc64_combine(self):
         _POLY = 0x142F0E1EBA9EA3693
         _XOROUT = 0XFFFFFFFFFFFFFFFF

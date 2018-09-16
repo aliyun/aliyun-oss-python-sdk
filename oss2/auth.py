@@ -49,7 +49,7 @@ class AuthBase(object):
 
         p = params if params else {}
         string_to_sign = str(expiration_time) + "\n" + canon_params_str + canonicalized_resource
-        logger.info('Sign Rtmp url: string to be signed = {0}'.format(string_to_sign))
+        logger.debug('Sign Rtmp url: string to be signed = {0}'.format(string_to_sign))
 
 
         h = hmac.new(to_bytes(self.secret), to_bytes(string_to_sign), hashlib.sha1)
@@ -96,7 +96,7 @@ class Auth(AuthBase):
     def __make_signature(self, req, bucket_name, key):
         string_to_sign = self.__get_string_to_sign(req, bucket_name, key)
 
-        logger.info('Make signature: string to be signed = {0}'.format(string_to_sign))
+        logger.debug('Make signature: string to be signed = {0}'.format(string_to_sign))
 
         h = hmac.new(to_bytes(self.secret), to_bytes(string_to_sign), hashlib.sha1)
         return utils.b64encode_as_string(h.digest())
@@ -300,7 +300,7 @@ class AuthV2(AuthBase):
     def __make_signature(self, req, bucket_name, key, additional_headers):
         string_to_sign = self.__get_string_to_sign(req, bucket_name, key, additional_headers)
 
-        logger.info('Make signature: string to be signed = {0}'.format(string_to_sign))
+        logger.debug('Make signature: string to be signed = {0}'.format(string_to_sign))
 
         h = hmac.new(to_bytes(self.secret), to_bytes(string_to_sign), hashlib.sha256)
         return utils.b64encode_as_string(h.digest())

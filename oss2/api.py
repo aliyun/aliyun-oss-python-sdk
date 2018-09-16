@@ -1418,7 +1418,7 @@ class Bucket(_Base):
         process_data = "%s=%s" % (Bucket.PROCESS, process)
         resp = self.__do_object('POST', key, params={Bucket.PROCESS: ''}, data=process_data)
         logger.info("Process object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
-        return RequestResult(resp)
+        return ProcessObjectResult(resp)
 
     def _get_bucket_config(self, config):
         """获得Bucket某项配置，具体哪种配置由 `config` 指定。该接口直接返回 `RequestResult` 对象。

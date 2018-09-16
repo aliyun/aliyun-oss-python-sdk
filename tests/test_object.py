@@ -871,8 +871,11 @@ class TestObject(OssTestCase):
             oss2.compat.to_string(base64.urlsafe_b64encode(oss2.compat.to_bytes(self.bucket.bucket_name))))
         result = self.bucket.process_object(key, process)
         self.assertEqual(result.status, 200)
+        self.assertEqual(result.bucket, self.bucket.bucket_name)
+        self.assertEqual(result.object, dest_key)
         result = self.bucket.object_exists(dest_key)
         self.assertEqual(result, True)
+
 
         # If bucket-name not specified, it is saved to the current bucket by default.
         dest_key = self.random_key(".jpg")
@@ -880,6 +883,8 @@ class TestObject(OssTestCase):
             oss2.compat.to_string(base64.urlsafe_b64encode(oss2.compat.to_bytes(dest_key))))
         result = self.bucket.process_object(key, process)
         self.assertEqual(result.status, 200)
+        self.assertEqual(result.bucket, "")
+        self.assertEqual(result.object, dest_key)
         result = self.bucket.object_exists(dest_key)
         self.assertEqual(result, True)
 
