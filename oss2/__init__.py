@@ -30,7 +30,6 @@ from .models import BUCKET_STORAGE_CLASS_STANDARD, BUCKET_STORAGE_CLASS_IA, BUCK
 from .crypto import LocalRsaProvider, AliKMSProvider
 import logging
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s [%(levelname)s] %(thread)d : %(message)s')
 logger = logging.getLogger('oss2')
 
 
@@ -58,3 +57,6 @@ def set_stream_logger(name='oss2', level=logging.DEBUG, format_string=None):
     formatter = logging.Formatter(format_string)
     fh.setFormatter(formatter)
     logger.addHandler(fh)
+
+
+set_stream_logger('oss2', logging.INFO)

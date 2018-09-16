@@ -80,5 +80,6 @@ class TestCrc64Combine(unittest.TestCase):
 
         self.assertEqual(crc_combine, crc_raw)
 
+
 if __name__ == '__main__':
     unittest.main()

@@ -17,3 +17,7 @@ class TestResumable(unittest.TestCase):
 
         self.assertTrue(n * part_size <= size)
         self.assertTrue(oss2.defaults.part_size < part_size)
+
+
+if __name__ == '__main__':
+    unittest.main()

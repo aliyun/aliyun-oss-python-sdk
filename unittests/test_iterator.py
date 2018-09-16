@@ -468,3 +468,7 @@ class TestIterator(OssTestCase):
 
         iter = oss2.ObjectUploadIterator(bucket(), 'fake-key', max_retries=1)
         self.assertEqual(iter.max_retries, 1)
+
+
+if __name__ == '__main__':
+    unittest.main()
