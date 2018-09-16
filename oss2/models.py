@@ -9,7 +9,7 @@ oss2.models
 
 from .utils import http_to_unixtime, make_progress_adapter, make_crc_adapter
 from .exceptions import ClientError, InconsistentError
-from .compat import urlunquote
+from .compat import urlunquote, to_string
 from .headers import *
 import json
 
@@ -840,7 +840,7 @@ class ProcessObjectResult(RequestResult):
         self.fileSize = 0
         self.object = ""
         self.process_status = ""
-        result = json.loads(resp.read())
+        result = json.loads(to_string(resp.read()))
         if 'bucket' in result:
             self.bucket = result['bucket']
         if 'fileSize' in result:
