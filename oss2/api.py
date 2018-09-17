@@ -27,6 +27,11 @@ Bucket配置修改方法中的input参数
 `ListBucketsResult.buckets` 就是返回的Bucket信息列表；`GetObjectResult` 则是一个file-like object，可以调用 `read()` 来获取响应的
 HTTP包体。
 
+:class:`CryptoBucket`:
+加密接口
+-------
+CryptoBucket仅提供上传下载加密数据的接口，诸如`get_object` 、 `put_object` ，返回值与Bucket相应接口一致。
+
 
 异常
 ----
@@ -166,6 +171,7 @@ from . import defaults
 
 from .models import *
 from .compat import urlquote, urlparse, to_unicode, to_string
+from .crypto import BaseCryptoProvider
 
 import time
 import shutil
@@ -194,7 +200,7 @@ class _Base(object):
         resp = self.session.do_request(req, timeout=self.timeout)
         if resp.status // 100 != 2:
             raise exceptions.make_exception(resp)
-        
+
         # Note that connections are only released back to the pool for reuse once all body data has been read; 
         # be sure to either set stream to False or read the content property of the Response object.
         # For more details, please refer to http://docs.python-requests.org/en/master/user/advanced/#keep-alive.
@@ -233,6 +239,7 @@ class Service(_Base):
     :param str app_name: 应用名。该参数不为空，则在User Agent中加入其值。
         注意到，最终这个字符串是要作为HTTP Header的值传输的，所以必须要遵循HTTP标准。
     """
+
     def __init__(self, auth, endpoint,
                  session=None,
                  connect_timeout=None,
@@ -307,7 +314,7 @@ class Bucket(_Base):
                  enable_crc=True):
         super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout,
                                      app_name, enable_crc)
-                
+
         self.bucket_name = bucket_name.strip()
 
     def sign_url(self, method, key, expires, headers=None, params=None):
@@ -316,7 +323,7 @@ class Bucket(_Base):
         常见的用法是生成加签的URL以供授信用户下载，如为log.jpg生成一个5分钟后过期的下载链接::
 
             >>> bucket.sign_url('GET', 'log.jpg', 5 * 60)
-            'http://your-bucket.oss-cn-hangzhou.aliyuncs.com/logo.jpg?OSSAccessKeyId=YourAccessKeyId\&Expires=1447178011&Signature=UJfeJgvcypWq6Q%2Bm3IJcSHbvSak%3D'
+            r'http://your-bucket.oss-cn-hangzhou.aliyuncs.com/logo.jpg?OSSAccessKeyId=YourAccessKeyId\&Expires=1447178011&Signature=UJfeJgvcypWq6Q%2Bm3IJcSHbvSak%3D'
 
         :param method: HTTP方法，如'GET'、'PUT'、'DELETE'等
         :type method: str
@@ -347,8 +354,9 @@ class Bucket(_Base):
         :param params: 需要签名的HTTP查询参数
 
         :return: 签名URL。
-        """        
-        url = self._make_url(self.bucket_name, 'live').replace('http://', 'rtmp://').replace('https://', 'rtmp://') + '/' + channel_name
+        """
+        url = self._make_url(self.bucket_name, 'live').replace('http://', 'rtmp://').replace('https://',
+                                                                                             'rtmp://') + '/' + channel_name
         params = {}
         params['playlistName'] = playlist_name
         return self.auth._sign_rtmp_url(url, self.bucket_name, channel_name, playlist_name, expires, params)
@@ -397,16 +405,16 @@ class Bucket(_Base):
 
         if progress_callback:
             data = utils.make_progress_adapter(data, progress_callback)
-        
+
         if self.enable_crc:
             data = utils.make_crc_adapter(data)
 
         resp = self.__do_object('PUT', key, data=data, headers=headers)
         result = PutObjectResult(resp)
-        
+
         if self.enable_crc and result.crc is not None:
-            utils.check_crc('put', data.crc, result.crc)
-            
+            utils.check_crc('put', data.crc, result.crc, result.request_id)
+
         return result
 
     def put_object_from_file(self, key, filename,
@@ -457,7 +465,7 @@ class Bucket(_Base):
 
         if progress_callback:
             data = utils.make_progress_adapter(data, progress_callback)
-        
+
         if self.enable_crc and init_crc is not None:
             data = utils.make_crc_adapter(data, init_crc)
 
@@ -466,10 +474,10 @@ class Bucket(_Base):
                                 headers=headers,
                                 params={'append': '', 'position': str(position)})
         result = AppendObjectResult(resp)
-    
+
         if self.enable_crc and result.crc is not None and init_crc is not None:
-            utils.check_crc('append', data.crc, result.crc)
-            
+            utils.check_crc('append', data.crc, result.crc, result.request_id)
+
         return result
 
     def get_object(self, key,
@@ -512,7 +520,7 @@ class Bucket(_Base):
         params = {} if params is None else params
         if process:
             params.update({'x-oss-process': process})
-        
+
         resp = self.__do_object('GET', key, headers=headers, params=params)
         return GetObjectResult(resp, progress_callback, self.enable_crc)
 
@@ -565,7 +573,7 @@ class Bucket(_Base):
         :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
 
         :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
-    
+
         :param process: oss文件处理，如图像服务等。指定后process，返回的内容为处理后的文件。
 
         :param params: http 请求的查询字符串参数
@@ -685,7 +693,7 @@ class Bucket(_Base):
         #
         # 2.2.0之前的实现是通过get_object的if-modified-since头部，把date设为当前时间24小时后，这样如果文件存在，则会返回
         # 304 (NotModified)；不存在，则会返回NoSuchKey。get_object会受回源的影响，如果配置会404回源，get_object会判断错误。
-        # 
+        #
         # 目前的实现是通过get_object_meta判断文件是否存在。
 
         try:
@@ -694,7 +702,7 @@ class Bucket(_Base):
             return False
         except:
             raise
-        
+
         return True
 
     def copy_object(self, source_bucket_name, source_key, target_key, headers=None):
@@ -836,7 +844,7 @@ class Bucket(_Base):
         """
         if progress_callback:
             data = utils.make_progress_adapter(data, progress_callback)
-        
+
         if self.enable_crc:
             data = utils.make_crc_adapter(data)
 
@@ -845,10 +853,10 @@ class Bucket(_Base):
                                 headers=headers,
                                 data=data)
         result = PutObjectResult(resp)
-    
+
         if self.enable_crc and result.crc is not None:
-            utils.check_crc('put', data.crc, result.crc)
-        
+            utils.check_crc('put', data.crc, result.crc, result.request_id)
+
         return result
 
     def complete_multipart_upload(self, key, upload_id, parts, headers=None):
@@ -953,13 +961,13 @@ class Bucket(_Base):
                                         'part-number-marker': marker,
                                         'max-parts': str(max_parts)})
         return self._parse_result(resp, xml_utils.parse_list_parts, ListPartsResult)
-    
+
     def put_symlink(self, target_key, symlink_key, headers=None):
         """创建Symlink。
 
         :param str target_key: 目标文件，目标文件不能为符号连接
         :param str symlink_key: 符号连接类文件，其实质是一个特殊的文件，数据指向目标文件
-        
+
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
         headers = headers or {}
@@ -1265,6 +1273,176 @@ class Bucket(_Base):
             return converter(data)
         else:
             return data
+
+
+class CryptoBucket():
+    """用于加密Bucket和Object操作的类，诸如上传、下载Object等。创建、删除bucket的操作需使用Bucket类接口。
+
+    用法（假设Bucket属于杭州区域） ::
+
+        >>> import oss2
+        >>> auth = oss2.Auth('your-access-key-id', 'your-access-key-secret')
+        >>> bucket = oss2.CryptoBucket(auth, 'http://oss-cn-hangzhou.aliyuncs.com', 'your-bucket', oss2.LocalRsaProvider())
+        >>> bucket.put_object('readme.txt', 'content of the object')
+        <oss2.models.PutObjectResult object at 0x029B9930>
+
+    :param auth: 包含了用户认证信息的Auth对象
+    :type auth: oss2.Auth
+
+    :param str endpoint: 访问域名或者CNAME
+    :param str bucket_name: Bucket名
+    :param crypto_provider: 客户端加密类。该参数默认为空
+    :type crypto_provider: oss2.crypto.LocalRsaProvider
+    :param bool is_cname: 如果endpoint是CNAME则设为True；反之，则为False。
+
+    :param session: 会话。如果是None表示新开会话，非None则复用传入的会话
+    :type session: oss2.Session
+
+    :param float connect_timeout: 连接超时时间，以秒为单位。
+
+    :param str app_name: 应用名。该参数不为空，则在User Agent中加入其值。
+        注意到，最终这个字符串是要作为HTTP Header的值传输的，所以必须要遵循HTTP标准。
+
+    :param bool enable_crc: 如果开启crc校验则设为True；反之，则为False
+
+    """
+
+    def __init__(self, auth, endpoint, bucket_name, crypto_provider,
+                 is_cname=False,
+                 session=None,
+                 connect_timeout=None,
+                 app_name='',
+                 enable_crc=True):
+
+        if not isinstance(crypto_provider, BaseCryptoProvider):
+            raise ClientError('Crypto bucket must provide a valid crypto_provider')
+
+        self.crypto_provider = crypto_provider
+        self.bucket_name = bucket_name.strip()
+        self.enable_crc = enable_crc
+        self.bucket = Bucket(auth, endpoint, bucket_name, is_cname, session, connect_timeout,
+                             app_name, enable_crc=False)
+
+    def put_object(self, key, data,
+                   headers=None,
+                   progress_callback=None):
+        """上传一个普通文件。
+
+        用法 ::
+            >>> bucket.put_object('readme.txt', 'content of readme.txt')
+            >>> with open(u'local_file.txt', 'rb') as f:
+            >>>     bucket.put_object('remote_file.txt', f)
+
+        :param key: 上传到OSS的文件名
+
+        :param data: 待上传的内容。
+        :type data: bytes，str或file-like object
+
+        :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-meta-开头的头部等
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+
+        :param progress_callback: 用户指定的进度回调函数。可以用来实现进度条等功能。参考 :ref:`progress_callback` 。
+
+        :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
+        """
+        if progress_callback:
+            data = utils.make_progress_adapter(data, progress_callback)
+
+        random_key = self.crypto_provider.get_key()
+        start = self.crypto_provider.get_start()
+        data = self.crypto_provider.make_encrypt_adapter(data, random_key, start)
+        headers = self.crypto_provider.build_header(headers)
+
+        if self.enable_crc:
+            data = utils.make_crc_adapter(data)
+
+        return self.bucket.put_object(key, data, headers, progress_callback=None)
+
+    def put_object_from_file(self, key, filename,
+                             headers=None,
+                             progress_callback=None):
+        """上传一个本地文件到OSS的普通文件。
+
+        :param str key: 上传到OSS的文件名
+        :param str filename: 本地文件名，需要有可读权限
+
+        :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-meta-开头的头部等
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+
+        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
+
+        :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
+        """
+        headers = utils.set_content_type(http.CaseInsensitiveDict(headers), filename)
+
+        with open(to_unicode(filename), 'rb') as f:
+            return self.put_object(key, f, headers=headers, progress_callback=progress_callback)
+
+
+    def get_object(self, key,
+                   headers=None,
+                   progress_callback=None,
+                   params=None):
+        """下载一个文件。
+
+        用法 ::
+
+            >>> result = bucket.get_object('readme.txt')
+            >>> print(result.read())
+            'hello world'
+
+        :param key: 文件名
+
+        :param headers: HTTP头部
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+
+        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
+
+        :param params: http 请求的查询字符串参数
+        :type params: dict
+
+        :return: file-like object
+
+        :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
+        """
+        headers = http.CaseInsensitiveDict(headers)
+
+        if 'range' in headers:
+            raise ClientError('Crypto bucket do not support range get')
+
+        encrypted_result = self.bucket.get_object(key, headers=headers, params=params, progress_callback=None)
+
+        return GetObjectResult(encrypted_result.resp, progress_callback, self.enable_crc, crypto_provider=self.crypto_provider)
+
+    def get_object_to_file(self, key, filename,
+                           headers=None,
+                           progress_callback=None,
+                           params=None):
+        """下载一个文件到本地文件。
+
+        :param key: 文件名
+        :param filename: 本地文件名。要求父目录已经存在，且有写权限。
+
+        :param headers: HTTP头部
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+
+        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
+
+        :param params: http 请求的查询字符串参数
+        :type params: dict
+
+        :return: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
+        """
+        with open(to_unicode(filename), 'wb') as f:
+            result = self.get_object(key, headers=headers, progress_callback=progress_callback,
+                                     params=params)
+
+            if result.content_length is None:
+                shutil.copyfileobj(result, f)
+            else:
+                utils.copyfileobj_and_verify(result, f, result.content_length, request_id=result.request_id)
+
+            return result
 
 
 def _normalize_endpoint(endpoint):

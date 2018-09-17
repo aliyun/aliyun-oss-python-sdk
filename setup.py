@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import re
-
+import sys
 
 try:
     from setuptools import setup
@@ -28,7 +28,10 @@ setup(
     long_description=readme,
     packages=['oss2'],
     install_requires=['requests!=2.9.0',
-                      'crcmod>=1.7'],
+                      'crcmod>=1.7',
+                      'pycryptodome>=3.4.7',
+                      'aliyun-python-sdk-kms>=2.4.1',
+                      'aliyun-python-sdk-core>=2.6.2' if sys.version_info[0] == 2 else 'aliyun-python-sdk-core-v3>=2.5.5'],
     include_package_data=True,
     url='http://oss.aliyun.com',
     classifiers=[

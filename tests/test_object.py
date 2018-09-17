@@ -6,8 +6,10 @@ import calendar
 import json
 import base64
 
-from oss2.exceptions import (ClientError, RequestError, NoSuchBucket,
+from oss2.exceptions import (ClientError, RequestError, NoSuchBucket, OpenApiServerError,
                              NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable)
+
+from oss2.compat import is_py2, is_py33
 from common import *
 
 
@@ -53,6 +55,66 @@ class TestObject(OssTestCase):
         self.bucket.delete_object(key)
 
         self.assertRaises(NoSuchKey, self.bucket.get_object, key)
+
+    def test_rsa_crypto_object(self):
+        key = self.random_key('.js')
+        content = random_bytes(1024)
+
+        self.assertRaises(NotFound, self.bucket.head_object, key)
+
+        lower_bound = now() - 60 * 16
+        upper_bound = now() + 60 * 16
+
+        def assert_result(result):
+            self.assertEqual(result.content_length, len(content))
+            self.assertEqual(result.content_type, 'application/javascript')
+            self.assertEqual(result.object_type, 'Normal')
+
+            self.assertTrue(result.last_modified > lower_bound)
+            self.assertTrue(result.last_modified < upper_bound)
+
+            self.assertTrue(result.etag)
+
+        self.rsa_crypto_bucket.put_object(key, content)
+
+        get_result = self.rsa_crypto_bucket.get_object(key)
+        self.assertEqual(get_result.read(), content)
+        assert_result(get_result)
+        self.assertTrue(get_result.client_crc is not None)
+        self.assertTrue(get_result.server_crc is not None)
+        self.assertTrue(get_result.client_crc == get_result.server_crc)
+
+    def test_kms_crypto_object(self):
+        if is_py33:
+            return
+
+        key = self.random_key('.js')
+        content = random_bytes(1024)
+
+        self.assertRaises(NotFound, self.bucket.head_object, key)
+
+        lower_bound = now() - 60 * 16
+        upper_bound = now() + 60 * 16
+
+        def assert_result(result):
+            self.assertEqual(result.content_length, len(content))
+            self.assertEqual(result.content_type, 'application/javascript')
+            self.assertEqual(result.object_type, 'Normal')
+
+            self.assertTrue(result.last_modified > lower_bound)
+            self.assertTrue(result.last_modified < upper_bound)
+
+            self.assertTrue(result.etag)
+
+        self.kms_crypto_bucket.put_object(key, content, headers={'content-md5': oss2.utils.md5_string(content),
+                                                                        'content-length': str(len(content))})
+
+        get_result = self.kms_crypto_bucket.get_object(key)
+        self.assertEqual(get_result.read(), content)
+        assert_result(get_result)
+        self.assertTrue(get_result.client_crc is not None)
+        self.assertTrue(get_result.server_crc is not None)
+        self.assertTrue(get_result.client_crc == get_result.server_crc)
 
     def test_restore_object(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
@@ -249,7 +311,7 @@ class TestObject(OssTestCase):
 
         # 设置bucket为public-read，并确认可以上传和下载
         self.bucket.put_bucket_acl('public-read-write')
-        time.sleep(2)
+        wait_meta_sync()
 
         b = oss2.Bucket(oss2.AnonymousAuth(), OSS_ENDPOINT, OSS_BUCKET)
         b.put_object(key, content)
@@ -257,7 +319,7 @@ class TestObject(OssTestCase):
         self.assertEqual(result.read(), content)
 
         # 测试sign_url
-        url = b.sign_url('GET', key, 100)
+        url = b.sign_url('GET', key, 100, params={'para1':'test'})
         resp = requests.get(url)
         self.assertEqual(content, resp.content)
 
@@ -530,6 +592,45 @@ class TestObject(OssTestCase):
         # 下载到本地，采用iterator语法
         stats = {'previous': -1}
         result = self.bucket.get_object(key, progress_callback=progress_callback)
+        content_got = b''
+        for chunk in result:
+            content_got += chunk
+        self.assertEqual(stats['previous'], len(content))
+        self.assertEqual(content, content_got)
+
+        os.remove(filename)
+
+    def test_crypto_progress(self):
+        stats = {'previous': -1}
+
+        def progress_callback(bytes_consumed, total_bytes):
+            self.assertTrue(bytes_consumed <= total_bytes)
+            self.assertTrue(bytes_consumed > stats['previous'])
+
+            stats['previous'] = bytes_consumed
+
+        key = self.random_key()
+        content = random_bytes(2 * 1024 * 1024)
+
+        # 上传内存中的内容
+        stats = {'previous': -1}
+        self.rsa_crypto_bucket.put_object(key, content, progress_callback=progress_callback)
+        self.assertEqual(stats['previous'], len(content))
+
+        # 下载到文件
+        stats = {'previous': -1}
+        filename = random_string(12) + '.txt'
+        self.rsa_crypto_bucket.get_object_to_file(key, filename, progress_callback=progress_callback)
+        self.assertEqual(stats['previous'], len(content))
+
+        # 上传本地文件
+        stats = {'previous': -1}
+        self.rsa_crypto_bucket.put_object_from_file(key, filename, progress_callback=progress_callback)
+        self.assertEqual(stats['previous'], len(content))
+
+        # 下载到本地，采用iterator语法
+        stats = {'previous': -1}
+        result = self.rsa_crypto_bucket.get_object(key, progress_callback=progress_callback)
         content_got = b''
         for chunk in result:
             content_got += chunk

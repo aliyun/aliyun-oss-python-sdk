@@ -8,6 +8,7 @@ import sys
 
 is_py2 = (sys.version_info[0] == 2)
 is_py3 = (sys.version_info[0] == 3)
+is_py33 = (sys.version_info[0] == 3 and sys.version_info[1] == 3)
 
 
 try:

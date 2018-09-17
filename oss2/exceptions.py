@@ -22,8 +22,8 @@ _OSS_ERROR_TO_EXCEPTION = {}  # populated at end of module
 OSS_CLIENT_ERROR_STATUS = -1
 OSS_REQUEST_ERROR_STATUS = -2
 OSS_INCONSISTENT_ERROR_STATUS = -3
-OSS_SELECT_CLIENT_ERROR_STATUS = -4
-
+OSS_FORMAT_ERROR_STATUS = -4
+OSS_SELECT_CLIENT_ERROR_STATUS = -5
 
 class OssError(Exception):
     def __init__(self, status, headers, body, details):
@@ -58,7 +58,6 @@ class OssError(Exception):
         return str(error)
 
 
-
 class ClientError(OssError):
     def __init__(self, message):
         OssError.__init__(self, OSS_CLIENT_ERROR_STATUS, {}, 'ClientError: ' + message, {})
@@ -82,6 +81,19 @@ class InconsistentError(OssError):
 
     def __str__(self):
         return self._str_with_body()
+
+
+class OpenApiFormatError(OssError):
+    def __init__(self, message):
+        OssError.__init__(self, OSS_FORMAT_ERROR_STATUS, {}, message, {})
+
+    def __str__(self):
+        return self._str_with_body()
+
+
+class OpenApiServerError(OssError):
+    def __init__(self, status, request_id, message, error_code):
+        OssError.__init__(self, status, {'x-oss-request-id': request_id}, '', {'Code': error_code, 'Message': message})
 
 
 class ServerError(OssError):
