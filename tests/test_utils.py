@@ -31,11 +31,16 @@ is_py3 = (sys.version_info[0] == 3)
 class TestUtils(OssTestCase):
     def test_is_ip(self):
         self.assertTrue(oss2.utils.is_ip_or_localhost('1.2.3.4'))
+        self.assertTrue(oss2.utils.is_ip_or_localhost('[2401:b180::dc]'))
         self.assertTrue(oss2.utils.is_ip_or_localhost('localhost'))
+        self.assertTrue(oss2.utils.is_ip_or_localhost('1.2.3.4:80'))
+        self.assertTrue(oss2.utils.is_ip_or_localhost('[2401:b180::dc]:80'))
+        self.assertTrue(oss2.utils.is_ip_or_localhost('localhost:80'))
 
         self.assertTrue(not oss2.utils.is_ip_or_localhost('-1.2.3.4'))
         self.assertTrue(not oss2.utils.is_ip_or_localhost('1.256.1.2'))
         self.assertTrue(not oss2.utils.is_ip_or_localhost('一.二.三.四'))
+        self.assertTrue(not oss2.utils.is_ip_or_localhost('[2401:b180::dc'))
 
     def test_is_valid_bucket_name(self):
         self.assertTrue(oss2.is_valid_bucket_name('abc'))
@@ -143,17 +148,19 @@ class TestUtils(OssTestCase):
 
     def test_default_logger_basic(self):
         # verify default logger
-        self.assertEqual(oss2.defaults.get_logger(), logging.getLogger())
+        # self.assertEqual(oss2.defaults.get_logger(), logging.getLogger())
 
         # verify custom logger
-        custom_logger = logging.getLogger('oss2')
-        oss2.defaults.logger = custom_logger
+        # custom_logger = logging.getLogger('oss2')
+        # oss2.defaults.logger = custom_logger
 
-        self.assertEqual(oss2.defaults.get_logger(), custom_logger)
+        # self.assertEqual(oss2.defaults.get_logger(), custom_logger)
+        custom_logger = logging.getLogger('oss2')
+        self.assertEqual(oss2.logger, custom_logger)
 
     def test_default_logger_put(self):
         custom_logger = logging.getLogger('oss2')
-        oss2.defaults.logger = custom_logger
+        # oss2.defaults.logger = custom_logger
 
         custom_logger.addHandler(logging.StreamHandler(sys.stdout))
         custom_logger.setLevel(logging.DEBUG)

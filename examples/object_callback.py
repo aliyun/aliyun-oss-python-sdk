@@ -72,7 +72,7 @@ parts = []
 upload_id = bucket.init_multipart_upload(key).upload_id
 # 上传分片
 result = bucket.upload_part(key, upload_id, 1, content)
-parts.append(oss2.models.PartInfo(1, result.etag))
+parts.append(oss2.models.PartInfo(1, result.etag, size = len(content), part_crc = result.crc))
 # 完成上传并回调
 result = bucket.complete_multipart_upload(key, upload_id, parts, headers)
 
