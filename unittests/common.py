@@ -387,7 +387,6 @@ class MockRequest(object):
 
 class MockResponse2(object):
     def __init__(self, response_text):
-
         if isinstance(response_text, bytes):
             fields = re.split(b'\n\n', response_text, 1)
         else:

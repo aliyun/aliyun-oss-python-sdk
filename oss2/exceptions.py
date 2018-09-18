@@ -24,6 +24,7 @@ OSS_CLIENT_ERROR_STATUS = -1
 OSS_REQUEST_ERROR_STATUS = -2
 OSS_INCONSISTENT_ERROR_STATUS = -3
 OSS_FORMAT_ERROR_STATUS = -4
+OSS_SELECT_CLIENT_ERROR_STATUS = -5
 
 
 class OssError(Exception):
@@ -229,6 +230,25 @@ class AccessDenied(ServerError):
     status = 403
     code = 'AccessDenied'
 
+class SelectOperationFailed(ServerError):
+    code = 'SelectOperationFailed'
+    def __init__(self, status, message):
+        self.status = status
+        self.message = message
+
+    def __str__(self):
+        error = {'status': self.status,
+                 'details': self.message}
+        return str(error)
+
+class SelectOperationClientError(OssError):
+    def __init__(self, message, request_id):
+        OssError.__init__(self, OSS_SELECT_CLIENT_ERROR_STATUS, {'x-oss-request-id': request_id}, 'SelectOperationClientError: ' + message, {})
+        
+    def __str__(self):
+        error = {'x-oss-request-id':self.request_id,
+                'message': self.message}
+        return str(error)
 
 class SignatureDoesNotMatch(ServerError):
     status = 403

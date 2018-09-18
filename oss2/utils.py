@@ -24,6 +24,7 @@ import errno
 import binascii
 import crcmod
 import re
+import sys
 import random
 
 from Crypto.Cipher import AES
@@ -141,6 +142,10 @@ def is_valid_bucket_name(name):
         return False
 
     return set(name) <= _BUCKET_NAME_CHARS
+
+def change_endianness_if_needed(bytes_array):
+    if sys.byteorder == 'little':
+        bytes_array.reverse();
 
 
 class SizedFileAdapter(object):
@@ -262,6 +267,7 @@ def calc_obj_crc_from_parts(parts, init_crc = 0):
             object_crc = crc_obj.combine(object_crc, part.part_crc, part.size)
     return object_crc
 
+
 def make_cipher_adapter(data, cipher_callback):
     """返回一个适配器，从而在读取 `data` ，即调用read或者对其进行迭代的时候，能够进行加解密操作。
 
@@ -287,6 +293,7 @@ def make_cipher_adapter(data, cipher_callback):
         return _IterableAdapter(data, cipher_callback=cipher_callback)
     else:
         raise ClientError('{0} is not a file object, nor an iterator'.format(data.__class__.__name__))
+
 
 def check_crc(operation, client_crc, oss_crc, request_id):
     if client_crc is not None and oss_crc is not None and client_crc != oss_crc:
@@ -499,6 +506,76 @@ class Crc64(object):
     def crc(self):
         return self.crc64.crcValue
 
+class Crc32(object):
+    _POLY = 0x104C11DB7
+    _XOROUT = 0xFFFFFFFF
+    
+    def __init__(self, init_crc=0):
+        self.crc32 = crcmod.Crc(self._POLY, initCrc=init_crc, rev=True, xorOut=self._XOROUT)
+
+    def __call__(self, data):
+        self.update(data)
+    
+    def update(self, data):
+        self.crc32.update(data)
+    
+    @property
+    def crc(self):
+        return self.crc32.crcValue
+
+def random_aes256_key():
+    return Random.new().read(_AES_256_KEY_SIZE)
+
+
+def random_counter(begin=1, end=10):
+    return random.randint(begin, end)
+
+
+# aes 256, key always is 32 bytes
+_AES_256_KEY_SIZE = 32
+
+_AES_CTR_COUNTER_BITS_LEN = 8 * 16
+
+_AES_GCM = 'AES/GCM/NoPadding'
+
+
+class AESCipher:
+    """AES256 加密实现。
+        :param str key: 对称加密数据密钥
+        :param str start: 对称加密初始随机值
+    .. note::
+        用户可自行实现对称加密算法，需服务如下规则：
+        1、提供对称加密算法名，ALGORITHM
+        2、提供静态方法，返回加密密钥和初始随机值（若算法不需要初始随机值，也需要提供）
+        3、提供加密解密方法
+    """
+    ALGORITHM = _AES_GCM
+
+    @staticmethod
+    def get_key():
+        return random_aes256_key()
+
+    @staticmethod
+    def get_start():
+        return random_counter()
+
+    def __init__(self, key=None, start=None):
+        self.key = key
+        if not self.key:
+            self.key = random_aes256_key()
+        if not start:
+            self.start = random_counter()
+        else:
+            self.start = int(start)
+        ctr = Counter.new(_AES_CTR_COUNTER_BITS_LEN, initial_value=self.start)
+        self.__cipher = AES.new(self.key, AES.MODE_CTR, counter=ctr)
+
+    def encrypt(self, raw):
+        return self.__cipher.encrypt(raw)
+
+    def decrypt(self, enc):
+        return self.__cipher.decrypt(enc)
+
 
 def random_aes256_key():
     return Random.new().read(_AES_256_KEY_SIZE)
@@ -693,3 +770,36 @@ def copyfileobj_and_verify(fsrc, fdst, expected_len,
 
     if num_read != expected_len:
         raise InconsistentError("IncompleteRead from source", request_id)
+
+def _make_line_range_string(range):
+    if range is None:
+        return ''
+
+    start = range[0]
+    last = range[1]
+
+    if start is None and last is None:
+        return ''
+
+    return 'line-range=' + _range_internal(start, last)
+
+def _make_split_range_string(range):
+    if range is None:
+        return ''
+
+    start = range[0]
+    last = range[1]
+
+    if start is None and last is None:
+        return ''
+
+    return 'split-range=' + _range_internal(start, last)
+
+def _range_internal(start, last):
+    def to_str(pos):
+        if pos is None:
+            return ''
+        else:
+            return str(pos)
+
+    return to_str(start) + '-' + to_str(last)

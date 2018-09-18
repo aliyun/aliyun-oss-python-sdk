@@ -33,6 +33,8 @@ from .models import (SimplifiedObjectInfo,
 
 from .compat import urlunquote, to_unicode, to_string
 from .utils import iso8601_to_unixtime, date_to_iso8601, iso8601_to_date
+from . import utils
+import base64
 
 logger = logging.getLogger(__name__)
 
@@ -594,4 +596,63 @@ def to_create_live_channel(live_channel):
     _add_text_child(target_node, 'FragCount', str(live_channel.target.frag_count))
     _add_text_child(target_node, 'PlaylistName', str(live_channel.target.playlist_name))
 
+    return _node_to_string(root)
+
+def to_select_object(sql, select_params):
+    root = ElementTree.Element('SelectRequest')
+    _add_text_child(root, 'Expression', base64.b64encode(str.encode(sql)))
+    input_ser = ElementTree.SubElement(root, 'InputSerialization')
+    output_ser = ElementTree.SubElement(root, 'OutputSerialization')
+    csv = ElementTree.SubElement(input_ser, 'CSV')
+    out_csv = ElementTree.SubElement(output_ser, 'CSV')
+    options = ElementTree.SubElement(root, 'Options')
+    if (select_params is not None):
+        if 'CsvHeaderInfo' in select_params:
+            _add_text_child(csv, 'FileHeaderInfo', select_params['CsvHeaderInfo'])
+        if 'CommentCharacter' in select_params:
+            _add_text_child(csv, 'CommentCharacter', base64.b64encode(str.encode(select_params['CommentCharacter'])))
+        if 'RecordDelimiter' in select_params:
+            _add_text_child(csv, 'RecordDelimiter', base64.b64encode(str.encode(select_params['RecordDelimiter'])))
+        if 'OutputRecordDelimiter' in select_params:
+            _add_text_child(out_csv, 'RecordDelimiter', base64.b64encode(str.encode(select_params['OutputRecordDelimiter'])))
+        if 'FieldDelimiter' in select_params:
+            _add_text_child(csv, 'FieldDelimiter', base64.b64encode(str.encode(select_params['FieldDelimiter'])))
+        if 'OutputFieldDelimiter' in select_params:
+            _add_text_child(out_csv, 'FieldDelimiter', base64.b64encode(str.encode(select_params['OutputFieldDelimiter'])))
+        if 'QuoteCharacter' in select_params:
+            _add_text_child(csv, 'QuoteCharacter', base64.b64encode(str.encode(select_params['QuoteCharacter'])))
+        if 'SplitRange' in select_params:
+            _add_text_child(csv, 'Range', utils._make_split_range_string(select_params['SplitRange']))
+        elif 'LineRange' in select_params:
+            _add_text_child(csv, 'Range', utils._make_line_range_string(select_params['LineRange']))
+        if 'CompressionType' in select_params:
+            _add_text_child(input_ser, 'CompressionType', select_params['CompressionType'])
+        if 'KeepAllColumns' in select_params:
+            _add_text_child(output_ser, 'KeepAllColumns', str(select_params['KeepAllColumns']))
+        if 'OutputRawData' in select_params:
+            _add_text_child(output_ser, 'OutputRawData', str(select_params['OutputRawData']))
+        if 'EnablePayloadCrc' in select_params:
+            _add_text_child(output_ser, 'EnablePayloadCrc', str(select_params['EnablePayloadCrc']))
+        if 'OutputHeader' in select_params:
+            _add_text_child(output_ser, 'OutputHeader', str(select_params['OutputHeader']))
+        if 'SkipPartialDataRecord' in select_params:
+            _add_text_child(options, 'SkipPartialDataRecord', str(select_params['SkipPartialDataRecord']))
+
+    return _node_to_string(root)
+
+def to_get_select_object_meta(csv_meta_param):
+    root = ElementTree.Element('CsvMetaRequest')
+    input_ser = ElementTree.SubElement(root, 'InputSerialization')
+    csv = ElementTree.SubElement(input_ser, 'CSV')
+    if (csv_meta_param is not None):
+        if 'RecordDelimiter' in csv_meta_param:
+            _add_text_child(csv, 'RecordDelimiter', base64.b64encode(str.encode(csv_meta_param['RecordDelimiter'])))
+        if 'FieldDelimiter' in csv_meta_param:
+            _add_text_child(csv, 'FieldDelimiter', base64.b64encode(str.encode(csv_meta_param['FieldDelimiter'])))
+        if 'QuoteCharacter' in csv_meta_param:
+            _add_text_child(csv, 'QuoteCharacter', base64.b64encode(str.encode(csv_meta_param['QuoteCharacter'])))
+        if 'CompressionType' in csv_meta_param:
+            _add_text_child(input_ser, 'CompressionType', base64.b64encode(str.encode(csv_meta_param['CompressionType'])))
+        if 'OverwriteIfExists' in csv_meta_param:
+            _add_text_child(root, 'OverwriteIfExists', str(csv_meta_param['OverwriteIfExists']))
     return _node_to_string(root)
