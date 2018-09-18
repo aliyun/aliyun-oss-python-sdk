@@ -2,6 +2,7 @@
 
 import unittest
 import oss2
+from oss2.utils import calc_obj_crc_from_parts
 
 from common import *
 
@@ -20,10 +21,14 @@ class TestMultipart(OssTestCase):
             headers = None
 
         result = self.bucket.upload_part(key, upload_id, 1, content, headers=headers)
-        parts.append(oss2.models.PartInfo(1, result.etag))
+        parts.append(oss2.models.PartInfo(1, result.etag, size=len(content), part_crc=result.crc))
         self.assertTrue(result.crc is not None)
 
-        self.bucket.complete_multipart_upload(key, upload_id, parts)
+        complete_result = self.bucket.complete_multipart_upload(key, upload_id, parts)
+
+        object_crc = calc_obj_crc_from_parts(parts)
+        self.assertTrue(complete_result.crc is not None)
+        self.assertEqual(object_crc, result.crc)
 
         result = self.bucket.get_object(key)
         self.assertEqual(content, result.read())

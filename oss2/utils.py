@@ -9,6 +9,7 @@ oss2.utils
 
 from email.utils import formatdate
 
+import logging
 import os.path
 import mimetypes
 import socket
@@ -30,9 +31,11 @@ from Crypto.Cipher import AES
 from Crypto import Random
 from Crypto.Util import Counter
 
+from .crc64_combine import mkCombineFun
 from .compat import to_string, to_bytes
 from .exceptions import ClientError, InconsistentError, RequestError, OpenApiFormatError
 
+logger = logging.getLogger(__name__)
 
 _EXTRA_TYPES_MAP = {
     ".js": "application/javascript",
@@ -100,14 +103,24 @@ def set_content_type(headers, name):
 
 def is_ip_or_localhost(netloc):
     """判断网络地址是否为IP或localhost。"""
-    loc = netloc.split(':')[0]
+    is_ipv6 = False
+    right_bracket_index = netloc.find(']')
+    if netloc[0] == '[' and right_bracket_index > 0:
+        loc = netloc[1:right_bracket_index]
+        is_ipv6 = True
+    else:
+        loc = netloc.split(':')[0]
+
     if loc == 'localhost':
         return True
 
     try:
-        socket.inet_aton(loc)
+        if is_ipv6:
+            socket.inet_pton(socket.AF_INET6, loc)  # IPv6
+        else:
+            socket.inet_aton(loc) #Only IPv4
     except socket.error:
-        return False
+            return False
 
     return True
 
@@ -244,6 +257,17 @@ def make_crc_adapter(data, init_crc=0):
         raise ClientError('{0} is not a file object, nor an iterator'.format(data.__class__.__name__))
 
 
+def calc_obj_crc_from_parts(parts, init_crc = 0):
+    object_crc = 0
+    crc_obj = Crc64(init_crc)
+    for part in parts:
+        if part.part_crc is None or part.size <= 0:
+            return None
+        else:
+            object_crc = crc_obj.combine(object_crc, part.part_crc, part.size)
+    return object_crc
+
+
 def make_cipher_adapter(data, cipher_callback):
     """返回一个适配器，从而在读取 `data` ，即调用read或者对其进行迭代的时候，能够进行加解密操作。
 
@@ -273,8 +297,10 @@ def make_cipher_adapter(data, cipher_callback):
 
 def check_crc(operation, client_crc, oss_crc, request_id):
     if client_crc is not None and oss_crc is not None and client_crc != oss_crc:
-        raise InconsistentError('the crc of {0} between client and oss is not inconsistent'.format(operation),
-                                request_id)
+        e = InconsistentError("InconsistentError: req_id: {0}, operation: {1}, CRC checksum of client: {2} is mismatch "
+                              "with oss: {3}".format(request_id, operation, client_crc, oss_crc))
+        logger.error("Exception: {0}".format(e))
+        raise e
 
 def _invoke_crc_callback(crc_callback, content):
     if crc_callback:
@@ -465,11 +491,16 @@ class Crc64(object):
     def __init__(self, init_crc=0):
         self.crc64 = crcmod.Crc(self._POLY, initCrc=init_crc, rev=True, xorOut=self._XOROUT)
 
+        self.crc64_combineFun = mkCombineFun(self._POLY, initCrc=init_crc, rev=True, xorOut=self._XOROUT)
+
     def __call__(self, data):
         self.update(data)
     
     def update(self, data):
         self.crc64.update(data)
+
+    def combine(self, crc1, crc2, len2):
+        return self.crc64_combineFun(crc1, crc2, len2)
     
     @property
     def crc(self):
@@ -491,6 +522,60 @@ class Crc32(object):
     @property
     def crc(self):
         return self.crc32.crcValue
+
+def random_aes256_key():
+    return Random.new().read(_AES_256_KEY_SIZE)
+
+
+def random_counter(begin=1, end=10):
+    return random.randint(begin, end)
+
+
+# aes 256, key always is 32 bytes
+_AES_256_KEY_SIZE = 32
+
+_AES_CTR_COUNTER_BITS_LEN = 8 * 16
+
+_AES_GCM = 'AES/GCM/NoPadding'
+
+
+class AESCipher:
+    """AES256 加密实现。
+        :param str key: 对称加密数据密钥
+        :param str start: 对称加密初始随机值
+    .. note::
+        用户可自行实现对称加密算法，需服务如下规则：
+        1、提供对称加密算法名，ALGORITHM
+        2、提供静态方法，返回加密密钥和初始随机值（若算法不需要初始随机值，也需要提供）
+        3、提供加密解密方法
+    """
+    ALGORITHM = _AES_GCM
+
+    @staticmethod
+    def get_key():
+        return random_aes256_key()
+
+    @staticmethod
+    def get_start():
+        return random_counter()
+
+    def __init__(self, key=None, start=None):
+        self.key = key
+        if not self.key:
+            self.key = random_aes256_key()
+        if not start:
+            self.start = random_counter()
+        else:
+            self.start = int(start)
+        ctr = Counter.new(_AES_CTR_COUNTER_BITS_LEN, initial_value=self.start)
+        self.__cipher = AES.new(self.key, AES.MODE_CTR, counter=ctr)
+
+    def encrypt(self, raw):
+        return self.__cipher.encrypt(raw)
+
+    def decrypt(self, enc):
+        return self.__cipher.decrypt(enc)
+
 
 def random_aes256_key():
     return Random.new().read(_AES_256_KEY_SIZE)

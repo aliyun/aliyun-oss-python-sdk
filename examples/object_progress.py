@@ -80,7 +80,7 @@ upload_id = bucket.init_multipart_upload(key).upload_id
 # 上传分片
 for i in range(3):
     result = bucket.upload_part(key, upload_id, i+1, content, progress_callback=percentage)
-    parts.append(oss2.models.PartInfo(i+1, result.etag))
+    parts.append(oss2.models.PartInfo(i+1, result.etag, size = len(content), part_crc = result.crc))
 
 # 完成上传并回调
 result = bucket.complete_multipart_upload(key, upload_id, parts)
