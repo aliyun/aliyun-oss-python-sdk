@@ -37,7 +37,7 @@ class SelectCsvObjectTestHelper(object):
             content += chunk
         
         testCase.assertEqual(result.status, 206, result.request_id)
-        testCase.assertGreater(len(content), 0)
+        testCase.assertTrue(len(content) > 0)
 
         if line_range is None:
             testCase.assertEqual(self.scannedSize, file_size)
@@ -162,7 +162,7 @@ class TestSelectCsvObject(OssTestCase):
             
             avg = sum/line_count
             select_data = ("{:.4f}".format(avg) + "," + str(max) + "," + "{:.1f}".format(sum) + '\n').encode('utf-8');
-            aggre_results = content.split(',')
+            aggre_results = content.split(b',')
             avg_result = float(aggre_results[0])
             max_result = float(aggre_results[1])
             sum_result = float(aggre_results[2])
