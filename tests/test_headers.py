@@ -23,6 +23,14 @@ class TestHeaders(OssTestCase):
         self.assertTrue("x-oss-server-side-encryption" not in myHeader)
         self.assertTrue("x-oss-server-side-encryption-key-id" not in myHeader)
 
+    def test_set_content_length(self):
+        myHeader = RequestHeader()
+
+        myHeader.set_content_length("100")
+        self.assertTrue(myHeader["Content-Length"] is "100")
+
+        myHeader.set_content_length("200")
+        self.assertTrue(myHeader["Content-Length"] is "200")
 
 if __name__ == '__main__':
     unittest.main()

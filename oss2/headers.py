@@ -47,3 +47,6 @@ class RequestHeader(dict):
             self[OSS_SERVER_SIDE_ENCRYPTION] = "KMS"
             if cmk_id is not None:
                 self[OSS_SERVER_SIDE_ENCRYPTION_KEY_ID] = cmk_id
+
+    def set_content_length(self, content_length):
+        self["Content-Length"] = content_length

@@ -6,6 +6,7 @@ import oss2
 import json
 
 from common import *
+from oss2.headers import *
 
 
 class TestImage(OssTestCase):
@@ -22,7 +23,8 @@ class TestImage(OssTestCase):
 
         # Special handle for http20, Need add Content-Length to request header in this test case
         if self.bucket.session.http_version is oss2.HTTP_VERSION_20:
-            test_header = {"Content-Length" :original_image_content.headers['Content-Length']}
+            test_header = RequestHeader()
+            test_header.set_content_length(original_image_content.headers['Content-Length'])
             self.bucket.put_object(new_image, original_image_content, headers=test_header)
         else:
             self.bucket.put_object(new_image, original_image_content)

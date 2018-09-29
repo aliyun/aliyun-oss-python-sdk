@@ -10,6 +10,7 @@ from oss2.exceptions import (ClientError, RequestError, NoSuchBucket, OpenApiSer
                              NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable)
 
 from oss2.compat import is_py2, is_py33
+from oss2.headers import *
 from common import *
 
 
@@ -190,7 +191,8 @@ class TestObject(OssTestCase):
 
         # Special handle for http20, Need add Content-Length to request header in this test case
         if self.bucket.session.http_version is oss2.HTTP_VERSION_20:
-            test_header = {"Content-Length":"0"}
+            test_header = RequestHeader()
+            test_header.set_content_length("0")
             self.bucket.put_object(key, content, headers=test_header)
         else:
             self.bucket.put_object(key, content)
@@ -211,7 +213,8 @@ class TestObject(OssTestCase):
 
         # Special handle for http20, Need add Content-Length to request header in this test case
         if self.bucket.session.http_version is oss2.HTTP_VERSION_20:
-            test_header = {"Content-Length":"0"}
+            test_header = RequestHeader()
+            test_header.set_content_length("0")
             self.bucket.put_object_from_file(key, input_filename, headers=test_header)
         else:
             self.bucket.put_object_from_file(key, input_filename)
@@ -233,7 +236,8 @@ class TestObject(OssTestCase):
 
         # Special handle for http20, Need add Content-Length to request header in this test case
         if self.bucket.session.http_version is oss2.HTTP_VERSION_20:
-            test_header = {"Content-Length" : "1048576"}
+            test_header = RequestHeader()
+            test_header.set_content_length("1048576")
             result = self.bucket.put_object(dst_key, src, headers=test_header)
         else:
             result = self.bucket.put_object(dst_key, src)
