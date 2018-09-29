@@ -609,6 +609,27 @@ class TestDownload(OssTestCase):
             except:
                 self.assertTrue(False)
 
+class TestHttp20OverDownload(TestDownload):
+    """
+        当环境变量使用oss2.HTTP11时，则重新设置为HTTP20, 再运行TestDownload，反之亦然
+    """
+    def __init__(self, *args, **kwargs):
+        super(TestHttp20OverDownload, self).__init__(*args, **kwargs)
+
+    def setUp(self):
+        if os.getenv('OSS_TEST_HTTP_VERSION') == oss2.HTTP_VERSION_11:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_20
+        else:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_11
+        super(TestHttp20OverDownload, self).setUp()
+
+    def tearDown(self):
+        if os.getenv('OSS_TEST_HTTP_VERSION') == oss2.HTTP_VERSION_11:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_20
+        else:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_11
+        super(TestHttp20OverDownload, self).tearDown()
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -258,6 +258,27 @@ class TestUpload(OssTestCase):
         check_not_sane('key', None)
         check_not_sane('parts', None)
 
+class TestHttp20OverUpload(TestUpload):
+    """
+        当环境变量使用oss2.HTTP11时，则重新设置为HTTP20, 再运行TestUpload，反之亦然
+    """
+    def __init__(self, *args, **kwargs):
+        super(TestHttp20OverUpload, self).__init__(*args, **kwargs)
+
+    def setUp(self):
+        if os.getenv('OSS_TEST_HTTP_VERSION') == oss2.HTTP_VERSION_11:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_20
+        else:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_11
+        super(TestHttp20OverUpload, self).setUp()
+
+    def tearDown(self):
+        if os.getenv('OSS_TEST_HTTP_VERSION') == oss2.HTTP_VERSION_11:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_20
+        else:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_11
+        super(TestHttp20OverUpload, self).tearDown()
+
 
 if __name__ == '__main__':
     unittest.main()

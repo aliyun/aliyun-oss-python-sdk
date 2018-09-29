@@ -541,6 +541,26 @@ class TestBucket(OssTestCase):
             self.assertEqual(result.allow_empty_referer, True)
             self.assertEqual(result.referers[0], to_string(u'阿里云'))
 
+class TestHttp20OverBucket(TestBucket):
+    """
+        当环境变量使用oss2.HTTP11时，则重新设置为HTTP20, 再运行TestBucket，反之亦然
+    """
+    def __init__(self, *args, **kwargs):
+        super(TestHttp20OverBucket, self).__init__(*args, **kwargs)
+
+    def setUp(self):
+        if os.getenv('OSS_TEST_HTTP_VERSION') == oss2.HTTP_VERSION_11:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_20
+        else:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_11
+        super(TestHttp20OverBucket, self).setUp()
+
+    def tearDown(self):
+        if os.getenv('OSS_TEST_HTTP_VERSION') == oss2.HTTP_VERSION_11:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_20
+        else:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_11
+        super(TestHttp20OverBucket, self).tearDown()
 
 if __name__ == '__main__':
     unittest.main()
