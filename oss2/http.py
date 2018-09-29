@@ -20,6 +20,7 @@ from .utils import file_object_remaining_bytes, SizedFileAdapter
 
 import logging
 from hyper.contrib import HTTP20Adapter
+import threading
 
 _USER_AGENT = 'aliyun-sdk-python/{0}({1}/{2}/{3};{4})'.format(
     __version__, platform.system(), platform.release(), platform.machine(), platform.python_version())
@@ -34,6 +35,9 @@ class Session(object):
     def __init__(self, http_version=HTTP_VERSION_11):
         self.session = requests.Session()
 
+        self.http_version = http_version
+        self.__lock = threading.Lock()
+
         if http_version is HTTP_VERSION_20:
             self.session.mount('https://', HTTP20Adapter())
         else:
@@ -43,9 +47,19 @@ class Session(object):
 
     def do_request(self, req, timeout):
         try:
-            logger.debug("Send request, method: {0}, url: {1}, params: {2}, headers: {3}, timeout: {4}".format(
-                req.method, req.url, req.params, req.headers, timeout))
-            return Response(self.session.request(req.method, req.url,
+            logger.debug("Send request, method: {0}, url: {1}, params: {2}, headers: {3}, timeout: {4}, http_version: {5}".format(
+                req.method, req.url, req.params, req.headers, timeout, self.http_version))
+            if self.http_version is HTTP_VERSION_20:
+                with self.__lock:
+                    resp = Response(self.session.request(req.method, req.url,
+                                                 data=req.data,
+                                                 params=req.params,
+                                                 headers=req.headers,
+                                                 stream=True,
+                                                 timeout=timeout))
+                    return resp
+            else:
+                return Response(self.session.request(req.method, req.url,
                                                  data=req.data,
                                                  params=req.params,
                                                  headers=req.headers,
