@@ -186,10 +186,10 @@ logger = logging.getLogger(__name__)
 
 class _Base(object):
     def __init__(self, auth, endpoint, is_cname, session, connect_timeout,
-                 app_name='', enable_crc=True, enable_http20=False):
+                 app_name='', enable_crc=True, http_version=http.HTTP_VERSION_11):
         self.auth = auth
-        self.endpoint = _normalize_endpoint(endpoint.strip(), enable_http20)
-        self.session = session or http.Session(enable_http20=enable_http20)
+        self.endpoint = _normalize_endpoint(endpoint.strip(), http_version)
+        self.session = session or http.Session(http_version=http_version)
         self.timeout = defaults.get(connect_timeout, defaults.connect_timeout)
         self.app_name = app_name
         self.enable_crc = enable_crc
@@ -269,11 +269,11 @@ class Service(_Base):
                  session=None,
                  connect_timeout=None,
                  app_name='',
-                 enable_http20=False):
+                 http_version=http.HTTP_VERSION_11):
         logger.info("Init oss service, endpoint: {0}, connect_timeout: {1}, app_name: {2}".format(
             endpoint, connect_timeout, app_name))
         super(Service, self).__init__(auth, endpoint, False, session, connect_timeout,
-                                      app_name=app_name, enable_http20=enable_http20)
+                                      app_name=app_name, http_version=http_version)
 
     def list_buckets(self, prefix='', marker='', max_keys=100):
         """根据前缀罗列用户的Bucket。
@@ -343,11 +343,11 @@ class Bucket(_Base):
                  connect_timeout=None,
                  app_name='',
                  enable_crc=True,
-                 enable_http20=False):
+                 http_version=http.HTTP_VERSION_11):
         logger.info("Init oss bucket, endpoint: {0}, isCname: {1}, connect_timeout: {2}, app_name: {3}, enabled_crc: "
                     "{4}".format(endpoint, is_cname, connect_timeout, app_name, enable_crc))
         super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout,
-                                     app_name, enable_crc, enable_http20=enable_http20)
+                                     app_name, enable_crc, http_version=http_version)
 
         self.bucket_name = bucket_name.strip()
 
@@ -1628,7 +1628,7 @@ class CryptoBucket():
                  connect_timeout=None,
                  app_name='',
                  enable_crc=True,
-                 enable_http20=False):
+                 http_version=http.HTTP_VERSION_11):
 
         if not isinstance(crypto_provider, BaseCryptoProvider):
             raise ClientError('Crypto bucket must provide a valid crypto_provider')
@@ -1637,7 +1637,7 @@ class CryptoBucket():
         self.bucket_name = bucket_name.strip()
         self.enable_crc = enable_crc
         self.bucket = Bucket(auth, endpoint, bucket_name, is_cname, session, connect_timeout,
-                             app_name, enable_crc=False, enable_http20=enable_http20)
+                             app_name, enable_crc=False, http_version=http_version)
 
     def put_object(self, key, data,
                    headers=None,
@@ -1761,9 +1761,9 @@ class CryptoBucket():
             return result
 
 
-def _normalize_endpoint(endpoint, default_https):
+def _normalize_endpoint(endpoint, http_version):
     if not endpoint.startswith('http://') and not endpoint.startswith('https://'):
-        if default_https:
+        if http_version is http.HTTP_VERSION_20:
             return 'https://' + endpoint
         else:
             return 'http://' + endpoint

@@ -26,12 +26,15 @@ _USER_AGENT = 'aliyun-sdk-python/{0}({1}/{2}/{3};{4})'.format(
 
 logger = logging.getLogger(__name__)
 
+HTTP_VERSION_11 = 'http11'
+HTTP_VERSION_20 = 'http20'
+
 class Session(object):
     """属于同一个Session的请求共享一组连接池，如有可能也会重用HTTP连接。"""
-    def __init__(self, enable_http20=False):
+    def __init__(self, http_version=HTTP_VERSION_11):
         self.session = requests.Session()
 
-        if enable_http20:
+        if http_version is HTTP_VERSION_20:
             self.session.mount('https://', HTTP20Adapter())
         else:
             psize = defaults.connection_pool_size

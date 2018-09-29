@@ -26,7 +26,7 @@ for param in (access_key_id, access_key_secret, bucket_name, endpoint):
     assert '<' not in param, '请设置参数：' + param
 
 # 创建Bucket对象，所有Object相关的接口都可以通过Bucket对象来进行
-bucket = oss2.Bucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name, enable_http20=True)
+bucket = oss2.Bucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name, http_version=oss2.HTTP_VERSION_20)
 
 # 上传一段字符串。Object名是motto.txt，内容是一段名言。
 bucket.put_object('motto.txt', 'Never give up. - Jack Ma')
