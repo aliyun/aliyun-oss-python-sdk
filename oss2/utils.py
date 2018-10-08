@@ -594,15 +594,40 @@ _AES_CTR_COUNTER_BITS_LEN = 8 * _AES_CTR_COUNTER_LEN
 _AES_GCM = 'AES/GCM/NoPadding'
 
 
-def is_multiple_sizeof_encrypt_block(byte_range_start):
-    if byte_range_start is None:
-        byte_range_start = 0
-    return (byte_range_start % _AES_CTR_COUNTER_LEN == 0)
+_MAX_PART_COUNT = 10000
+_MIN_PART_SIZE = 100 * 1024
 
-def calc_aes_ctr_offset_by_range(byte_range_start):
-    if not is_multiple_sizeof_encrypt_block(byte_range_start):
-        raise ClientError('Invalid get range value for client encryption')
-    return byte_range_start / _AES_CTR_COUNTER_LEN
+def is_multiple_sizeof_encrypt_block(data_offset):
+    if data_offset is None:
+        data_offset = 0
+    return (data_offset % _AES_CTR_COUNTER_LEN == 0)
+
+def calc_aes_ctr_offset_by_data_offset(data_offset):
+    if not is_multiple_sizeof_encrypt_block(data_offset):
+        raise ClientError('data_offset is not align to encrypt block')
+    return data_offset / _AES_CTR_COUNTER_LEN
+
+def is_valid_crypto_part_size(part_size, data_size):
+    if not is_multiple_sizeof_encrypt_block(part_size) or part_size < _MIN_PART_SIZE:
+        return False
+    part_num = (data_size - 1) / part_size + 1
+    if part_num > _MAX_PART_COUNT:
+        return False
+    return True
+
+def determine_crypto_part_size(data_size):
+    if data_size % _MAX_PART_COUNT == 0:
+        part_size = data_size / _MAX_PART_COUNT
+    else:
+        part_size = data_size / (_MAX_PART_COUNT - 1)
+
+    if part_size < _MIN_PART_SIZE:
+        part_size = _MIN_PART_SIZE
+    elif not is_multiple_sizeof_encrypt_block(part_size):
+        part_size = (part_size / _AES_CTR_COUNTER_LEN + 1) * _AES_CTR_COUNTER_LEN
+
+    return part_size
+
 
 class AESCipher:
     """AES256 加密实现。

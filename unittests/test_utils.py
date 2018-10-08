@@ -14,7 +14,7 @@ class TestUtils(unittest.TestCase):
         is_multiple = is_multiple_sizeof_encrypt_block(byte_range_start)
         self.assertFalse(is_multiple)
         
-    def test_calc_aes_ctr_offset_by_range(self):
+    def test_calc_aes_ctr_offset_by_data_offset(self):
         byte_range_start = 1024
-        cout_offset = calc_aes_ctr_offset_by_range(byte_range_start)
+        cout_offset = calc_aes_ctr_offset_by_data_offset(byte_range_start)
         self.assertEqual(cout_offset, 1024 / 16)

@@ -30,6 +30,23 @@ OSS_SYMLINK_TARGET = "x-oss-symlink-target"
 OSS_SERVER_SIDE_ENCRYPTION = "x-oss-server-side-encryption"
 OSS_SERVER_SIDE_ENCRYPTION_KEY_ID = "x-oss-server-side-encryption-key-id"
 
+OSS_CLIENT_SIDE_CRYPTO_KEY =                        "x-oss-meta-oss-crypto-key"
+OSS_CLIENT_SIDE_CRYPTO_START =                      "x-oss-meta-oss-crypto-start"
+OSS_CLIENT_SIDE_CRYPTO_CEK_ALG =                    "x-oss-meta-oss-cek-alg"
+OSS_CLIENT_SIDE_CRYPTO_WRAP_ALG =                   "x-oss-meta-oss-wrap-alg"
+OSS_CLIENT_SIDE_CRYTPO_MATDESC =                    "x-oss-meta-oss-crypto-matdesc"
+OSS_CLIENT_SIDE_CRYPTO_UNENCRYPTED_CONTENT_LENGTH = "x-oss-meta-oss-crypto-unencrypted-content-length"
+OSS_CLIENT_SIDE_CRYPTO_UNENCRYPTED_CONTENT_MD5 =    "x-oss-meta-oss-crypto-unencrypted-content-md5"
+OSS_CLIENT_SIDE_CRYPTO_KEY_HMAC =                   "x-oss-meta-oss-crypto-key-hmac"
+
+#OSS_CLIENT_SIDE_CRYPTO_KEY =                        "x-oss-client-side-crypto-key"
+#OSS_CLIENT_SIDE_CRYPTO_START =                      "x-oss-client-side-crypto-start"
+#OSS_CLIENT_SIDE_CRYPTO_CEK_ALG =                    "x-oss-client-side-crypto-cek-alg"
+#OSS_CLIENT_SIDE_CRYPTO_WRAP_ALG =                   "x-oss-client-side-crypto-wrap-alg"
+#OSS_CLIENT_SIDE_CRYTPO_MATDESC =                    "x-oss-client-side-crypto-matdesc"
+#OSS_CLIENT_SIDE_CRYPTO_UNENCRYPTED_CONTENT_LENGTH = "x-oss-client-side-crypto-unencrypted-content-length"
+#OSS_CLIENT_SIDE_CRYPTO_UNENCRYPTED_CONTENT_MD5 =    "x-oss-client-side-crypto-unencrypted-content-md5"
+#OSS_CLIENT_SIDE_CRYPTO_KEY_HMAC =                   "x-oss-client-side-crypto-key-hmac"
 
 class RequestHeader(dict):
     def __init__(self, *arg, **kw): 

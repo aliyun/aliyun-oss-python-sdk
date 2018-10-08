@@ -8,7 +8,7 @@ oss2.models
 """
 
 from .utils import http_to_unixtime, make_progress_adapter, make_crc_adapter, \
-                   calc_aes_ctr_offset_by_range, is_multiple_sizeof_encrypt_block
+                   calc_aes_ctr_offset_by_data_offset, is_multiple_sizeof_encrypt_block
 from .exceptions import ClientError, InconsistentError
 from .compat import urlunquote, to_string
 from .select_response import SelectResponseAdapter
@@ -34,6 +34,17 @@ class PartInfo(object):
         self.last_modified = last_modified
         self.part_crc = part_crc
 
+class CryptoMultipartContext(object):
+    """表示客户端加密文件通过Multipart接口上传的meta信息
+    """
+    def __init__(self, crypto_key, crypto_start, part_size, part_number, data_size):
+        self.crypto_key = crypto_key
+        self.crypto_start = crypto_start
+        self.part_size = part_size
+        self.part_number = part_number
+        self.data_size = data_size
+        self.upload_id = None
+        self.uploaded_parts = set()
 
 def _hget(headers, key, converter=lambda x: x):
     if key in headers:
@@ -129,7 +140,7 @@ class GetObjectResult(HeadObjectResult):
         self.__crypto_provider = crypto_provider
 
         content_range = _hget(resp.headers, 'Content-Range')
-        if _hget(resp.headers, 'x-oss-meta-oss-crypto-key') and content_range:
+        if _hget(resp.headers, OSS_CLIENT_SIDE_CRYPTO_KEY) and content_range:
             byte_range = self._parse_range_str(content_range)
             if not is_multiple_sizeof_encrypt_block(byte_range[0]):
                 raise ClientError('Could not get an encrypted object using byte-range parameter')
@@ -143,21 +154,27 @@ class GetObjectResult(HeadObjectResult):
             self.stream = make_crc_adapter(self.stream)
 
         if self.__crypto_provider:
-            key = self.__crypto_provider.decrypt_oss_meta_data(resp.headers, 'x-oss-meta-oss-crypto-key')
-            count_start = self.__crypto_provider.decrypt_oss_meta_data(resp.headers, 'x-oss-meta-oss-crypto-start')
+            key = self.__crypto_provider.decrypt_oss_meta_data(resp.headers, OSS_CLIENT_SIDE_CRYPTO_KEY)
+            count_start = self.__crypto_provider.decrypt_oss_meta_data(resp.headers, OSS_CLIENT_SIDE_CRYPTO_START)
+            key_hmac = self.__crypto_provider.decrypt_oss_meta_data(resp.headers, OSS_CLIENT_SIDE_CRYPTO_KEY_HMAC)
+            # check the key wrap algorthm is correct
+            self.__crypto_provider.check_plain_key_valid(key, key_hmac)
 
             # if content range , adjust the decrypt adapter
             count_offset = 0;
             if content_range:
                 byte_range = self._parse_range_str(content_range)
-                count_offset = calc_aes_ctr_offset_by_range(byte_range[0])
+                count_offset = calc_aes_ctr_offset_by_data_offset(byte_range[0])
 
-            cek_alg = _hget(resp.headers, 'x-oss-meta-oss-cek-alg')
+            cek_alg = _hget(resp.headers, OSS_CLIENT_SIDE_CRYPTO_CEK_ALG)
             if key and count_start and cek_alg:
                 self.stream = self.__crypto_provider.make_decrypt_adapter(self.stream, key, count_start, count_offset)
             else:
-                raise InconsistentError('all metadata keys are required for decryption (x-oss-meta-oss-crypto-key, \
-                                        x-oss-meta-oss-crypto-start, x-oss-meta-oss-cek-alg)', self.request_id)
+                err_msg = 'all metadata keys are required for decryption (' \
+                            + OSS_CLIENT_SIDE_CRYPTO_KEY + ', ' \
+                            + OSS_CLIENT_SIDE_CRYPTO_START + ', ' \
+                            + OSS_CLIENT_SIDE_CRYPTO_CEK_ALG + ')'
+                raise InconsistentError(err_msg, self.request_id)
 
     def _parse_range_str(self, content_range):
         # :param str content_range: sample 'bytes 0-128/1024'
@@ -233,6 +250,9 @@ class InitMultipartUploadResult(RequestResult):
         #: 新生成的Upload ID
         self.upload_id = None
 
+        #: Used in Crypto Bucket
+        self.part_size = None
+        self.part_number = None
 
 class ListObjectsResult(RequestResult):
     def __init__(self, resp):
