@@ -5,7 +5,7 @@ import os
 import oss2
 from oss2.crypto import LocalRsaProvider, AliKMSProvider
 
-# 以下代码展示了客户端文件加密上传下载的用法，如下载文件、上传文件等，注意在客户端加密的条件下，oss暂不支持文件分片上传下载操作。
+# 以下代码展示了客户端文件加密上传下载的用法，如下载文件、上传文件等。
 
 
 # 首先初始化AccessKeyId、AccessKeySecret、Endpoint等信息。
@@ -31,7 +31,7 @@ content = b'a' * 1024 * 1024
 filename = 'download.txt'
 
 
-# 创建Bucket对象，可以进行客户端数据加密(用户端RSA)，此模式下只提供对象整体上传下载操作
+# 创建Bucket对象，可以进行客户端数据加密(用户端RSA)
 bucket = oss2.CryptoBucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name, crypto_provider=LocalRsaProvider())
 
 key1 = 'motto-copy.txt'
@@ -72,7 +72,43 @@ for chunk in result:
 assert content_got == content[32:1025]
 
 
-# 创建Bucket对象，可以进行客户端数据加密(使用阿里云KMS)，此模式下只提供对象整体上传下载操作
+"""
+分片上传
+"""
+# 初始化上传分片
+part_a = 'a' * 1024 * 100
+part_b = 'b' * 1024 * 100
+part_c = 'c' * 1024 * 100
+multi_content = [part_a, part_b, part_c]
+
+parts = []
+data_size = 100 * 1024 * 3
+part_size = 100 * 1024
+multi_key = "test_crypto_multipart"
+
+res = bucket.init_multipart_upload_securely(multi_key, data_size, part_size)
+upload_id = res.upload_id
+
+# 分片上传
+for i in range(3):
+    result = bucket.upload_part_securely(multi_key, upload_id, i+1, multi_content[i])
+    parts.append(oss2.models.PartInfo(i+1, result.etag, size = part_size, part_crc = result.crc))
+
+# 完成上传
+result = bucket.complete_multipart_upload_securely(multi_key, upload_id, parts)
+
+# 下载全部文件
+result =  bucket.get_object(multi_key)
+
+# 验证一下
+content_got = b''
+for chunk in result:
+    content_got += chunk
+assert content_got[0:102400] == part_a
+assert content_got[102400:204800] == part_b
+assert content_got[204800:307200] == part_c
+
+# 创建Bucket对象，可以进行客户端数据加密(使用阿里云KMS)
 bucket = oss2.CryptoBucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name,
                            crypto_provider=AliKMSProvider(access_key_id, access_key_secret, region, cmk, '1234'))
 
@@ -112,3 +148,39 @@ content_got = b''
 for chunk in result:
     content_got +=chunk
 assert content_got == content[32:1025]
+
+"""
+分片上传
+"""
+# 初始化上传分片
+part_a = 'a' * 1024 * 100
+part_b = 'b' * 1024 * 100
+part_c = 'c' * 1024 * 100
+multi_content = [part_a, part_b, part_c]
+
+parts = []
+data_size = 100 * 1024 * 3
+part_size = 100 * 1024
+multi_key = "test_crypto_multipart"
+
+res = bucket.init_multipart_upload_securely(multi_key, data_size, part_size)
+upload_id = res.upload_id
+
+# 分片上传
+for i in range(3):
+    result = bucket.upload_part_securely(multi_key, upload_id, i+1, multi_content[i])
+    parts.append(oss2.models.PartInfo(i+1, result.etag, size = part_size, part_crc = result.crc))
+
+# 完成上传
+result = bucket.complete_multipart_upload_securely(multi_key, upload_id, parts)
+
+# 下载全部文件
+result =  bucket.get_object(multi_key)
+
+# 验证一下
+content_got = b''
+for chunk in result:
+    content_got += chunk
+assert content_got[0:102400] == part_a
+assert content_got[102400:204800] == part_b
+assert content_got[204800:307200] == part_c
