@@ -76,9 +76,9 @@ assert content_got == content[32:1025]
 分片上传
 """
 # 初始化上传分片
-part_a = 'a' * 1024 * 100
-part_b = 'b' * 1024 * 100
-part_c = 'c' * 1024 * 100
+part_a = b'a' * 1024 * 100
+part_b = b'b' * 1024 * 100
+part_c = b'c' * 1024 * 100
 multi_content = [part_a, part_b, part_c]
 
 parts = []
@@ -153,9 +153,9 @@ assert content_got == content[32:1025]
 分片上传
 """
 # 初始化上传分片
-part_a = 'a' * 1024 * 100
-part_b = 'b' * 1024 * 100
-part_c = 'c' * 1024 * 100
+part_a = b'a' * 1024 * 100
+part_b = b'b' * 1024 * 100
+part_c = b'c' * 1024 * 100
 multi_content = [part_a, part_b, part_c]
 
 parts = []

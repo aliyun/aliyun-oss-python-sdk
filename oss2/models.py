@@ -158,7 +158,7 @@ class GetObjectResult(HeadObjectResult):
             count_start = self.__crypto_provider.decrypt_oss_meta_data(resp.headers, OSS_CLIENT_SIDE_CRYPTO_START)
             key_hmac = self.__crypto_provider.decrypt_oss_meta_data(resp.headers, OSS_CLIENT_SIDE_CRYPTO_KEY_HMAC)
             # check the key wrap algorthm is correct
-            self.__crypto_provider.check_plain_key_valid(key, key_hmac)
+            self.__crypto_provider.check_plain_key_valid(key, to_string(key_hmac))
 
             # if content range , adjust the decrypt adapter
             count_offset = 0;

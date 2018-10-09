@@ -1805,7 +1805,7 @@ class CryptoBucket():
         crypto_key = self.crypto_provider.get_key()
         crypto_start = self.crypto_provider.get_start()
 
-        part_number = (data_size - 1) / part_size + 1
+        part_number = int((data_size - 1) / part_size + 1)
         context = CryptoMultipartContext(crypto_key, crypto_start, part_size, part_number, data_size)
 
         headers = self.crypto_provider.build_header(headers, context)
@@ -1906,7 +1906,7 @@ class CryptoBucket():
         except:
             raise ClientError("Crypto bucket can't find the upload_id in local contexts")
 
-        res = self.bucket.abort_multipart_upload_securely(key, upload_id)
+        res = self.bucket.abort_multipart_upload(key, upload_id)
         del self.multipart_upload_contexts[upload_id]
 
         logger.info("Abort multipart upload securely done, upload_id = {0} remove from local contexts".format(upload_id))
@@ -1933,9 +1933,6 @@ class CryptoBucket():
         res = self.bucket.list_parts(key, upload_id, marker = marker, max_parts = max_parts)
         logger.info("List parts securely done, upload_id = {0}".format(upload_id))
         return res
-
-    def determine_valid_part_size(data_size):
-        return determine_crypto_part_size(data_size)
 
 def _normalize_endpoint(endpoint):
     if not endpoint.startswith('http://') and not endpoint.startswith('https://'):

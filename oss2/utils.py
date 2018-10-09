@@ -615,16 +615,26 @@ def is_valid_crypto_part_size(part_size, data_size):
         return False
     return True
 
-def determine_crypto_part_size(data_size):
+def determine_crypto_part_size(data_size, excepted_part_size = None):
+    if excepted_part_size:
+        # excepted_part_size is valid
+        if is_valid_crypto_part_size(excepted_part_size, data_size):
+            return excepted_part_size
+        # excepted_part_size is enough big but not algin
+        elif excepted_part_size > data_size/_MAX_PART_COUNT:
+            part_size = int(excepted_part_size/_AES_CTR_COUNTER_LEN + 1) * _AES_CTR_COUNTER_LEN
+            return part_size
+
+    # if excepted_part_size is None or is too small, calculate a correct part_size
     if data_size % _MAX_PART_COUNT == 0:
         part_size = data_size / _MAX_PART_COUNT
     else:
-        part_size = data_size / (_MAX_PART_COUNT - 1)
+        part_size = int(data_size / (_MAX_PART_COUNT - 1))
 
     if part_size < _MIN_PART_SIZE:
         part_size = _MIN_PART_SIZE
     elif not is_multiple_sizeof_encrypt_block(part_size):
-        part_size = (part_size / _AES_CTR_COUNTER_LEN + 1) * _AES_CTR_COUNTER_LEN
+        part_size = int(part_size / _AES_CTR_COUNTER_LEN + 1) * _AES_CTR_COUNTER_LEN
 
     return part_size
 
@@ -651,7 +661,7 @@ class AESCipher:
 
     def __init__(self, key=None, count_start=None, count_offset=0):
         self.key = key
-        self.count_offset = count_offset
+        self.count_offset = int(count_offset)
         if not self.key:
             self.key = random_aes256_key()
         if not count_start:

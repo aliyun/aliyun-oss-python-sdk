@@ -29,3 +29,10 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(determine_crypto_part_size(1024*100*100000), 1024*1000)
         self.assertEqual(determine_crypto_part_size(1024*100*100000 - 1), 1024112)
         self.assertEqual(determine_crypto_part_size(1024*100*99), 1024*100)
+
+        self.assertEqual(determine_crypto_part_size(1024*100*1000, 1024*100), 1024*100)
+        self.assertEqual(determine_crypto_part_size(1024*100*1000, 1024*100-1), 1024*100)
+        self.assertEqual(determine_crypto_part_size(1024*100*10000, 1024), 1024*100)
+
+if __name__ == '__main__':
+    unittest.main()
