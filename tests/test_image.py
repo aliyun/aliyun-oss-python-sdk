@@ -6,6 +6,7 @@ import oss2
 import json
 
 from common import *
+from oss2.headers import *
 
 
 class TestImage(OssTestCase):
@@ -19,7 +20,14 @@ class TestImage(OssTestCase):
     
     def __test(self, original_image, new_image, image_style):
         original_image_content = self.bucket.get_object(original_image, process=image_style)
-        self.bucket.put_object(new_image, original_image_content)
+
+        # Special handle for http20, Need add Content-Length to request header in this test case
+        if self.bucket.session.http_version is oss2.HTTP_VERSION_20:
+            test_header = RequestHeader()
+            test_header.set_content_length(original_image_content.headers['Content-Length'])
+            self.bucket.put_object(new_image, original_image_content, headers=test_header)
+        else:
+            self.bucket.put_object(new_image, original_image_content)
         
     def __test_to_file(self, original_image, new_image, image_style):
         self.bucket.get_object_to_file(original_image, new_image, process=image_style)
@@ -85,6 +93,27 @@ class TestImage(OssTestCase):
         self.__test_to_file(original_image, new_image, style)
         self.__check(new_image, 100, 100, 3267, 'jpg')
          
+
+class TestHttp20OverImage(TestImage):
+    """
+        当环境变量使用oss2.HTTP11时，则重新设置为HTTP20, 再运行TestImage，反之亦然
+    """
+    def __init__(self, *args, **kwargs):
+        super(TestHttp20OverImage, self).__init__(*args, **kwargs)
+
+    def setUp(self):
+        if os.getenv('OSS_TEST_HTTP_VERSION') == oss2.HTTP_VERSION_11:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_20
+        else:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_11
+        super(TestHttp20OverImage, self).setUp()
+
+    def tearDown(self):
+        if os.getenv('OSS_TEST_HTTP_VERSION') == oss2.HTTP_VERSION_11:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_20
+        else:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_11
+        super(TestHttp20OverImage, self).tearDown()
 
 if __name__ == '__main__':
     unittest.main()

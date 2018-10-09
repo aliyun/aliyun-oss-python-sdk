@@ -19,26 +19,47 @@ from .exceptions import RequestError
 from .utils import file_object_remaining_bytes, SizedFileAdapter
 
 import logging
+from hyper.contrib import HTTP20Adapter
+import threading
 
 _USER_AGENT = 'aliyun-sdk-python/{0}({1}/{2}/{3};{4})'.format(
     __version__, platform.system(), platform.release(), platform.machine(), platform.python_version())
 
 logger = logging.getLogger(__name__)
 
+HTTP_VERSION_11 = 'http11'
+HTTP_VERSION_20 = 'http20'
+
 class Session(object):
     """属于同一个Session的请求共享一组连接池，如有可能也会重用HTTP连接。"""
-    def __init__(self):
+    def __init__(self, http_version=HTTP_VERSION_11):
         self.session = requests.Session()
 
-        psize = defaults.connection_pool_size
-        self.session.mount('http://', requests.adapters.HTTPAdapter(pool_connections=psize, pool_maxsize=psize))
-        self.session.mount('https://', requests.adapters.HTTPAdapter(pool_connections=psize, pool_maxsize=psize))
+        self.http_version = http_version
+        self.__lock = threading.Lock()
+
+        if http_version is HTTP_VERSION_20:
+            self.session.mount('https://', HTTP20Adapter())
+        else:
+            psize = defaults.connection_pool_size
+            self.session.mount('http://', requests.adapters.HTTPAdapter(pool_connections=psize, pool_maxsize=psize))
+            self.session.mount('https://', requests.adapters.HTTPAdapter(pool_connections=psize, pool_maxsize=psize))
 
     def do_request(self, req, timeout):
         try:
-            logger.debug("Send request, method: {0}, url: {1}, params: {2}, headers: {3}, timeout: {4}".format(
-                req.method, req.url, req.params, req.headers, timeout))
-            return Response(self.session.request(req.method, req.url,
+            logger.debug("Send request, method: {0}, url: {1}, params: {2}, headers: {3}, timeout: {4}, http_version: {5}".format(
+                req.method, req.url, req.params, req.headers, timeout, self.http_version))
+            if self.http_version is HTTP_VERSION_20:
+                with self.__lock:
+                    resp = Response(self.session.request(req.method, req.url,
+                                                 data=req.data,
+                                                 params=req.params,
+                                                 headers=req.headers,
+                                                 stream=True,
+                                                 timeout=timeout))
+                    return resp
+            else:
+                return Response(self.session.request(req.method, req.url,
                                                  data=req.data,
                                                  params=req.params,
                                                  headers=req.headers,

@@ -251,8 +251,29 @@ class TestLiveChannel(OssTestCase):
         self.assertEqual(signed_url, self._get_publish_url(self.bucket.bucket_name, channel_name) 
                          + "?playlistName=" + playlist_name)
         
-        self.assertRaises(oss2.exceptions.AccessDenied, bucket.delete_live_channel, 'test-live-chan')
-    
+        self.assertRaises(oss2.exceptions.AccessDenied, bucket.delete_live_channel, 'test-live-chan') 
+
+class TestHttp20OverLiveChannel(TestLiveChannel):
+    """
+        当环境变量使用oss2.HTTP11时，则重新设置为HTTP20, 再运行TestLiveChannel，反之亦然
+    """
+    def __init__(self, *args, **kwargs):
+        super(TestHttp20OverLiveChannel, self).__init__(*args, **kwargs)
+
+    def setUp(self):
+        if os.getenv('OSS_TEST_HTTP_VERSION') == oss2.HTTP_VERSION_11:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_20
+        else:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_11
+        super(TestHttp20OverLiveChannel, self).setUp()
+
+    def tearDown(self):
+        if os.getenv('OSS_TEST_HTTP_VERSION') == oss2.HTTP_VERSION_11:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_20
+        else:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_11
+        super(TestHttp20OverLiveChannel, self).tearDown()
+
 
 if __name__ == '__main__':
     unittest.main()

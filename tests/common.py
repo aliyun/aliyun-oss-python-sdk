@@ -26,6 +26,7 @@ OSS_STS_KEY = os.getenv("OSS_TEST_STS_KEY")
 OSS_STS_ARN = os.getenv("OSS_TEST_STS_ARN")
 
 OSS_AUTH_VERSION = None
+OSS_HTTP_VERSION = None
 
 def random_string(n):
     return ''.join(random.choice(string.ascii_lowercase) for i in range(n))
@@ -80,10 +81,11 @@ class OssTestCase(unittest.TestCase):
         oss2.defaults.multiget_part_size = self.default_multiget_part_size
         oss2.defaults.multiget_num_threads = random.randint(1, 5)
 
-        global OSS_AUTH_VERSION
+        global OSS_AUTH_VERSION, OSS_HTTP_VERSION
         OSS_AUTH_VERSION = os.getenv('OSS_TEST_AUTH_VERSION')
+        OSS_HTTP_VERSION = os.getenv('OSS_TEST_HTTP_VERSION')
 
-        self.bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET)
+        self.bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET, http_version=OSS_HTTP_VERSION)
 
         try:
             self.bucket.create_bucket()
@@ -91,10 +93,11 @@ class OssTestCase(unittest.TestCase):
             pass
 
         self.rsa_crypto_bucket = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET,
-                                             crypto_provider=oss2.LocalRsaProvider())
+                                             crypto_provider=oss2.LocalRsaProvider(), http_version=OSS_HTTP_VERSION)
 
+        # Special handle for http20, Because now KMS don't support http20, kms_crypto_bucket create with http11
         self.kms_crypto_bucket = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET,
-                                             crypto_provider=oss2.AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK))
+                                             crypto_provider=oss2.AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK), http_version=oss2.HTTP_VERSION_11)
 
         self.key_list = []
         self.temp_files = []

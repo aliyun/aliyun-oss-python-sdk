@@ -10,6 +10,7 @@ from oss2.exceptions import (ClientError, RequestError, NoSuchBucket, OpenApiSer
                              NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable)
 
 from oss2.compat import is_py2, is_py33
+from oss2.headers import *
 from common import *
 
 
@@ -188,7 +189,14 @@ class TestObject(OssTestCase):
         key = self.random_key()
         content = b''
 
-        self.bucket.put_object(key, content)
+        # Special handle for http20, Need add Content-Length to request header in this test case
+        if self.bucket.session.http_version is oss2.HTTP_VERSION_20:
+            test_header = RequestHeader()
+            test_header.set_content_length("0")
+            self.bucket.put_object(key, content, headers=test_header)
+        else:
+            self.bucket.put_object(key, content)
+
         res = self.bucket.get_object(key)
 
         self.assertEqual(res.read(), b'')
@@ -203,7 +211,14 @@ class TestObject(OssTestCase):
         with open(input_filename, 'wb') as f:
             f.write(content)
 
-        self.bucket.put_object_from_file(key, input_filename)
+        # Special handle for http20, Need add Content-Length to request header in this test case
+        if self.bucket.session.http_version is oss2.HTTP_VERSION_20:
+            test_header = RequestHeader()
+            test_header.set_content_length("0")
+            self.bucket.put_object_from_file(key, input_filename, headers=test_header)
+        else:
+            self.bucket.put_object_from_file(key, input_filename)
+
         self.bucket.get_object_to_file(key, output_filename)
 
         self.assertTrue(filecmp.cmp(input_filename, output_filename))
@@ -218,7 +233,14 @@ class TestObject(OssTestCase):
 
         # 获取OSS上的文件，一边读取一边写入到另外一个OSS文件
         src = self.bucket.get_object(src_key)
-        result = self.bucket.put_object(dst_key, src)
+
+        # Special handle for http20, Need add Content-Length to request header in this test case
+        if self.bucket.session.http_version is oss2.HTTP_VERSION_20:
+            test_header = RequestHeader()
+            test_header.set_content_length("1048576")
+            result = self.bucket.put_object(dst_key, src, headers=test_header)
+        else:
+            result = self.bucket.put_object(dst_key, src)
 
         # verify        
         self.assertTrue(src.client_crc is not None)
@@ -239,6 +261,10 @@ class TestObject(OssTestCase):
         return generator()
 
     def test_data_generator(self):
+        # Special handle for http20, Ignore this test if http20
+        if self.bucket.session.http_version is oss2.HTTP_VERSION_20:
+            return
+
         key = self.random_key()
         key2 = self.random_key()
         content = random_bytes(1024 * 1024 + 1)
@@ -406,7 +432,7 @@ class TestObject(OssTestCase):
 
             resp = requests.get(url)
             self.assertEqual(content, resp.content)
-            
+
     def test_sign_url_with_callback(self):
         key = self.random_key()
         
@@ -587,8 +613,12 @@ class TestObject(OssTestCase):
         self.bucket.delete_object(key)
 
     def test_object_exists(self):
+        # Special handle for http20, Ignore this test if http20
+        if self.bucket.session.http_version is oss2.HTTP_VERSION_20:
+            return
+
         key = self.random_key()
-        
+
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
         self.assertRaises(NoSuchBucket, bucket.object_exists, key)
@@ -609,20 +639,23 @@ class TestObject(OssTestCase):
         self.assertEqual(headers['x-oss-meta-key2'], 'value2')
         
     def test_get_object_meta(self):
+        # Special handle for http20, Ignore this test if http20
+        if self.bucket.session.http_version is oss2.HTTP_VERSION_20:
+            return
+
         key = self.random_key()
         content = 'hello'
-        
+
         # bucket no exist
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
-        
+
         self.assertRaises(NoSuchBucket, bucket.get_object_meta, key)
-        
+
         # object no exist
         self.assertRaises(NoSuchKey, self.bucket.get_object_meta, key)
 
         self.bucket.put_object(key, content)
-        
         # get meta normal
         result = self.bucket.get_object_meta(key)
 
@@ -861,6 +894,10 @@ class TestObject(OssTestCase):
         self.assertEqual(result.target_key, key)
 
     def test_process_object(self):
+        # Special handle for http20, Ignore this test if http20
+        if self.bucket.session.http_version is oss2.HTTP_VERSION_20:
+            return
+
         key = self.random_key(".jpg")
         result = self.bucket.put_object_from_file(key, "tests/example.jpg")
         self.assertEqual(result.status, 200)
@@ -910,6 +947,47 @@ class TestSign(TestObject):
             os.environ['OSS_TEST_AUTH_VERSION'] = oss2.AUTH_VERSION_2
         super(TestSign, self).tearDown()
 
+class TestHttp20OverObject(TestObject):
+    """
+        当环境变量使用oss2.HTTP11时，则重新设置为HTTP20, 再运行TestObject，反之亦然
+    """
+    def __init__(self, *args, **kwargs):
+        super(TestHttp20OverObject, self).__init__(*args, **kwargs)
+
+    def setUp(self):
+        if os.getenv('OSS_TEST_HTTP_VERSION') == oss2.HTTP_VERSION_11:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_20
+        else:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_11
+        super(TestHttp20OverObject, self).setUp()
+
+    def tearDown(self):
+        if os.getenv('OSS_TEST_HTTP_VERSION') == oss2.HTTP_VERSION_11:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_20
+        else:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_11
+        super(TestHttp20OverObject, self).tearDown()
+
+class TestHttp20OverSign(TestSign):
+    """
+        当环境变量使用oss2.HTTP11时，则重新设置为HTTP20, 再运行TestSign，反之亦然
+    """
+    def __init__(self, *args, **kwargs):
+        super(TestHttp20OverSign, self).__init__(*args, **kwargs)
+
+    def setUp(self):
+        if os.getenv('OSS_TEST_HTTP_VERSION') == oss2.HTTP_VERSION_11:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_20
+        else:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_11
+        super(TestHttp20OverSign, self).setUp()
+
+    def tearDown(self):
+        if os.getenv('OSS_TEST_HTTP_VERSION') == oss2.HTTP_VERSION_11:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_20
+        else:
+            os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_11
+        super(TestHttp20OverSign, self).tearDown()
 
 if __name__ == '__main__':
     unittest.main()

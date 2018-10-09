@@ -72,7 +72,8 @@ if oss2.compat.is_py2:
             self.token = fetch_sts_token(OSS_STS_ID, OSS_STS_KEY, OSS_STS_ARN)
 
             auth = oss2.StsAuth(self.token.access_key_id, self.token.access_key_secret, self.token.security_token)
-            self.bucket = oss2.Bucket(auth, OSS_ENDPOINT, OSS_BUCKET)
+            OSS_HTTP_VERSION = os.getenv('OSS_TEST_HTTP_VERSION') 
+            self.bucket = oss2.Bucket(auth, OSS_ENDPOINT, OSS_BUCKET, http_version=OSS_HTTP_VERSION)
 
         def test_object(self):
             self.init_bucket()
@@ -133,3 +134,48 @@ if oss2.compat.is_py2:
             else:
                 os.environ['OSS_TEST_AUTH_VERSION'] = oss2.AUTH_VERSION_2
             super(TestSign, self).tearDown()
+
+    class TestHttp20OverSts(TestSts):
+        """
+            当环境变量使用oss2.HTTP11时，则重新设置为HTTP20, 再运行TestSts，反之亦然
+        """
+        def __init__(self, *args, **kwargs):
+            super(TestHttp20OverSts, self).__init__(*args, **kwargs)
+    
+        def setUp(self):
+            if os.getenv('OSS_TEST_HTTP_VERSION') == oss2.HTTP_VERSION_11:
+                os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_20
+            else:
+                os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_11
+            super(TestHttp20OverSts, self).setUp()
+    
+        def tearDown(self):
+            if os.getenv('OSS_TEST_HTTP_VERSION') == oss2.HTTP_VERSION_11:
+                os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_20
+            else:
+                os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_11
+            super(TestHttp20OverSts, self).tearDown()
+    
+    class TestHttp20OverSign(TestSign):
+        """
+            当环境变量使用oss2.HTTP11时，则重新设置为HTTP20, 再运行TestSign，反之亦然
+        """
+        def __init__(self, *args, **kwargs):
+            super(TestHttp20OverSign, self).__init__(*args, **kwargs)
+    
+        def setUp(self):
+            if os.getenv('OSS_TEST_HTTP_VERSION') == oss2.HTTP_VERSION_11:
+                os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_20
+            else:
+                os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_11
+            super(TestHttp20OverSign, self).setUp()
+    
+        def tearDown(self):
+            if os.getenv('OSS_TEST_HTTP_VERSION') == oss2.HTTP_VERSION_11:
+                os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_20
+            else:
+                os.environ['OSS_TEST_HTTP_VERSION'] = oss2.HTTP_VERSION_11
+            super(TestHttp20OverSign, self).tearDown()
+
+if __name__ == '__main__':
+    unittest.main()

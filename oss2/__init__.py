@@ -4,7 +4,7 @@ from . import models, exceptions
 
 from .api import Service, Bucket, CryptoBucket
 from .auth import Auth, AuthV2, AnonymousAuth, StsAuth, AUTH_VERSION_1, AUTH_VERSION_2, make_auth
-from .http import Session, CaseInsensitiveDict
+from .http import Session, CaseInsensitiveDict, HTTP_VERSION_11, HTTP_VERSION_20
 
 
 from .iterators import (BucketIterator, ObjectIterator,
