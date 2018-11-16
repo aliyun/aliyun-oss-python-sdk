@@ -8,9 +8,11 @@ oss2.models
 """
 
 from .utils import http_to_unixtime, make_progress_adapter, make_crc_adapter
-from .exceptions import ClientError
-from .compat import urlunquote
+from .exceptions import ClientError, InconsistentError
+from .compat import urlunquote, to_string
 from .select_response import SelectResponseAdapter
+from .headers import *
+import json
 
 class PartInfo(object):
     """表示分片信息的文件。
@@ -20,14 +22,16 @@ class PartInfo(object):
 
     :param int part_number: 分片号
     :param str etag: 分片的ETag
-    :param int size: 分片的大小。仅用在 `list_parts` 的结果里。
+    :param int size: 分片的大小。用在 `list_parts` 的结果里，也用与分片对象做crc combine得到整个对象crc64值
     :param int last_modified: 该分片最后修改的时间戳，类型为int。参考 :ref:`unix_time`
+    :param int part_crc: 该分片的crc64值
     """
-    def __init__(self, part_number, etag, size=None, last_modified=None):
+    def __init__(self, part_number, etag, size=None, last_modified=None, part_crc=None):
         self.part_number = part_number
         self.etag = etag
         self.size = size
         self.last_modified = last_modified
+        self.part_crc = part_crc
 
 
 def _hget(headers, key, converter=lambda x: x):
@@ -53,15 +57,14 @@ class RequestResult(object):
         self.headers = resp.headers
 
         #: 请求ID，用于跟踪一个OSS请求。提交工单时，最后能够提供请求ID
-        self.request_id = resp.headers.get('x-oss-request-id', '')
-
+        self.request_id = resp.request_id
 
 class HeadObjectResult(RequestResult):
     def __init__(self, resp):
         super(HeadObjectResult, self).__init__(resp)
 
         #: 文件类型，可以是'Normal'、'Multipart'、'Appendable'等
-        self.object_type = _hget(self.headers, 'x-oss-object-type')
+        self.object_type = _hget(self.headers, OSS_OBJECT_TYPE)
 
         #: 文件最后修改时间，类型为int。参考 :ref:`unix_time` 。
 
@@ -76,6 +79,14 @@ class HeadObjectResult(RequestResult):
         #: HTTP ETag
         self.etag = _get_etag(self.headers)
 
+        #: 文件 server_crc
+        self._server_crc = _hget(self.headers, 'x-oss-hash-crc64ecma', int)
+
+    @property
+    def server_crc(self):
+        return self._server_crc
+
+
 class GetSelectObjectMetaResult(HeadObjectResult):
     def __init__(self, resp):
         super(GetSelectObjectMetaResult, self).__init__(resp)
@@ -84,8 +95,9 @@ class GetSelectObjectMetaResult(HeadObjectResult):
         for data in self.select_resp: # waiting the response body to finish
             pass
 
-        self.csv_rows = self.select_resp.rows;
-        self.csv_splits = self.select_resp.splits;
+        self.csv_rows = self.select_resp.rows
+        self.csv_splits = self.select_resp.splits
+
 
 class GetObjectMetaResult(RequestResult):
     def __init__(self, resp):
@@ -106,39 +118,48 @@ class GetSymlinkResult(RequestResult):
         super(GetSymlinkResult, self).__init__(resp)
 
         #: 符号连接的目标文件
-        self.target_key = urlunquote(_hget(self.headers, 'x-oss-symlink-target'))
+        self.target_key = urlunquote(_hget(self.headers, OSS_SYMLINK_TARGET))
         
         
 class GetObjectResult(HeadObjectResult):
-    def __init__(self, resp, progress_callback=None, crc_enabled=False):
+    def __init__(self, resp, progress_callback=None, crc_enabled=False, crypto_provider=None):
         super(GetObjectResult, self).__init__(resp)
         self.__crc_enabled = crc_enabled
+        self.__crypto_provider = crypto_provider
+
+        if _hget(resp.headers, 'x-oss-meta-oss-crypto-key') and _hget(resp.headers, 'Content-Range'):
+            raise ClientError('Could not get an encrypted object using byte-range parameter')
 
         if progress_callback:
             self.stream = make_progress_adapter(self.resp, progress_callback, self.content_length)
         else:
             self.stream = self.resp
         
-        self.__crc = _hget(self.headers, 'x-oss-hash-crc64ecma', int)
         if self.__crc_enabled:
             self.stream = make_crc_adapter(self.stream)
-            
+
+        if self.__crypto_provider:
+            key = self.__crypto_provider.decrypt_oss_meta_data(resp.headers, 'x-oss-meta-oss-crypto-key')
+            start = self.__crypto_provider.decrypt_oss_meta_data(resp.headers, 'x-oss-meta-oss-crypto-start')
+            cek_alg = _hget(resp.headers, 'x-oss-meta-oss-cek-alg')
+            if key and start and cek_alg:
+                self.stream = self.__crypto_provider.make_decrypt_adapter(self.stream, key, start)
+            else:
+                raise InconsistentError('all metadata keys are required for decryption (x-oss-meta-oss-crypto-key, \
+                                        x-oss-meta-oss-crypto-start, x-oss-meta-oss-cek-alg)', self.request_id)
+
     def read(self, amt=None):
         return self.stream.read(amt)
 
     def __iter__(self):
         return iter(self.stream)
-
+    
     @property
     def client_crc(self):
         if self.__crc_enabled:
             return self.stream.crc
         else:
             return None
-    
-    @property
-    def server_crc(self):
-        return self.__crc
 
 class SelectObjectResult(HeadObjectResult):
     def __init__(self, resp, progress_callback=None, crc_enabled=False):
@@ -163,7 +184,7 @@ class PutObjectResult(RequestResult):
         self.etag = _get_etag(self.headers)
         
         #: 文件上传后，OSS上文件的CRC64值
-        self.crc = _hget(resp.headers, 'x-oss-hash-crc64ecma', int)
+        self.crc = _hget(resp.headers, OSS_HASH_CRC64_ECMA, int)
 
 
 class AppendObjectResult(RequestResult):
@@ -174,10 +195,10 @@ class AppendObjectResult(RequestResult):
         self.etag = _get_etag(self.headers)
 
         #: 本次追加写完成后，OSS上文件的CRC64值
-        self.crc = _hget(resp.headers, 'x-oss-hash-crc64ecma', int)
+        self.crc = _hget(resp.headers, OSS_HASH_CRC64_ECMA, int)
 
         #: 下次追加写的偏移
-        self.next_position = _hget(resp.headers, 'x-oss-next-append-position', int)
+        self.next_position = _hget(resp.headers, OSS_NEXT_APPEND_POSITION, int)
 
 
 class BatchDeleteObjectsResult(RequestResult):
@@ -255,7 +276,7 @@ class GetObjectAclResult(RequestResult):
 
 class SimplifiedBucketInfo(object):
     """:func:`list_buckets <oss2.Service.list_objects>` 结果中的单个元素类型。"""
-    def __init__(self, name, location, creation_date):
+    def __init__(self, name, location, creation_date, extranet_endpoint, intranet_endpoint, storage_class):
         #: Bucket名
         self.name = name
 
@@ -264,6 +285,15 @@ class SimplifiedBucketInfo(object):
 
         #: Bucket的创建时间，类型为int。参考 :ref:`unix_time`。
         self.creation_date = creation_date
+
+        #: Bucket访问的外网域名
+        self.extranet_endpoint = extranet_endpoint
+
+        #: 同区域ECS访问Bucket的内网域名
+        self.intranet_endpoint = intranet_endpoint
+
+        #: Bucket存储类型，支持“Standard”、“IA”、“Archive”
+        self.storage_class = storage_class
 
 
 class ListBucketsResult(RequestResult):
@@ -828,3 +858,21 @@ class GetLiveChannelHistoryResult(RequestResult, LiveChannelHistory):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         LiveChannelHistory.__init__(self)
+
+
+class ProcessObjectResult(RequestResult):
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        self.bucket = ""
+        self.fileSize = 0
+        self.object = ""
+        self.process_status = ""
+        result = json.loads(to_string(resp.read()))
+        if 'bucket' in result:
+            self.bucket = result['bucket']
+        if 'fileSize' in result:
+            self.fileSize = result['fileSize']
+        if 'object' in result:
+            self.object = result['object']
+        if 'status' in result:
+            self.process_status = result['status']

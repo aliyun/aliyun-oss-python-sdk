@@ -37,7 +37,7 @@ class SelectCsvObjectTestHelper(object):
             content += chunk
         
         testCase.assertEqual(result.status, 206, result.request_id)
-        testCase.assertGreater(len(content), 0)
+        testCase.assertTrue(len(content) > 0)
 
         if line_range is None:
             testCase.assertEqual(self.scannedSize, file_size)
@@ -143,7 +143,7 @@ class TestSelectCsvObject(OssTestCase):
     def test_select_csv_object_float_aggregation(self):
         helper = SelectCsvObjectTestHelper(self.bucket) 
         content = helper.test_select_csv_object(self, "select avg(cast(data_value as double)), max(cast(data_value as double)), sum(cast(data_value as double)) from ossobject")
-        select_data = b''
+        # select_data = b''
 
         with open('tests/sample_data.csv') as csvfile:
             spamreader = csv.DictReader(csvfile, delimiter=',', quotechar='"')
@@ -161,8 +161,8 @@ class TestSelectCsvObject(OssTestCase):
                     line_count += 1
             
             avg = sum/line_count
-            select_data = ("{:.4f}".format(avg) + "," + str(max) + "," + "{:.1f}".format(sum) + '\n').encode('utf-8');
-            aggre_results = content.split(',')
+            # select_data = ("{0:.4f}".format(avg) + "," + str(max) + "," + "{0:.1f}".format(sum) + '\n').encode('utf-8')
+            aggre_results = content.split(b',')
             avg_result = float(aggre_results[0])
             max_result = float(aggre_results[1])
             sum_result = float(aggre_results[2])
@@ -350,7 +350,7 @@ class TestSelectCsvObject(OssTestCase):
             for chunk in result:
                 content += chunk
         except SelectOperationFailed:
-            print "expected error occurs"
+            print("expected error occurs")
         
         self.assertEqual(content, 'abc,def\n'.encode('utf-8'))
 

@@ -30,12 +30,11 @@ for param in (access_key_id, access_key_secret, bucket_name, endpoint):
 bucket = oss2.Bucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name)
 
 key = 'motto.txt'
-content = 'a'*1024*1024
+content = oss2.to_bytes('a' * 1024 * 1024)
 filename = 'download.txt'
 
 # 上传文件
-bucket.put_object(key, content)
-
+bucket.put_object(key, content, headers={'content-length': str(1024 * 1024)})
 
 """
 文件下载
@@ -48,8 +47,7 @@ result = bucket.get_object(key)
 content_got = b''
 for chunk in result:
     content_got += chunk
-assert content_got == content 
-
+assert content_got == content
 
 # 下载到本地文件
 result = bucket.get_object_to_file(key, filename)
@@ -57,7 +55,6 @@ result = bucket.get_object_to_file(key, filename)
 # 验证一下
 with open(filename, 'rb') as fileobj:
     assert fileobj.read() == content
-    
 
 """
 范围下载
@@ -70,7 +67,7 @@ result = bucket.get_object(key, byte_range=(0, 1023))
 content_got = b''
 for chunk in result:
     content_got += chunk
-assert content_got == 'a'*1024 
+assert content_got == oss2.to_bytes('a'*1024)
 
 
 # 范围下载到本地文件
@@ -78,8 +75,8 @@ result = bucket.get_object_to_file(key, filename, byte_range=(1024, 2047))
 
 # 验证一下
 with open(filename, 'rb') as fileobj:
-    assert fileobj.read() == 'a'*1024 
-    
+    assert fileobj.read() == oss2.to_bytes('a'*1024)
+
 
 """
 断点续传下载
@@ -89,7 +86,7 @@ with open(filename, 'rb') as fileobj:
 oss2.resumable_download(bucket, key, filename,
                         multiget_threshold=200*1024,
                         part_size=100*1024,
-                        num_threads=3) 
+                        num_threads=3)
 
 # 验证一下
 with open(filename, 'rb') as fileobj:

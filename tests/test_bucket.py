@@ -107,7 +107,7 @@ class TestBucket(OssTestCase):
 
         # 设置index页面和error页面
         self.bucket.put_bucket_website(oss2.models.BucketWebsite('index.html', 'error.html'))
-        time.sleep(5)
+        wait_meta_sync()
 
         def same_website(website, index, error):
             return website.index_file == index and website.error_file == error

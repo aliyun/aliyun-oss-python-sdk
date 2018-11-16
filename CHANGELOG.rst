@@ -3,6 +3,25 @@ OSS SDK for Python 版本记录
 
 Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
+Version 2.6.0
+-------------
+
+- 增加: 添加详细的log输出
+- 增加: 断点下载支持crc校验
+- 增加: ipv6支持
+- 增加: 使用签名URL上传下载
+- 增加: 服务端加密支持传入CMK ID
+- 增加: select查询接口支持
+- 修复: list bucket支持返回extranet endpoint & interanet enpoint & storage class
+- 修复: upload_part_copy接口支持中文等特殊字符对象的拷贝
+- 修复: get_object接口带'range'的http header时不校验crc
+- 修复: get_object接口带'Accept-Encoding'的http header且值为'gzip'时不校验crc
+
+Version 2.5.0
+-------------
+
+- 增加：支持客户端加密
+
 Version 2.4.0
 -------------
 

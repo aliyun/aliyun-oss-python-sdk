@@ -105,3 +105,5 @@ class TestTaskQueue(unittest.TestCase):
         self.assertRaises(RuntimeError, q.run)
 
 
+if __name__ == '__main__':
+    unittest.main()

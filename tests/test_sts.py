@@ -21,16 +21,16 @@ if oss2.compat.is_py2:
 
 
     def fetch_sts_token(access_key_id, access_key_secret, role_arn):
-        clt = client.AcsClient(access_key_id, access_key_secret, OSS_STS_REGION)
+        clt = client.AcsClient(access_key_id, access_key_secret, OSS_REGION)
         req = AssumeRoleRequest.AssumeRoleRequest()
 
         req.set_accept_format('json')
         req.set_RoleArn(role_arn)
         req.set_RoleSessionName('oss-python-sdk-test')
 
-        body = clt.do_action(req)
+        body = clt.do_action_with_exception(req)
 
-        j = json.loads(body)
+        j = json.loads(oss2.to_unicode(body))
 
         token = StsToken()
 
@@ -98,7 +98,7 @@ if oss2.compat.is_py2:
             content = b'Ali Baba'
 
             self.bucket.put_object(key, content)
-            url = self.bucket.sign_url('GET', key, 60)
+            url = self.bucket.sign_url('GET', key, 60, params={'para1':'test'})
 
             resp = requests.get(url)
             self.assertEqual(content, resp.content)

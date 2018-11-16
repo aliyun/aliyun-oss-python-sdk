@@ -122,7 +122,7 @@ upload_id = bucket.init_multipart_upload(key).upload_id
 encode_md5 = calculate_data_md5(content)
 for i in range(3):
     result = bucket.upload_part(key, upload_id, i+1, content, headers={'Content-MD5': encode_md5})
-    parts.append(oss2.models.PartInfo(i+1, result.etag))
+    parts.append(oss2.models.PartInfo(i+1, result.etag, size = len(content), part_crc = result.crc))
 
 # 完成上传并回调
 result = bucket.complete_multipart_upload(key, upload_id, parts)
@@ -156,7 +156,7 @@ upload_id = bucket.init_multipart_upload(key).upload_id
 # 上传分片，每个分片单独CRC校验
 for i in range(3):
     result = bucket.upload_part(key, upload_id, i+1, content)
-    parts.append(oss2.models.PartInfo(i+1, result.etag))
+    parts.append(oss2.models.PartInfo(i+1, result.etag, size = len(content), part_crc = result.crc))
 
 # 完成上传并回调
 result = bucket.complete_multipart_upload(key, upload_id, parts)
@@ -178,14 +178,14 @@ for chunk in result:
 assert result.client_crc == result.server_crc
 
 
-# 下载文件到本地
+# 下载文件到本地,默认开启CRC校验
 local_file = 'download.txt'
 result = bucket.get_object_to_file(key, local_file)
 os.remove(local_file)
 assert result.client_crc == result.server_crc
 
 
-# 断点续传下载，不支持CRC校验，可以用如下方法校验
+# 断点续传下载, 自动开启CRC校验，也可以用如下方法校验
 oss2.resumable_download(bucket, key, local_file,
                         multiget_threshold=200*1024,
                         part_size=100*1024,

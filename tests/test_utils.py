@@ -11,6 +11,8 @@ import tempfile
 import requests
 import datetime
 import locale
+import io
+from functools import partial
 
 from common import *
 
@@ -29,11 +31,16 @@ is_py3 = (sys.version_info[0] == 3)
 class TestUtils(OssTestCase):
     def test_is_ip(self):
         self.assertTrue(oss2.utils.is_ip_or_localhost('1.2.3.4'))
+        self.assertTrue(oss2.utils.is_ip_or_localhost('[2401:b180::dc]'))
         self.assertTrue(oss2.utils.is_ip_or_localhost('localhost'))
+        self.assertTrue(oss2.utils.is_ip_or_localhost('1.2.3.4:80'))
+        self.assertTrue(oss2.utils.is_ip_or_localhost('[2401:b180::dc]:80'))
+        self.assertTrue(oss2.utils.is_ip_or_localhost('localhost:80'))
 
         self.assertTrue(not oss2.utils.is_ip_or_localhost('-1.2.3.4'))
         self.assertTrue(not oss2.utils.is_ip_or_localhost('1.256.1.2'))
         self.assertTrue(not oss2.utils.is_ip_or_localhost('一.二.三.四'))
+        self.assertTrue(not oss2.utils.is_ip_or_localhost('[2401:b180::dc'))
 
     def test_is_valid_bucket_name(self):
         self.assertTrue(oss2.is_valid_bucket_name('abc'))
@@ -118,19 +125,42 @@ class TestUtils(OssTestCase):
 
         self.assertEqual(progress_adapter.len, 3)
 
+    def test_crc_and_cipher_adapter(self):
+
+        crc_adapter = oss2.utils.make_crc_adapter('sss')
+        cipher_adapter = oss2.utils.make_cipher_adapter(crc_adapter,
+                    partial(oss2.utils.AESCipher.encrypt ,oss2.utils.AESCipher(b'1' * 32, 1)))
+
+        content = cipher_adapter.read()
+
+        self.assertEqual(cipher_adapter.crc, 10301458956098309249)
+
+        with io.BytesIO(oss2.to_bytes('sss')) as f:
+            crc_adapter = oss2.utils.make_crc_adapter(f)
+            cipher_adapter = oss2.utils.make_cipher_adapter(crc_adapter,
+                     partial(oss2.utils.AESCipher.encrypt, oss2.utils.AESCipher(b'1' * 32, 1)))
+
+            content = cipher_adapter.read()
+
+            self.assertEqual(cipher_adapter.crc, 10301458956098309249)
+
+
+
     def test_default_logger_basic(self):
         # verify default logger
-        self.assertEqual(oss2.defaults.get_logger(), logging.getLogger())
+        # self.assertEqual(oss2.defaults.get_logger(), logging.getLogger())
 
         # verify custom logger
-        custom_logger = logging.getLogger('oss2')
-        oss2.defaults.logger = custom_logger
+        # custom_logger = logging.getLogger('oss2')
+        # oss2.defaults.logger = custom_logger
 
-        self.assertEqual(oss2.defaults.get_logger(), custom_logger)
+        # self.assertEqual(oss2.defaults.get_logger(), custom_logger)
+        custom_logger = logging.getLogger('oss2')
+        self.assertEqual(oss2.logger, custom_logger)
 
     def test_default_logger_put(self):
         custom_logger = logging.getLogger('oss2')
-        oss2.defaults.logger = custom_logger
+        # oss2.defaults.logger = custom_logger
 
         custom_logger.addHandler(logging.StreamHandler(sys.stdout))
         custom_logger.setLevel(logging.DEBUG)
