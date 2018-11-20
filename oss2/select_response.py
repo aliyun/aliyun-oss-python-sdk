@@ -8,7 +8,9 @@ from .exceptions import SelectOperationFailed
 from .exceptions import SelectOperationClientError
 from .exceptions import InconsistentError
 from . import utils
+import logging
 
+logger = logging.getLogger(__name__)
 """
 The adapter class for Select object's response.
 The response consists of frames. Each frame has the following format:
@@ -39,6 +41,7 @@ class SelectResponseAdapter(object):
     _DATA_FRAME_TYPE = 8388609
     _END_FRAME_TYPE = 8388613
     _META_END_FRAME_TYPE = 8388614
+    _JSON_META_END_FRAME_TYPE = 8388615
     _FRAMES_FOR_PROGRESS_UPDATE = 10
 
     def __init__(self, response, progress_callback = None, content_length = None, enable_crc = False):
@@ -140,8 +143,13 @@ class SelectResponseAdapter(object):
         frame_type[0] = 0 #mask the version bit
         utils.change_endianness_if_needed(frame_type) # convert to little endian
         frame_type_val = struct.unpack("I", bytes(frame_type))[0]
-        if frame_type_val != SelectResponseAdapter._DATA_FRAME_TYPE and frame_type_val != SelectResponseAdapter._CONTINIOUS_FRAME_TYPE and frame_type_val != SelectResponseAdapter._END_FRAME_TYPE and frame_type_val != SelectResponseAdapter._META_END_FRAME_TYPE:
-           raise SelectOperationClientError(self.request_id, "Unexpected frame type:" + str(frame_type_val))
+        if (frame_type_val != SelectResponseAdapter._DATA_FRAME_TYPE and
+            frame_type_val != SelectResponseAdapter._CONTINIOUS_FRAME_TYPE and
+            frame_type_val != SelectResponseAdapter._END_FRAME_TYPE and
+            frame_type_val != SelectResponseAdapter._META_END_FRAME_TYPE and
+            frame_type_val != SelectResponseAdapter._JSON_META_END_FRAME_TYPE):
+                logger.warn("Unexpected frame type: {0}. RequestId:{1}. This could be due to the old version of client.".format(frame_type_val, self.request_id))
+                raise SelectOperationClientError(self.request_id, "Unexpected frame type:" + str(frame_type_val))
 
         self.payload = self.read_raw(payload_length_val)
         file_offset_bytes = bytearray(self.payload[0:8])
@@ -160,6 +168,7 @@ class SelectResponseAdapter(object):
                 crc32.update(self.payload)
                 checksum_calc = crc32.crc
                 if checksum_val != checksum_calc:
+                    logger.warn("Incorrect checksum: Actual {0} and calculated {1}. RequestId:{2}".format(checksum_val, checksum_calc, self.request_id))
                     raise InconsistentError("Incorrect checksum: Actual" + str(checksum_val) + ". Calculated:" + str(checksum_calc), self.request_id)
             
         elif frame_type_val == SelectResponseAdapter._CONTINIOUS_FRAME_TYPE:
@@ -173,7 +182,7 @@ class SelectResponseAdapter(object):
             utils.change_endianness_if_needed(status_bytes)
             status = struct.unpack("I", bytes(status_bytes))[0]
             error_msg_size = payload_length_val - 20
-            error_msg=b'';
+            error_msg=b''
             if error_msg_size > 0:
                 error_msg = self.payload[20:error_msg_size + 20]
             if status // 100 != 2:
@@ -184,7 +193,7 @@ class SelectResponseAdapter(object):
             self.read_raw(4) # read the payload checksum
             self.frame_length = 0
             self.finished = 1
-        elif frame_type_val == SelectResponseAdapter._META_END_FRAME_TYPE:
+        elif frame_type_val == SelectResponseAdapter._META_END_FRAME_TYPE or frame_type_val == SelectResponseAdapter._JSON_META_END_FRAME_TYPE:
             self.frame_off_set = 0
             scanned_size_bytes = bytearray(self.payload[8:16])
             status_bytes = bytearray(self.payload[16:20])
@@ -196,13 +205,19 @@ class SelectResponseAdapter(object):
             lines_bytes = bytearray(self.payload[24:32])
             utils.change_endianness_if_needed(lines_bytes)
             self.rows =  struct.unpack("Q", bytes(lines_bytes))[0]
-            column_bytes = bytearray(self.payload[32:36])
-            utils.change_endianness_if_needed(column_bytes)
-            self.columns = struct.unpack("I", bytes(column_bytes))[0]
-            error_size = payload_length_val - 36
+
+            error_index = 36
+            if frame_type_val == SelectResponseAdapter._META_END_FRAME_TYPE:
+                column_bytes = bytearray(self.payload[32:36])
+                utils.change_endianness_if_needed(column_bytes)
+                self.columns = struct.unpack("I", bytes(column_bytes))[0]
+            else:
+                error_index = 32
+            
+            error_size = payload_length_val - error_index
             error_msg = b''
             if (error_size > 0):
-                error_msg = self.payload[36:36 + error_size]
+                error_msg = self.payload[error_index:error_index + error_size]
             self.read_raw(4) # read the payload checksum
             self.final_status = status
             self.frame_length = 0

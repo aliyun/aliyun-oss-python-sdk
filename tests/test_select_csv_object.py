@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 import requests
 import filecmp
 import calendar
@@ -7,7 +6,7 @@ import csv
 import re
 
 from oss2.exceptions import (ClientError, RequestError, NoSuchBucket,
-                             NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable, SelectOperationFailed)
+                             NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable, SelectOperationFailed, SelectOperationClientError)
 from common import *
 
 def now():
@@ -36,6 +35,7 @@ class SelectCsvObjectTestHelper(object):
         for chunk in result:
             content += chunk
         
+        print(result.request_id)
         testCase.assertEqual(result.status, 206, result.request_id)
         testCase.assertTrue(len(content) > 0)
 
@@ -62,7 +62,6 @@ class SelectCsvObjectTestHelper(object):
             testCase.assertEqual(e.status, 400)
 
 class TestSelectCsvObject(OssTestCase):
-    
     def test_select_csv_object_not_empty_city(self):
         helper = SelectCsvObjectTestHelper(self.bucket)
         content = helper.test_select_csv_object(self, "select Year, StateAbbr, CityName, PopulationCount from ossobject where CityName != ''")
@@ -84,7 +83,7 @@ class TestSelectCsvObject(OssTestCase):
                         select_data += line
             
             self.assertEqual(select_data, content)
-
+    
     def test_select_csv_object_like(self):
         helper = SelectCsvObjectTestHelper(self.bucket) 
         content = helper.test_select_csv_object(self, "select Year, StateAbbr, CityName, Short_Question_Text from ossobject where Measure like '%blood pressure%Years'")
@@ -191,10 +190,10 @@ class TestSelectCsvObject(OssTestCase):
                         select_data += line
         
             self.assertEqual(select_data, content)
-    
+
     def test_select_csv_object_complicate_condition(self):
         helper = SelectCsvObjectTestHelper(self.bucket) 
-        content = helper.test_select_csv_object(self, "select Year,StateAbbr, CityName, Short_Question_Text from ossobject where data_value > 14.8 and data_value_unit = '%' or Measure like '%18 Years' and Category = 'Unhealthy Behaviors' or high_confidence_limit > 70.0 ")
+        content = helper.test_select_csv_object(self, "select Year,StateAbbr, CityName, Short_Question_Text, data_value, data_value_unit, category, high_confidence_limit from ossobject where data_value > 14.8 and data_value_unit = '%' or Measure like '%18 Years' and Category = 'Unhealthy Behaviors' or high_confidence_limit > 70.0 ")
         select_data = b''
 
         matcher = re.compile('^.*18 Years$')
@@ -210,11 +209,18 @@ class TestSelectCsvObject(OssTestCase):
                         line += row['CityName'].encode('utf-8')
                         line += ','.encode('utf-8')
                         line += row['Short_Question_Text'].encode('utf-8')
+                        line += ','.encode('utf-8')
+                        line += row['Data_Value'].encode('utf-8')
+                        line += ','.encode('utf-8')
+                        line += row['Data_Value_Unit'].encode('utf-8')
+                        line += ','.encode('utf-8')
+                        line += row['Category'].encode('utf-8')
+                        line += ','.encode('utf-8')
+                        line += row['High_Confidence_Limit'].encode('utf-8')
                         line += '\n'.encode('utf-8')
                         select_data += line
-        
             self.assertEqual(select_data, content)
-
+    
     def test_select_csv_object_invalid_sql(self):
         helper = SelectCsvObjectTestHelper(self.bucket) 
 
@@ -389,6 +395,17 @@ class TestSelectCsvObject(OssTestCase):
             content += chunk
         
         self.assertEqual(content, 'name\nabc\n'.encode('utf-8'))
-
+    
+    def test_select_csv_object_with_invalid_parameters(self):
+        key = "test_select_csv_object_with_invalid_parameters"
+        content = "name,job\nabc,def\n"
+        self.bucket.put_object(key, content.encode('utf_8'))
+        select_params = {'OutputHeader123':'true', 'CsvHeaderInfo':'Use'}
+        try:
+            result = self.bucket.select_object(key, "select name from ossobject", None, select_params)
+            self.assertFalse()
+        except SelectOperationClientError:
+            print("expected error")
+    
 if __name__ == '__main__':
     unittest.main()

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+
 import oss2
 import sys
 import struct
@@ -16,11 +17,14 @@ from oss2.exceptions import SelectOperationFailed
 
 from unittests.common import *
 
+
+
 class ContiniousFrame(object):
     _CONTINIOUS_FRAME_TYPE=8388612
     _DATA_FRAME_TYPE = 8388609
     _END_FRAME_TYPE = 8388613
     _META_END_FRAME_TYPE = 8388614
+    _JSON_META_END_FRAME_TYPE = 8388615
     _HEAD_CHECK_SUM = 0
     def __init__(self, offset, payload = None, payload_length = 8, frame_type = 8388612):
          self.offset = offset
@@ -64,6 +68,14 @@ class EndMetaFrame(ContiniousFrame):
         self.rows = rows
         self.cols = cols
 
+class EndJsonMetaFrame(ContiniousFrame):
+    def __init__(self, offset, scannedsize, status, splits, rows, error):
+        super(EndJsonMetaFrame, self).__init__(offset, struct.pack('!QIIQ', scannedsize, status, splits, rows) + error, 32 + len(error), ContiniousFrame._JSON_META_END_FRAME_TYPE)
+        self.scanned_size = scannedsize
+        self.status = status
+        self.splits = splits
+        self.rows = rows
+
 def generate_data(resp_content, output_raw, error = b'', status = 206, simulate_bad_crc = False):
     if output_raw:
         return to_string(resp_content)
@@ -78,14 +90,21 @@ def generate_data(resp_content, output_raw, error = b'', status = 206, simulate_
 
         return continiousFrame.to_bytes() + frameStr + endFrame.to_bytes()
 
-def generate_head_data(scanned_size, splits, rows, cols, error = b'', status = 200):
+def generate_head_data(scanned_size, splits, rows, cols = None, error = b'', status = 200):
     continiousFrame = ContiniousFrame(100)
-    endFrame = EndMetaFrame(scanned_size, scanned_size, status, splits, rows, cols, error)
+    if cols is not None:
+        endFrame = EndMetaFrame(scanned_size, scanned_size, status, splits, rows, cols, error)
+    else:
+        endFrame = EndJsonMetaFrame(scanned_size, scanned_size, status, splits, rows, error)
     return continiousFrame.to_bytes() + endFrame.to_bytes()
 
 def make_select_object(sql, resp_content, req_params = None, output_raw = False, simulate_bad_frame = False, simulate_bad_crc = False, status = 206, error = b''):
     req_body = xml_utils.to_select_object(sql, req_params)
-    request_text = '''POST /select-test.txt?x-oss-process=csv/select HTTP/1.1
+    process_type = 'csv'
+    if (req_params is not None and 'Json_Type' in req_params):
+        process_type = 'json'
+
+    request_text = '''POST /select-test.txt?x-oss-process={2}/select HTTP/1.1
 Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
 Accept-Encoding: identity
 Connection: keep-alive
@@ -95,7 +114,7 @@ User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
 authorization: OSS ZCDmm7TPZKHtx77j:W6whAowN4aImQ0dfbMHyFfD0t1g=
 Accept: */*
 
-{1}'''.format(len(req_body), to_string(req_body))
+{1}'''.format(len(req_body), to_string(req_body), process_type)
     resp_body = generate_data(resp_content, output_raw, simulate_bad_crc=simulate_bad_crc, status=status, error = error)
     if (simulate_bad_frame):
         resp_body = resp_content
@@ -118,7 +137,11 @@ x-oss-select-output-raw:{1}
 
 def make_head_object(req_params, scanned_size, splits, rows, cols, status, error):
     req_body = xml_utils.to_get_select_object_meta(req_params)
-    request_text = '''POST /select-test.txt?x-oss-process=csv/meta HTTP/1.1
+    process_type = 'csv'
+    if (req_params is not None and 'Json_Type' in req_params):
+        process_type = 'json'
+
+    request_text = '''POST /select-test.txt?x-oss-process={2}/meta HTTP/1.1
 Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
 Accept-Encoding: identity
 Connection: keep-alive
@@ -129,8 +152,8 @@ authorization: OSS ZCDmm7TPZKHtx77j:W6whAowN4aImQ0dfbMHyFfD0t1g=
 Accept: */*
 
 
-{1}'''.format(len(req_body), to_string(req_body))
-   
+{1}'''.format(len(req_body), to_string(req_body), process_type)
+
     resp_body = generate_head_data(scanned_size, splits, rows, cols, error, status)
     response_text = '''HTTP/1.1 200 OK
 Server: AliyunOSS
@@ -149,26 +172,37 @@ def callback(offset, length):
     print(length)
 
 class SelectCaseHelper(object):
-    def create_csv_meta(self, tester, do_request, head_params = None, error = b'', status = 200):
+    def create_meta(self, tester, do_request, head_params = None, error = b'', status = 200):
         scanned_size = 10000
         splits = 100
         rows = 1000
         cols = 20
 
-        req, resp = make_head_object(head_params, scanned_size, splits, rows, cols, status, error)
+        if (head_params is not None and 'Json_Type' in head_params):
+            req, resp = make_head_object(head_params, scanned_size, splits, rows, None, status, error)
+        else:
+            req, resp = make_head_object(head_params, scanned_size, splits, rows, cols, status, error)
+
         req_info = mock_response(do_request, resp)
 
         result = bucket().create_select_object_meta('select-test.txt', head_params)
 
         tester.assertRequest(req_info, req)
-        tester.assertEqual(result.csv_rows, rows)
-        tester.assertEqual(result.csv_splits, splits)
+        tester.assertEqual(result.rows, rows)
+        tester.assertEqual(result.splits, splits)
         tester.assertEqual(result.request_id, '566B6BE93A7B8CFD53D4BAA3')
     
-    def select_csv(self, tester, do_request, callback = None, select_params = None):
+    def select(self, tester, do_request, callback = None, select_params = None):
         sql = "select * from ossobject limit 10"
         resp_content = b'a,b,c,d,e,f,,n,g,l,o,p'
+        if select_params is not None and 'Json_Type' in select_params:
+            if select_params['Json_Type'] == 'DOCUMENT':
+                resp_content = b'{contacts:[{\"firstName\":\"John\", \"lastName\":\"Smith\"}]}'
+            else:
+                resp_content = b'{\"firstName\":\"John\", \"lastName\":\"Smith\"}' 
+
         output_raw = False
+
         if (select_params is not None and 'OutputRawData' in select_params and select_params['OutputRawData']):
             output_raw = True
         req, resp = make_select_object(sql, resp_content, select_params, output_raw)
@@ -180,9 +214,9 @@ class SelectCaseHelper(object):
         tester.assertEqual(result.status, 206)
         tester.assertRequest(req_info, req)
         
-        content = result.read()
-        
-        tester.assertEqual(content, resp_content)
+        if (result.status//100 == 2):
+            content = result.read()
+            tester.assertEqual(content, resp_content)
 
 class TestSelectObject(OssTestCase):
     
@@ -190,13 +224,13 @@ class TestSelectObject(OssTestCase):
     def test_create_csv_meta_with_none_params(self, do_request):
         head_params = None
         helper = SelectCaseHelper()
-        helper.create_csv_meta(self, do_request, head_params)
+        helper.create_meta(self, do_request, head_params)
     
     @patch('oss2.Session.do_request')
     def test_create_csv_meta_with_params(self, do_request):
         head_params = {'RecordDelimiter':'\n', 'FieldDelimiter':',', 'QuoteCharacter':'"', 'CompressionType':'None', 'OverwriteIfExists':'True'}
         helper = SelectCaseHelper()
-        helper.create_csv_meta(self, do_request, head_params)
+        helper.create_meta(self, do_request, head_params)
 
     @patch('oss2.Session.do_request')
     def test_select_csv(self, do_request):
@@ -239,7 +273,7 @@ class TestSelectObject(OssTestCase):
     @patch('oss2.Session.do_request')
     def test_select_csv_read(self, do_request):
         helper = SelectCaseHelper()
-        helper.select_csv(self, do_request)
+        helper.select(self, do_request)
     
     @patch('oss2.Session.do_request')
     def test_select_csv_read_with_params(self, do_request):
@@ -247,13 +281,13 @@ class TestSelectObject(OssTestCase):
                          'FieldDelimiter':',', 'OutputFieldDelimiter':',', 'QuoteCharacter':'"', 'SplitRange':[0,10], 'CompressionType':'GZIP',
                          'KeepAllColumns':True, 'OutputRawData':False, 'EnablePayloadCrc':True, 'OutputHeader':False, 'SkipPartialDataRecord':False}
         helper = SelectCaseHelper()
-        helper.select_csv(self, do_request, None, select_params)
+        helper.select(self, do_request, None, select_params)
     
     @patch('oss2.Session.do_request')
     def test_select_csv_read_output_raw(self, do_request):
         select_params = {'OutputRawData':True}
         helper = SelectCaseHelper()
-        helper.select_csv(self, do_request, None, select_params)
+        helper.select(self, do_request, None, select_params)
 
     @patch('oss2.Session.do_request')
     def test_select_csv_with_bad_response(self, do_request):
@@ -291,7 +325,7 @@ class TestSelectObject(OssTestCase):
     @patch('oss2.Session.do_request')
     def test_select_csv_with_callback(self, do_request):
         helper = SelectCaseHelper()
-        helper.select_csv(self, do_request, callback)
+        helper.select(self, do_request, callback)
     
     @patch('oss2.Session.do_request')
     def test_select_csv_with_error(self, do_request):
@@ -316,11 +350,58 @@ class TestSelectObject(OssTestCase):
         head_params = None
         helper = SelectCaseHelper()
         try:
-            helper.create_csv_meta(self, do_request, head_params, b'error code:invalid csv', 400)
+            helper.create_meta(self, do_request, head_params, b'error code:invalid csv', 400)
             self.assertFalse(True, "expect SelectOperationFailed")
         except SelectOperationFailed as errorException:
             self.assertEqual(errorException.status, 400)
             self.assertEqual(errorException.message, b'error code:invalid csv')
+    
+    @patch('oss2.Session.do_request')
+    def test_select_json_read_with_params(self, do_request):
+        select_params = {'CompressionType':'GZIP',
+                         'OutputRawData':False, 'EnablePayloadCrc':True, 'OutputRecordDelimiter':',\n', 'SkipPartialDataRecord':False, 'MaxSkippedRecordsAllowed':100, 'Json_Type':'DOCUMENT'}
+        helper = SelectCaseHelper()
+        helper.select(self, do_request, None, select_params)
+
+    @patch('oss2.Session.do_request')
+    def test_select_json_read_with_line_range(self, do_request):
+        select_params = {'LineRange':[0,10], 'CompressionType':'None',
+                         'OutputRawData':True, 'EnablePayloadCrc':False, 'OutputRecordDelimiter':',\n', 'SkipPartialDataRecord':True, 'MaxSkippedRecordsAllowed':100, 'Json_Type':'LINES'}
+        helper = SelectCaseHelper()
+        helper.select(self, do_request, None, select_params)
+
+    @patch('oss2.Session.do_request')
+    def test_select_json_read_with_split_range(self, do_request):
+        select_params = {'SplitRange':[0,10], 'CompressionType':'None',
+                         'OutputRawData':True, 'EnablePayloadCrc':False, 'OutputRecordDelimiter':',\n', 'SkipPartialDataRecord':True, 'MaxSkippedRecordsAllowed':100, 'Json_Type':'LINES'}
+        helper = SelectCaseHelper()
+        helper.select(self, do_request, None, select_params)
+
+    @patch('oss2.Session.do_request')
+    def test_select_json_read_with_invalid_parameters(self, do_request):
+        select_params = {'SplitRangeXXXX':[0,10]}
+        helper = SelectCaseHelper()
+        try:
+            helper.select(self, do_request, None, select_params)
+            helper.assertFalse()
+        except SelectOperationClientError:
+            print("expected error")
+
+    @patch('oss2.Session.do_request')
+    def test_create_json_meta_with_params(self, do_request):
+        head_params = {'OverwriteIfExists':'True', 'Json_Type':'LINES'}
+        helper = SelectCaseHelper()
+        helper.create_meta(self, do_request, head_params)
+
+    @patch('oss2.Session.do_request')
+    def test_create_json_meta_with_params2(self, do_request):
+        head_params = {'OverwriteIfExists':'True', 'Json_Type':'DOCUMENT'}
+        helper = SelectCaseHelper()
+        try:
+            helper.create_meta(self, do_request, head_params)
+            helper.assertFalse()
+        except SelectOperationClientError:
+            print("expected error")
 
 if __name__ == '__main__':
     unittest.main()
