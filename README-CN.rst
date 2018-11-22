@@ -93,6 +93,16 @@ Python 2.6，2.7，3.3，3.4，3.5
     except oss2.exceptions.NoSuchKey as e:
         print('{0} not found: http_status={1}, request_id={2}'.format(key, e.status, e.request_id))
 
+设置日志
+---------------
+
+默认情况下, 一个名称为oss2的logger会被使能, 日志级别为INFO. 下面的代码可以更改默认的日志级别.
+
+.. code-block:: python
+
+    import logging
+    logging.getLogger('oss2').setLevel(logging.WARNING)
+
 测试
 ----
 
