@@ -38,7 +38,8 @@ def set_file_logger(file_path, name="oss2", level=logging.INFO, format_string=No
     if not format_string:
         format_string = "%(asctime)s %(name)s [%(levelname)s] %(thread)d : %(message)s"
     logger = logging.getLogger(name)
-    logger.setLevel(level)
+    if logger.level == logging.NOTSET:
+        logger.setLevel(level)
     fh = logging.FileHandler(file_path)
     fh.setLevel(level)
     formatter = logging.Formatter(format_string)
@@ -51,7 +52,8 @@ def set_stream_logger(name='oss2', level=logging.DEBUG, format_string=None):
     if not format_string:
         format_string = "%(asctime)s %(name)s [%(levelname)s] %(thread)d : %(message)s"
     logger = logging.getLogger(name)
-    logger.setLevel(level)
+    if logger.level == logging.NOTSET:
+        logger.setLevel(level)
     fh = logging.StreamHandler()
     fh.setLevel(level)
     formatter = logging.Formatter(format_string)
