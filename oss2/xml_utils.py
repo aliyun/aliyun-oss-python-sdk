@@ -741,6 +741,9 @@ def to_get_select_csv_object_meta(csv_meta_param):
 
 def to_get_select_json_object_meta(json_meta_param):
     root = ElementTree.Element('JsonMetaRequest')
+    input_ser = ElementTree.SubElement(root, 'InputSerialization')
+    json = ElementTree.SubElement(input_ser, 'JSON')
+    _add_text_child(json, 'Type', json_meta_param['Json_Type'])
     if 'OverwriteIfExists' in json_meta_param:
         _add_text_child(root, 'OverwriteIfExists', str(json_meta_param['OverwriteIfExists']))
     return _node_to_string(root)
