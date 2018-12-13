@@ -708,7 +708,7 @@ def to_select_json_object(sql, select_params):
         _add_text_child(options, 'MaxSkippedRecordsAllowed', str(select_params['MaxSkippedRecordsAllowed']))
         valid_keys += 1
     if 'ParseJsonNumberAsString' in select_params:
-        _add_text_child(options, 'ParseJsonNumberAsString', str(select_params['ParseJsonNumberAsString']))
+        _add_text_child(json, 'ParseJsonNumberAsString', str(select_params['ParseJsonNumberAsString']))
         valid_keys += 1
 
     if valid_keys != len(select_params):

@@ -183,10 +183,16 @@ class SelectResponseAdapter(object):
             status = struct.unpack("I", bytes(status_bytes))[0]
             error_msg_size = payload_length_val - 20
             error_msg=b''
+            error_code = b''
             if error_msg_size > 0:
                 error_msg = self.payload[20:error_msg_size + 20]
+                error_code_index = error_msg.find(b'.')
+                if error_code_index >= 0:
+                    error_code = error_msg[0:error_code_index]
+                    error_msg = error_msg[error_code_index + 1:]
+
             if status // 100 != 2:
-                raise SelectOperationFailed(status, error_msg)
+                raise SelectOperationFailed(status, error_code, error_msg)
             self.frame_length = 0
             if self.callback is not None:
                 self.callback(self.file_offset, self.content_length)
@@ -216,12 +222,18 @@ class SelectResponseAdapter(object):
             
             error_size = payload_length_val - error_index
             error_msg = b''
+            error_code = b''
             if (error_size > 0):
                 error_msg = self.payload[error_index:error_index + error_size]
+                error_code_index = error_msg.find(b'.')
+                if error_code_index >= 0:
+                    error_code = error_msg[0:error_code_index]
+                    error_msg = error_msg[error_code_index + 1:]
+
             self.read_raw(4) # read the payload checksum
             self.final_status = status
             self.frame_length = 0
             self.finished = 1
             if (status / 100 != 2):
-                raise SelectOperationFailed(status, error_msg)
+                raise SelectOperationFailed(status, error_code, error_msg)
 

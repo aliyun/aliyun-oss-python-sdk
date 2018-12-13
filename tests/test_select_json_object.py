@@ -167,7 +167,7 @@ class TestSelectJsonObject(OssTestCase):
         helper = SelectJsonObjectTestHelper(self.bucket) 
         select_params = {'Json_Type': 'DOCUMENT'}
         content = helper.test_select_json_object(self, "select avg(cast(person.cspanid as int)), max(cast(person.cspanid as int)), min(cast(person.cspanid as int)) from ossobject.objects[*] where person.cspanid = 1011723", select_params)
-        self.assertEqual(content, b'1011723,1011723,1011723,')
+        self.assertEqual(content, b'{\"_1\":1011723,\"_2\":1011723,\"_3\":1011723},')
     
     def test_select_json_object_float_aggregation(self):
         print("test_select_json_object_float_aggregation")

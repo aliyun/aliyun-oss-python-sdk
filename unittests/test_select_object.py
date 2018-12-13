@@ -350,11 +350,12 @@ class TestSelectObject(OssTestCase):
         head_params = None
         helper = SelectCaseHelper()
         try:
-            helper.create_meta(self, do_request, head_params, b'error code:invalid csv', 400)
+            helper.create_meta(self, do_request, head_params, b'InvalidCsvLine.error code:invalid csv', 400)
             self.assertFalse(True, "expect SelectOperationFailed")
         except SelectOperationFailed as errorException:
             self.assertEqual(errorException.status, 400)
             self.assertEqual(errorException.message, b'error code:invalid csv')
+            self.assertEqual(errorException.code, b'InvalidCsvLine')
     
     @patch('oss2.Session.do_request')
     def test_select_json_read_with_params(self, do_request):

@@ -232,12 +232,14 @@ class AccessDenied(ServerError):
 
 class SelectOperationFailed(ServerError):
     code = 'SelectOperationFailed'
-    def __init__(self, status, message):
+    def __init__(self, status, code, message):
         self.status = status
+        self.code = code
         self.message = message
 
     def __str__(self):
         error = {'status': self.status,
+                 'code': self.code,
                  'details': self.message}
         return str(error)
 
