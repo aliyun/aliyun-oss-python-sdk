@@ -12,6 +12,9 @@ from common import *
 def now():
     return int(calendar.timegm(time.gmtime()))
 
+def  select_call_back(consumed_bytes, total_bytes =  None):
+	print('Consumed Bytes:'  +  str(consumed_bytes) +  '\n')
+
 class SelectJsonObjectTestHelper(object):
     def __init__(self, bucket):
         self.bucket = bucket
@@ -137,7 +140,7 @@ class TestSelectJsonObject(OssTestCase):
         helper = SelectJsonObjectTestHelper(self.bucket) 
 
         select_params = {'LineRange' : (10, 50), 'Json_Type':'LINES'}
-        content = helper.test_select_json_object(self, "select person.firstname, person.lastname, extra from ossobject'", select_params)
+        content = helper.test_select_json_object(self, "select person.firstname as aaa as firstname, person.lastname, extra from ossobject'", select_params)
         content = content[0:len(content)-1] #remove the last ','
         content = b"[" + content + b"]"  #make json parser happy
         result = json.loads(content.decode('utf-8'))
@@ -255,6 +258,15 @@ class TestSelectJsonObject(OssTestCase):
                 content += chunk
 
             self.assertTrue(len(content) > 0)
+
+    def test_select_json_object_parse_num_as_string(self):
+        key = "test_select_json_object_parse_num_as_string"
+        self.bucket.put_object(key, b"{\"a\":123456789.123456789}")
+        result = self.bucket.select_object(key, "select a from ossobject where cast(a as decimal) = 123456789.1234567890", None, select_params={'ParseJsonNumberAsString': 'true', 'Json_Type':'DOCUMENT'})
+        content = b''
+        for chunk in result:
+            content += chunk
+        self.assertEqual(content, b"{\"a\":123456789.123456789}\n")
     
 if __name__ == '__main__':
     unittest.main()

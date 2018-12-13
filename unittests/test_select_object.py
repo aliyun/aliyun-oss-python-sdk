@@ -373,7 +373,8 @@ class TestSelectObject(OssTestCase):
     @patch('oss2.Session.do_request')
     def test_select_json_read_with_split_range(self, do_request):
         select_params = {'SplitRange':[0,10], 'CompressionType':'None',
-                         'OutputRawData':True, 'EnablePayloadCrc':False, 'OutputRecordDelimiter':',\n', 'SkipPartialDataRecord':True, 'MaxSkippedRecordsAllowed':100, 'Json_Type':'LINES'}
+                         'OutputRawData':True, 'EnablePayloadCrc':False, 'OutputRecordDelimiter':',\n', 'SkipPartialDataRecord':True, 'MaxSkippedRecordsAllowed':100, 'Json_Type':'LINES',
+                         'ParseJsonNumberAsString':False}
         helper = SelectCaseHelper()
         helper.select(self, do_request, None, select_params)
 
