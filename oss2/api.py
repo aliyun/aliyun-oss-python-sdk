@@ -613,7 +613,7 @@ class Bucket(_Base):
         if process:
             params.update({Bucket.PROCESS: process})
 
-        logger.info("Start to get object, bucket: {0}， key: {1}, range: {2}, headers: {3}, params: {4}".format(
+        logger.info("Start to get object, bucket: {0}, key: {1}, range: {2}, headers: {3}, params: {4}".format(
             self.bucket_name, to_string(key), range_string, headers, params))
         resp = self.__do_object('GET', key, headers=headers, params=params)
         logger.info("Get object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
