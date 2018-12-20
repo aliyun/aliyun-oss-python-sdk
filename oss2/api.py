@@ -371,8 +371,9 @@ class Bucket(_Base):
         :return: 签名URL。
         """
         key = to_string(key)
-        logger.info("Start to sign_url, method: {0}, bucket: {1}, key: {2}, expires: {3}, headers: {4}, params: {5}".format
-                     (method, self.bucket_name, to_string(key), expires, headers, params))
+        logger.info(
+            "Start to sign_url, method: {0}, bucket: {1}, key: {2}, expires: {3}, headers: {4}, params: {5}".format
+            (method, self.bucket_name, to_string(key), expires, headers, params))
         req = http.Request(method, self._make_url(self.bucket_name, key),
                            headers=headers,
                            params=params)
@@ -394,8 +395,9 @@ class Bucket(_Base):
         url = self._make_url(self.bucket_name, 'live').replace('http://', 'rtmp://').replace(
             'https://', 'rtmp://') + '/' + channel_name
         params = {}
-        params['playlistName'] = playlist_name
-        return self.auth._sign_rtmp_url(url, self.bucket_name, channel_name, playlist_name, expires, params)
+        if playlist_name is not None and playlist_name != "":
+            params['playlistName'] = playlist_name
+        return self.auth._sign_rtmp_url(url, self.bucket_name, channel_name, expires, params)
 
     def list_objects(self, prefix='', delimiter='', marker='', max_keys=100):
         """根据前缀罗列Bucket里的文件。
@@ -407,8 +409,9 @@ class Bucket(_Base):
 
         :return: :class:`ListObjectsResult <oss2.models.ListObjectsResult>`
         """
-        logger.info("Start to List objects, bucket: {0}, prefix: {1}, delimiter: {2}, marker: {3}, max-keys: {4}".format(
-            self.bucket_name, to_string(prefix), delimiter, to_string(marker), max_keys))
+        logger.info(
+            "Start to List objects, bucket: {0}, prefix: {1}, delimiter: {2}, marker: {3}, max-keys: {4}".format(
+                self.bucket_name, to_string(prefix), delimiter, to_string(marker), max_keys))
         resp = self.__do_object('GET', '',
                                 params={'prefix': prefix,
                                         'delimiter': delimiter,
@@ -620,11 +623,10 @@ class Bucket(_Base):
 
         return GetObjectResult(resp, progress_callback, self.enable_crc)
 
-
     def select_object(self, key, sql,
-                   progress_callback=None,
-                   select_params=None
-                   ):
+                      progress_callback=None,
+                      select_params=None
+                      ):
         """Select一个CSV文件内容.
 
         用法 ::
@@ -644,7 +646,7 @@ class Bucket(_Base):
         """
         headers = http.CaseInsensitiveDict()
         body = xml_utils.to_select_object(sql, select_params)
-        params = {'x-oss-process':  'csv/select'}
+        params = {'x-oss-process': 'csv/select'}
 
         self.timeout = 3600
         resp = self.__do_object('POST', key, data=body, headers=headers, params=params)
@@ -720,7 +722,7 @@ class Bucket(_Base):
             headers['range'] = range_string
 
         logger.info("Start to get object with url, bucket: {0}, sign_url: {1}, range: {2}, headers: {3}".format(
-            self.bucket_name, sign_url,range_string, headers))
+            self.bucket_name, sign_url, range_string, headers))
         resp = self._do_url('GET', sign_url, headers=headers)
         return GetObjectResult(resp, progress_callback, self.enable_crc)
 
@@ -748,7 +750,8 @@ class Bucket(_Base):
                     .format(self.bucket_name, sign_url, filename, byte_range, headers))
 
         with open(to_unicode(filename), 'wb') as f:
-            result = self.get_object_with_url(sign_url, byte_range=byte_range, headers=headers, progress_callback=progress_callback)
+            result = self.get_object_with_url(sign_url, byte_range=byte_range, headers=headers,
+                                              progress_callback=progress_callback)
             if result.content_length is None:
                 shutil.copyfileobj(result, f)
             else:
@@ -756,11 +759,10 @@ class Bucket(_Base):
 
             return result
 
-
     def select_object_to_file(self, key, filename, sql,
-                   progress_callback=None,
-                   select_params=None
-                   ):
+                              progress_callback=None,
+                              select_params=None
+                              ):
         """Select Content from OSS file to a local file
 
         :param key: OSS key name
@@ -773,11 +775,11 @@ class Bucket(_Base):
         """
         with open(to_unicode(filename), 'wb') as f:
             result = self.select_object(key, sql, progress_callback=progress_callback,
-                                     select_params=select_params)
+                                        select_params=select_params)
 
             for chunk in result:
                 f.write(chunk)
-           
+
             return result
 
     def head_object(self, key, headers=None):
@@ -804,8 +806,7 @@ class Bucket(_Base):
         resp = self.__do_object('HEAD', key, headers=headers)
         logger.info("Head object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return HeadObjectResult(resp)
-		
-    
+
     def create_select_object_meta(self, key, select_meta_params=None):
         """获取或创建CSV文件元信息。如果元信息存在，返回之；不然则创建后返回之
 
@@ -832,12 +833,12 @@ class Bucket(_Base):
         :raises: If Bucket or object does not exist, throw:class:`NotFound <oss2.exceptions.NotFound>`
         """
         headers = http.CaseInsensitiveDict()
-    
+
         body = xml_utils.to_get_select_object_meta(select_meta_params)
-        params = {'x-oss-process':  'csv/meta'}
+        params = {'x-oss-process': 'csv/meta'}
 
         self.timeout = 3600
-        resp = self.__do_object('POST', key, data = body, headers=headers, params=params)
+        resp = self.__do_object('POST', key, data=body, headers=headers, params=params)
         return GetSelectObjectMetaResult(resp)
 
     def get_object_meta(self, key):
@@ -892,8 +893,9 @@ class Bucket(_Base):
         headers = http.CaseInsensitiveDict(headers)
         headers[OSS_COPY_OBJECT_SOURCE] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
 
-        logger.info("Start to copy object, source bucket: {0}, source key: {1}, bucket: {2}, key: {3}, headers: {4}".format(
-            source_bucket_name, to_string(source_key), self.bucket_name, to_string(target_key), headers))
+        logger.info(
+            "Start to copy object, source bucket: {0}, source key: {1}, bucket: {2}, key: {3}, headers: {4}".format(
+                source_bucket_name, to_string(source_key), self.bucket_name, to_string(target_key), headers))
         resp = self.__do_object('PUT', target_key, headers=headers)
         logger.info("Copy object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
@@ -964,7 +966,7 @@ class Bucket(_Base):
         """
         logger.info("Start to put object acl, bucket: {0}, key: {1}, acl: {2}".format(
             self.bucket_name, to_string(key), permission))
-        resp = self.__do_object('PUT', key, params={'acl': ''}, headers={OSS_OBJECT_ACL : permission})
+        resp = self.__do_object('PUT', key, params={'acl': ''}, headers={OSS_OBJECT_ACL: permission})
         logger.info("Put object acl done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
@@ -1068,7 +1070,7 @@ class Bucket(_Base):
         """
         parts = sorted(parts, key=lambda p: p.part_number);
         data = xml_utils.to_complete_upload_request(parts);
-        
+
         logger.info("Start to complete multipart upload, bucket: {0}, key: {1}, upload_id: {2}, parts: {3}".format(
             self.bucket_name, to_string(key), upload_id, data))
 
@@ -1076,7 +1078,8 @@ class Bucket(_Base):
                                 params={'uploadId': upload_id},
                                 data=data,
                                 headers=headers)
-        logger.info("Complete multipart upload done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.info(
+            "Complete multipart upload done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         result = PutObjectResult(resp);
 
@@ -1120,7 +1123,8 @@ class Bucket(_Base):
         """
         logger.info("Start to list multipart uploads, bucket: {0}, prefix: {1}, delimiter: {2}, key_marker: {3}, "
                     "upload_id_marker: {4}, max_uploads: {5}".format(self.bucket_name, to_string(prefix), delimiter,
-                                                                     to_string(key_marker), upload_id_marker, max_uploads))
+                                                                     to_string(key_marker), upload_id_marker,
+                                                                     max_uploads))
         resp = self.__do_object('GET', '',
                                 params={'uploads': '',
                                         'prefix': prefix,
@@ -1152,8 +1156,10 @@ class Bucket(_Base):
             headers[OSS_COPY_OBJECT_SOURCE_RANGE] = range_string
 
         logger.info("Start to upload part copy, source bucket: {0}, source key: {1}, bucket: {2}, key: {3}, range"
-                    ": {4}, upload id: {5}, part_number: {6}, headers: {7}".format(source_bucket_name, to_string(source_key),
-                                                                                   self.bucket_name, to_string(target_key),
+                    ": {4}, upload id: {5}, part_number: {6}, headers: {7}".format(source_bucket_name,
+                                                                                   to_string(source_key),
+                                                                                   self.bucket_name,
+                                                                                   to_string(target_key),
                                                                                    byte_range, target_upload_id,
                                                                                    target_part_number, headers))
         resp = self.__do_object('PUT', target_key,
@@ -1176,7 +1182,7 @@ class Bucket(_Base):
         :return: :class:`ListPartsResult <oss2.models.ListPartsResult>`
         """
         logger.info("Start to list parts, bucket: {0}, key: {1}, upload_id: {2}, marker: {3}, max_parts: {4}".format(
-                     self.bucket_name, to_string(key), upload_id, marker, max_parts))
+            self.bucket_name, to_string(key), upload_id, marker, max_parts))
         resp = self.__do_object('GET', key,
                                 params={'uploadId': upload_id,
                                         'part-number-marker': marker,
@@ -1209,7 +1215,8 @@ class Bucket(_Base):
 
         :raises: 如果文件的符号链接不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
-        logger.info("Start to get symlink, bucket: {0}, symlink_key: {1}".format(self.bucket_name, to_string(symlink_key)))
+        logger.info(
+            "Start to get symlink, bucket: {0}, symlink_key: {1}".format(self.bucket_name, to_string(symlink_key)))
         resp = self.__do_object('GET', symlink_key, params={Bucket.SYMLINK: ''})
         logger.info("Get symlink done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return GetSymlinkResult(resp)
@@ -1229,7 +1236,7 @@ class Bucket(_Base):
 
         data = self.__convert_data(BucketCreateConfig, xml_utils.to_put_bucket_config, input)
         logger.info("Start to create bucket, bucket: {0}, permission: {1}, config: {2}".format(self.bucket_name,
-                                                                                                    permission, data))
+                                                                                               permission, data))
         resp = self.__do_bucket('PUT', headers=headers, data=data)
         logger.info("Create bucket done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
@@ -1532,7 +1539,7 @@ class Bucket(_Base):
         logger.info("Get live-channel history done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_live_channel_history, GetLiveChannelHistoryResult)
 
-    def post_vod_playlist(self, channel_name, playlist_name, start_time = 0, end_time = 0):
+    def post_vod_playlist(self, channel_name, playlist_name, start_time=0, end_time=0):
         """根据指定的playlist name以及startTime和endTime生成一个点播的播放列表
 
         param str channel_name: 要生成点播列表的live channel的名称
@@ -1541,7 +1548,8 @@ class Bucket(_Base):
         param int end_time: 点播的结束时间，Unix Time格式，可以使用int(time.time())获取
         """
         logger.info("Start to post vod playlist, bucket: {0}, channel_name: {1}, playlist_name: {2}, start_time: "
-                    "{3}, end_time: {4}".format(self.bucket_name, to_string(channel_name), playlist_name, start_time, end_time))
+                    "{3}, end_time: {4}".format(self.bucket_name, to_string(channel_name), playlist_name, start_time,
+                                                end_time))
         key = channel_name + "/" + playlist_name
         resp = self.__do_object('POST', key, params={Bucket.VOD: '', 'startTime': str(start_time),
                                                      'endTime': str(end_time)})
@@ -1691,7 +1699,6 @@ class CryptoBucket():
         with open(to_unicode(filename), 'rb') as f:
             return self.put_object(key, f, headers=headers, progress_callback=progress_callback)
 
-
     def get_object(self, key,
                    headers=None,
                    progress_callback=None,
@@ -1725,7 +1732,8 @@ class CryptoBucket():
 
         encrypted_result = self.bucket.get_object(key, headers=headers, params=params, progress_callback=None)
 
-        return GetObjectResult(encrypted_result.resp, progress_callback, self.enable_crc, crypto_provider=self.crypto_provider)
+        return GetObjectResult(encrypted_result.resp, progress_callback, self.enable_crc,
+                               crypto_provider=self.crypto_provider)
 
     def get_object_to_file(self, key, filename,
                            headers=None,

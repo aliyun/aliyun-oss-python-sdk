@@ -30,7 +30,7 @@ class AuthBase(object):
         self.id = access_key_id.strip()
         self.secret = access_key_secret.strip()
 
-    def _sign_rtmp_url(self, url, bucket_name, channel_name, playlist_name, expires, params):
+    def _sign_rtmp_url(self, url, bucket_name, channel_name, expires, params):
         expiration_time = int(time.time()) + expires
 
         canonicalized_resource = "/%s/%s" % (bucket_name, channel_name)
@@ -171,7 +171,7 @@ class AnonymousAuth(object):
     def _sign_url(self, req, bucket_name, key, expires):
         return req.url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in req.params.items())
     
-    def _sign_rtmp_url(self, url, bucket_name, channel_name, playlist_name, expires, params):
+    def _sign_rtmp_url(self, url, bucket_name, channel_name, expires, params):
         return url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in params.items())
         
 
@@ -199,9 +199,9 @@ class StsAuth(object):
         req.params['security-token'] = self.__security_token
         return self.__auth._sign_url(req, bucket_name, key, expires)
 
-    def _sign_rtmp_url(self, url, bucket_name, channel_name, playlist_name, expires, params):
+    def _sign_rtmp_url(self, url, bucket_name, channel_name, expires, params):
         params['security-token'] = self.__security_token
-        return self.__auth._sign_rtmp_url(url, bucket_name, channel_name, playlist_name, expires, params)
+        return self.__auth._sign_rtmp_url(url, bucket_name, channel_name, expires, params)
 
 
 def _param_to_quoted_query(k, v):
