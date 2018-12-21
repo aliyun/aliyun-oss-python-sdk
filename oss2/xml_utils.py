@@ -664,6 +664,9 @@ def to_select_csv_object(sql, select_params):
         if 'MaxSkippedRecordsAllowed' in select_params:
             _add_text_child(options, 'MaxSkippedRecordsAllowed', str(select_params['MaxSkippedRecordsAllowed']))
             valid_keys += 1
+        if 'AllowQuotedRecordDelimiter' in select_params:
+            _add_text_child(csv, 'AllowQuotedRecordDelimiter', str(select_params['AllowQuotedRecordDelimiter']))
+            valid_keys += 1
 
         if valid_keys != len(select_params):
             raise SelectOperationClientError("The select_params contains unsupported keys.", "")
@@ -710,7 +713,7 @@ def to_select_json_object(sql, select_params):
     if 'ParseJsonNumberAsString' in select_params:
         _add_text_child(json, 'ParseJsonNumberAsString', str(select_params['ParseJsonNumberAsString']))
         valid_keys += 1
-
+   
     if valid_keys != len(select_params):
         raise SelectOperationClientError("The select_params contains unsupported keys.", "")
 

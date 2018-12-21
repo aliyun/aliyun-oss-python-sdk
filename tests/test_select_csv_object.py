@@ -407,5 +407,17 @@ class TestSelectCsvObject(OssTestCase):
         except SelectOperationClientError:
             print("expected error")
     
+    def test_select_csv_object_with_bytes_range(self):
+        key = "test_select_csv_object_with_bytes_range"
+        content = "test\nabc\n"
+        self.bucket.put_object(key, content.encode('utf-8'))
+        select_params = {'AllowQuotedRecordDelimiter':False}
+        headers = {'Range':'bytes=0-3'}
+        result = self.bucket.select_object(key, "select * from ossobject", None, select_params,  headers)
+        content = b''
+        for chunk in result:
+            content += chunk
+        self.assertEqual('test\n'.encode('utf-8'), content)
+    
 if __name__ == '__main__':
     unittest.main()

@@ -14,6 +14,7 @@ from oss2 import utils
 from oss2.exceptions import SelectOperationClientError
 from oss2.exceptions import InconsistentError
 from oss2.exceptions import SelectOperationFailed
+from oss2.exceptions import ClientError
 
 from unittests.common import *
 
@@ -192,7 +193,7 @@ class SelectCaseHelper(object):
         tester.assertEqual(result.splits, splits)
         tester.assertEqual(result.request_id, '566B6BE93A7B8CFD53D4BAA3')
     
-    def select(self, tester, do_request, callback = None, select_params = None):
+    def select(self, tester, do_request, callback = None, select_params = None, headers = None):
         sql = "select * from ossobject limit 10"
         resp_content = b'a,b,c,d,e,f,,n,g,l,o,p'
         if select_params is not None and 'Json_Type' in select_params:
@@ -209,7 +210,7 @@ class SelectCaseHelper(object):
 
         req_info = mock_response(do_request, resp)
 
-        result = bucket().select_object('select-test.txt', sql, callback, select_params)
+        result = bucket().select_object('select-test.txt', sql, callback, select_params, headers)
 
         tester.assertEqual(result.status, 206)
         tester.assertRequest(req_info, req)
@@ -404,6 +405,20 @@ class TestSelectObject(OssTestCase):
             helper.assertFalse()
         except SelectOperationClientError:
             print("expected error")
+
+    @patch('oss2.Session.do_request')
+    def test_range_select(self, do_request):
+        headers = {'Range':[0,9]}
+        select_params = {}
+        helper = SelectCaseHelper()
+        try:
+            helper.select(self, do_request, None, select_params, headers)
+            helper.assertFalse()
+        except ClientError:
+            print("expected error")
+        
+        select_params = {'AllowQuotedRecordDelimiter':False}
+        helper.select(self, do_request, None, select_params, headers)
 
 if __name__ == '__main__':
     unittest.main()
