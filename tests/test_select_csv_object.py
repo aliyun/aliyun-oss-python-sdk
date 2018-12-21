@@ -441,5 +441,45 @@ class TestSelectCsvObject(OssTestCase):
         except SelectOperationClientError:
             print("expected error")
     
+    def test_select_csv_object_with_bytes_range(self):
+        key = "test_select_csv_object_with_bytes_range"
+        content = "test\nabc\n"
+        self.bucket.put_object(key, content.encode('utf-8'))
+        select_params = {'AllowQuotedRecordDelimiter':False}
+        byte_range = [0,1]
+        result = self.bucket.select_object(key, "select * from ossobject", None, select_params,  byte_range)
+        content = b''
+        for chunk in result:
+            content += chunk
+        self.assertEqual('test\n'.encode('utf-8'), content)
+
+    def test_select_csv_object_with_bytes_range_invalid(self):
+        key = "test_select_csv_object_with_bytes_range"
+        content = "test\nabc\n"
+        self.bucket.put_object(key, content.encode('utf-8'))
+        byte_range = [0,1]
+        try:
+            self.bucket.select_object(key, "select * from ossobject", None, None,  byte_range)
+            self.assertFalse()
+        except ClientError:
+            print("expected error")
+
+        select_params = {'AllowQuotedRecordDelimiter':True}
+
+        try:
+            self.bucket.select_object(key, "select * from ossobject", None, select_params,  byte_range)
+            self.assertFalse()
+        except ClientError:
+            print("expected error")
+        
+        select_params = {'AllowQuotedRecordDelimiter':False, 'Json_Type':'LINES'}
+
+        try:
+            self.bucket.select_object(key, "select * from ossobject", None, select_params,  byte_range)
+            self.assertFalse()
+        except SelectOperationClientError:
+            print("expected error")
+
+    
 if __name__ == '__main__':
     unittest.main()

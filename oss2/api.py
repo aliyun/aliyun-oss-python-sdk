@@ -168,7 +168,9 @@ datetime.date之间相互转换。如 ::
     >>> SkipPartialDataRecord: 当一条JSON记录数据不完整时(select语句中出现的Key在该对象为空)，是否跳过该Json记录。默认是False。
     >>> EnablePayloadCrc:是否启用对Payload的CRC校验,默认是False. 该选项不能和OutputRawData:True混用。
     >>> MaxSkippedRecordsAllowed: 允许跳过的最大Json记录数。默认值是0表示一旦有一条Json记录跳过就报错。当下列两种情况下该JSON被跳过:1）当SkipPartialDataRecord为True时且该条Json记录不完整时 2）当该记录的数据类型和SQL不匹配时
-
+    >>> ParseJsonNumberAsString: 将Json文件中的数字解析成字符串。使用场景是当Json文件中的浮点数精度较高时，系统默认的浮点数精度无法达到要求，当解析成字符串时将完整保留原始数据精度，在Sql中使用Cast可以将字符串无精度损失地转成decimal.
+    >>> AllowQuotedRecordDelimiter: 允许CSV中的列包含转义过的换行符。默认为true。当值为False时，select API可以用Range：bytes来设置选取目标对象内容的范围
+    ‘
 .. _select_meta_params:
 
     create_select_object_meta参数集合，支持如下Keys:
@@ -186,11 +188,13 @@ from . import utils
 from . import exceptions
 from . import defaults
 from . import models
+from . import select_params
 
 from .models import *
 from .compat import urlquote, urlparse, to_unicode, to_string
 from .crypto import BaseCryptoProvider
 from .headers import *
+from .select_params import *
 
 import time
 import shutil
@@ -639,7 +643,8 @@ class Bucket(_Base):
 
     def select_object(self, key, sql,
                    progress_callback=None,
-                   select_params=None
+                   select_params=None,
+                   byte_range=None
                    ):
         """Select一个文件内容，支持(Csv,Json Doc,Json Lines及其GZIP压缩文件).
 
@@ -659,21 +664,33 @@ class Bucket(_Base):
         :param select_params: select参数集合,对于Json文件必须制定Json_Type类型。参见 :ref:`select_params`
 
         :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
+        :param byte_range: select content of specific range。可以设置Bytes header指定select csv时的文件起始offset和长度。
         :return: file-like object
 
         :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
+        range_select = False
         headers = http.CaseInsensitiveDict()
+        range_string = _make_range_string(byte_range)
+        if range_string:
+            headers['range'] = range_string
+            range_select = True
+
+        if (range_select == True and 
+                (select_params is None or 
+                        (SelectParameters.AllowQuotedRecordDelimiter not in select_params or str(select_params[SelectParameters.AllowQuotedRecordDelimiter]).lower() != 'false'))):
+                        raise ClientError('"AllowQuotedRecordDelimiter" must be specified in select_params as False when "Range" is specified in header.')
+
         body = xml_utils.to_select_object(sql, select_params)
         params = {'x-oss-process':  'csv/select'}
-        if select_params is not None and 'Json_Type' in select_params:
+        if select_params is not None and SelectParameters.Json_Type in select_params:
             params['x-oss-process'] = 'json/select'
 
         self.timeout = 3600
         resp = self.__do_object('POST', key, data=body, headers=headers, params=params)
         crc_enabled = False
-        if select_params is not None and 'EnablePayloadCrc' in select_params:
-            if select_params['EnablePayloadCrc'] == True:
+        if select_params is not None and SelectParameters.EnablePayloadCrc in select_params:
+            if str(select_params[SelectParameters.EnablePayloadCrc]).lower() == "true":
                 crc_enabled = True
         return SelectObjectResult(resp, progress_callback, crc_enabled)
 

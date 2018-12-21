@@ -148,7 +148,7 @@ class SelectResponseAdapter(object):
             frame_type_val != SelectResponseAdapter._END_FRAME_TYPE and
             frame_type_val != SelectResponseAdapter._META_END_FRAME_TYPE and
             frame_type_val != SelectResponseAdapter._JSON_META_END_FRAME_TYPE):
-                logger.warn("Unexpected frame type: {0}. RequestId:{1}. This could be due to the old version of client.".format(frame_type_val, self.request_id))
+                logger.warning("Unexpected frame type: {0}. RequestId:{1}. This could be due to the old version of client.".format(frame_type_val, self.request_id))
                 raise SelectOperationClientError(self.request_id, "Unexpected frame type:" + str(frame_type_val))
 
         self.payload = self.read_raw(payload_length_val)
@@ -168,7 +168,7 @@ class SelectResponseAdapter(object):
                 crc32.update(self.payload)
                 checksum_calc = crc32.crc
                 if checksum_val != checksum_calc:
-                    logger.warn("Incorrect checksum: Actual {0} and calculated {1}. RequestId:{2}".format(checksum_val, checksum_calc, self.request_id))
+                    logger.warning("Incorrect checksum: Actual {0} and calculated {1}. RequestId:{2}".format(checksum_val, checksum_calc, self.request_id))
                     raise InconsistentError("Incorrect checksum: Actual" + str(checksum_val) + ". Calculated:" + str(checksum_calc), self.request_id)
             
         elif frame_type_val == SelectResponseAdapter._CONTINIOUS_FRAME_TYPE:

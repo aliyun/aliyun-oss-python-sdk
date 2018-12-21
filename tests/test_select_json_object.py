@@ -24,10 +24,12 @@ class SelectJsonObjectTestHelper(object):
         self.scannedSize = consumed_bytes
 
     def test_select_json_object(self, testCase, sql, input_format):
+        is_gzip = False
         if input_format['Json_Type'] == 'DOCUMENT':
             if 'CompressionType' in input_format and input_format['CompressionType'] == 'GZIP':
                 key = "sample_json.json.gz"
                 local_file = 'tests/sample_json.json.gz'
+                is_gzip = True
             else:
                 key = "sample_json.json"
                 local_file = 'tests/sample_json.json'
@@ -54,7 +56,7 @@ class SelectJsonObjectTestHelper(object):
         testCase.assertEqual(result.status, 206, result.request_id)
         testCase.assertTrue(len(content) > 0)
 
-        if 'SplitRange' not in input_format and 'LineRange' not in input_format and not key.endswith('.gz'):
+        if 'SplitRange' not in input_format and 'LineRange' not in input_format and is_gzip is False:
             testCase.assertEqual(self.scannedSize, file_size)
 
         return content
