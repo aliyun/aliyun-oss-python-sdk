@@ -853,7 +853,7 @@ class Bucket(_Base):
         :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
         logger.info("Start to get object metadata, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
-        resp = self.__do_object('HEAD', key, params={'objectMeta': ''})
+        resp = self.__do_object('GET', key, params={'objectMeta': ''})
         logger.info("Get object metadata done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return GetObjectMetaResult(resp)
 

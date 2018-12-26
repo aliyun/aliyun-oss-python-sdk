@@ -129,7 +129,7 @@ x-oss-object-type: Normal'''
 
     @patch('oss2.Session.do_request')
     def test_object_exists_true(self, do_request):
-        request_text = '''HEAD /sbowspxjhmccpmesjqcwagfw?objectMeta HTTP/1.1
+        request_text = '''GET /sbowspxjhmccpmesjqcwagfw?objectMeta HTTP/1.1
 Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
 Accept-Encoding: identity
 Connection: keep-alive
@@ -154,7 +154,7 @@ Server: AliyunOSS'''
 
     @patch('oss2.Session.do_request')
     def test_object_exists_false(self, do_request):
-        request_text = '''HEAD /sbowspxjhmccpmesjqcwagfw?objectMeta HTTP/1.1
+        request_text = '''GET /sbowspxjhmccpmesjqcwagfw?objectMeta HTTP/1.1
 Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
 Accept-Encoding: identity
 Connection: keep-alive
