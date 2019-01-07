@@ -187,7 +187,7 @@ class SelectResponseAdapter(object):
             if error_msg_size > 0:
                 error_msg = self.payload[20:error_msg_size + 20]
                 error_code_index = error_msg.find(b'.')
-                if error_code_index >= 0:
+                if error_code_index >= 0 and error_code_index < error_msg_size - 1:
                     error_code = error_msg[0:error_code_index]
                     error_msg = error_msg[error_code_index + 1:]
 
@@ -226,7 +226,7 @@ class SelectResponseAdapter(object):
             if (error_size > 0):
                 error_msg = self.payload[error_index:error_index + error_size]
                 error_code_index = error_msg.find(b'.')
-                if error_code_index >= 0:
+                if error_code_index >= 0 and error_code_index < error_size - 1:
                     error_code = error_msg[0:error_code_index]
                     error_msg = error_msg[error_code_index + 1:]
 

@@ -158,16 +158,16 @@ datetime.date之间相互转换。如 ::
     >>> SkipPartialDataRecord: 当CSV行数据不完整时(select语句中出现的列在该行为空)，是否跳过该行。默认是False。
     >>> OutputHeader:是否输出CSV Header，默认是False.
     >>> EnablePayloadCrc:是否启用对Payload的CRC校验,默认是False. 该选项不能和OutputRawData:True混用。
-    >>> MaxSkippedRecordsAllowed: 允许跳过的最大行数。默认值是0表示一旦有一行跳过就报错。当下列两种情况下该行CSV被跳过:1）当SkipPartialDataRecord为True时且改行不完整时 2）当该行的数据类型和SQL不匹配时
+    >>> MaxSkippedRecordsAllowed: 允许跳过的最大行数。默认值是0表示一旦有一行跳过就报错。当下列两种情况下该行CSV被跳过:1）当SkipPartialDataRecord为True时且该行不完整时 2）当该行的数据类型和SQL不匹配时
     对于Json 文件, 支持如下Keys:
     >>> Json_Type: DOCUMENT | LINES . DOCUMENT就是指一般的Json文件，LINES是指每一行是一个合法的JSON对象，文件由多行Json对象组成，整个文件本身不是合法的Json对象。
     >>> LineRange: 指定查询JSON LINE文件的行范围，参见 `line_range`。注意该参数仅支持LINES类型
     >>> SplitRange: 指定查询JSON LINE文件的Split范围，参见 `split_range`.注意该参数仅支持LINES类型
     >>> CompressionType: 文件的压缩格式，默认值是None, 支持GZIP。
     >>> OutputRawData: 指定是响应Body返回Raw数据，默认值是False. 
-    >>> SkipPartialDataRecord: 当CSV行数据不完整时(select语句中出现的列在该行为空)，是否跳过该行。默认是False。
+    >>> SkipPartialDataRecord: 当一条JSON记录数据不完整时(select语句中出现的Key在该对象为空)，是否跳过该Json记录。默认是False。
     >>> EnablePayloadCrc:是否启用对Payload的CRC校验,默认是False. 该选项不能和OutputRawData:True混用。
-    >>> MaxSkippedRecordsAllowed: 允许跳过的最大行数。默认值是0表示一旦有一行跳过就报错。当下列两种情况下该行JSON被跳过:1）当SkipPartialDataRecord为True时且改行不完整时 2）当该行的数据类型和SQL不匹配时
+    >>> MaxSkippedRecordsAllowed: 允许跳过的最大Json记录数。默认值是0表示一旦有一条Json记录跳过就报错。当下列两种情况下该JSON被跳过:1）当SkipPartialDataRecord为True时且该条Json记录不完整时 2）当该记录的数据类型和SQL不匹配时
 
         
 .. _select_meta_params:
@@ -793,15 +793,15 @@ class Bucket(_Base):
                    progress_callback=None,
                    select_params=None
                    ):
-        """Select Content from OSS file to a local file
+        """Select一个文件的内容到本地文件
 
-        :param key: OSS key name
-        :param filename: local file name。The parent directory should exist
+        :param key: OSS文件名
+        :param filename: 本地文件名。其父亲目录已经存在且有写权限。
 
-        :param progress_callback: progress callback。参考 :ref:`progress_callback`
+        :param progress_callback: 调用进度的callback。参考 :ref:`progress_callback`
         :param select_params: select参数集合。参见 :ref:`select_params`
 
-        :return: If file does not exist, throw :class:`NoSuchKey <oss2.exceptions.NoSuchKey>`
+        :return: 如果文件不存在, 抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>`
         """
         with open(to_unicode(filename), 'wb') as f:
             result = self.select_object(key, sql, progress_callback=progress_callback,
@@ -854,16 +854,14 @@ class Bucket(_Base):
         JSON LINES文件用法 ::
             >>> select_meta_params = { 'Json_Type':'LINES', 'OverwriteIfExists':'False'}
             >>> result = bucket.create_select_object_meta('jsonlines.json', select_meta_params)
-        :param key: object name
-        :param select_meta_params: the parameter dictionary. For the supported keys, refer to :ref:`csv_meta_params`
+        :param key: 文件名
+        :param select_meta_params: 参数词典，可以是dict，参见ref:`csv_meta_params`
         :return: :class:`GetSelectObjectMetaResult <oss2.models.HeadObjectResult>`. 
-          Beside the csv_rows, csv_splits field, it also include x-oss-select-csv-rows, x-oss-select-csv-splits and x-oss-select-csv-columns headers.
-          csv_rows are the total lines of the csv file.
-          csv_splits are the total splits of the csv file. One split a bunch of rows and each split has very similar size.
-          Header x-oss-select-csv-rows and x-oss-select-csv-splits are the raw data for csv_rows and csv_splits.
-          x-oss-select-csv-columns header specifies the first line's column count.
+          除了 rows 和splits 属性之外, 它也返回head object返回的其他属性。
+          rows表示该文件的总记录数。
+          splits表示该文件的总Split个数，一个Split包含若干条记录，每个Split的总字节数大致相当。用户可以以Split为单位进行分片查询。
 
-        :raises: If Bucket or object does not exist, throw:class:`NotFound <oss2.exceptions.NotFound>`
+        :raises: 如果Bucket不存在或者Object不存在，则抛出:class:`NotFound <oss2.exceptions.NotFound>`
         """
         headers = http.CaseInsensitiveDict()
     

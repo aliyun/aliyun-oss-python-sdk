@@ -392,7 +392,7 @@ class TestSelectObject(OssTestCase):
 
     @patch('oss2.Session.do_request')
     def test_create_json_meta_with_params(self, do_request):
-        head_params = {'OverwriteIfExists':'True', 'Json_Type':'LINES'}
+        head_params = {'OverwriteIfExists':'True', 'Json_Type':'LINES','CompressionType':'NONE'}
         helper = SelectCaseHelper()
         helper.create_meta(self, do_request, head_params)
 

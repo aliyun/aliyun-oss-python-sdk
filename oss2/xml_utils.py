@@ -614,62 +614,46 @@ def to_select_csv_object(sql, select_params):
     out_csv = ElementTree.SubElement(output_ser, 'CSV')
     options = ElementTree.SubElement(root, 'Options')
    
-    if (select_params is not None):
-        valid_keys = 0
-        if 'CsvHeaderInfo' in select_params:
-            _add_text_child(csv, 'FileHeaderInfo', select_params['CsvHeaderInfo'])
-            valid_keys += 1
-        if 'CommentCharacter' in select_params:
-            _add_text_child(csv, 'CommentCharacter', base64.b64encode(str.encode(select_params['CommentCharacter'])))
-            valid_keys += 1
-        if 'RecordDelimiter' in select_params:
-            _add_text_child(csv, 'RecordDelimiter', base64.b64encode(str.encode(select_params['RecordDelimiter'])))
-            valid_keys += 1
-        if 'OutputRecordDelimiter' in select_params:
-            _add_text_child(out_csv, 'RecordDelimiter', base64.b64encode(str.encode(select_params['OutputRecordDelimiter'])))
-            valid_keys += 1
-        if 'FieldDelimiter' in select_params:
-            _add_text_child(csv, 'FieldDelimiter', base64.b64encode(str.encode(select_params['FieldDelimiter'])))
-            valid_keys += 1
-        if 'OutputFieldDelimiter' in select_params:
-            _add_text_child(out_csv, 'FieldDelimiter', base64.b64encode(str.encode(select_params['OutputFieldDelimiter'])))
-            valid_keys += 1
-        if 'QuoteCharacter' in select_params:
-            _add_text_child(csv, 'QuoteCharacter', base64.b64encode(str.encode(select_params['QuoteCharacter'])))
-            valid_keys += 1
-        if 'SplitRange' in select_params:
-            _add_text_child(csv, 'Range', utils._make_split_range_string(select_params['SplitRange']))
-            valid_keys += 1
-        elif 'LineRange' in select_params:
-            _add_text_child(csv, 'Range', utils._make_line_range_string(select_params['LineRange']))
-            valid_keys += 1
-        if 'CompressionType' in select_params:
-            _add_text_child(input_ser, 'CompressionType', select_params['CompressionType'])
-            valid_keys += 1
-        if 'KeepAllColumns' in select_params:
-            _add_text_child(output_ser, 'KeepAllColumns', str(select_params['KeepAllColumns']))
-            valid_keys += 1
-        if 'OutputRawData' in select_params:
-            _add_text_child(output_ser, 'OutputRawData', str(select_params['OutputRawData']))
-            valid_keys += 1
-        if 'EnablePayloadCrc' in select_params:
-            _add_text_child(output_ser, 'EnablePayloadCrc', str(select_params['EnablePayloadCrc']))
-            valid_keys += 1
-        if 'OutputHeader' in select_params:
-            _add_text_child(output_ser, 'OutputHeader', str(select_params['OutputHeader']))
-            valid_keys += 1
-        if 'SkipPartialDataRecord' in select_params:
-            _add_text_child(options, 'SkipPartialDataRecord', str(select_params['SkipPartialDataRecord']))
-            valid_keys += 1
-        if 'MaxSkippedRecordsAllowed' in select_params:
-            _add_text_child(options, 'MaxSkippedRecordsAllowed', str(select_params['MaxSkippedRecordsAllowed']))
-            valid_keys += 1
-        if 'AllowQuotedRecordDelimiter' in select_params:
-            _add_text_child(csv, 'AllowQuotedRecordDelimiter', str(select_params['AllowQuotedRecordDelimiter']))
-            valid_keys += 1
-
-        if valid_keys != len(select_params):
-            raise SelectOperationClientError("The select_params contains unsupported keys.", "")
+    if (select_params is None):
+        return _node_to_string(root)
+    
+    for key, value in select_params.items():
+        if 'CsvHeaderInfo' == key:
+            _add_text_child(csv, 'FileHeaderInfo', value)
+        elif 'CommentCharacter' == key:
+            _add_text_child(csv, 'CommentCharacter', base64.b64encode(str.encode(value)))
+        elif 'RecordDelimiter' == key:
+            _add_text_child(csv, 'RecordDelimiter', base64.b64encode(str.encode(value)))
+        elif 'OutputRecordDelimiter' == key:
+            _add_text_child(out_csv, 'RecordDelimiter', base64.b64encode(str.encode(value)))
+        elif 'FieldDelimiter' == key:
+            _add_text_child(csv, 'FieldDelimiter', base64.b64encode(str.encode(value)))
+        elif 'OutputFieldDelimiter' == key:
+            _add_text_child(out_csv, 'FieldDelimiter', base64.b64encode(str.encode(value)))
+        elif 'QuoteCharacter' == key:
+            _add_text_child(csv, 'QuoteCharacter', base64.b64encode(str.encode(value)))
+        elif 'SplitRange' == key:
+            _add_text_child(csv, 'Range', utils._make_split_range_string(value))
+        elif 'LineRange' == key:
+            _add_text_child(csv, 'Range', utils._make_line_range_string(value))
+        elif 'CompressionType' == key:
+            _add_text_child(input_ser, 'CompressionType', str(value))
+        elif 'KeepAllColumns' == key:
+            _add_text_child(output_ser, 'KeepAllColumns', str(value))
+        elif 'OutputRawData' == key:
+            _add_text_child(output_ser, 'OutputRawData', str(value))
+        elif 'EnablePayloadCrc' == key:
+            _add_text_child(output_ser, 'EnablePayloadCrc', str(value))
+        elif 'OutputHeader' == key:
+            _add_text_child(output_ser, 'OutputHeader', str(value))
+        elif 'SkipPartialDataRecord' == key:
+            _add_text_child(options, 'SkipPartialDataRecord', str(value))
+        elif 'MaxSkippedRecordsAllowed' == key:
+            _add_text_child(options, 'MaxSkippedRecordsAllowed', str(value))
+        elif 'AllowQuotedRecordDelimiter' == key:
+            _add_text_child(csv, 'AllowQuotedRecordDelimiter', str(value))
+        else:
+            raise SelectOperationClientError("The select_params contains unsupported key " + key, "")
 
     return _node_to_string(root)
 
@@ -683,39 +667,31 @@ def to_select_json_object(sql, select_params):
     options = ElementTree.SubElement(root, 'Options')
     is_doc = select_params['Json_Type'] == 'DOCUMENT'
     _add_text_child(json, 'Type', select_params['Json_Type'])
-    valid_keys = 1
-    if is_doc == False:
-        if 'SplitRange' in select_params:
-            _add_text_child(json, 'Range', utils._make_split_range_string(select_params['SplitRange']))
-            valid_keys += 1
-        elif 'LineRange' in select_params:
-            _add_text_child(json, 'Range', utils._make_line_range_string(select_params['LineRange']))
-            valid_keys += 1
-
-    if 'CompressionType' in select_params:
-        _add_text_child(input_ser, 'CompressionType', select_params['CompressionType'])
-        valid_keys += 1
-    if 'OutputRawData' in select_params:
-        _add_text_child(output_ser, 'OutputRawData', str(select_params['OutputRawData']))
-        valid_keys += 1
-    if 'EnablePayloadCrc' in select_params:
-        _add_text_child(output_ser, 'EnablePayloadCrc', str(select_params['EnablePayloadCrc']))
-        valid_keys += 1
-    if 'OutputRecordDelimiter' in select_params:
-        _add_text_child(out_json, 'RecordDelimiter', base64.b64encode(str.encode(select_params['OutputRecordDelimiter'])))
-        valid_keys += 1
-    if 'SkipPartialDataRecord' in select_params:
-        _add_text_child(options, 'SkipPartialDataRecord', str(select_params['SkipPartialDataRecord']))
-        valid_keys += 1
-    if 'MaxSkippedRecordsAllowed' in select_params:
-        _add_text_child(options, 'MaxSkippedRecordsAllowed', str(select_params['MaxSkippedRecordsAllowed']))
-        valid_keys += 1
-    if 'ParseJsonNumberAsString' in select_params:
-        _add_text_child(json, 'ParseJsonNumberAsString', str(select_params['ParseJsonNumberAsString']))
-        valid_keys += 1
-   
-    if valid_keys != len(select_params):
-        raise SelectOperationClientError("The select_params contains unsupported keys.", "")
+    if select_params is None:
+        return _node_to_string(root)
+    
+    for key, value in select_params.items(): 
+        if 'SplitRange' == key and is_doc == False:
+            _add_text_child(json, 'Range', utils._make_split_range_string(value))
+        elif 'LineRange' == key and is_doc == False:
+            _add_text_child(json, 'Range', utils._make_line_range_string(value))
+        elif 'CompressionType' == key:
+            _add_text_child(input_ser, 'CompressionType', value)
+        elif 'OutputRawData' == key:
+            _add_text_child(output_ser, 'OutputRawData', str(value))
+        elif 'EnablePayloadCrc' == key:
+            _add_text_child(output_ser, 'EnablePayloadCrc', str(value))
+        elif 'OutputRecordDelimiter' == key:
+            _add_text_child(out_json, 'RecordDelimiter', base64.b64encode(str.encode(value)))
+        elif 'SkipPartialDataRecord' == key:
+            _add_text_child(options, 'SkipPartialDataRecord', str(value))
+        elif 'MaxSkippedRecordsAllowed' == key:
+            _add_text_child(options, 'MaxSkippedRecordsAllowed', str(value))
+        elif 'ParseJsonNumberAsString' == key:
+            _add_text_child(json, 'ParseJsonNumberAsString', str(value))
+        else:
+            if key != 'Json_Type':
+                raise SelectOperationClientError("The select_params contains unsupported key " + key, "")
 
     return _node_to_string(root)
 
@@ -732,24 +708,38 @@ def to_get_select_csv_object_meta(csv_meta_param):
     root = ElementTree.Element('CsvMetaRequest')
     input_ser = ElementTree.SubElement(root, 'InputSerialization')
     csv = ElementTree.SubElement(input_ser, 'CSV')
-    if (csv_meta_param is not None):
-        if 'RecordDelimiter' in csv_meta_param:
-            _add_text_child(csv, 'RecordDelimiter', base64.b64encode(str.encode(csv_meta_param['RecordDelimiter'])))
-        if 'FieldDelimiter' in csv_meta_param:
-            _add_text_child(csv, 'FieldDelimiter', base64.b64encode(str.encode(csv_meta_param['FieldDelimiter'])))
-        if 'QuoteCharacter' in csv_meta_param:
-            _add_text_child(csv, 'QuoteCharacter', base64.b64encode(str.encode(csv_meta_param['QuoteCharacter'])))
-        if 'CompressionType' in csv_meta_param:
-            _add_text_child(input_ser, 'CompressionType', base64.b64encode(str.encode(csv_meta_param['CompressionType'])))
-        if 'OverwriteIfExists' in csv_meta_param:
-            _add_text_child(root, 'OverwriteIfExists', str(csv_meta_param['OverwriteIfExists']))
+    if (csv_meta_param is None):
+        return _node_to_string(root)
+    
+    for key, value in csv_meta_param.items():
+        if 'RecordDelimiter' == key:
+            _add_text_child(csv, 'RecordDelimiter', base64.b64encode(str.encode(value)))
+        elif 'FieldDelimiter' == key:
+            _add_text_child(csv, 'FieldDelimiter', base64.b64encode(str.encode(value)))
+        elif 'QuoteCharacter' == key:
+            _add_text_child(csv, 'QuoteCharacter', base64.b64encode(str.encode(value)))
+        elif 'CompressionType' == key:
+            _add_text_child(input_ser, 'CompressionType', base64.b64encode(str.encode(value)))
+        elif 'OverwriteIfExists' == key:
+            _add_text_child(root, 'OverwriteIfExists', str(value))
+        else:
+           raise SelectOperationClientError("The csv_meta_param contains unsupported key " + key, "") 
+
     return _node_to_string(root)
 
 def to_get_select_json_object_meta(json_meta_param):
     root = ElementTree.Element('JsonMetaRequest')
     input_ser = ElementTree.SubElement(root, 'InputSerialization')
     json = ElementTree.SubElement(input_ser, 'JSON')
-    _add_text_child(json, 'Type', json_meta_param['Json_Type'])
-    if 'OverwriteIfExists' in json_meta_param:
-        _add_text_child(root, 'OverwriteIfExists', str(json_meta_param['OverwriteIfExists']))
+    _add_text_child(json, 'Type', json_meta_param['Json_Type']) # Json_Type是必须的
+  
+    for key, value in json_meta_param.items():
+        if 'OverwriteIfExists' == key:
+            _add_text_child(root, 'OverwriteIfExists', str(value))
+        elif 'CompressionType' == key:
+             _add_text_child(input_ser, 'CompressionType', base64.b64encode(str.encode(value)))
+        else:
+            if 'Json_Type' != key:
+                raise SelectOperationClientError("The json_meta_param contains unsupported key " + key, "")
+            
     return _node_to_string(root)

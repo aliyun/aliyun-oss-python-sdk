@@ -37,7 +37,7 @@ class SelectJsonObjectTestHelper(object):
         input_format['OutputRecordDelimiter'] = ','
 
         if (input_format['Json_Type'] == 'LINES'):
-            result = self.bucket.create_select_object_meta(key, input_format)
+            result = self.bucket.create_select_object_meta(key, {'Json_Type':'LINES'})
 
         result = self.bucket.head_object(key)
         file_size = result.content_length
