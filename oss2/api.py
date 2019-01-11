@@ -1549,7 +1549,7 @@ class Bucket(_Base):
         param str playlist_name: 要生成点播列表m3u8文件的名称
         param int start_time: 点播的起始时间，Unix Time格式，可以使用int(time.time())获取
         param int end_time: 点播的结束时间，Unix Time格式，可以使用int(time.time())获取
-        """:
+        """
         logger.debug("Start to post vod playlist, bucket: {0}, channel_name: {1}, playlist_name: {2}, start_time: "
                      "{3}, end_time: {4}".format(self.bucket_name, to_string(channel_name), playlist_name, start_time,
                                                  end_time))
