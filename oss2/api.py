@@ -343,7 +343,7 @@ class Bucket(_Base):
                  app_name='',
                  enable_crc=True):
         logger.debug("Init oss bucket, endpoint: {0}, isCname: {1}, connect_timeout: {2}, app_name: {3}, enabled_crc: "
-                    "{4}".format(endpoint, is_cname, connect_timeout, app_name, enable_crc))
+                     "{4}".format(endpoint, is_cname, connect_timeout, app_name, enable_crc))
         super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout,
                                      app_name, enable_crc)
 
@@ -371,8 +371,9 @@ class Bucket(_Base):
         :return: 签名URL。
         """
         key = to_string(key)
-        logger.debug("Start to sign_url, method: {0}, bucket: {1}, key: {2}, expires: {3}, headers: {4}, params: {5}".format
-                     (method, self.bucket_name, to_string(key), expires, headers, params))
+        logger.debug(
+            "Start to sign_url, method: {0}, bucket: {1}, key: {2}, expires: {3}, headers: {4}, params: {5}".format(
+                method, self.bucket_name, to_string(key), expires, headers, params))
         req = http.Request(method, self._make_url(self.bucket_name, key),
                            headers=headers,
                            params=params)
@@ -408,8 +409,9 @@ class Bucket(_Base):
 
         :return: :class:`ListObjectsResult <oss2.models.ListObjectsResult>`
         """
-        logger.debug("Start to List objects, bucket: {0}, prefix: {1}, delimiter: {2}, marker: {3}, max-keys: {4}".format(
-            self.bucket_name, to_string(prefix), delimiter, to_string(marker), max_keys))
+        logger.debug(
+            "Start to List objects, bucket: {0}, prefix: {1}, delimiter: {2}, marker: {3}, max-keys: {4}".format(
+                self.bucket_name, to_string(prefix), delimiter, to_string(marker), max_keys))
         resp = self.__do_object('GET', '',
                                 params={'prefix': prefix,
                                         'delimiter': delimiter,
@@ -450,7 +452,7 @@ class Bucket(_Base):
             data = utils.make_crc_adapter(data)
 
         logger.debug("Start to put object, bucket: {0}, key: {1}, headers: {2}".format(self.bucket_name, to_string(key),
-                                                                                      headers))
+                                                                                       headers))
         resp = self.__do_object('PUT', key, data=data, headers=headers)
         logger.debug("Put object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         result = PutObjectResult(resp)
@@ -720,7 +722,7 @@ class Bucket(_Base):
             headers['range'] = range_string
 
         logger.debug("Start to get object with url, bucket: {0}, sign_url: {1}, range: {2}, headers: {3}".format(
-            self.bucket_name, sign_url,range_string, headers))
+            self.bucket_name, sign_url, range_string, headers))
         resp = self._do_url('GET', sign_url, headers=headers)
         return GetObjectResult(resp, progress_callback, self.enable_crc)
 
@@ -744,8 +746,9 @@ class Bucket(_Base):
 
         :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
-        logger.debug("Start to get object with url, bucket: {0}, sign_url: {1}, file path: {2}, range: {3}, headers: {4}"
-                    .format(self.bucket_name, sign_url, filename, byte_range, headers))
+        logger.debug(
+            "Start to get object with url, bucket: {0}, sign_url: {1}, file path: {2}, range: {3}, headers: {4}"
+            .format(self.bucket_name, sign_url, filename, byte_range, headers))
 
         with open(to_unicode(filename), 'wb') as f:
             result = self.get_object_with_url(sign_url, byte_range=byte_range, headers=headers,
@@ -891,8 +894,9 @@ class Bucket(_Base):
         headers = http.CaseInsensitiveDict(headers)
         headers[OSS_COPY_OBJECT_SOURCE] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
 
-        logger.debug("Start to copy object, source bucket: {0}, source key: {1}, bucket: {2}, key: {3}, headers: {4}".format(
-            source_bucket_name, to_string(source_key), self.bucket_name, to_string(target_key), headers))
+        logger.debug(
+            "Start to copy object, source bucket: {0}, source key: {1}, bucket: {2}, key: {3}, headers: {4}".format(
+                source_bucket_name, to_string(source_key), self.bucket_name, to_string(target_key), headers))
         resp = self.__do_object('PUT', target_key, headers=headers)
         logger.debug("Copy object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
@@ -963,7 +967,7 @@ class Bucket(_Base):
         """
         logger.debug("Start to put object acl, bucket: {0}, key: {1}, acl: {2}".format(
             self.bucket_name, to_string(key), permission))
-        resp = self.__do_object('PUT', key, params={'acl': ''}, headers={OSS_OBJECT_ACL : permission})
+        resp = self.__do_object('PUT', key, params={'acl': ''}, headers={OSS_OBJECT_ACL: permission})
         logger.debug("Put object acl done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
@@ -1037,8 +1041,9 @@ class Bucket(_Base):
         if self.enable_crc:
             data = utils.make_crc_adapter(data)
 
-        logger.debug("Start to upload multipart, bucket: {0}, key: {1}, upload_id: {2}, part_number: {3}, headers: {4}"
-                    .format(self.bucket_name, to_string(key), upload_id, part_number, headers))
+        logger.debug(
+            "Start to upload multipart, bucket: {0}, key: {1}, upload_id: {2}, part_number: {3}, headers: {4}".format(
+                self.bucket_name, to_string(key), upload_id, part_number, headers))
         resp = self.__do_object('PUT', key,
                                 params={'uploadId': upload_id, 'partNumber': str(part_number)},
                                 headers=headers,
@@ -1075,7 +1080,8 @@ class Bucket(_Base):
                                 params={'uploadId': upload_id},
                                 data=data,
                                 headers=headers)
-        logger.debug("Complete multipart upload done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug(
+            "Complete multipart upload done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         result = PutObjectResult(resp);
 
@@ -1118,9 +1124,9 @@ class Bucket(_Base):
         :return: :class:`ListMultipartUploadsResult <oss2.models.ListMultipartUploadsResult>`
         """
         logger.debug("Start to list multipart uploads, bucket: {0}, prefix: {1}, delimiter: {2}, key_marker: {3}, "
-                    "upload_id_marker: {4}, max_uploads: {5}".format(self.bucket_name, to_string(prefix), delimiter,
-                                                                     to_string(key_marker), upload_id_marker,
-                                                                     max_uploads))
+                     "upload_id_marker: {4}, max_uploads: {5}".format(self.bucket_name, to_string(prefix), delimiter,
+                                                                      to_string(key_marker), upload_id_marker,
+                                                                      max_uploads))
         resp = self.__do_object('GET', '',
                                 params={'uploads': '',
                                         'prefix': prefix,
@@ -1152,10 +1158,12 @@ class Bucket(_Base):
             headers[OSS_COPY_OBJECT_SOURCE_RANGE] = range_string
 
         logger.debug("Start to upload part copy, source bucket: {0}, source key: {1}, bucket: {2}, key: {3}, range"
-                    ": {4}, upload id: {5}, part_number: {6}, headers: {7}".format(source_bucket_name, to_string(source_key),
-                                                                                   self.bucket_name, to_string(target_key),
-                                                                                   byte_range, target_upload_id,
-                                                                                   target_part_number, headers))
+                     ": {4}, upload id: {5}, part_number: {6}, headers: {7}".format(source_bucket_name,
+                                                                                    to_string(source_key),
+                                                                                    self.bucket_name,
+                                                                                    to_string(target_key),
+                                                                                    byte_range, target_upload_id,
+                                                                                    target_part_number, headers))
         resp = self.__do_object('PUT', target_key,
                                 params={'uploadId': target_upload_id,
                                         'partNumber': str(target_part_number)},
@@ -1176,7 +1184,7 @@ class Bucket(_Base):
         :return: :class:`ListPartsResult <oss2.models.ListPartsResult>`
         """
         logger.debug("Start to list parts, bucket: {0}, key: {1}, upload_id: {2}, marker: {3}, max_parts: {4}".format(
-                     self.bucket_name, to_string(key), upload_id, marker, max_parts))
+            self.bucket_name, to_string(key), upload_id, marker, max_parts))
         resp = self.__do_object('GET', key,
                                 params={'uploadId': upload_id,
                                         'part-number-marker': marker,
@@ -1209,7 +1217,8 @@ class Bucket(_Base):
 
         :raises: 如果文件的符号链接不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
-        logger.debug("Start to get symlink, bucket: {0}, symlink_key: {1}".format(self.bucket_name, to_string(symlink_key)))
+        logger.debug(
+            "Start to get symlink, bucket: {0}, symlink_key: {1}".format(self.bucket_name, to_string(symlink_key)))
         resp = self.__do_object('GET', symlink_key, params={Bucket.SYMLINK: ''})
         logger.debug("Get symlink done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return GetSymlinkResult(resp)
@@ -1229,7 +1238,7 @@ class Bucket(_Base):
 
         data = self.__convert_data(BucketCreateConfig, xml_utils.to_put_bucket_config, input)
         logger.debug("Start to create bucket, bucket: {0}, permission: {1}, config: {2}".format(self.bucket_name,
-                                                                                                    permission, data))
+                                                                                                permission, data))
         resp = self.__do_bucket('PUT', headers=headers, data=data)
         logger.debug("Create bucket done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
@@ -1529,7 +1538,8 @@ class Bucket(_Base):
         logger.debug("Start to get live-channel history, bucket: {0}, channel_name: {1}".format(
             self.bucket_name, to_string(channel_name)))
         resp = self.__do_object('GET', channel_name, params={Bucket.LIVE: '', Bucket.COMP: 'history'})
-        logger.debug("Get live-channel history done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug(
+            "Get live-channel history done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_live_channel_history, GetLiveChannelHistoryResult)
 
     def post_vod_playlist(self, channel_name, playlist_name, start_time=0, end_time=0):
@@ -1539,9 +1549,10 @@ class Bucket(_Base):
         param str playlist_name: 要生成点播列表m3u8文件的名称
         param int start_time: 点播的起始时间，Unix Time格式，可以使用int(time.time())获取
         param int end_time: 点播的结束时间，Unix Time格式，可以使用int(time.time())获取
-        """
+        """:
         logger.debug("Start to post vod playlist, bucket: {0}, channel_name: {1}, playlist_name: {2}, start_time: "
-                    "{3}, end_time: {4}".format(self.bucket_name, to_string(channel_name), playlist_name, start_time, end_time))
+                     "{3}, end_time: {4}".format(self.bucket_name, to_string(channel_name), playlist_name, start_time,
+                                                 end_time))
         key = channel_name + "/" + playlist_name
         resp = self.__do_object('POST', key, params={Bucket.VOD: '', 'startTime': str(start_time),
                                                      'endTime': str(end_time)})
