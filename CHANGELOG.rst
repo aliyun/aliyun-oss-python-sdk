@@ -3,6 +3,16 @@ OSS SDK for Python 版本记录
 
 Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
+Version 2.6.1
+-------------
+
+- 修复: 不指定默认的日志级别
+- 修复: 修复日志中存在的中文标点符号的问题
+- 增加: 帮助文档增加如何设置日志级别的方法说明
+- 修复: 当传入的playlist为空时，不指定playlist为生成推流签名的url的参数
+- 修复: 初始化LiveChannelInfo实例时，使用默认的构造函数初始化target成员
+- 修复: 有些调试信息的日志，修改成debug级别，避免过多的日志打印
+
 Version 2.6.0
 -------------
 
