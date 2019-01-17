@@ -62,7 +62,7 @@ def resumable_upload(bucket, key, filename,
     :param progress_callback: 上传进度回调函数。参见 :ref:`progress_callback` 。
     :param num_threads: 并发上传的线程数，如不指定则使用 `oss2.defaults.multipart_num_threads` 。
     """
-    logger.info("Start to resumable upload, bucket: {0}, key: {1}, filename: {2}, headers: {3}, "
+    logger.debug("Start to resumable upload, bucket: {0}, key: {1}, filename: {2}, headers: {3}, "
                 "multipart_threshold: {4}, part_size: {5}, num_threads: {6}".format(bucket.bucket_name, to_string(key),
                                                                                     filename, headers, multipart_threshold,
                                                                                     part_size, num_threads))
@@ -80,7 +80,7 @@ def resumable_upload(bucket, key, filename,
     else:
         with open(to_unicode(filename), 'rb') as f:
             result = bucket.put_object(key, f, headers=headers, progress_callback=progress_callback)
-    
+
     return result
 
 
@@ -123,7 +123,7 @@ def resumable_download(bucket, key, filename,
     :raises: 如果OSS文件不存在，则抛出 :class:`NotFound <oss2.exceptions.NotFound>` ；也有可能抛出其他因下载文件而产生的异常。
     """
 
-    logger.info("Start to resumable download, bucket: {0}, key: {1}, filename: {2}, multiget_threshold: {3}, "
+    logger.debug("Start to resumable download, bucket: {0}, key: {1}, filename: {2}, multiget_threshold: {3}, "
                 "part_size: {4}, num_threads: {5}".format(bucket.bucket_name, to_string(key), filename,
                                                           multiget_threshold, part_size, num_threads))
     multiget_threshold = defaults.get(multiget_threshold, defaults.multiget_threshold)
@@ -206,7 +206,7 @@ class _ResumableOperation(object):
 
         self.__store = store
         self.__record_key = self.__store.make_store_key(bucket.bucket_name, self.key, self._abspath)
-        logger.info("Init _ResumableOperation, record_key: {0}".format(self.__record_key))
+        logger.debug("Init _ResumableOperation, record_key: {0}".format(self.__record_key))
 
         # protect self.__progress_callback
         self.__plock = threading.Lock()
@@ -265,7 +265,7 @@ class _ResumableDownloader(_ResumableOperation):
         # protect record
         self.__lock = threading.Lock()
         self.__record = None
-        logger.info("Init _ResumableDownloader, bucket: {0}, key: {1}, part_size: {2}, num_thread: {3}".format(
+        logger.debug("Init _ResumableDownloader, bucket: {0}, key: {1}, part_size: {2}, num_thread: {3}".format(
             bucket.bucket_name, to_string(key), self.__part_size, self.__num_threads))
 
     def download(self, server_crc = None):
@@ -369,19 +369,19 @@ class _ResumableDownloader(_ResumableOperation):
         try:
             for key in ('etag', 'tmp_suffix', 'abspath', 'bucket', 'key'):
                 if not isinstance(record[key], str):
-                    logger.info('{0} is not a string: {1}'.format(key, record[key]))
+                    logger.error('{0} is not a string: {1}'.format(key, record[key]))
                     return False
 
             for key in ('part_size', 'size', 'mtime'):
                 if not isinstance(record[key], int):
-                    logger.info('{0} is not an integer: {1}'.format(key, record[key]))
+                    logger.error('{0} is not an integer: {1}'.format(key, record[key]))
                     return False
 
             if not isinstance(record['parts'], list):
-                logger.info('{0} is not a list: {1}'.format(key, record[key]))
+                logger.error('{0} is not a list: {1}'.format(key, record[key]))
                 return False
         except KeyError as e:
-            logger.info('Key not found: {0}'.format(e.args))
+            logger.error('Key not found: {0}'.format(e.args))
             return False
 
         return True
@@ -443,7 +443,7 @@ class _ResumableUploader(_ResumableOperation):
         self.__record = None
         self.__finished_size = 0
         self.__finished_parts = None
-        logger.info("Init _ResumableUploader, bucket: {0}, key: {1}, part_size: {2}, num_thread: {3}".format(
+        logger.debug("Init _ResumableUploader, bucket: {0}, key: {1}, part_size: {2}, num_thread: {3}".format(
             bucket.bucket_name, to_string(key), self.__part_size, self.__num_threads))
 
     def upload(self):
@@ -461,7 +461,7 @@ class _ResumableUploader(_ResumableOperation):
 
         result = self.bucket.complete_multipart_upload(self.key, self.__upload_id, self.__finished_parts)
         self._del_record()
-        
+
         return result
 
     def __producer(self, q, parts_to_upload=None):
@@ -517,7 +517,7 @@ class _ResumableUploader(_ResumableOperation):
 
         if not record:
             part_size = determine_part_size(self.size, self.__part_size)
-            logger.info("Upload File size: {0}, User-specify part_size: {1}, Calculated part_size: {2}".format(
+            logger.debug("Upload File size: {0}, User-specify part_size: {1}, Calculated part_size: {2}".format(
                 self.size, self.__part_size, part_size))
             upload_id = self.bucket.init_multipart_upload(self.key, headers=self.__headers).upload_id
             record = {'upload_id': upload_id, 'mtime': self.__mtime, 'size': self.size, 'parts': [],

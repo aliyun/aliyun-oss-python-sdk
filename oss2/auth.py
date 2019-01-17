@@ -17,10 +17,10 @@ logger = logging.getLogger(__name__)
 
 def make_auth(access_key_id, access_key_secret, auth_version=AUTH_VERSION_1):
     if auth_version == AUTH_VERSION_2:
-        logger.info("Init Auth V2: access_key_id: {0}, access_key_secret: ******".format(access_key_id))
+        logger.debug("Init Auth V2: access_key_id: {0}, access_key_secret: ******".format(access_key_id))
         return AuthV2(access_key_id.strip(), access_key_secret.strip())
     else:
-        logger.info("Init Auth v1: access_key_id: {0}, access_key_secret: ******".format(access_key_id))
+        logger.debug("Init Auth v1: access_key_id: {0}, access_key_secret: ******".format(access_key_id))
         return Auth(access_key_id.strip(), access_key_secret.strip())
 
 
@@ -30,7 +30,7 @@ class AuthBase(object):
         self.id = access_key_id.strip()
         self.secret = access_key_secret.strip()
 
-    def _sign_rtmp_url(self, url, bucket_name, channel_name, playlist_name, expires, params):
+    def _sign_rtmp_url(self, url, bucket_name, channel_name, expires, params):
         expiration_time = int(time.time()) + expires
 
         canonicalized_resource = "/%s/%s" % (bucket_name, channel_name)
@@ -156,7 +156,7 @@ class Auth(AuthBase):
             return k + '=' + v
         else:
             return k
-    
+
 
 class AnonymousAuth(object):
     """用于匿名访问。
@@ -171,9 +171,9 @@ class AnonymousAuth(object):
     def _sign_url(self, req, bucket_name, key, expires):
         return req.url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in req.params.items())
     
-    def _sign_rtmp_url(self, url, bucket_name, channel_name, playlist_name, expires, params):
+    def _sign_rtmp_url(self, url, bucket_name, channel_name, expires, params):
         return url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in params.items())
-        
+
 
 class StsAuth(object):
     """用于STS临时凭证访问。可以通过官方STS客户端获得临时密钥（AccessKeyId、AccessKeySecret）以及临时安全令牌（SecurityToken）。
@@ -187,7 +187,7 @@ class StsAuth(object):
     :param str auth_version: 需要生成auth的版本，默认为AUTH_VERSION_1(v1)
     """
     def __init__(self, access_key_id, access_key_secret, security_token, auth_version=AUTH_VERSION_1):
-        logger.info("Init StsAuth: access_key_id: {0}, access_key_secret: ******, security_token: ******".format(access_key_id))
+        logger.debug("Init StsAuth: access_key_id: {0}, access_key_secret: ******, security_token: ******".format(access_key_id))
         self.__auth = make_auth(access_key_id, access_key_secret, auth_version)
         self.__security_token = security_token
 
@@ -199,9 +199,9 @@ class StsAuth(object):
         req.params['security-token'] = self.__security_token
         return self.__auth._sign_url(req, bucket_name, key, expires)
 
-    def _sign_rtmp_url(self, url, bucket_name, channel_name, playlist_name, expires, params):
+    def _sign_rtmp_url(self, url, bucket_name, channel_name, expires, params):
         params['security-token'] = self.__security_token
-        return self.__auth._sign_rtmp_url(url, bucket_name, channel_name, playlist_name, expires, params)
+        return self.__auth._sign_rtmp_url(url, bucket_name, channel_name, expires, params)
 
 
 def _param_to_quoted_query(k, v):
