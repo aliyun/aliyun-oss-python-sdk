@@ -650,8 +650,6 @@ def to_select_csv_object(sql, select_params):
             _add_text_child(options, 'SkipPartialDataRecord', str(value))
         elif 'MaxSkippedRecordsAllowed' == key:
             _add_text_child(options, 'MaxSkippedRecordsAllowed', str(value))
-        elif 'AllowQuotedRecordDelimiter' == key:
-            _add_text_child(csv, 'AllowQuotedRecordDelimiter', str(value))
         else:
             raise SelectOperationClientError("The select_params contains unsupported key " + key, "")
 

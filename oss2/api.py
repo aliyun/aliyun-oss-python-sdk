@@ -638,8 +638,7 @@ class Bucket(_Base):
 
     def select_object(self, key, sql,
                    progress_callback=None,
-                   select_params=None,
-                   headers=None
+                   select_params=None
                    ):
         """Select一个文件内容，支持(Csv,Json Doc,Json Lines及其GZIP压缩文件).
 
@@ -663,16 +662,7 @@ class Bucket(_Base):
 
         :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
-        rangeSelect = False
-        if (headers is None):
-            headers = http.CaseInsensitiveDict()
-        else:
-            if("Range" in headers):
-                rangeSelect = True
-
-        if (rangeSelect == True and ('AllowQuotedRecordDelimiter' not in select_params or select_params['AllowQuotedRecordDelimiter'] != False)):
-            raise ClientError('"AllowQuotedRecordDelimiter" must be specified in select_params as False when "Range" is specified in header.')
-
+        headers = http.CaseInsensitiveDict()
         body = xml_utils.to_select_object(sql, select_params)
         params = {'x-oss-process':  'csv/select'}
         if select_params is not None and 'Json_Type' in select_params:
