@@ -169,7 +169,6 @@ datetime.date之间相互转换。如 ::
     >>> EnablePayloadCrc:是否启用对Payload的CRC校验,默认是False. 该选项不能和OutputRawData:True混用。
     >>> MaxSkippedRecordsAllowed: 允许跳过的最大Json记录数。默认值是0表示一旦有一条Json记录跳过就报错。当下列两种情况下该JSON被跳过:1）当SkipPartialDataRecord为True时且该条Json记录不完整时 2）当该记录的数据类型和SQL不匹配时
 
-        
 .. _select_meta_params:
 
     create_select_object_meta参数集合，支持如下Keys:
@@ -225,7 +224,7 @@ class _Base(object):
             logger.error("Exception: {0}".format(e))
             raise e
 
-        # Note that connections are only released back to the pool for reuse once all body data has been read; 
+        # Note that connections are only released back to the pool for reuse once all body data has been read;
         # be sure to either set stream to False or read the content property of the Response object.
         # For more details, please refer to http://docs.python-requests.org/en/master/user/advanced/#keep-alive.
         content_length = models._hget(resp.headers, 'content-length', int)
@@ -285,7 +284,7 @@ class Service(_Base):
                  session=None,
                  connect_timeout=None,
                  app_name=''):
-        logger.info("Init oss service, endpoint: {0}, connect_timeout: {1}, app_name: {2}".format(
+        logger.debug("Init oss service, endpoint: {0}, connect_timeout: {1}, app_name: {2}".format(
             endpoint, connect_timeout, app_name))
         super(Service, self).__init__(auth, endpoint, False, session, connect_timeout,
                                       app_name=app_name)
@@ -300,12 +299,12 @@ class Service(_Base):
         :return: 罗列的结果
         :rtype: oss2.models.ListBucketsResult
         """
-        logger.info("Start to list buckets, prefix: {0}, marker: {1}, max-keys: {2}".format(prefix, marker, max_keys))
+        logger.debug("Start to list buckets, prefix: {0}, marker: {1}, max-keys: {2}".format(prefix, marker, max_keys))
         resp = self._do('GET', '', '',
                         params={'prefix': prefix,
                                 'marker': marker,
                                 'max-keys': str(max_keys)})
-        logger.info("List buckets done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("List buckets done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_buckets, ListBucketsResult)
 
 class Bucket(_Base):
@@ -357,8 +356,8 @@ class Bucket(_Base):
                  connect_timeout=None,
                  app_name='',
                  enable_crc=True):
-        logger.info("Init oss bucket, endpoint: {0}, isCname: {1}, connect_timeout: {2}, app_name: {3}, enabled_crc: "
-                    "{4}".format(endpoint, is_cname, connect_timeout, app_name, enable_crc))
+        logger.debug("Init oss bucket, endpoint: {0}, isCname: {1}, connect_timeout: {2}, app_name: {3}, enabled_crc: "
+                     "{4}".format(endpoint, is_cname, connect_timeout, app_name, enable_crc))
         super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout,
                                      app_name, enable_crc)
 
@@ -386,8 +385,9 @@ class Bucket(_Base):
         :return: 签名URL。
         """
         key = to_string(key)
-        logger.info("Start to sign_url, method: {0}, bucket: {1}, key: {2}, expires: {3}, headers: {4}, params: {5}".format
-                     (method, self.bucket_name, to_string(key), expires, headers, params))
+        logger.debug(
+            "Start to sign_url, method: {0}, bucket: {1}, key: {2}, expires: {3}, headers: {4}, params: {5}".format(
+                method, self.bucket_name, to_string(key), expires, headers, params))
         req = http.Request(method, self._make_url(self.bucket_name, key),
                            headers=headers,
                            params=params)
@@ -404,13 +404,14 @@ class Bucket(_Base):
 
         :return: 签名URL。
         """
-        logger.info("Sign RTMP url, bucket: {0}, channel_name: {1}, playlist_name: {2}, expires: {3}".format(
+        logger.debug("Sign RTMP url, bucket: {0}, channel_name: {1}, playlist_name: {2}, expires: {3}".format(
             self.bucket_name, channel_name, playlist_name, expires))
         url = self._make_url(self.bucket_name, 'live').replace('http://', 'rtmp://').replace(
             'https://', 'rtmp://') + '/' + channel_name
         params = {}
-        params['playlistName'] = playlist_name
-        return self.auth._sign_rtmp_url(url, self.bucket_name, channel_name, playlist_name, expires, params)
+        if playlist_name is not None and playlist_name != "":
+            params['playlistName'] = playlist_name
+        return self.auth._sign_rtmp_url(url, self.bucket_name, channel_name, expires, params)
 
     def list_objects(self, prefix='', delimiter='', marker='', max_keys=100):
         """根据前缀罗列Bucket里的文件。
@@ -422,15 +423,16 @@ class Bucket(_Base):
 
         :return: :class:`ListObjectsResult <oss2.models.ListObjectsResult>`
         """
-        logger.info("Start to List objects, bucket: {0}, prefix: {1}, delimiter: {2}, marker: {3}, max-keys: {4}".format(
-            self.bucket_name, to_string(prefix), delimiter, to_string(marker), max_keys))
+        logger.debug(
+            "Start to List objects, bucket: {0}, prefix: {1}, delimiter: {2}, marker: {3}, max-keys: {4}".format(
+                self.bucket_name, to_string(prefix), delimiter, to_string(marker), max_keys))
         resp = self.__do_object('GET', '',
                                 params={'prefix': prefix,
                                         'delimiter': delimiter,
                                         'marker': marker,
                                         'max-keys': str(max_keys),
                                         'encoding-type': 'url'})
-        logger.info("List objects done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("List objects done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_objects, ListObjectsResult)
 
     def put_object(self, key, data,
@@ -463,10 +465,10 @@ class Bucket(_Base):
         if self.enable_crc:
             data = utils.make_crc_adapter(data)
 
-        logger.info("Start to put object, bucket: {0}, key: {1}, headers: {2}".format(self.bucket_name, to_string(key),
-                                                                                      headers))
+        logger.debug("Start to put object, bucket: {0}, key: {1}, headers: {2}".format(self.bucket_name, to_string(key),
+                                                                                       headers))
         resp = self.__do_object('PUT', key, data=data, headers=headers)
-        logger.info("Put object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Put object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         result = PutObjectResult(resp)
 
         if self.enable_crc and result.crc is not None:
@@ -490,7 +492,7 @@ class Bucket(_Base):
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), filename)
-        logger.info("Put object from file, bucket: {0}, key: {1}, file path: {2}".format(
+        logger.debug("Put object from file, bucket: {0}, key: {1}, file path: {2}".format(
             self.bucket_name, to_string(key), filename))
         with open(to_unicode(filename), 'rb') as f:
             return self.put_object(key, f, headers=headers, progress_callback=progress_callback)
@@ -513,11 +515,11 @@ class Bucket(_Base):
         if self.enable_crc:
             data = utils.make_crc_adapter(data)
 
-        logger.info("Start to put object with signed url, bucket: {0}, sign_url: {1}, headers: {2}".format(
+        logger.debug("Start to put object with signed url, bucket: {0}, sign_url: {1}, headers: {2}".format(
             self.bucket_name, sign_url, headers))
 
         resp = self._do_url('PUT', sign_url, data=data, headers=headers)
-        logger.info("Put object with url done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Put object with url done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         result = PutObjectResult(resp)
 
         if self.enable_crc and result.crc is not None:
@@ -536,7 +538,7 @@ class Bucket(_Base):
         :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
         :return:
         """
-        logger.info("Put object from file with signed url, bucket: {0}, sign_url: {1}, file path: {2}".format(
+        logger.debug("Put object from file with signed url, bucket: {0}, sign_url: {1}, file path: {2}".format(
             self.bucket_name, sign_url, filename))
         with open(to_unicode(filename), 'rb') as f:
             return self.put_object_with_url(sign_url, f, headers=headers, progress_callback=progress_callback)
@@ -573,13 +575,13 @@ class Bucket(_Base):
         if self.enable_crc and init_crc is not None:
             data = utils.make_crc_adapter(data, init_crc)
 
-        logger.info("Start to append object, bucket: {0}, key: {1}, headers: {2}, position: {3}".format(
+        logger.debug("Start to append object, bucket: {0}, key: {1}, headers: {2}, position: {3}".format(
             self.bucket_name, to_string(key), headers, position))
         resp = self.__do_object('POST', key,
                                 data=data,
                                 headers=headers,
                                 params={'append': '', 'position': str(position)})
-        logger.info("Append object done, req_id: {0}, statu_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Append object done, req_id: {0}, statu_code: {1}".format(resp.request_id, resp.status))
         result = AppendObjectResult(resp)
 
         if self.enable_crc and result.crc is not None and init_crc is not None:
@@ -628,13 +630,12 @@ class Bucket(_Base):
         if process:
             params.update({Bucket.PROCESS: process})
 
-        logger.info("Start to get object, bucket: {0}， key: {1}, range: {2}, headers: {3}, params: {4}".format(
+        logger.debug("Start to get object, bucket: {0}， key: {1}, range: {2}, headers: {3}, params: {4}".format(
             self.bucket_name, to_string(key), range_string, headers, params))
         resp = self.__do_object('GET', key, headers=headers, params=params)
-        logger.info("Get object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Get object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return GetObjectResult(resp, progress_callback, self.enable_crc)
-
 
     def select_object(self, key, sql,
                    progress_callback=None,
@@ -700,7 +701,7 @@ class Bucket(_Base):
 
         :return: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
-        logger.info("Start to get object to file, bucket: {0}, key: {1}, file path: {2}".format(
+        logger.debug("Start to get object to file, bucket: {0}, key: {1}, file path: {2}".format(
             self.bucket_name, to_string(key), filename))
         with open(to_unicode(filename), 'wb') as f:
             result = self.get_object(key, byte_range=byte_range, headers=headers, progress_callback=progress_callback,
@@ -741,8 +742,8 @@ class Bucket(_Base):
         if range_string:
             headers['range'] = range_string
 
-        logger.info("Start to get object with url, bucket: {0}, sign_url: {1}, range: {2}, headers: {3}".format(
-            self.bucket_name, sign_url,range_string, headers))
+        logger.debug("Start to get object with url, bucket: {0}, sign_url: {1}, range: {2}, headers: {3}".format(
+            self.bucket_name, sign_url, range_string, headers))
         resp = self._do_url('GET', sign_url, headers=headers)
         return GetObjectResult(resp, progress_callback, self.enable_crc)
 
@@ -766,18 +767,19 @@ class Bucket(_Base):
 
         :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
-        logger.info("Start to get object with url, bucket: {0}, sign_url: {1}, file path: {2}, range: {3}, headers: {4}"
-                    .format(self.bucket_name, sign_url, filename, byte_range, headers))
+        logger.debug(
+            "Start to get object with url, bucket: {0}, sign_url: {1}, file path: {2}, range: {3}, headers: {4}"
+            .format(self.bucket_name, sign_url, filename, byte_range, headers))
 
         with open(to_unicode(filename), 'wb') as f:
-            result = self.get_object_with_url(sign_url, byte_range=byte_range, headers=headers, progress_callback=progress_callback)
+            result = self.get_object_with_url(sign_url, byte_range=byte_range, headers=headers,
+                                              progress_callback=progress_callback)
             if result.content_length is None:
                 shutil.copyfileobj(result, f)
             else:
                 utils.copyfileobj_and_verify(result, f, result.content_length, request_id=result.request_id)
 
             return result
-
 
     def select_object_to_file(self, key, filename, sql,
                    progress_callback=None,
@@ -795,11 +797,11 @@ class Bucket(_Base):
         """
         with open(to_unicode(filename), 'wb') as f:
             result = self.select_object(key, sql, progress_callback=progress_callback,
-                                     select_params=select_params)
+                                        select_params=select_params)
 
             for chunk in result:
                 f.write(chunk)
-           
+
             return result
 
     def head_object(self, key, headers=None):
@@ -821,20 +823,19 @@ class Bucket(_Base):
 
         :raises: 如果Bucket不存在或者Object不存在，则抛出 :class:`NotFound <oss2.exceptions.NotFound>`
         """
-        logger.info("Start to head object, bucket: {0}, key: {1}, headers: {2}".format(
+        logger.debug("Start to head object, bucket: {0}, key: {1}, headers: {2}".format(
             self.bucket_name, to_string(key), headers))
         resp = self.__do_object('HEAD', key, headers=headers)
-        logger.info("Head object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Head object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return HeadObjectResult(resp)
-		
-    
+
     def create_select_object_meta(self, key, select_meta_params=None):
         """获取或创建CSV,JSON LINES 文件元信息。如果元信息存在，返回之；不然则创建后返回之
 
         HTTP响应的头部包含了文件元信息，可以通过 `RequestResult` 的 `headers` 成员获得。
         CSV文件用法 ::
 
-            >>> select_meta_params = {  'FieldDelimiter': ',', 
+            >>> select_meta_params = {  'FieldDelimiter': ',',
                                 'RecordDelimiter': '\r\n',
                                 'QuoteCharacter': '"',
                                 'OverwriteIfExists' : 'false'}
@@ -854,14 +855,14 @@ class Bucket(_Base):
         :raises: 如果Bucket不存在或者Object不存在，则抛出:class:`NotFound <oss2.exceptions.NotFound>`
         """
         headers = http.CaseInsensitiveDict()
-    
+
         body = xml_utils.to_get_select_object_meta(select_meta_params)
         params = {'x-oss-process':  'csv/meta'}
         if select_meta_params is not None and 'Json_Type' in select_meta_params:
             params['x-oss-process'] = 'json/meta'
 
         self.timeout = 3600
-        resp = self.__do_object('POST', key, data = body, headers=headers, params=params)
+        resp = self.__do_object('POST', key, data=body, headers=headers, params=params)
         return GetSelectObjectMetaResult(resp)
 
     def get_object_meta(self, key):
@@ -875,9 +876,9 @@ class Bucket(_Base):
 
         :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
-        logger.info("Start to get object metadata, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
+        logger.debug("Start to get object metadata, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
         resp = self.__do_object('GET', key, params={'objectMeta': ''})
-        logger.info("Get object metadata done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Get object metadata done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return GetObjectMetaResult(resp)
 
     def object_exists(self, key):
@@ -891,7 +892,7 @@ class Bucket(_Base):
         #
         # 目前的实现是通过get_object_meta判断文件是否存在。
 
-        logger.info("Start to check if object exists, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
+        logger.debug("Start to check if object exists, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
         try:
             self.get_object_meta(key)
         except exceptions.NoSuchKey:
@@ -916,10 +917,11 @@ class Bucket(_Base):
         headers = http.CaseInsensitiveDict(headers)
         headers[OSS_COPY_OBJECT_SOURCE] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
 
-        logger.info("Start to copy object, source bucket: {0}, source key: {1}, bucket: {2}, key: {3}, headers: {4}".format(
-            source_bucket_name, to_string(source_key), self.bucket_name, to_string(target_key), headers))
+        logger.debug(
+            "Start to copy object, source bucket: {0}, source key: {1}, bucket: {2}, key: {3}, headers: {4}".format(
+                source_bucket_name, to_string(source_key), self.bucket_name, to_string(target_key), headers))
         resp = self.__do_object('PUT', target_key, headers=headers)
-        logger.info("Copy object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Copy object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return PutObjectResult(resp)
 
@@ -935,7 +937,7 @@ class Bucket(_Base):
 
         :return: :class:`RequestResult <oss2.models.RequestResults>`
         """
-        logger.info("Start to update object metadata, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
+        logger.debug("Start to update object metadata, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
         return self.copy_object(self.bucket_name, key, key, headers=headers)
 
     def delete_object(self, key):
@@ -947,7 +949,7 @@ class Bucket(_Base):
         """
         logger.warn("Start to delete object, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
         resp = self.__do_object('DELETE', key)
-        logger.info("Delete object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Delete object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def restore_object(self, key):
@@ -972,9 +974,9 @@ class Bucket(_Base):
         :param str key: object name
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
-        logger.info("Start to restore object, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
+        logger.debug("Start to restore object, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
         resp = self.__do_object('POST', key, params={'restore': ''})
-        logger.info("Restore object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Restore object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def put_object_acl(self, key, permission):
@@ -986,10 +988,10 @@ class Bucket(_Base):
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
-        logger.info("Start to put object acl, bucket: {0}, key: {1}, acl: {2}".format(
+        logger.debug("Start to put object acl, bucket: {0}, key: {1}, acl: {2}".format(
             self.bucket_name, to_string(key), permission))
-        resp = self.__do_object('PUT', key, params={'acl': ''}, headers={OSS_OBJECT_ACL : permission})
-        logger.info("Put object acl done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        resp = self.__do_object('PUT', key, params={'acl': ''}, headers={OSS_OBJECT_ACL: permission})
+        logger.debug("Put object acl done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def get_object_acl(self, key):
@@ -997,9 +999,9 @@ class Bucket(_Base):
 
         :return: :class:`GetObjectAclResult <oss2.models.GetObjectAclResult>`
         """
-        logger.info("Start to get object acl, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
+        logger.debug("Start to get object acl, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
         resp = self.__do_object('GET', key, params={'acl': ''})
-        logger.info("Get object acl done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Get object acl done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_get_object_acl, GetObjectAclResult)
 
     def batch_delete_objects(self, key_list):
@@ -1013,13 +1015,13 @@ class Bucket(_Base):
         if not key_list:
             raise ClientError('key_list should not be empty')
 
-        logger.info("Start to delete objects, bucket: {0}, keys: {1}".format(self.bucket_name, key_list))
+        logger.debug("Start to delete objects, bucket: {0}, keys: {1}".format(self.bucket_name, key_list))
         data = xml_utils.to_batch_delete_objects_request(key_list, False)
         resp = self.__do_object('POST', '',
                                 data=data,
                                 params={'delete': '', 'encoding-type': 'url'},
                                 headers={'Content-MD5': utils.content_md5(data)})
-        logger.info("Delete objects done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Delete objects done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_batch_delete_objects, BatchDeleteObjectsResult)
 
     def init_multipart_upload(self, key, headers=None):
@@ -1036,10 +1038,10 @@ class Bucket(_Base):
         """
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), key)
 
-        logger.info("Start to init multipart upload, bucket: {0}, keys: {1}, headers: {2}".format(
+        logger.debug("Start to init multipart upload, bucket: {0}, keys: {1}, headers: {2}".format(
             self.bucket_name, to_string(key), headers))
         resp = self.__do_object('POST', key, params={'uploads': ''}, headers=headers)
-        logger.info("Init multipart upload done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Init multipart upload done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_init_multipart_upload, InitMultipartUploadResult)
 
     def upload_part(self, key, upload_id, part_number, data, progress_callback=None, headers=None):
@@ -1062,13 +1064,14 @@ class Bucket(_Base):
         if self.enable_crc:
             data = utils.make_crc_adapter(data)
 
-        logger.info("Start to upload multipart, bucket: {0}, key: {1}, upload_id: {2}, part_number: {3}, headers: {4}"
-                    .format(self.bucket_name, to_string(key), upload_id, part_number, headers))
+        logger.debug(
+            "Start to upload multipart, bucket: {0}, key: {1}, upload_id: {2}, part_number: {3}, headers: {4}".format(
+                self.bucket_name, to_string(key), upload_id, part_number, headers))
         resp = self.__do_object('PUT', key,
                                 params={'uploadId': upload_id, 'partNumber': str(part_number)},
                                 headers=headers,
                                 data=data)
-        logger.info("Upload multipart done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Upload multipart done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         result = PutObjectResult(resp)
 
         if self.enable_crc and result.crc is not None:
@@ -1092,15 +1095,16 @@ class Bucket(_Base):
         """
         parts = sorted(parts, key=lambda p: p.part_number);
         data = xml_utils.to_complete_upload_request(parts);
-        
-        logger.info("Start to complete multipart upload, bucket: {0}, key: {1}, upload_id: {2}, parts: {3}".format(
+
+        logger.debug("Start to complete multipart upload, bucket: {0}, key: {1}, upload_id: {2}, parts: {3}".format(
             self.bucket_name, to_string(key), upload_id, data))
 
         resp = self.__do_object('POST', key,
                                 params={'uploadId': upload_id},
                                 data=data,
                                 headers=headers)
-        logger.info("Complete multipart upload done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug(
+            "Complete multipart upload done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         result = PutObjectResult(resp);
 
@@ -1119,11 +1123,11 @@ class Bucket(_Base):
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
 
-        logger.info("Start to abort multipart upload, bucket: {0}, key: {1}, upload_id: {2}".format(
+        logger.debug("Start to abort multipart upload, bucket: {0}, key: {1}, upload_id: {2}".format(
             self.bucket_name, to_string(key), upload_id))
         resp = self.__do_object('DELETE', key,
                                 params={'uploadId': upload_id})
-        logger.info("Abort multipart done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Abort multipart done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def list_multipart_uploads(self,
@@ -1142,9 +1146,10 @@ class Bucket(_Base):
 
         :return: :class:`ListMultipartUploadsResult <oss2.models.ListMultipartUploadsResult>`
         """
-        logger.info("Start to list multipart uploads, bucket: {0}, prefix: {1}, delimiter: {2}, key_marker: {3}, "
-                    "upload_id_marker: {4}, max_uploads: {5}".format(self.bucket_name, to_string(prefix), delimiter,
-                                                                     to_string(key_marker), upload_id_marker, max_uploads))
+        logger.debug("Start to list multipart uploads, bucket: {0}, prefix: {1}, delimiter: {2}, key_marker: {3}, "
+                     "upload_id_marker: {4}, max_uploads: {5}".format(self.bucket_name, to_string(prefix), delimiter,
+                                                                      to_string(key_marker), upload_id_marker,
+                                                                      max_uploads))
         resp = self.__do_object('GET', '',
                                 params={'uploads': '',
                                         'prefix': prefix,
@@ -1153,7 +1158,7 @@ class Bucket(_Base):
                                         'upload-id-marker': upload_id_marker,
                                         'max-uploads': str(max_uploads),
                                         'encoding-type': 'url'})
-        logger.info("List multipart uploads done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("List multipart uploads done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_multipart_uploads, ListMultipartUploadsResult)
 
     def upload_part_copy(self, source_bucket_name, source_key, byte_range,
@@ -1175,16 +1180,18 @@ class Bucket(_Base):
         if range_string:
             headers[OSS_COPY_OBJECT_SOURCE_RANGE] = range_string
 
-        logger.info("Start to upload part copy, source bucket: {0}, source key: {1}, bucket: {2}, key: {3}, range"
-                    ": {4}, upload id: {5}, part_number: {6}, headers: {7}".format(source_bucket_name, to_string(source_key),
-                                                                                   self.bucket_name, to_string(target_key),
-                                                                                   byte_range, target_upload_id,
-                                                                                   target_part_number, headers))
+        logger.debug("Start to upload part copy, source bucket: {0}, source key: {1}, bucket: {2}, key: {3}, range"
+                     ": {4}, upload id: {5}, part_number: {6}, headers: {7}".format(source_bucket_name,
+                                                                                    to_string(source_key),
+                                                                                    self.bucket_name,
+                                                                                    to_string(target_key),
+                                                                                    byte_range, target_upload_id,
+                                                                                    target_part_number, headers))
         resp = self.__do_object('PUT', target_key,
                                 params={'uploadId': target_upload_id,
                                         'partNumber': str(target_part_number)},
                                 headers=headers)
-        logger.info("Upload part copy done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Upload part copy done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return PutObjectResult(resp)
 
@@ -1199,13 +1206,13 @@ class Bucket(_Base):
 
         :return: :class:`ListPartsResult <oss2.models.ListPartsResult>`
         """
-        logger.info("Start to list parts, bucket: {0}, key: {1}, upload_id: {2}, marker: {3}, max_parts: {4}".format(
-                     self.bucket_name, to_string(key), upload_id, marker, max_parts))
+        logger.debug("Start to list parts, bucket: {0}, key: {1}, upload_id: {2}, marker: {3}, max_parts: {4}".format(
+            self.bucket_name, to_string(key), upload_id, marker, max_parts))
         resp = self.__do_object('GET', key,
                                 params={'uploadId': upload_id,
                                         'part-number-marker': marker,
                                         'max-parts': str(max_parts)})
-        logger.info("List parts done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("List parts done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_parts, ListPartsResult)
 
     def put_symlink(self, target_key, symlink_key, headers=None):
@@ -1218,10 +1225,10 @@ class Bucket(_Base):
         """
         headers = headers or {}
         headers[OSS_SYMLINK_TARGET] = urlquote(target_key, '')
-        logger.info("Start to put symlink, bucket: {0}, target_key: {1}, symlink_key: {2}, headers: {3}".format(
+        logger.debug("Start to put symlink, bucket: {0}, target_key: {1}, symlink_key: {2}, headers: {3}".format(
             self.bucket_name, to_string(target_key), to_string(symlink_key), headers))
         resp = self.__do_object('PUT', symlink_key, headers=headers, params={Bucket.SYMLINK: ''})
-        logger.info("Put symlink done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Put symlink done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def get_symlink(self, symlink_key):
@@ -1233,9 +1240,10 @@ class Bucket(_Base):
 
         :raises: 如果文件的符号链接不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
-        logger.info("Start to get symlink, bucket: {0}, symlink_key: {1}".format(self.bucket_name, to_string(symlink_key)))
+        logger.debug(
+            "Start to get symlink, bucket: {0}, symlink_key: {1}".format(self.bucket_name, to_string(symlink_key)))
         resp = self.__do_object('GET', symlink_key, params={Bucket.SYMLINK: ''})
-        logger.info("Get symlink done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Get symlink done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return GetSymlinkResult(resp)
 
     def create_bucket(self, permission=None, input=None):
@@ -1252,10 +1260,10 @@ class Bucket(_Base):
             headers = None
 
         data = self.__convert_data(BucketCreateConfig, xml_utils.to_put_bucket_config, input)
-        logger.info("Start to create bucket, bucket: {0}, permission: {1}, config: {2}".format(self.bucket_name,
-                                                                                                    permission, data))
+        logger.debug("Start to create bucket, bucket: {0}, permission: {1}, config: {2}".format(self.bucket_name,
+                                                                                                permission, data))
         resp = self.__do_bucket('PUT', headers=headers, data=data)
-        logger.info("Create bucket done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Create bucket done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def delete_bucket(self):
@@ -1267,7 +1275,7 @@ class Bucket(_Base):
         """
         logger.warn("Start to delete bucket, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('DELETE')
-        logger.info("Delete bucket done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Delete bucket done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def put_bucket_acl(self, permission):
@@ -1276,9 +1284,9 @@ class Bucket(_Base):
         :param str permission: 新的ACL，可以是oss2.BUCKET_ACL_PRIVATE、oss2.BUCKET_ACL_PUBLIC_READ或
             oss2.BUCKET_ACL_PUBLIC_READ_WRITE
         """
-        logger.info("Start to put bucket acl, bucket: {0}, acl: {1}".format(self.bucket_name, permission))
+        logger.debug("Start to put bucket acl, bucket: {0}, acl: {1}".format(self.bucket_name, permission))
         resp = self.__do_bucket('PUT', headers={OSS_CANNED_ACL: permission}, params={Bucket.ACL: ''})
-        logger.info("Put bucket acl done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Put bucket acl done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def get_bucket_acl(self):
@@ -1286,9 +1294,9 @@ class Bucket(_Base):
 
         :return: :class:`GetBucketAclResult <oss2.models.GetBucketAclResult>`
         """
-        logger.info("Start to get bucket acl, bucket: {0}".format(self.bucket_name))
+        logger.debug("Start to get bucket acl, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('GET', params={Bucket.ACL: ''})
-        logger.info("Get bucket acl done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Get bucket acl done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_get_bucket_acl, GetBucketAclResult)
 
     def put_bucket_cors(self, input):
@@ -1297,9 +1305,9 @@ class Bucket(_Base):
         :param input: :class:`BucketCors <oss2.models.BucketCors>` 对象或其他
         """
         data = self.__convert_data(BucketCors, xml_utils.to_put_bucket_cors, input)
-        logger.info("Start to put bucket cors, bucket: {0}, cors: {1}".format(self.bucket_name, data))
+        logger.debug("Start to put bucket cors, bucket: {0}, cors: {1}".format(self.bucket_name, data))
         resp = self.__do_bucket('PUT', data=data, params={Bucket.CORS: ''})
-        logger.info("Put bucket cors done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Put bucket cors done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def get_bucket_cors(self):
@@ -1307,16 +1315,16 @@ class Bucket(_Base):
 
         :return: :class:`GetBucketCorsResult <oss2.models.GetBucketCorsResult>`
         """
-        logger.info("Start to get bucket CORS, bucket: {0}".format(self.bucket_name))
+        logger.debug("Start to get bucket CORS, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('GET', params={Bucket.CORS: ''})
-        logger.info("Get bucket CORS done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Get bucket CORS done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_get_bucket_cors, GetBucketCorsResult)
 
     def delete_bucket_cors(self):
         """删除Bucket的CORS配置。"""
-        logger.info("Start to delete bucket CORS, bucket: {0}".format(self.bucket_name))
+        logger.debug("Start to delete bucket CORS, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('DELETE', params={Bucket.CORS: ''})
-        logger.info("Delete bucket CORS done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Delete bucket CORS done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def put_bucket_lifecycle(self, input):
@@ -1325,9 +1333,9 @@ class Bucket(_Base):
         :param input: :class:`BucketLifecycle <oss2.models.BucketLifecycle>` 对象或其他
         """
         data = self.__convert_data(BucketLifecycle, xml_utils.to_put_bucket_lifecycle, input)
-        logger.info("Start to put bucket lifecycle, bucket: {0}, lifecycle: {1}".format(self.bucket_name, data))
+        logger.debug("Start to put bucket lifecycle, bucket: {0}, lifecycle: {1}".format(self.bucket_name, data))
         resp = self.__do_bucket('PUT', data=data, params={Bucket.LIFECYCLE: ''})
-        logger.info("Put bucket lifecycle done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Put bucket lifecycle done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def get_bucket_lifecycle(self):
@@ -1337,16 +1345,16 @@ class Bucket(_Base):
 
         :raises: 如果没有设置Lifecycle，则抛出 :class:`NoSuchLifecycle <oss2.exceptions.NoSuchLifecycle>`
         """
-        logger.info("Start to get bucket lifecycle, bucket: {0}".format(self.bucket_name))
+        logger.debug("Start to get bucket lifecycle, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('GET', params={Bucket.LIFECYCLE: ''})
-        logger.info("Get bucket lifecycle done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Get bucket lifecycle done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_get_bucket_lifecycle, GetBucketLifecycleResult)
 
     def delete_bucket_lifecycle(self):
         """删除生命周期管理配置。如果Lifecycle没有设置，也返回成功。"""
-        logger.info("Start to delete bucket lifecycle, bucket: {0}".format(self.bucket_name))
+        logger.debug("Start to delete bucket lifecycle, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('DELETE', params={Bucket.LIFECYCLE: ''})
-        logger.info("Delete bucket lifecycle done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Delete bucket lifecycle done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def get_bucket_location(self):
@@ -1354,9 +1362,9 @@ class Bucket(_Base):
 
         :return: :class:`GetBucketLocationResult <oss2.models.GetBucketLocationResult>`
         """
-        logger.info("Start to get bucket location, bucket: {0}".format(self.bucket_name))
+        logger.debug("Start to get bucket location, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('GET', params={Bucket.LOCATION: ''})
-        logger.info("Get bucket location done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Get bucket location done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_get_bucket_location, GetBucketLocationResult)
 
     def put_bucket_logging(self, input):
@@ -1365,9 +1373,9 @@ class Bucket(_Base):
         :param input: :class:`BucketLogging <oss2.models.BucketLogging>` 对象或其他
         """
         data = self.__convert_data(BucketLogging, xml_utils.to_put_bucket_logging, input)
-        logger.info("Start to put bucket logging, bucket: {0}, logging: {1}".format(self.bucket_name, data))
+        logger.debug("Start to put bucket logging, bucket: {0}, logging: {1}".format(self.bucket_name, data))
         resp = self.__do_bucket('PUT', data=data, params={Bucket.LOGGING: ''})
-        logger.info("Put bucket logging done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Put bucket logging done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def get_bucket_logging(self):
@@ -1375,16 +1383,16 @@ class Bucket(_Base):
 
         :return: :class:`GetBucketLoggingResult <oss2.models.GetBucketLoggingResult>`
         """
-        logger.info("Start to get bucket logging, bucket: {0}".format(self.bucket_name))
+        logger.debug("Start to get bucket logging, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('GET', params={Bucket.LOGGING: ''})
-        logger.info("Get bucket logging done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Get bucket logging done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_get_bucket_logging, GetBucketLoggingResult)
 
     def delete_bucket_logging(self):
         """关闭Bucket的访问日志功能。"""
-        logger.info("Start to delete bucket loggging, bucket: {0}".format(self.bucket_name))
+        logger.debug("Start to delete bucket loggging, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('DELETE', params={Bucket.LOGGING: ''})
-        logger.info("Put bucket lifecycle done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Put bucket lifecycle done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def put_bucket_referer(self, input):
@@ -1393,9 +1401,9 @@ class Bucket(_Base):
         :param input: :class:`BucketReferer <oss2.models.BucketReferer>` 对象或其他
         """
         data = self.__convert_data(BucketReferer, xml_utils.to_put_bucket_referer, input)
-        logger.info("Start to put bucket referer, bucket: {0}, referer: {1}".format(self.bucket_name, to_string(data)))
+        logger.debug("Start to put bucket referer, bucket: {0}, referer: {1}".format(self.bucket_name, to_string(data)))
         resp = self.__do_bucket('PUT', data=data, params={Bucket.REFERER: ''})
-        logger.info("Put bucket referer done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Put bucket referer done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def get_bucket_referer(self):
@@ -1403,9 +1411,9 @@ class Bucket(_Base):
 
         :return: :class:`GetBucketRefererResult <oss2.models.GetBucketRefererResult>`
         """
-        logger.info("Start to get bucket referer, bucket: {0}".format(self.bucket_name))
+        logger.debug("Start to get bucket referer, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('GET', params={Bucket.REFERER: ''})
-        logger.info("Get bucket referer done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Get bucket referer done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_get_bucket_referer, GetBucketRefererResult)
 
     def get_bucket_stat(self):
@@ -1413,9 +1421,9 @@ class Bucket(_Base):
 
         :return: :class:`GetBucketStatResult <oss2.models.GetBucketStatResult>`
         """
-        logger.info("Start to get bucket stat, bucket: {0}".format(self.bucket_name))
+        logger.debug("Start to get bucket stat, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('GET', params={Bucket.STAT: ''})
-        logger.info("Get bucket stat done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Get bucket stat done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_get_bucket_stat, GetBucketStatResult)
 
     def get_bucket_info(self):
@@ -1423,9 +1431,9 @@ class Bucket(_Base):
 
         :return: :class:`GetBucketInfoResult <oss2.models.GetBucketInfoResult>`
         """
-        logger.info("Start to get bucket info, bucket: {0}".format(self.bucket_name))
+        logger.debug("Start to get bucket info, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('GET', params={Bucket.BUCKET_INFO: ''})
-        logger.info("Get bucket info done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Get bucket info done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_get_bucket_info, GetBucketInfoResult)
 
     def put_bucket_website(self, input):
@@ -1434,9 +1442,9 @@ class Bucket(_Base):
         :param input: :class:`BucketWebsite <oss2.models.BucketWebsite>`
         """
         data = self.__convert_data(BucketWebsite, xml_utils.to_put_bucket_website, input)
-        logger.info("Start to put bucket website, bucket: {0}, website: {1}".format(self.bucket_name, to_string(data)))
+        logger.debug("Start to put bucket website, bucket: {0}, website: {1}".format(self.bucket_name, to_string(data)))
         resp = self.__do_bucket('PUT', data=data, params={Bucket.WEBSITE: ''})
-        logger.info("Put bucket website done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Put bucket website done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def get_bucket_website(self):
@@ -1447,17 +1455,17 @@ class Bucket(_Base):
         :raises: 如果没有设置静态网站托管，那么就抛出 :class:`NoSuchWebsite <oss2.exceptions.NoSuchWebsite>`
         """
 
-        logger.info("Start to get bucket website, bucket: {0}".format(self.bucket_name))
+        logger.debug("Start to get bucket website, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('GET', params={Bucket.WEBSITE: ''})
-        logger.info("Get bucket website done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Get bucket website done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return self._parse_result(resp, xml_utils.parse_get_bucket_websiste, GetBucketWebsiteResult)
 
     def delete_bucket_website(self):
         """关闭Bucket的静态网站托管功能。"""
-        logger.info("Start to delete bucket website, bucket: {0}".format(self.bucket_name))
+        logger.debug("Start to delete bucket website, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('DELETE', params={Bucket.WEBSITE: ''})
-        logger.info("Delete bucket website done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Delete bucket website done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def create_live_channel(self, channel_name, input):
@@ -1469,10 +1477,10 @@ class Bucket(_Base):
         :return: :class:`CreateLiveChannelResult <oss2.models.CreateLiveChannelResult>`
         """
         data = self.__convert_data(LiveChannelInfo, xml_utils.to_create_live_channel, input)
-        logger.info("Start to create live-channel, bucket: {0}, channel_name: {1}, info: {2}".format(
+        logger.debug("Start to create live-channel, bucket: {0}, channel_name: {1}, info: {2}".format(
             self.bucket_name, to_string(channel_name), to_string(data)))
         resp = self.__do_object('PUT', channel_name, data=data, params={Bucket.LIVE: ''})
-        logger.info("Create live-channel done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Create live-channel done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_create_live_channel, CreateLiveChannelResult)
 
     def delete_live_channel(self, channel_name):
@@ -1480,10 +1488,10 @@ class Bucket(_Base):
 
         :param str channel_name: 要删除的live channel的名称
         """
-        logger.info("Start to delete live-channel, bucket: {0}, live_channel: {1}".format(
+        logger.debug("Start to delete live-channel, bucket: {0}, live_channel: {1}".format(
             self.bucket_name, to_string(channel_name)))
         resp = self.__do_object('DELETE', channel_name, params={Bucket.LIVE: ''})
-        logger.info("Delete live-channel done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Delete live-channel done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def get_live_channel(self, channel_name):
@@ -1493,10 +1501,10 @@ class Bucket(_Base):
 
         :return: :class:`GetLiveChannelResult <oss2.models.GetLiveChannelResult>`
         """
-        logger.info("Start to get live-channel info: bucket: {0}, live_channel: {1}".format(
+        logger.debug("Start to get live-channel info: bucket: {0}, live_channel: {1}".format(
             self.bucket_name, to_string(channel_name)))
         resp = self.__do_object('GET', channel_name, params={Bucket.LIVE: ''})
-        logger.info("Get live-channel done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Get live-channel done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_get_live_channel, GetLiveChannelResult)
 
     def list_live_channel(self, prefix='', marker='', max_keys=100):
@@ -1508,13 +1516,13 @@ class Bucket(_Base):
 
         return: :class:`ListLiveChannelResult <oss2.models.ListLiveChannelResult>`
         """
-        logger.info("Start to list live-channels, bucket: {0}, prefix: {1}, marker: {2}, max_keys: {3}".format(
+        logger.debug("Start to list live-channels, bucket: {0}, prefix: {1}, marker: {2}, max_keys: {3}".format(
             self.bucket_name, to_string(prefix), to_string(marker), max_keys))
         resp = self.__do_bucket('GET', params={Bucket.LIVE: '',
                                                'prefix': prefix,
                                                'marker': marker,
                                                'max-keys': str(max_keys)})
-        logger.info("List live-channel done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("List live-channel done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_live_channel, ListLiveChannelResult)
 
     def get_live_channel_stat(self, channel_name):
@@ -1524,10 +1532,10 @@ class Bucket(_Base):
 
         return: :class:`GetLiveChannelStatResult <oss2.models.GetLiveChannelStatResult>`
         """
-        logger.info("Start to get live-channel stat, bucket: {0}, channel_name: {1}".format(
+        logger.debug("Start to get live-channel stat, bucket: {0}, channel_name: {1}".format(
             self.bucket_name, to_string(channel_name)))
         resp = self.__do_object('GET', channel_name, params={Bucket.LIVE: '', Bucket.COMP: 'stat'})
-        logger.info("Get live-channel stat done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Get live-channel stat done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return self._parse_result(resp, xml_utils.parse_live_channel_stat, GetLiveChannelStatResult)
 
@@ -1537,10 +1545,10 @@ class Bucket(_Base):
         param str channel_name: 要更改status的live channel的名称
         param str status: live channel的目标status
         """
-        logger.info("Start to put live-channel status, bucket: {0}, channel_name: {1}, status: {2}".format(
+        logger.debug("Start to put live-channel status, bucket: {0}, channel_name: {1}, status: {2}".format(
             self.bucket_name, to_string(channel_name), status))
         resp = self.__do_object('PUT', channel_name, params={Bucket.LIVE: '', Bucket.STATUS: status})
-        logger.info("Put live-channel status done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Put live-channel status done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def get_live_channel_history(self, channel_name):
@@ -1550,13 +1558,14 @@ class Bucket(_Base):
 
         return: :class:`GetLiveChannelHistoryResult <oss2.models.GetLiveChannelHistoryResult>`
         """
-        logger.info("Start to get live-channel history, bucket: {0}, channel_name: {1}".format(
+        logger.debug("Start to get live-channel history, bucket: {0}, channel_name: {1}".format(
             self.bucket_name, to_string(channel_name)))
         resp = self.__do_object('GET', channel_name, params={Bucket.LIVE: '', Bucket.COMP: 'history'})
-        logger.info("Get live-channel history done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug(
+            "Get live-channel history done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_live_channel_history, GetLiveChannelHistoryResult)
 
-    def post_vod_playlist(self, channel_name, playlist_name, start_time = 0, end_time = 0):
+    def post_vod_playlist(self, channel_name, playlist_name, start_time=0, end_time=0):
         """根据指定的playlist name以及startTime和endTime生成一个点播的播放列表
 
         param str channel_name: 要生成点播列表的live channel的名称
@@ -1564,12 +1573,13 @@ class Bucket(_Base):
         param int start_time: 点播的起始时间，Unix Time格式，可以使用int(time.time())获取
         param int end_time: 点播的结束时间，Unix Time格式，可以使用int(time.time())获取
         """
-        logger.info("Start to post vod playlist, bucket: {0}, channel_name: {1}, playlist_name: {2}, start_time: "
-                    "{3}, end_time: {4}".format(self.bucket_name, to_string(channel_name), playlist_name, start_time, end_time))
+        logger.debug("Start to post vod playlist, bucket: {0}, channel_name: {1}, playlist_name: {2}, start_time: "
+                     "{3}, end_time: {4}".format(self.bucket_name, to_string(channel_name), playlist_name, start_time,
+                                                 end_time))
         key = channel_name + "/" + playlist_name
         resp = self.__do_object('POST', key, params={Bucket.VOD: '', 'startTime': str(start_time),
                                                      'endTime': str(end_time)})
-        logger.info("Post vod playlist done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Post vod playlist done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def process_object(self, key, process):
@@ -1579,11 +1589,11 @@ class Bucket(_Base):
         :param str process: 处理的字符串，例如"image/resize,w_100|sys/saveas,o_dGVzdC5qcGc,b_dGVzdA"
         """
 
-        logger.info("Start to process object, bucket: {0}, key: {1}, process: {2}".format(
+        logger.debug("Start to process object, bucket: {0}, key: {1}, process: {2}".format(
             self.bucket_name, to_string(key), process))
         process_data = "%s=%s" % (Bucket.PROCESS, process)
         resp = self.__do_object('POST', key, params={Bucket.PROCESS: ''}, data=process_data)
-        logger.info("Process object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Process object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return ProcessObjectResult(resp)
 
     def _get_bucket_config(self, config):
@@ -1594,9 +1604,9 @@ class Bucket(_Base):
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
-        logger.info("Start to get bucket config, bucket: {0}".format(self.bucket_name))
+        logger.debug("Start to get bucket config, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('GET', params={config: ''})
-        logger.info("Get bucket config done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Get bucket config done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return resp
 
     def __do_object(self, method, key, **kwargs):
@@ -1715,7 +1725,6 @@ class CryptoBucket():
         with open(to_unicode(filename), 'rb') as f:
             return self.put_object(key, f, headers=headers, progress_callback=progress_callback)
 
-
     def get_object(self, key,
                    headers=None,
                    progress_callback=None,
@@ -1749,7 +1758,8 @@ class CryptoBucket():
 
         encrypted_result = self.bucket.get_object(key, headers=headers, params=params, progress_callback=None)
 
-        return GetObjectResult(encrypted_result.resp, progress_callback, self.enable_crc, crypto_provider=self.crypto_provider)
+        return GetObjectResult(encrypted_result.resp, progress_callback, self.enable_crc,
+                               crypto_provider=self.crypto_provider)
 
     def get_object_to_file(self, key, filename,
                            headers=None,

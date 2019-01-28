@@ -673,7 +673,7 @@ class LiveChannelInfo(object):
     def __init__(self,
             status = 'enabled',
             description = '',
-            target = None,
+            target = LiveChannelInfoTarget(),
             last_modified = None,
             name = None,
             play_url = None,

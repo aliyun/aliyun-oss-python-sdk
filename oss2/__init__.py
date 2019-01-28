@@ -1,4 +1,4 @@
-__version__ = '2.6.0'
+__version__ = '2.6.1'
 
 from . import models, exceptions
 
@@ -57,6 +57,3 @@ def set_stream_logger(name='oss2', level=logging.DEBUG, format_string=None):
     formatter = logging.Formatter(format_string)
     fh.setFormatter(formatter)
     logger.addHandler(fh)
-
-
-set_stream_logger('oss2', logging.INFO)
