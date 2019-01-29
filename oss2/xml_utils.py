@@ -389,6 +389,8 @@ def parse_lifecycle_expiration(expiration_node):
         expiration.days = _find_int(expiration_node, 'Days')
     elif expiration_node.find('Date') is not None:
         expiration.date = iso8601_to_date(_find_tag(expiration_node, 'Date'))
+    elif expiration_node.find('CreatedBeforeDate') is not None:
+        expiration.created_before_date = iso8601_to_date(_find_tag(expiration_node, 'CreatedBeforeDate'))
 
     return expiration
 
