@@ -623,6 +623,8 @@ class Bucket(_Base):
         resp = self.__do_object('GET', key, headers=headers, params=params)
         logger.debug("Get object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
+        if models._hget(resp.headers, OSS_CLIENT_SIDE_CRYPTO_KEY):
+            raise ClientError('Could not use normal bucket to decrypt an encrypted object')
         return GetObjectResult(resp, progress_callback, self.enable_crc)
 
     def select_object(self, key, sql,
@@ -1601,7 +1603,7 @@ class Bucket(_Base):
             return data
 
 
-class CryptoBucket():
+class CryptoBucket(_Base):
     """用于加密Bucket和Object操作的类，诸如上传、下载Object等。创建、删除bucket的操作需使用Bucket类接口。
 
     用法（假设Bucket属于杭州区域） ::
@@ -1642,6 +1644,11 @@ class CryptoBucket():
 
         if not isinstance(crypto_provider, BaseCryptoProvider):
             raise ClientError('Crypto bucket must provide a valid crypto_provider')
+
+        logger.debug("Init oss crypto bucket, endpoint: {0}, isCname: {1}, connect_timeout: {2}, app_name: {3}, enabled_crc: "
+                     "{4}".format(endpoint, is_cname, connect_timeout, app_name, enable_crc))
+        super(CryptoBucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout,
+                                     app_name, enable_crc)
 
         self.crypto_provider = crypto_provider
         self.bucket_name = bucket_name.strip()
@@ -1742,9 +1749,16 @@ class CryptoBucket():
         if range_string:
             headers['range'] = range_string
 
-        encrypted_result = self.bucket.get_object(key, headers=headers, params=params, progress_callback=None)
+        params = {} if params is None else params
 
-        return GetObjectResult(encrypted_result.resp, progress_callback, self.enable_crc,
+        logger.debug("Start to get object, bucket: {0}， key: {1}, range: {2}, headers: {3}, params: {4}".format(
+            self.bucket_name, to_string(key), range_string, headers, params))
+        resp = self.__do_object('GET', key, headers=headers, params=params)
+        logger.debug("Get object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        if models._hget(resp.headers, OSS_CLIENT_SIDE_CRYPTO_KEY) is None:
+            raise ClientError('Could not use crypto bucket to decrypt an unencrypted object')
+        return GetObjectResult(resp, progress_callback, self.enable_crc,
                                crypto_provider=self.crypto_provider)
 
     def get_object_to_file(self, key, filename,
@@ -1933,6 +1947,9 @@ class CryptoBucket():
         res = self.bucket.list_parts(key, upload_id, marker = marker, max_parts = max_parts)
         logger.info("List parts securely done, upload_id = {0}".format(upload_id))
         return res
+
+    def __do_object(self, method, key, **kwargs):
+        return self._do(method, self.bucket_name, key, **kwargs)
 
 def _normalize_endpoint(endpoint):
     if not endpoint.startswith('http://') and not endpoint.startswith('https://'):
