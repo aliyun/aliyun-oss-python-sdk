@@ -19,8 +19,7 @@ access_key_id = os.getenv('OSS_TEST_ACCESS_KEY_ID', '<你的AccessKeyId>')
 access_key_secret = os.getenv('OSS_TEST_ACCESS_KEY_SECRET', '<你的AccessKeySecret>')
 bucket_name = os.getenv('OSS_TEST_BUCKET', '<你的Bucket>')
 endpoint = os.getenv('OSS_TEST_ENDPOINT', '<你的访问域名>')
-cmk = os.getenv('OSS_TEST_CMK', '<你的CMK账号>')
-cmk_key_secret = os.getenv('OSS_TEST_CMK_KEY_SECRET', '<你的CMK密码>')
+cmk = os.getenv('OSS_TEST_CMK', '<你的CMK>')
 region = os.getenv('OSS_TEST_REGION', '<你的区域>')
 
 # 确认上面的参数都填写正确了
@@ -30,7 +29,6 @@ for param in (access_key_id, access_key_secret, bucket_name, endpoint, cmk, regi
 key = 'motto.txt'
 content = b'a' * 1024 * 1024
 filename = 'download.txt'
-
 
 # 创建Bucket对象，可以进行客户端数据加密(用户端RSA)
 bucket = oss2.CryptoBucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name, crypto_provider=LocalRsaProvider())
@@ -110,7 +108,7 @@ assert content_got[204800:307200] == part_c
 
 # 创建Bucket对象，可以进行客户端数据加密(使用阿里云KMS)
 bucket = oss2.CryptoBucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name,
-                           crypto_provider=AliKMSProvider(access_key_id, access_key_secret, region, cmk, passphrase = cmk_key_secret))
+                           crypto_provider=AliKMSProvider(access_key_id, access_key_secret, region, cmk, '1234'))
 
 # 上传文件
 bucket.put_object(key, content, headers={'content-length': str(1024 * 1024)})
