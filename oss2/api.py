@@ -1853,7 +1853,7 @@ class CryptoBucket(_Base):
         try:
             context = self.multipart_upload_contexts[upload_id]
         except:
-            raise ClientError("Crypto bucket can't find the upload_id in local contexts")
+            raise ClientError("Crypto bucket can't find the upload_id : {0} in local contexts".format(upload_id))
 
         if len(data) != context.part_size and part_number != context.part_number:
             raise ClientError("Please upload part with correct size unless the last part")
