@@ -6,7 +6,7 @@ import json
 import re
 
 from oss2.exceptions import (ClientError, RequestError, NoSuchBucket,
-                             NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable, SelectOperationFailed)
+                             NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable, SelectOperationFailed,SelectOperationClientError)
 from common import *
 
 def now():
@@ -25,8 +25,12 @@ class SelectJsonObjectTestHelper(object):
 
     def test_select_json_object(self, testCase, sql, input_format):
         if input_format['Json_Type'] == 'DOCUMENT':
-            key = "sample_json.json"
-            local_file = 'tests/sample_json.json'
+            if 'CompressionType' in input_format and input_format['CompressionType'] == 'GZIP':
+                key = "sample_json.json.gz"
+                local_file = 'tests/sample_json.json.gz'
+            else:
+                key = "sample_json.json"
+                local_file = 'tests/sample_json.json'
         else:
             key = 'sample_json_lines.json'
             local_file = 'tests/sample_json_lines.json'
@@ -50,7 +54,7 @@ class SelectJsonObjectTestHelper(object):
         testCase.assertEqual(result.status, 206, result.request_id)
         testCase.assertTrue(len(content) > 0)
 
-        if 'SplitRange' not in input_format and 'LineRange' not in input_format:
+        if 'SplitRange' not in input_format and 'LineRange' not in input_format and not key.endswith('.gz'):
             testCase.assertEqual(self.scannedSize, file_size)
 
         return content
@@ -80,7 +84,7 @@ class TestSelectJsonObject(OssTestCase):
     def test_select_json_document_democrat_senators(self):
         print("test_select_json_document_democrat_senators")
         helper = SelectJsonObjectTestHelper(self.bucket)
-        input_format = {'Json_Type':'DOCUMENT'}
+        input_format = {'Json_Type':'DOCUMENT', 'CompressionType':'None'}
         content = helper.test_select_json_object(self, "select * from ossobject.objects[*] where party = 'Democrat'", input_format)
         
         content = content[0:len(content)-1] #remove the last ','
@@ -134,7 +138,98 @@ class TestSelectJsonObject(OssTestCase):
                         select_row['lastname'] = row['person']['lastname']
                         self.assertEqual(result[index], select_row)
                         index += 1
-            
+
+    def test_select_gzip_json_object_like(self):
+        print("test_select_gzip_json_object_like")
+        helper = SelectJsonObjectTestHelper(self.bucket)
+        select_params = {'Json_Type':'DOCUMENT', 'CompressionType':'GZIP'}
+        content = helper.test_select_json_object(self, "select person.firstname, person.lastname from ossobject.objects[*]  where person.birthday like '1959%'", select_params)
+        content = content[0:len(content)-1] #remove the last ','
+        content = b"[" + content + b"]"  #make json parser happy
+        result = json.loads(content.decode('utf-8'))
+
+        index = 0
+        with open('tests/sample_json.json') as json_file:
+            data = json.load(json_file)
+            for row in data['objects']:
+                select_row = {}
+                if row['person']['birthday'].startswith('1959'): 
+                        select_row['firstname'] = row['person']['firstname']
+                        select_row['lastname'] = row['person']['lastname']
+                        self.assertEqual(result[index], select_row)
+                        index += 1
+
+    def test_select_json_object_with_output_raw(self):
+        key = "test_select_json_object_with_output_raw"
+        content = "{\"key\":\"abc\"}"
+        self.bucket.put_object(key, content.encode('utf_8'))
+        select_params = {'OutputRawData':'true', 'Json_Type':'DOCUMENT'}
+        result = self.bucket.select_object(key, "select key from ossobject", None, select_params)
+        content = b''
+        for chunk in result:
+            content += chunk
+        
+        self.assertEqual(content, '{\"key\":\"abc\"}\n'.encode('utf-8'))
+
+    def test_select_json_object_with_crc(self):
+        key = "test_select_json_object_with_crc"
+        content = "{\"key\":\"abc\"}\n"
+        self.bucket.put_object(key, content.encode('utf_8'))
+        select_params = {'EnablePayloadCrc':True, 'Json_Type':'DOCUMENT'}
+        result = self.bucket.select_object(key, "select * from ossobject where true", None, select_params)
+        content = result.read()
+        
+        self.assertEqual(content, '{\"key\":\"abc\"}\n'.encode('utf-8'))
+
+    def test_select_json_object_with_skip_partial_data(self):
+        key = "test_select_json_object_with_skip_partial_data"
+        content = "{\"key\":\"abc\"},{\"key2\":\"def\"}"
+        self.bucket.put_object(key, content.encode('utf_8'))
+        select_params = {'SkipPartialDataRecord':'false', 'Json_Type':'LINES', 'MaxSkippedRecordsAllowed':100}
+        result = self.bucket.select_object(key, "select key from ossobject", None, select_params)
+        content = b''
+        try:
+            for chunk in result:
+                content += chunk
+        except ServerError:
+            print("expected error occurs")
+        
+        self.assertEqual(content, '{\"key\":\"abc\"}\n{}\n'.encode('utf-8'))
+    
+    def test_select_json_object_with_invalid_parameter(self):
+        key = "test_select_json_object_with_invalid_parameter"
+        content = "{\"key\":\"abc\"}\n"
+        self.bucket.put_object(key, content.encode('utf_8'))
+        select_params = {'EnablePayloadCrc':True, 'Json_Type':'DOCUMENT', 'unsupported_param':True}
+
+        try:
+            self.bucket.select_object(key, "select * from ossobject where true", None, select_params)
+            self.assertFalse(True, 'expected error did not occur')
+        except SelectOperationClientError:
+            print("expected error occurs")
+
+    def test_create_json_meta_with_invalid_parameter(self):
+        key = "test_create_json_meta_with_invalid_parameter"
+        content = "{\"key\":\"abc\"}\n"
+        self.bucket.put_object(key, content.encode('utf_8'))
+        select_params = {'EnablePayloadCrc':True, 'Json_Type':'DOCUMENT'}
+
+        try:
+            self.bucket.create_select_object_meta(key,select_params)
+            self.assertFalse(True, 'expected error did not occur')
+        except SelectOperationClientError:
+            print("expected error occurs")
+
+    def test_create_json_object_meta_invalid_request2(self):
+        key = "sample_json.json"
+        self.bucket.put_object_from_file(key, 'tests/sample_json.json')
+        format = {'Json_Type':'invalid', 'CompressionType':'None', 'OverwriteifExists':'True'}
+        try:
+            self.bucket.create_select_object_meta(key, format)
+            self.assertFalse(true, "expected error did not occur")
+        except SelectOperationClientError:
+            print("expected error occured")
+
     def test_select_json_object_line_range(self):
         print("test_select_json_object_line_range")
         helper = SelectJsonObjectTestHelper(self.bucket) 

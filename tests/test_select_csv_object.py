@@ -9,6 +9,8 @@ from oss2.exceptions import (ClientError, RequestError, NoSuchBucket,
                              NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable, SelectOperationFailed, SelectOperationClientError)
 from common import *
 
+from oss2.select_response import SelectResponseAdapter
+
 def now():
     return int(calendar.timegm(time.gmtime()))
 
@@ -29,7 +31,8 @@ class SelectCsvObjectTestHelper(object):
         input_format = {'CsvHeaderInfo' : 'Use'}
         if (line_range is not None):
             input_format['LineRange'] = line_range
-
+        
+        SelectResponseAdapter._FRAMES_FOR_PROGRESS_UPDATE = 0
         result = self.bucket.select_object(key, sql, self.select_call_back, input_format)
         content = b''
         for chunk in result:
@@ -320,7 +323,27 @@ class TestSelectCsvObject(OssTestCase):
                 content += chunk
 
             self.assertTrue(len(content) > 0)
-    
+
+    def test_create_csv_object_meta_invalid_request(self):
+        key = "city_sample_data.csv"
+        self.bucket.put_object_from_file(key, 'tests/sample_data.csv')
+        format = {'CompressionType':'GZIP'}
+        try:
+            self.bucket.create_select_object_meta(key, format)
+            self.assertFalse(true, "expected error did not occur")
+        except oss2.exceptions.ServerError :
+            print("expected error occured")
+
+    def test_create_csv_object_meta_invalid_request2(self):
+        key = "city_sample_data.csv"
+        self.bucket.put_object_from_file(key, 'tests/sample_data.csv')
+        format = {'invalid_type':'value', 'CompressionType':'GZIP'}
+        try:
+            self.bucket.create_select_object_meta(key, format)
+            self.assertFalse(true, "expected error did not occur")
+        except SelectOperationClientError:
+            print("expected error occured")
+
     def test_select_csv_object_with_output_delimiters(self):
         key = "test_select_csv_object_with_output_delimiters"
         content = "abc,def\n"
@@ -337,11 +360,9 @@ class TestSelectCsvObject(OssTestCase):
         key = "test_select_csv_object_with_crc"
         content = "abc,def\n"
         self.bucket.put_object(key, content.encode('utf_8'))
-        select_params = {'EnablePayloadCrc':'true'}
-        result = self.bucket.select_object(key, "select * from ossobject", None, select_params)
-        content = b''
-        for chunk in result:
-            content += chunk
+        select_params = {'EnablePayloadCrc':True}
+        result = self.bucket.select_object(key, "select * from ossobject where true", None, select_params)
+        content = result.read()
         
         self.assertEqual(content, 'abc,def\n'.encode('utf-8'))
     
@@ -355,8 +376,21 @@ class TestSelectCsvObject(OssTestCase):
         try:
             for chunk in result:
                 content += chunk
+            self.assertFalse("expected error did not occur")
         except SelectOperationFailed:
             print("expected error occurs")
+        
+        self.assertEqual(content, 'abc,def\n'.encode('utf-8'))
+
+    def test_select_csv_object_with_max_partial_data(self):
+        key = "test_select_csv_object_with_skip_partial_data"
+        content = "abc,def\nefg\n"
+        self.bucket.put_object(key, content.encode('utf_8'))
+        select_params = {'SkipPartialDataRecord':'true', "MaxSkippedRecordsAllowed":100}
+        result = self.bucket.select_object(key, "select _1, _2 from ossobject", None, select_params)
+        content = b''
+        for chunk in result:
+            content += chunk
         
         self.assertEqual(content, 'abc,def\n'.encode('utf-8'))
 
