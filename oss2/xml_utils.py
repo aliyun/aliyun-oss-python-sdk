@@ -11,7 +11,7 @@ XML处理相关。
     - to_开头的函数：用来生成发往服务器端的XML
 
 """
-
+import logging
 import xml.etree.ElementTree as ElementTree
 
 from .models import (SimplifiedObjectInfo,
@@ -25,11 +25,19 @@ from .models import (SimplifiedObjectInfo,
                      LiveChannelInfo,
                      LiveRecord,
                      LiveChannelVideoStat,
-                     LiveChannelAudioStat)
+                     LiveChannelAudioStat,
+                     Owner,
+                     AccessControlList,
+                     AbortMultipartUpload,
+                     StorageTransition)
 
 from .compat import urlunquote, to_unicode, to_string
 from .utils import iso8601_to_unixtime, date_to_iso8601, iso8601_to_date
+from . import utils
+import base64
+from .exceptions import SelectOperationClientError
 
+logger = logging.getLogger(__name__)
 
 def _find_tag(parent, path):
     child = parent.find(path)
@@ -129,8 +137,13 @@ def parse_list_buckets(result, body):
         result.buckets.append(SimplifiedBucketInfo(
             _find_tag(bucket_node, 'Name'),
             _find_tag(bucket_node, 'Location'),
-            iso8601_to_unixtime(_find_tag(bucket_node, 'CreationDate'))
+            iso8601_to_unixtime(_find_tag(bucket_node, 'CreationDate')),
+            _find_tag(bucket_node, 'ExtranetEndpoint'),
+            _find_tag(bucket_node, 'IntranetEndpoint'),
+            _find_tag(bucket_node, 'StorageClass')
         ))
+
+    return result
 
 
 def parse_init_multipart_upload(result, body):
@@ -197,7 +210,12 @@ def parse_get_bucket_acl(result, body):
 
     return result
 
-parse_get_object_acl = parse_get_bucket_acl
+
+def parse_get_object_acl(result, body):
+    root = ElementTree.fromstring(body)
+    result.acl = _find_tag(root, 'AccessControlList/Grant')
+
+    return result
 
 
 def parse_get_bucket_location(result, body):
@@ -213,6 +231,31 @@ def parse_get_bucket_logging(result, body):
 
     if root.find('LoggingEnabled/TargetPrefix') is not None:
         result.target_prefix = _find_tag(root, 'LoggingEnabled/TargetPrefix')
+
+    return result
+
+
+def parse_get_bucket_stat(result, body):
+    root = ElementTree.fromstring(body)
+
+    result.storage_size_in_bytes = _find_int(root, 'Storage')
+    result.object_count = _find_int(root, 'ObjectCount')
+    result.multi_part_upload_count = _find_int(root, 'MultipartUploadCount')
+
+    return result
+
+
+def parse_get_bucket_info(result, body):
+    root = ElementTree.fromstring(body)
+
+    result.name = _find_tag(root, 'Bucket/Name')
+    result.creation_date = _find_tag(root, 'Bucket/CreationDate')
+    result.storage_class = _find_tag(root, 'Bucket/StorageClass')
+    result.extranet_endpoint = _find_tag(root, 'Bucket/ExtranetEndpoint')
+    result.intranet_endpoint = _find_tag(root, 'Bucket/IntranetEndpoint')
+    result.location = _find_tag(root, 'Bucket/Location')
+    result.owner = Owner(_find_tag(root, 'Bucket/Owner/DisplayName'), _find_tag(root, 'Bucket/Owner/ID'))
+    result.acl = AccessControlList(_find_tag(root, 'Bucket/AccessControlList/Grant'))
 
     return result
 
@@ -351,16 +394,49 @@ def parse_lifecycle_expiration(expiration_node):
     return expiration
 
 
+def parse_lifecycle_abort_multipart_upload(abort_multipart_upload_node):
+    if abort_multipart_upload_node is None:
+        return None
+    abort_multipart_upload = AbortMultipartUpload()
+
+    if abort_multipart_upload_node.find('Days') is not None:
+        abort_multipart_upload.days = _find_int(abort_multipart_upload_node, 'Days')
+    elif abort_multipart_upload_node.find('CreatedBeforeDate') is not None:
+        abort_multipart_upload.created_before_date = iso8601_to_date(_find_tag(abort_multipart_upload_node,
+                                                                               'CreatedBeforeDate'))
+    return abort_multipart_upload
+
+
+def parse_lifecycle_storage_transitions(storage_transition_nodes):
+    storage_transitions = []
+    for storage_transition_node in storage_transition_nodes:
+        storage_class = _find_tag(storage_transition_node, 'StorageClass')
+        storage_transition = StorageTransition(storage_class=storage_class)
+        if storage_transition_node.find('Days') is not None:
+            storage_transition.days = _find_int(storage_transition_node, 'Days')
+        elif storage_transition_node.find('CreatedBeforeDate') is not None:
+            storage_transition.created_before_date = iso8601_to_date(_find_tag(storage_transition_node,
+                                                                               'CreatedBeforeDate'))
+
+        storage_transitions.append(storage_transition)
+
+    return storage_transitions
+
+
 def parse_get_bucket_lifecycle(result, body):
     root = ElementTree.fromstring(body)
 
     for rule_node in root.findall('Rule'):
         expiration = parse_lifecycle_expiration(rule_node.find('Expiration'))
+        abort_multipart_upload = parse_lifecycle_abort_multipart_upload(rule_node.find('AbortMultipartUpload'))
+        storage_transitions = parse_lifecycle_storage_transitions(rule_node.findall('Transition'))
         rule = LifecycleRule(
             _find_tag(rule_node, 'ID'),
             _find_tag(rule_node, 'Prefix'),
             status=_find_tag(rule_node, 'Status'),
-            expiration=expiration
+            expiration=expiration,
+            abort_multipart_upload=abort_multipart_upload,
+            storage_transitions=storage_transitions
             )
         result.rules.append(rule)
 
@@ -406,6 +482,14 @@ def to_batch_delete_objects_request(keys, quiet):
         _add_text_child(object_node, 'Key', key)
 
     return _node_to_string(root_node)
+
+
+def to_put_bucket_config(bucket_config):
+    root = ElementTree.Element('CreateBucketConfiguration')
+
+    _add_text_child(root, 'StorageClass', str(bucket_config.storage_class))
+
+    return _node_to_string(root)
 
 
 def to_put_bucket_logging(bucket_logging):
@@ -460,6 +544,28 @@ def to_put_bucket_lifecycle(bucket_lifecycle):
                 _add_text_child(expiration_node, 'Days', str(expiration.days))
             elif expiration.date is not None:
                 _add_text_child(expiration_node, 'Date', date_to_iso8601(expiration.date))
+            elif expiration.created_before_date is not None:
+                _add_text_child(expiration_node, 'CreatedBeforeDate', date_to_iso8601(expiration.created_before_date))
+
+        abort_multipart_upload = rule.abort_multipart_upload
+        if abort_multipart_upload:
+            abort_multipart_upload_node = ElementTree.SubElement(rule_node, 'AbortMultipartUpload')
+            if abort_multipart_upload.days is not None:
+                _add_text_child(abort_multipart_upload_node, 'Days', str(abort_multipart_upload.days))
+            elif abort_multipart_upload.created_before_date is not None:
+                _add_text_child(abort_multipart_upload_node, 'CreatedBeforeDate',
+                                date_to_iso8601(abort_multipart_upload.created_before_date))
+
+        storage_transitions = rule.storage_transitions
+        if storage_transitions:
+            for storage_transition in storage_transitions:
+                storage_transition_node = ElementTree.SubElement(rule_node, 'Transition')
+                _add_text_child(storage_transition_node, 'StorageClass', str(storage_transition.storage_class))
+                if storage_transition.days is not None:
+                    _add_text_child(storage_transition_node, 'Days', str(storage_transition.days))
+                elif storage_transition.created_before_date is not None:
+                    _add_text_child(storage_transition_node, 'CreatedBeforeDate',
+                                    date_to_iso8601(storage_transition.created_before_date))
 
     return _node_to_string(root)
 
@@ -491,4 +597,147 @@ def to_create_live_channel(live_channel):
     _add_text_child(target_node, 'FragCount', str(live_channel.target.frag_count))
     _add_text_child(target_node, 'PlaylistName', str(live_channel.target.playlist_name))
 
+    return _node_to_string(root)
+
+def to_select_object(sql, select_params):
+    if (select_params is not None and 'Json_Type' in select_params):
+        return to_select_json_object(sql, select_params)
+    else:
+        return to_select_csv_object(sql, select_params)
+
+def to_select_csv_object(sql, select_params):
+    root = ElementTree.Element('SelectRequest')
+    _add_text_child(root, 'Expression', base64.b64encode(str.encode(sql)))
+    input_ser = ElementTree.SubElement(root, 'InputSerialization')
+    output_ser = ElementTree.SubElement(root, 'OutputSerialization')
+    csv = ElementTree.SubElement(input_ser, 'CSV')
+    out_csv = ElementTree.SubElement(output_ser, 'CSV')
+    options = ElementTree.SubElement(root, 'Options')
+   
+    if (select_params is None):
+        return _node_to_string(root)
+    
+    for key, value in select_params.items():
+        if 'CsvHeaderInfo' == key:
+            _add_text_child(csv, 'FileHeaderInfo', value)
+        elif 'CommentCharacter' == key:
+            _add_text_child(csv, 'CommentCharacter', base64.b64encode(str.encode(value)))
+        elif 'RecordDelimiter' == key:
+            _add_text_child(csv, 'RecordDelimiter', base64.b64encode(str.encode(value)))
+        elif 'OutputRecordDelimiter' == key:
+            _add_text_child(out_csv, 'RecordDelimiter', base64.b64encode(str.encode(value)))
+        elif 'FieldDelimiter' == key:
+            _add_text_child(csv, 'FieldDelimiter', base64.b64encode(str.encode(value)))
+        elif 'OutputFieldDelimiter' == key:
+            _add_text_child(out_csv, 'FieldDelimiter', base64.b64encode(str.encode(value)))
+        elif 'QuoteCharacter' == key:
+            _add_text_child(csv, 'QuoteCharacter', base64.b64encode(str.encode(value)))
+        elif 'SplitRange' == key:
+            _add_text_child(csv, 'Range', utils._make_split_range_string(value))
+        elif 'LineRange' == key:
+            _add_text_child(csv, 'Range', utils._make_line_range_string(value))
+        elif 'CompressionType' == key:
+            _add_text_child(input_ser, 'CompressionType', str(value))
+        elif 'KeepAllColumns' == key:
+            _add_text_child(output_ser, 'KeepAllColumns', str(value))
+        elif 'OutputRawData' == key:
+            _add_text_child(output_ser, 'OutputRawData', str(value))
+        elif 'EnablePayloadCrc' == key:
+            _add_text_child(output_ser, 'EnablePayloadCrc', str(value))
+        elif 'OutputHeader' == key:
+            _add_text_child(output_ser, 'OutputHeader', str(value))
+        elif 'SkipPartialDataRecord' == key:
+            _add_text_child(options, 'SkipPartialDataRecord', str(value))
+        elif 'MaxSkippedRecordsAllowed' == key:
+            _add_text_child(options, 'MaxSkippedRecordsAllowed', str(value))
+        else:
+            raise SelectOperationClientError("The select_params contains unsupported key " + key, "")
+
+    return _node_to_string(root)
+
+def to_select_json_object(sql, select_params):
+    root = ElementTree.Element('SelectRequest')
+    _add_text_child(root, 'Expression', base64.b64encode(str.encode(sql)))
+    input_ser = ElementTree.SubElement(root, 'InputSerialization')
+    output_ser = ElementTree.SubElement(root, 'OutputSerialization')
+    json = ElementTree.SubElement(input_ser, 'JSON')
+    out_json = ElementTree.SubElement(output_ser, 'JSON')
+    options = ElementTree.SubElement(root, 'Options')
+    is_doc = select_params['Json_Type'] == 'DOCUMENT'
+    _add_text_child(json, 'Type', select_params['Json_Type'])
+    if select_params is None:
+        return _node_to_string(root)
+    
+    for key, value in select_params.items(): 
+        if 'SplitRange' == key and is_doc == False:
+            _add_text_child(json, 'Range', utils._make_split_range_string(value))
+        elif 'LineRange' == key and is_doc == False:
+            _add_text_child(json, 'Range', utils._make_line_range_string(value))
+        elif 'CompressionType' == key:
+            _add_text_child(input_ser, 'CompressionType', value)
+        elif 'OutputRawData' == key:
+            _add_text_child(output_ser, 'OutputRawData', str(value))
+        elif 'EnablePayloadCrc' == key:
+            _add_text_child(output_ser, 'EnablePayloadCrc', str(value))
+        elif 'OutputRecordDelimiter' == key:
+            _add_text_child(out_json, 'RecordDelimiter', base64.b64encode(str.encode(value)))
+        elif 'SkipPartialDataRecord' == key:
+            _add_text_child(options, 'SkipPartialDataRecord', str(value))
+        elif 'MaxSkippedRecordsAllowed' == key:
+            _add_text_child(options, 'MaxSkippedRecordsAllowed', str(value))
+        elif 'ParseJsonNumberAsString' == key:
+            _add_text_child(json, 'ParseJsonNumberAsString', str(value))
+        else:
+            if key != 'Json_Type':
+                raise SelectOperationClientError("The select_params contains unsupported key " + key, "")
+
+    return _node_to_string(root)
+
+def to_get_select_object_meta(meta_param):
+    if meta_param is not None and 'Json_Type' in meta_param:
+        if meta_param['Json_Type'] != 'LINES':
+            raise SelectOperationClientError("Json_Type can only be 'LINES' for creating meta", "")
+        else:
+            return to_get_select_json_object_meta(meta_param)
+    else:
+        return to_get_select_csv_object_meta(meta_param)
+
+def to_get_select_csv_object_meta(csv_meta_param):
+    root = ElementTree.Element('CsvMetaRequest')
+    input_ser = ElementTree.SubElement(root, 'InputSerialization')
+    csv = ElementTree.SubElement(input_ser, 'CSV')
+    if (csv_meta_param is None):
+        return _node_to_string(root)
+    
+    for key, value in csv_meta_param.items():
+        if 'RecordDelimiter' == key:
+            _add_text_child(csv, 'RecordDelimiter', base64.b64encode(str.encode(value)))
+        elif 'FieldDelimiter' == key:
+            _add_text_child(csv, 'FieldDelimiter', base64.b64encode(str.encode(value)))
+        elif 'QuoteCharacter' == key:
+            _add_text_child(csv, 'QuoteCharacter', base64.b64encode(str.encode(value)))
+        elif 'CompressionType' == key:
+            _add_text_child(input_ser, 'CompressionType', base64.b64encode(str.encode(value)))
+        elif 'OverwriteIfExists' == key:
+            _add_text_child(root, 'OverwriteIfExists', str(value))
+        else:
+           raise SelectOperationClientError("The csv_meta_param contains unsupported key " + key, "") 
+
+    return _node_to_string(root)
+
+def to_get_select_json_object_meta(json_meta_param):
+    root = ElementTree.Element('JsonMetaRequest')
+    input_ser = ElementTree.SubElement(root, 'InputSerialization')
+    json = ElementTree.SubElement(input_ser, 'JSON')
+    _add_text_child(json, 'Type', json_meta_param['Json_Type']) # Json_Type是必须的
+  
+    for key, value in json_meta_param.items():
+        if 'OverwriteIfExists' == key:
+            _add_text_child(root, 'OverwriteIfExists', str(value))
+        elif 'CompressionType' == key:
+             _add_text_child(input_ser, 'CompressionType', base64.b64encode(str.encode(value)))
+        else:
+            if 'Json_Type' != key:
+                raise SelectOperationClientError("The json_meta_param contains unsupported key " + key, "")
+            
     return _node_to_string(root)

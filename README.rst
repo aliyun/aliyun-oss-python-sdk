@@ -93,6 +93,15 @@ The Python SDK interface will throw an exception in case of an error (see oss2.e
     except oss2.exceptions.NoSuchKey as e:
         print('{0} not found: http_status={1}, request_id={2}'.format(key, e.status, e.request_id))
 
+Setup Logging
+---------------
+
+The following code can set the logging level of 'oss2'.
+ .. code-block:: python
+
+    import logging
+    logging.getLogger('oss2').setLevel(logging.WARNING)
+
 Testing
 -------
 
@@ -116,6 +125,13 @@ Run the test in the following method:
 .. code-block:: bash
 
     $ nosetests                          # First install nose
+
+
+You can set environment variable to test auth v2:
+
+.. code-block:: bash
+
+    $ export OSS_TEST_AUTH_VERSION=v2
 
 More resources
 --------------

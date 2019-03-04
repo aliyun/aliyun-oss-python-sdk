@@ -43,7 +43,7 @@ callback_dict['callbackBody'] = 'filename=${object}&size=${size}&mimeType=${mime
 callback_dict['callbackBodyType'] = 'application/x-www-form-urlencoded'
 # 回调参数是json格式，并且base64编码
 callback_param = json.dumps(callback_dict).strip()
-base64_callback_body = base64.b64encode(callback_param)
+base64_callback_body = oss2.utils.b64encode_as_string(callback_param)
 # 回调参数编码后放在header中传给oss
 headers = {'x-oss-callback': base64_callback_body}
 
@@ -53,7 +53,7 @@ result = bucket.put_object(key, content, headers)
 # 上传并回调成功status为200，上传成功回调失败status为203
 assert result.status == 200
 # result.resp的内容为回调服务器返回的内容
-assert result.resp.read() == '{"Status":"OK"}'
+assert result.resp.read() == b'{"Status":"OK"}'
 
 # 确认文件上传成功
 result = bucket.head_object(key)
@@ -72,14 +72,14 @@ parts = []
 upload_id = bucket.init_multipart_upload(key).upload_id
 # 上传分片
 result = bucket.upload_part(key, upload_id, 1, content)
-parts.append(oss2.models.PartInfo(1, result.etag))
+parts.append(oss2.models.PartInfo(1, result.etag, size = len(content), part_crc = result.crc))
 # 完成上传并回调
 result = bucket.complete_multipart_upload(key, upload_id, parts, headers)
 
 # 上传并回调成功status为200，上传成功回调失败status为203
 assert result.status == 200
 # result.resp的内容为回调服务器返回的内容
-assert result.resp.read() == '{"Status":"OK"}'
+assert result.resp.read() == b'{"Status":"OK"}'
 
 # 确认文件上传成功
 result = bucket.head_object(key)

@@ -14,6 +14,7 @@ from xml.parsers import expat
 
 
 from .compat import to_string
+from .headers import *
 
 
 _OSS_ERROR_TO_EXCEPTION = {}  # populated at end of module
@@ -22,6 +23,8 @@ _OSS_ERROR_TO_EXCEPTION = {}  # populated at end of module
 OSS_CLIENT_ERROR_STATUS = -1
 OSS_REQUEST_ERROR_STATUS = -2
 OSS_INCONSISTENT_ERROR_STATUS = -3
+OSS_FORMAT_ERROR_STATUS = -4
+OSS_SELECT_CLIENT_ERROR_STATUS = -5
 
 
 class OssError(Exception):
@@ -30,7 +33,7 @@ class OssError(Exception):
         self.status = status
 
         #: 请求ID，用于跟踪一个OSS请求。提交工单时，最好能够提供请求ID
-        self.request_id = headers.get('x-oss-request-id', '')
+        self.request_id = headers.get(OSS_REQUEST_ID, '')
 
         #: HTTP响应体（部分）
         self.body = body
@@ -46,7 +49,14 @@ class OssError(Exception):
 
     def __str__(self):
         error = {'status': self.status,
+                 OSS_REQUEST_ID : self.request_id,
                  'details': self.details}
+        return str(error)
+
+    def _str_with_body(self):
+        error = {'status': self.status,
+                 OSS_REQUEST_ID : self.request_id,
+                 'details': self.body}
         return str(error)
 
 
@@ -55,9 +65,7 @@ class ClientError(OssError):
         OssError.__init__(self, OSS_CLIENT_ERROR_STATUS, {}, 'ClientError: ' + message, {})
 
     def __str__(self):
-        error = {'status': self.status,
-                 'details': self.body}
-        return str(error)
+        return self._str_with_body()
 
 
 class RequestError(OssError):
@@ -66,19 +74,28 @@ class RequestError(OssError):
         self.exception = e
 
     def __str__(self):
-        error = {'status': self.status,
-                 'details': self.body}
-        return str(error)
+        return self._str_with_body()
 
 
 class InconsistentError(OssError):
     def __init__(self, message, request_id=''):
-        OssError.__init__(self, OSS_INCONSISTENT_ERROR_STATUS, {'x-oss-request-id': request_id}, 'InconsistentError: ' + message, {})
+        OssError.__init__(self, OSS_INCONSISTENT_ERROR_STATUS, {OSS_REQUEST_ID : request_id}, 'InconsistentError: ' + message, {})
 
     def __str__(self):
-        error = {'status': self.status,
-                 'details': self.body}
-        return str(error)
+        return self._str_with_body()
+
+
+class OpenApiFormatError(OssError):
+    def __init__(self, message):
+        OssError.__init__(self, OSS_FORMAT_ERROR_STATUS, {}, message, {})
+
+    def __str__(self):
+        return self._str_with_body()
+
+
+class OpenApiServerError(OssError):
+    def __init__(self, status, request_id, message, error_code):
+        OssError.__init__(self, status, {OSS_REQUEST_ID : request_id}, '', {'Code': error_code, 'Message': message})
 
 
 class ServerError(OssError):
@@ -93,6 +110,21 @@ class NotFound(ServerError):
 class MalformedXml(ServerError):
     status = 400
     code = 'MalformedXML'
+
+
+class InvalidRequest(ServerError):
+    status = 400
+    code = 'InvalidRequest'
+
+
+class OperationNotSupported(ServerError):
+    status = 400
+    code = 'OperationNotSupported'
+
+
+class RestoreAlreadyInProgress(ServerError):
+    status = 409
+    code = 'RestoreAlreadyInProgress'
 
 
 class InvalidArgument(ServerError):
@@ -166,7 +198,7 @@ class PositionNotEqualToLength(Conflict):
 
     def __init__(self, status, headers, body, details):
         super(PositionNotEqualToLength, self).__init__(status, headers, body, details)
-        self.next_position = int(headers['x-oss-next-append-position'])
+        self.next_position = int(headers[OSS_NEXT_APPEND_POSITION])
 
 
 class ObjectNotAppendable(Conflict):
@@ -197,6 +229,32 @@ class NotModified(ServerError):
 class AccessDenied(ServerError):
     status = 403
     code = 'AccessDenied'
+
+class SelectOperationFailed(ServerError):
+    code = 'SelectOperationFailed'
+    def __init__(self, status, code, message):
+        self.status = status
+        self.code = code
+        self.message = message
+
+    def __str__(self):
+        error = {'status': self.status,
+                 'code': self.code,
+                 'details': self.message}
+        return str(error)
+
+class SelectOperationClientError(OssError):
+    def __init__(self, message, request_id):
+        OssError.__init__(self, OSS_SELECT_CLIENT_ERROR_STATUS, {'x-oss-request-id': request_id}, 'SelectOperationClientError: ' + message, {})
+        
+    def __str__(self):
+        error = {'x-oss-request-id':self.request_id,
+                'message': self.message}
+        return str(error)
+
+class SignatureDoesNotMatch(ServerError):
+    status = 403
+    code = 'SignatureDoesNotMatch'
 
 
 def make_exception(resp):

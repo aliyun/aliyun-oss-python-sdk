@@ -21,16 +21,16 @@ if oss2.compat.is_py2:
 
 
     def fetch_sts_token(access_key_id, access_key_secret, role_arn):
-        clt = client.AcsClient(access_key_id, access_key_secret, OSS_STS_REGION)
+        clt = client.AcsClient(access_key_id, access_key_secret, OSS_REGION)
         req = AssumeRoleRequest.AssumeRoleRequest()
 
         req.set_accept_format('json')
         req.set_RoleArn(role_arn)
         req.set_RoleSessionName('oss-python-sdk-test')
 
-        body = clt.do_action(req)
+        body = clt.do_action_with_exception(req)
 
-        j = json.loads(body)
+        j = json.loads(oss2.to_unicode(body))
 
         token = StsToken()
 
@@ -42,6 +42,15 @@ if oss2.compat.is_py2:
 
         return token
 
+
+    class TestSTSAuth(oss2.StsAuth):
+        def __init__(self, access_key_id, access_key_secret, security_token):
+            super(TestSTSAuth, self).__init__(access_key_id,
+                                              access_key_secret,
+                                              security_token,
+                                              os.getenv('OSS_TEST_AUTH_VERSION'))
+
+    oss2.StsAuth = TestSTSAuth
 
     class TestSts(unittest.TestCase):
         def setUp(self):
@@ -89,7 +98,7 @@ if oss2.compat.is_py2:
             content = b'Ali Baba'
 
             self.bucket.put_object(key, content)
-            url = self.bucket.sign_url('GET', key, 60)
+            url = self.bucket.sign_url('GET', key, 60, params={'para1':'test'})
 
             resp = requests.get(url)
             self.assertEqual(content, resp.content)
@@ -103,3 +112,24 @@ if oss2.compat.is_py2:
             
             url = self.bucket.sign_rtmp_url(channel_name, 'test.m3u8', 3600)
             self.assertTrue('security-token=' in url)
+
+    class TestSign(TestSts):
+        """
+            这个类主要是用来增加测试覆盖率，当环境变量为oss2.AUTH_VERSION_2，则重新设置为oss2.AUTH_VERSION_1再运行TestSts，反之亦然
+        """
+        def __init__(self, *args, **kwargs):
+            super(TestSign, self).__init__(*args, **kwargs)
+
+        def setUp(self):
+            if os.getenv('OSS_TEST_AUTH_VERSION') == oss2.AUTH_VERSION_2:
+                os.environ['OSS_TEST_AUTH_VERSION'] = oss2.AUTH_VERSION_1
+            else:
+                os.environ['OSS_TEST_AUTH_VERSION'] = oss2.AUTH_VERSION_2
+            super(TestSign, self).setUp()
+
+        def tearDown(self):
+            if os.getenv('OSS_TEST_AUTH_VERSION') == oss2.AUTH_VERSION_2:
+                os.environ['OSS_TEST_AUTH_VERSION'] = oss2.AUTH_VERSION_1
+            else:
+                os.environ['OSS_TEST_AUTH_VERSION'] = oss2.AUTH_VERSION_2
+            super(TestSign, self).tearDown()

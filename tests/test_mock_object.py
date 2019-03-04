@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import os
+from io import BytesIO
+
 import oss2
 import unittest
 import unittests
@@ -36,6 +38,45 @@ x-oss-object-type: Normal
         return request_text, response_text
 
 
+def make_get_encrypted_object(content, ranges=None, missing_alg=False):
+    request_text = '''GET /sjbhlsgsbecvlpbf HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:53 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:PAedG7U86ZxQ2WTB+GdpSltoiTI='''
+
+    cipher = oss2.utils.AESCipher(key=unittests.common.fixed_aes_key, start=unittests.common.fixed_aes_start)
+    encrypted_cont = cipher.encrypt(content)
+
+    response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:53 GMT
+Content-Type: text/plain
+Content-Length: {0}
+Connection: keep-alive
+x-oss-request-id: 566B6BE93A7B8CFD53D4BAA3
+Accept-Ranges: bytes
+ETag: "D80CF0E5BE2436514894D64B2BCFB2AE"{1}
+x-oss-meta-oss-crypto-key: BPNkLSi+htvzrU/d52S9SVHmDFYwKZoepPGRBZ8flm/Wh8oXaRSyVx9vsrQR2aNfy2m5DuNpkIcRP8GUmO7g/RBpl7kU/xJiYjZSjY0dMDjjSB2K0iuX0iHjACFqYsGq7jqYQnSzL03kYPP1Nu8XJFCAax/KLRr8lf0eAPoDLgqo/rIqyI8RkSPgJO29X4Dm2XBayShmvjR5O/TF95N8ql3g+iit4JQovPmlFvu6RFtp8FJpDbS41+VVP7s6c4yfyZoio9VfYJKSKhEZBvlCo44PbY9MFUUH4rYvrwJXCgWmVbfo35gzSF1fRXsaYhB8OIBTJlHxeFUUr/lZv0kuNw==
+x-oss-meta-oss-crypto-start: HkRvX7uxN+ASy8eu2mNVayUqElwhde+cp9zw1F4ywBku7sgsphksItRHFySxAwesbAsy7U0cMcQvBt0hHIXIVDJl47GXubbGk/oHuwv58Rry/POdjJ+hbFOoTS0is5GNfyNw7ZjmgxuQ54Yv9gzYCxMpyZ1g35miKi8slikyzkFnkrOQSCHm3T7BF+hDylYQVvrPximdvW6UmHYZWXMzwx4gD43YvXlpfiafqXnkY7lBliIYmP0Ty6a7kwpeKHdkvwIa6wER+Cv0+qiq+KPJFf+iJ+9hx+Z6HWCyV6S+blQqK4ZNbKHApAkQJHAeQb5Cf4SZAQehU8ewwxwzxYn5bw==
+x-oss-meta-unencrypted-content-length: {2}
+Last-Modified: Sat, 12 Dec 2015 00:35:53 GMT
+x-oss-object-type: Normal{3}
+
+'''.format(len(encrypted_cont), '' if missing_alg else '\nx-oss-meta-oss-cek-alg: AES/GCM/NoPadding',
+           len(content), '\nContent-Range: {0}'.format(ranges) if ranges else '')
+
+    io = BytesIO()
+    io.write(oss2.to_bytes(response_text))
+    io.write(encrypted_cont)
+
+    response_text = io.getvalue()
+
+    return request_text, response_text
+
 def make_put_object(content):
     request_text = '''PUT /sjbhlsgsbecvlpbf.txt HTTP/1.1
 Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
@@ -58,6 +99,42 @@ Connection: keep-alive
 x-oss-request-id: 566B6BE93A7B8CFD53D4BAA3
 x-oss-hash-crc64ecma: {0}
 ETag: "D80CF0E5BE2436514894D64B2BCFB2AE"'''.format(unittests.common.calc_crc(content))
+
+    return request_text, response_text
+
+
+def make_put_encrypted_object(content):
+
+    cipher = oss2.utils.AESCipher(key=unittests.common.fixed_aes_key, start=unittests.common.fixed_aes_start)
+    encrypted_cont = cipher.encrypt(content)
+
+    request_text = '''PUT /sjbhlsgsbecvlpbf.txt HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Content-Type: text/plain
+Content-Length: {0}
+date: Sat, 12 Dec 2015 00:35:53 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+authorization: OSS ZCDmm7TPZKHtx77j:W6whAowN4aImQ0dfbMHyFfD0t1g=
+Accept: */*
+
+'''.format(len(content))
+
+    io = BytesIO()
+    io.write(oss2.to_bytes(request_text))
+    io.write(encrypted_cont)
+
+    request_text = io.getvalue()
+
+    response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:53 GMT
+Content-Length: 0
+Connection: keep-alive
+x-oss-request-id: 566B6BE93A7B8CFD53D4BAA3
+x-oss-hash-crc64ecma: {0}
+ETag: "D80CF0E5BE2436514894D64B2BCFB2AE"'''.format(unittests.common.calc_crc(encrypted_cont))
 
     return request_text, response_text
 
@@ -281,7 +358,7 @@ Server: AliyunOSS'''
 
         self.assertEqual(self.previous, len(content))
         self.assertEqual(len(content_read), len(content))
-        self.assertEqual(content_read, oss2.to_bytes(content))
+        self.assertEqual(oss2.to_bytes(content_read), content)
 
     @patch('oss2.Session.do_request')
     def test_get_to_file(self, do_request):
@@ -301,7 +378,7 @@ Server: AliyunOSS'''
         self.assertEqual(os.path.getsize(filename), len(content))
 
         with open(filename, 'rb') as f:
-            self.assertEqual(content, f.read())
+            self.assertEqual(content, oss2.to_bytes(f.read()))
 
     @patch('oss2.Session.do_request')
     def test_get_to_file_with_progress(self, do_request):
@@ -377,7 +454,7 @@ Server: AliyunOSS'''
         self.assertRequest(req_info, request_text)
         self.assertEqual(result.request_id, '566B6BE93A7B8CFD53D4BAA3')
         self.assertEqual(result.etag, 'D80CF0E5BE2436514894D64B2BCFB2AE')
-    
+
     @patch('oss2.Session.do_request')
     def test_put_without_crc_in_response(self, do_request):
         content = b'dummy content'
@@ -690,7 +767,170 @@ x-oss-server-time: 39'''
         self.assertRequest(req_info, request_text)
         self.assertEqual(result.request_id, '566B6C0D8CDE4E975D730BEF')
         self.assertEqual(result.status, 200)
-        self.assertEqual(result.target_key, 'bcvzkwznomy')        
+        self.assertEqual(result.target_key, 'bcvzkwznomy')
+
+    @patch('oss2.Session.do_request')
+    def test_crypto_get(self, do_request):
+        content = unittests.common.random_bytes(1023)
+
+        request_text, response_text = make_get_encrypted_object(content)
+
+        req_info = unittests.common.mock_response(do_request, response_text)
+
+        result = unittests.common.bucket(oss2.LocalRsaProvider(key='oss-test')).get_object('sjbhlsgsbecvlpbf')
+
+        result1 = unittests.common.bucket().get_object('sjbhlsgsbecvlpbf', byte_range=(None, None))
+
+        self.assertRequest(req_info, request_text)
+
+        self.assertNotEqual(result1.read(), content)
+        self.assertEqual(result.read(), content)
+        self.assertEqual(int(result.headers['x-oss-meta-unencrypted-content-length']), len(content))
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.request_id, '566B6BE93A7B8CFD53D4BAA3')
+        self.assertEqual(result.object_type, 'Normal')
+        self.assertEqual(result.content_type, 'text/plain')
+        self.assertEqual(result.etag, 'D80CF0E5BE2436514894D64B2BCFB2AE')
+        self.assertEqual(result.last_modified, 1449880553)
+        self.assertEqual(result.headers['x-oss-meta-oss-crypto-key'], 'BPNkLSi+htvzrU/d52S9SVHmDFYwKZoepPGRBZ8flm/Wh8oXaRSyVx9vsrQR2aNfy2m5DuNpkIcRP8GUmO7g/RBpl7kU/xJiYjZSjY0dMDjjSB2K0iuX0iHjACFqYsGq7jqYQnSzL03kYPP1Nu8XJFCAax/KLRr8lf0eAPoDLgqo/rIqyI8RkSPgJO29X4Dm2XBayShmvjR5O/TF95N8ql3g+iit4JQovPmlFvu6RFtp8FJpDbS41+VVP7s6c4yfyZoio9VfYJKSKhEZBvlCo44PbY9MFUUH4rYvrwJXCgWmVbfo35gzSF1fRXsaYhB8OIBTJlHxeFUUr/lZv0kuNw==')
+        self.assertEqual(result.headers['x-oss-meta-oss-crypto-start'], 'HkRvX7uxN+ASy8eu2mNVayUqElwhde+cp9zw1F4ywBku7sgsphksItRHFySxAwesbAsy7U0cMcQvBt0hHIXIVDJl47GXubbGk/oHuwv58Rry/POdjJ+hbFOoTS0is5GNfyNw7ZjmgxuQ54Yv9gzYCxMpyZ1g35miKi8slikyzkFnkrOQSCHm3T7BF+hDylYQVvrPximdvW6UmHYZWXMzwx4gD43YvXlpfiafqXnkY7lBliIYmP0Ty6a7kwpeKHdkvwIa6wER+Cv0+qiq+KPJFf+iJ+9hx+Z6HWCyV6S+blQqK4ZNbKHApAkQJHAeQb5Cf4SZAQehU8ewwxwzxYn5bw==')
+        self.assertEqual(result.headers['x-oss-meta-oss-cek-alg'], 'AES/GCM/NoPadding')
+
+    @patch('oss2.Session.do_request')
+    def test_crypto_get_with_incomplete_crypto_meta(self, do_request):
+        content = unittests.common.random_bytes(1023)
+
+        request_text, response_text = make_get_encrypted_object(content, missing_alg=True)
+
+        req_info = unittests.common.mock_response(do_request, response_text)
+
+        self.assertRaises(oss2.exceptions.InconsistentError, unittests.common.bucket(oss2.LocalRsaProvider(key='oss-test')).get_object,
+                          'sjbhlsgsbecvlpbf')
+
+    @patch('oss2.Session.do_request')
+    def test_crypto_get_with_progress(self, do_request):
+        content = unittests.common.random_bytes(1024 * 1024 + 1)
+
+        request_text, response_text = make_get_encrypted_object(content)
+        req_info = unittests.common.mock_response(do_request, response_text)
+
+        self.previous = -1
+        result = unittests.common.bucket(oss2.LocalRsaProvider(key='oss-test')).get_object('sjbhlsgsbecvlpbf', progress_callback=self.progress_callback)
+
+        self.assertRequest(req_info, request_text)
+
+        content_read = unittests.common.read_file(result)
+
+        self.assertEqual(self.previous, len(content))
+        self.assertEqual(len(content_read), len(content))
+        self.assertEqual(content_read, content)
+
+
+    @patch('oss2.Session.do_request')
+    def test_crypto_get_to_file(self, do_request):
+        content = unittests.common.random_bytes(1023)
+
+        request_text, response_text = make_get_encrypted_object(content)
+        req_info = unittests.common.mock_response(do_request, response_text)
+
+        filename = self.tempname()
+
+        result = unittests.common.bucket(oss2.LocalRsaProvider(key='oss-test')).get_object_to_file('sjbhlsgsbecvlpbf', filename)
+
+        self.assertRequest(req_info, request_text)
+
+        self.assertEqual(result.request_id, '566B6BE93A7B8CFD53D4BAA3')
+        self.assertEqual(result.content_length, len(content))
+        self.assertEqual(os.path.getsize(filename), len(content))
+
+        with open(filename, 'rb') as f:
+            self.assertEqual(content, oss2.to_bytes(f.read()))
+
+    @patch('oss2.Session.do_request')
+    def test_crypto_get_to_file_with_progress(self, do_request):
+        size = 1024 * 1024 + 1
+        content = unittests.common.random_bytes(size)
+
+        request_text, response_text = make_get_encrypted_object(content)
+        req_info = unittests.common.mock_response(do_request, response_text)
+
+        filename = self.tempname()
+
+        self.previous = -1
+        unittests.common.bucket(oss2.LocalRsaProvider(key='oss-test')).get_object_to_file('sjbhlsgsbecvlpbf', filename, progress_callback=self.progress_callback)
+
+        self.assertRequest(req_info, request_text)
+
+        self.assertEqual(self.previous, size)
+        self.assertEqual(os.path.getsize(filename), size)
+        with open(filename, 'rb') as f:
+            self.assertEqual(oss2.to_bytes(content), f.read())
+
+    @patch('oss2.Session.do_request')
+    def test_crypto_put_bytes(self, do_request):
+        content = unittests.common.random_bytes(1024 * 1024 - 1)
+
+        request_text, response_text = make_put_encrypted_object(content)
+        req_info = unittests.common.mock_response(do_request, response_text)
+
+        with patch.object(oss2.utils, 'random_aes256_key', return_value=unittests.common.fixed_aes_key, autospect=True):
+            with patch.object(oss2.utils, 'random_counter', return_value=unittests.common.fixed_aes_start, autospect=True):
+
+                unittests.common.bucket(oss2.LocalRsaProvider(key='oss-test')).put_object('sjbhlsgsbecvlpbf.txt', content,
+                                                                headers={'content-md5': oss2.utils.md5_string(content),
+                                                                        'content-length': str(len(content))})
+
+                self.assertRequest(req_info, request_text)
+
+    @patch('oss2.Session.do_request')
+    def test_crypto_put_bytes_with_progress(self, do_request):
+        self.previous = -1
+
+        content = unittests.common.random_bytes(1024 * 1024 - 1)
+
+        request_text, response_text = make_put_encrypted_object(content)
+        req_info = unittests.common.mock_response(do_request, response_text)
+
+        with patch.object(oss2.utils, 'random_aes256_key', return_value=unittests.common.fixed_aes_key, autospect=True):
+            with patch.object(oss2.utils, 'random_counter', return_value=unittests.common.fixed_aes_start, autospect=True):
+
+                unittests.common.bucket(oss2.LocalRsaProvider(key='oss-test')).put_object('sjbhlsgsbecvlpbf.txt', content, progress_callback=self.progress_callback)
+                self.assertRequest(req_info, request_text)
+                self.assertEqual(self.previous, len(content))
+
+    @patch('oss2.Session.do_request')
+    def test_crypto_put_from_file(self, do_request):
+        size = 512 * 2 - 1
+        content = unittests.common.random_bytes(size)
+        filename = self.make_tempfile(content)
+
+        request_text, response_text = make_put_encrypted_object(content)
+        req_info = unittests.common.mock_response(do_request, response_text)
+
+        with patch.object(oss2.utils, 'random_aes256_key', return_value=unittests.common.fixed_aes_key, autospect=True):
+            with patch.object(oss2.utils, 'random_counter', return_value=unittests.common.fixed_aes_start, autospect=True):
+                result = unittests.common.bucket(oss2.LocalRsaProvider(key='oss-test')).put_object_from_file('sjbhlsgsbecvlpbf.txt', filename)
+
+                self.assertRequest(req_info, request_text)
+                self.assertEqual(result.request_id, '566B6BE93A7B8CFD53D4BAA3')
+                self.assertEqual(result.etag, 'D80CF0E5BE2436514894D64B2BCFB2AE')
+
+    @patch('oss2.Session.do_request')
+    def test_crypto_operation_exception(self, do_request):
+        content = unittests.common.random_bytes(1024 * 1024 + 1)
+
+        request_text, response_text = make_get_encrypted_object(content, oss2.api._make_range_string((1024, 2047)))
+        req_info = unittests.common.mock_response(do_request, response_text)
+
+        bucket = unittests.common.bucket(oss2.LocalRsaProvider(key='oss-test'))
+
+        key = 'sjbhlsgsbecvlpbf'
+
+        self.assertRaises(oss2.exceptions.ClientError, bucket.get_object, key, {'range':'bytes=1024-2047'})
+
+        self.assertRaises(oss2.exceptions.ClientError, oss2.CryptoBucket, oss2.Auth('fake-access-key-id', 'fake-access-key-secret'),
+                          'http://oss-cn-hangzhou.aliyuncs.com', '123', None)
+
 
     # for ci
     def test_oss_utils_negative(self):

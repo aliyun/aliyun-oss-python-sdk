@@ -287,7 +287,8 @@ x-oss-request-id: 566B6BE7B1119B6F7471769A'''
 
     @patch('oss2.Session.do_request')
     def test_put_lifecycle_date(self, do_request):
-        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle
+        from oss2.models import (LifecycleExpiration, LifecycleRule, BucketLifecycle, AbortMultipartUpload,
+                                StorageTransition)
 
         request_text = '''PUT /?lifecycle= HTTP/1.1
 Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
@@ -299,7 +300,9 @@ User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
 Accept: */*
 authorization: OSS ZCDmm7TPZKHtx77j:45HTpSD5osRvtusf8VCkmchZZFs=
 
-<LifecycleConfiguration><Rule><ID>{0}</ID><Prefix>{1}</Prefix><Status>{2}</Status><Expiration><Date>{3}</Date></Expiration></Rule></LifecycleConfiguration>'''
+<LifecycleConfiguration><Rule><ID>{0}</ID><Prefix>{1}</Prefix><Status>{2}</Status>\
+<Expiration><Date>{3}</Date></Expiration><AbortMultipartUpload><CreatedBeforeDate>{5}</CreatedBeforeDate></AbortMultipartUpload>\
+<Transition><StorageClass>Standard</StorageClass><CreatedBeforeDate>{4}</CreatedBeforeDate></Transition></Rule></LifecycleConfiguration>'''
 
         response_text = '''HTTP/1.1 200 OK
 Server: AliyunOSS
@@ -312,18 +315,22 @@ x-oss-request-id: 566B6BD9B295345D15740F1F'''
         prefix = '中文前缀'
         status = 'Disabled'
         date = '2015-12-25T00:00:00.000Z'
+        date1 = datetime.date(2015, 12, 25)
 
         req_info = unittests.common.mock_response(do_request, response_text)
         rule = LifecycleRule(id, prefix,
                              status=LifecycleRule.DISABLED,
-                             expiration=LifecycleExpiration(date=datetime.date(2015, 12, 25)))
+                             expiration=LifecycleExpiration(date=date1),
+                             storage_transitions=[StorageTransition(created_before_date=date1, storage_class=oss2.BUCKET_STORAGE_CLASS_STANDARD)],
+                             abort_multipart_upload=AbortMultipartUpload(created_before_date=date1))
         unittests.common.bucket().put_bucket_lifecycle(BucketLifecycle([rule]))
 
-        self.assertRequest(req_info, request_text.format(id, prefix, status, date))
+        self.assertRequest(req_info, request_text.format(id, prefix, status, date, date, date))
 
     @patch('oss2.Session.do_request')
     def test_put_lifecycle_days(self, do_request):
-        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle
+        from oss2.models import (LifecycleExpiration, LifecycleRule, BucketLifecycle, AbortMultipartUpload,
+                                 StorageTransition)
 
         request_text = '''PUT /?lifecycle= HTTP/1.1
 Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
@@ -335,7 +342,9 @@ User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
 Accept: */*
 authorization: OSS ZCDmm7TPZKHtx77j:BdIgh0100HCI1QkZKsArQvQafzY=
 
-<LifecycleConfiguration><Rule><ID>{0}</ID><Prefix>{1}</Prefix><Status>{2}</Status><Expiration><Days>{3}</Days></Expiration></Rule></LifecycleConfiguration>'''
+<LifecycleConfiguration><Rule><ID>{0}</ID><Prefix>{1}</Prefix><Status>{2}</Status>\
+<Expiration><Days>{3}</Days></Expiration><AbortMultipartUpload><Days>{5}</Days></AbortMultipartUpload>\
+<Transition><StorageClass>Standard</StorageClass><Days>{4}</Days></Transition></Rule></LifecycleConfiguration>'''
 
         response_text = '''HTTP/1.1 200 OK
 Server: AliyunOSS
@@ -353,10 +362,13 @@ x-oss-request-id: 566B6BDB1BA604C27DD419B8'''
 
         rule = LifecycleRule(id, prefix,
                              status=LifecycleRule.ENABLED,
-                             expiration=LifecycleExpiration(days=days))
+                             expiration=LifecycleExpiration(days=days),
+                             storage_transitions=[StorageTransition(days=days, storage_class=oss2.BUCKET_STORAGE_CLASS_STANDARD)],
+                             abort_multipart_upload=AbortMultipartUpload(days=days))
+
         unittests.common.bucket().put_bucket_lifecycle(BucketLifecycle([rule]))
 
-        self.assertRequest(req_info, request_text.format(id, prefix, status, days))
+        self.assertRequest(req_info, request_text.format(id, prefix, status, days, days, days))
 
     @patch('oss2.Session.do_request')
     def test_get_lifecycle_date(self, do_request):
@@ -457,6 +469,203 @@ x-oss-request-id: 566B6BDB1BA604C27DD419B0
         self.assertEqual(rule.status, status)
         self.assertEqual(rule.expiration.date, None)
         self.assertEqual(rule.expiration.days, days)
+
+    @patch('oss2.Session.do_request')
+    def test_get_lifecycle_storage_transition(self, do_request):
+        from oss2.models import LifecycleRule
+
+        request_text = '''GET /?lifecycle= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:38 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:mr0QeREuAcoeK0rSWBnobrzu6uU='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:38 GMT
+Content-Type: application/xml
+Content-Length: 277
+Connection: keep-alive
+x-oss-request-id: 566B6BDA010B7A4314D1614A
+
+<?xml version="1.0" encoding="UTF-8"?>
+<LifecycleConfiguration>
+  <Rule>
+    <ID>{0}</ID>
+    <Prefix>{1}</Prefix>
+    <Status>{2}</Status>
+    <Transition>
+        <Days>10</Days>
+        <StorageClass>Standard</StorageClass>
+    </Transition>
+    <Transition>
+        <Days>20</Days>
+        <StorageClass>IA</StorageClass>
+    </Transition>
+    <Transition>
+        <CreatedBeforeDate>{3}</CreatedBeforeDate>
+        <StorageClass>Archive</StorageClass>
+    </Transition>
+  </Rule>
+</LifecycleConfiguration>'''
+
+        id = 'whatever'
+        prefix = 'lifecycle rule 1'
+        status = LifecycleRule.DISABLED
+        date = '2015-12-25T00:00:00.000Z'
+        date1 = datetime.date(2015, 12, 25)
+
+        req_info = unittests.common.mock_response(do_request, response_text.format(id, prefix, status, date))
+        result = unittests.common.bucket().get_bucket_lifecycle()
+
+        self.assertRequest(req_info, request_text)
+
+        rule = result.rules[0]
+        self.assertEqual(rule.id, id)
+        self.assertEqual(rule.prefix, prefix)
+        self.assertEqual(rule.status, status)
+        self.assertEqual(len(rule.storage_transitions), 3)
+        self.assertEqual(rule.storage_transitions[0].days, 10)
+        self.assertEqual(rule.storage_transitions[0].storage_class, oss2.BUCKET_STORAGE_CLASS_STANDARD)
+        self.assertEqual(rule.storage_transitions[1].days, 20)
+        self.assertEqual(rule.storage_transitions[1].storage_class, oss2.BUCKET_STORAGE_CLASS_IA)
+        self.assertEqual(rule.storage_transitions[2].created_before_date, date1)
+        self.assertEqual(rule.storage_transitions[2].storage_class, oss2.BUCKET_STORAGE_CLASS_ARCHIVE)
+
+    @patch('oss2.Session.do_request')
+    def test_get_lifecycle_abort_multipart_days(self, do_request):
+        from oss2.models import LifecycleRule
+
+        request_text = '''GET /?lifecycle= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:38 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:mr0QeREuAcoeK0rSWBnobrzu6uU='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:38 GMT
+Content-Type: application/xml
+Content-Length: 277
+Connection: keep-alive
+x-oss-request-id: 566B6BDA010B7A4314D1614A
+
+<?xml version="1.0" encoding="UTF-8"?>
+<LifecycleConfiguration>
+  <Rule>
+    <ID>{0}</ID>
+    <Prefix>{1}</Prefix>
+    <Status>{2}</Status>
+    <AbortMultipartUpload>
+      <Days>{3}</Days>
+    </AbortMultipartUpload>
+  </Rule>
+</LifecycleConfiguration>'''
+
+        id = 'whatever'
+        prefix = 'lifecycle rule 1'
+        status = LifecycleRule.DISABLED
+        days = 10
+
+        req_info = unittests.common.mock_response(do_request, response_text.format(id, prefix, status, days))
+        result = unittests.common.bucket().get_bucket_lifecycle()
+
+        self.assertRequest(req_info, request_text)
+
+        rule = result.rules[0]
+        self.assertEqual(rule.id, id)
+        self.assertEqual(rule.prefix, prefix)
+        self.assertEqual(rule.status, status)
+        self.assertEqual(rule.abort_multipart_upload.days, days)
+
+    @patch('oss2.Session.do_request')
+    def test_get_lifecycle_abort_multipart_date(self, do_request):
+        from oss2.models import LifecycleRule
+
+        request_text = '''GET /?lifecycle= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:38 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:mr0QeREuAcoeK0rSWBnobrzu6uU='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:38 GMT
+Content-Type: application/xml
+Content-Length: 277
+Connection: keep-alive
+x-oss-request-id: 566B6BDA010B7A4314D1614A
+
+<?xml version="1.0" encoding="UTF-8"?>
+<LifecycleConfiguration>
+  <Rule>
+    <ID>{0}</ID>
+    <Prefix>{1}</Prefix>
+    <Status>{2}</Status>
+    <AbortMultipartUpload>
+      <CreatedBeforeDate>{3}</CreatedBeforeDate>
+    </AbortMultipartUpload>
+  </Rule>
+</LifecycleConfiguration>'''
+
+        id = 'whatever'
+        prefix = 'lifecycle rule 1'
+        status = LifecycleRule.DISABLED
+        date = '2015-12-25T00:00:00.000Z'
+        date1 = datetime.date(2015, 12, 25)
+
+        req_info = unittests.common.mock_response(do_request, response_text.format(id, prefix, status, date))
+        result = unittests.common.bucket().get_bucket_lifecycle()
+
+        self.assertRequest(req_info, request_text)
+
+        rule = result.rules[0]
+        self.assertEqual(rule.id, id)
+        self.assertEqual(rule.prefix, prefix)
+        self.assertEqual(rule.status, status)
+        self.assertEqual(rule.abort_multipart_upload.created_before_date, date1)
+
+    @patch('oss2.Session.do_request')
+    def test_get_stat(self, do_request):
+        request_text = '''GET /?stat HTTP/1.1
+Host: sbowspxjhmccpmesjqcwagfw.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:37:17 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:wopWcmMd/70eNKYOc9M6ZA21yY8='''
+
+        response_text = '''HTTP/1.1 403
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:37:17 GMT
+Content-Type: application/xml
+Content-Length: 287
+Connection: keep-alive
+x-oss-request-id: 566B6C3D6086505A0CFF0F68
+
+<?xml version="1.0" encoding="UTF-8"?>
+<Error>
+  <Code>AccessDenied</Code>
+  <Message>AccessDenied</Message>
+  <RequestId>566B6C3D6086505A0CFF0F68</RequestId>
+  <HostId>sbowspxjhmccpmesjqcwagfw.oss-cn-hangzhou.aliyuncs.com</HostId>
+</Error>'''
+
+        req_info = unittests.common.mock_response(do_request, response_text)
+        bucket = unittests.common.bucket()
+        bucket.bucket_name = 'sbowspxjhmccpmesjqcwagfw'
+        self.assertRaises(oss2.exceptions.AccessDenied, bucket.get_bucket_stat)
+        self.assertRequest(req_info, request_text)
 
     @patch('oss2.Session.do_request')
     def test_delete_lifecycle(self, do_request):

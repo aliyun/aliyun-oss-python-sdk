@@ -27,6 +27,11 @@ Bucket配置修改方法中的input参数
 `ListBucketsResult.buckets` 就是返回的Bucket信息列表；`GetObjectResult` 则是一个file-like object，可以调用 `read()` 来获取响应的
 HTTP包体。
 
+:class:`CryptoBucket`:
+加密接口
+-------
+CryptoBucket仅提供上传下载加密数据的接口，诸如`get_object` 、 `put_object` ，返回值与Bucket相应接口一致。
+
 
 异常
 ----
@@ -55,6 +60,32 @@ HTTP包体。
 后续的调用使用返回值中的 `next_marker` 、 `next_key_marker` 等。每次调用后检查返回值中的 `is_truncated` ，其值为 `False` 说明
 已经到了最后一页。
 
+.. _line_range:
+
+指定查询CSV文件范围
+------------
+诸如 :func:`select_object <Bucket.select_object>` 以及 :func:`select_object_to_file <Bucket.select_object_to_file>` 这样的函数的select_csv_params参数，可以接受
+`LineRange` 参数，表明读取CSV数据的范围。该参数是一个二元tuple：(start, last):
+    - LineRange 为 (0, 99) 表示读取前100行
+    - LineRange 为 (None, 99) 表示读取最后99行
+    - LineRange 为 (100, None) 表示读取第101行到文件结尾的部分（包含第101行）
+
+.. _split_range:
+
+指定查询CSV文件范围
+------------
+split可以认为是切分好的大小大致相等的csv行簇。每个Split大小大致相等，这样以便更好的做到负载均衡。
+诸如 :func:`select_object <Bucket.select_object>` 以及 :func:`select_object_to_file <Bucket.select_object_to_file>` 这样的函数的select_csv_params参数，可以接受
+`SplitRange` 参数，表明读取CSV数据的范围。该参数是一个二元tuple：(start, last):
+    - SplitRange 为 (0, 9) 表示读取前10个Split
+    - SplitRange 为 (None, 9) 表示读取最后9个split
+    - SplitRange 为 (10, None) 表示读取第11个split到文件结尾的部分（包含第11个Split）
+
+分页查询
+-------
+和create_csv_object_meta配合使用，有两种方法：
+    - 方法1：先获取文件总的行数(create_csv_object_meta返回)，然后把文件以line_range分成若干部分并行查询
+    - 方法2：先获取文件总的Split数(create_csv_object_meta返回), 然后把文件分成若干个请求，每个请求含有大致相等的Split
 
 .. _progress_callback:
 
@@ -108,20 +139,65 @@ datetime.date之间相互转换。如 ::
     >>> d = oss2.iso8601_to_date('2015-12-05T00:00:00.000Z')  # 得到 datetime.date(2015, 12, 5)
     >>> date_str = oss2.date_to_iso8601(d)                    # 得到 '2015-12-05T00:00:00.000Z'
     >>> oss2.iso8601_to_unixtime(date_str)                    # 得到 1449273600
+
+.. _select_params:
+
+    指定OSS Select的文件格式。
+    对于Csv文件，支持如下Keys:
+    >>> CsvHeaderInfo: None|Use|Ignore   #None表示没有CSV Schema头，Use表示启用CSV Schema头，可以在Select语句中使用Name，Ignore表示有CSV Schema头，但忽略它（Select语句中不可以使用Name)
+                        默认值是None
+    >>> CommentCharacter: Comment字符,默认值是#,不支持多个字符
+    >>> RecordDelimiter: 行分隔符，默认是\n,最多支持两个字符分隔符（比如:\r\n)
+    >>> FieldDelimiter: 列分隔符，默认是逗号(,), 不支持多个字符
+    >>> QuoteCharacter: 列Quote字符，默认是双引号("),不支持多个字符。注意转义符合Quote字符相同。
+    >>> LineRange: 指定查询CSV文件的行范围，参见 `line_range`。
+    >>> SplitRange: 指定查询CSV文件的Split范围，参见 `split_range`.
+        注意LineRange和SplitRange两种不能同时指定。若同时指定LineRange会被忽略。
+    >>> CompressionType: 文件的压缩格式，默认值是None, 支持GZIP。
+    >>> OutputRawData: 指定是响应Body返回Raw数据，默认值是False.
+    >>> SkipPartialDataRecord: 当CSV行数据不完整时(select语句中出现的列在该行为空)，是否跳过该行。默认是False。
+    >>> OutputHeader:是否输出CSV Header，默认是False.
+    >>> EnablePayloadCrc:是否启用对Payload的CRC校验,默认是False. 该选项不能和OutputRawData:True混用。
+    >>> MaxSkippedRecordsAllowed: 允许跳过的最大行数。默认值是0表示一旦有一行跳过就报错。当下列两种情况下该行CSV被跳过:1）当SkipPartialDataRecord为True时且该行不完整时 2）当该行的数据类型和SQL不匹配时
+    对于Json 文件, 支持如下Keys:
+    >>> Json_Type: DOCUMENT | LINES . DOCUMENT就是指一般的Json文件，LINES是指每一行是一个合法的JSON对象，文件由多行Json对象组成，整个文件本身不是合法的Json对象。
+    >>> LineRange: 指定查询JSON LINE文件的行范围，参见 `line_range`。注意该参数仅支持LINES类型
+    >>> SplitRange: 指定查询JSON LINE文件的Split范围，参见 `split_range`.注意该参数仅支持LINES类型
+    >>> CompressionType: 文件的压缩格式，默认值是None, 支持GZIP。
+    >>> OutputRawData: 指定是响应Body返回Raw数据，默认值是False. 
+    >>> SkipPartialDataRecord: 当一条JSON记录数据不完整时(select语句中出现的Key在该对象为空)，是否跳过该Json记录。默认是False。
+    >>> EnablePayloadCrc:是否启用对Payload的CRC校验,默认是False. 该选项不能和OutputRawData:True混用。
+    >>> MaxSkippedRecordsAllowed: 允许跳过的最大Json记录数。默认值是0表示一旦有一条Json记录跳过就报错。当下列两种情况下该JSON被跳过:1）当SkipPartialDataRecord为True时且该条Json记录不完整时 2）当该记录的数据类型和SQL不匹配时
+
+.. _select_meta_params:
+
+    create_select_object_meta参数集合，支持如下Keys:
+    - RecordDelimiter: CSV换行符，最多支持两个字符
+    - FieldDelimiter: CSV列分隔符，最多支持一个字符
+    - QuoteCharacter: CSV转移Quote符，最多支持一个字符
+    - OverwriteIfExists: true|false. true表示重新获得csv meta，并覆盖原有的meta。一般情况下不需要使用
+
 """
+import logging
 
 from . import xml_utils
 from . import http
 from . import utils
 from . import exceptions
 from . import defaults
+from . import models
 
 from .models import *
 from .compat import urlquote, urlparse, to_unicode, to_string
+from .crypto import BaseCryptoProvider
+from .headers import *
 
 import time
 import shutil
-import oss2.utils
+import base64
+
+logger = logging.getLogger(__name__)
+
 
 class _Base(object):
     def __init__(self, auth, endpoint, is_cname, session, connect_timeout,
@@ -144,12 +220,31 @@ class _Base(object):
 
         resp = self.session.do_request(req, timeout=self.timeout)
         if resp.status // 100 != 2:
-            raise exceptions.make_exception(resp)
-        
-        # Note that connections are only released back to the pool for reuse once all body data has been read; 
+            e = exceptions.make_exception(resp)
+            logger.error("Exception: {0}".format(e))
+            raise e
+
+        # Note that connections are only released back to the pool for reuse once all body data has been read;
         # be sure to either set stream to False or read the content property of the Response object.
         # For more details, please refer to http://docs.python-requests.org/en/master/user/advanced/#keep-alive.
-        content_length = oss2.models._hget(resp.headers, 'content-length', int)
+        content_length = models._hget(resp.headers, 'content-length', int)
+        if content_length is not None and content_length == 0:
+            resp.read()
+
+        return resp
+
+    def _do_url(self, method, sign_url, **kwargs):
+        req = http.Request(method, sign_url, app_name=self.app_name, **kwargs)
+        resp = self.session.do_request(req, timeout=self.timeout)
+        if resp.status // 100 != 2:
+            e = exceptions.make_exception(resp)
+            logger.error("Exception: {0}".format(e))
+            raise e
+
+        # Note that connections are only released back to the pool for reuse once all body data has been read;
+        # be sure to either set stream to False or read the content property of the Response object.
+        # For more details, please refer to http://docs.python-requests.org/en/master/user/advanced/#keep-alive.
+        content_length = models._hget(resp.headers, 'content-length', int)
         if content_length is not None and content_length == 0:
             resp.read()
 
@@ -184,10 +279,13 @@ class Service(_Base):
     :param str app_name: 应用名。该参数不为空，则在User Agent中加入其值。
         注意到，最终这个字符串是要作为HTTP Header的值传输的，所以必须要遵循HTTP标准。
     """
+
     def __init__(self, auth, endpoint,
                  session=None,
                  connect_timeout=None,
                  app_name=''):
+        logger.debug("Init oss service, endpoint: {0}, connect_timeout: {1}, app_name: {2}".format(
+            endpoint, connect_timeout, app_name))
         super(Service, self).__init__(auth, endpoint, False, session, connect_timeout,
                                       app_name=app_name)
 
@@ -201,12 +299,13 @@ class Service(_Base):
         :return: 罗列的结果
         :rtype: oss2.models.ListBucketsResult
         """
+        logger.debug("Start to list buckets, prefix: {0}, marker: {1}, max-keys: {2}".format(prefix, marker, max_keys))
         resp = self._do('GET', '', '',
                         params={'prefix': prefix,
                                 'marker': marker,
                                 'max-keys': str(max_keys)})
+        logger.debug("List buckets done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_buckets, ListBucketsResult)
-
 
 class Bucket(_Base):
     """用于Bucket和Object操作的类，诸如创建、删除Bucket，上传、下载Object等。
@@ -247,6 +346,9 @@ class Bucket(_Base):
     STATUS = 'status'
     VOD = 'vod'
     SYMLINK = 'symlink'
+    STAT = 'stat'
+    BUCKET_INFO = 'bucketInfo'
+    PROCESS = 'x-oss-process'
 
     def __init__(self, auth, endpoint, bucket_name,
                  is_cname=False,
@@ -254,9 +356,11 @@ class Bucket(_Base):
                  connect_timeout=None,
                  app_name='',
                  enable_crc=True):
+        logger.debug("Init oss bucket, endpoint: {0}, isCname: {1}, connect_timeout: {2}, app_name: {3}, enabled_crc: "
+                     "{4}".format(endpoint, is_cname, connect_timeout, app_name, enable_crc))
         super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout,
                                      app_name, enable_crc)
-                
+
         self.bucket_name = bucket_name.strip()
 
     def sign_url(self, method, key, expires, headers=None, params=None):
@@ -265,7 +369,7 @@ class Bucket(_Base):
         常见的用法是生成加签的URL以供授信用户下载，如为log.jpg生成一个5分钟后过期的下载链接::
 
             >>> bucket.sign_url('GET', 'log.jpg', 5 * 60)
-            'http://your-bucket.oss-cn-hangzhou.aliyuncs.com/logo.jpg?OSSAccessKeyId=YourAccessKeyId\&Expires=1447178011&Signature=UJfeJgvcypWq6Q%2Bm3IJcSHbvSak%3D'
+            r'http://your-bucket.oss-cn-hangzhou.aliyuncs.com/logo.jpg?OSSAccessKeyId=YourAccessKeyId\&Expires=1447178011&Signature=UJfeJgvcypWq6Q%2Bm3IJcSHbvSak%3D'
 
         :param method: HTTP方法，如'GET'、'PUT'、'DELETE'等
         :type method: str
@@ -281,6 +385,9 @@ class Bucket(_Base):
         :return: 签名URL。
         """
         key = to_string(key)
+        logger.debug(
+            "Start to sign_url, method: {0}, bucket: {1}, key: {2}, expires: {3}, headers: {4}, params: {5}".format(
+                method, self.bucket_name, to_string(key), expires, headers, params))
         req = http.Request(method, self._make_url(self.bucket_name, key),
                            headers=headers,
                            params=params)
@@ -296,11 +403,15 @@ class Bucket(_Base):
         :param params: 需要签名的HTTP查询参数
 
         :return: 签名URL。
-        """        
-        url = self._make_url(self.bucket_name, 'live').replace('http://', 'rtmp://').replace('https://', 'rtmp://') + '/' + channel_name
+        """
+        logger.debug("Sign RTMP url, bucket: {0}, channel_name: {1}, playlist_name: {2}, expires: {3}".format(
+            self.bucket_name, channel_name, playlist_name, expires))
+        url = self._make_url(self.bucket_name, 'live').replace('http://', 'rtmp://').replace(
+            'https://', 'rtmp://') + '/' + channel_name
         params = {}
-        params['playlistName'] = playlist_name
-        return self.auth._sign_rtmp_url(url, self.bucket_name, channel_name, playlist_name, expires, params)
+        if playlist_name is not None and playlist_name != "":
+            params['playlistName'] = playlist_name
+        return self.auth._sign_rtmp_url(url, self.bucket_name, channel_name, expires, params)
 
     def list_objects(self, prefix='', delimiter='', marker='', max_keys=100):
         """根据前缀罗列Bucket里的文件。
@@ -312,12 +423,16 @@ class Bucket(_Base):
 
         :return: :class:`ListObjectsResult <oss2.models.ListObjectsResult>`
         """
+        logger.debug(
+            "Start to List objects, bucket: {0}, prefix: {1}, delimiter: {2}, marker: {3}, max-keys: {4}".format(
+                self.bucket_name, to_string(prefix), delimiter, to_string(marker), max_keys))
         resp = self.__do_object('GET', '',
                                 params={'prefix': prefix,
                                         'delimiter': delimiter,
                                         'marker': marker,
                                         'max-keys': str(max_keys),
                                         'encoding-type': 'url'})
+        logger.debug("List objects done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_objects, ListObjectsResult)
 
     def put_object(self, key, data,
@@ -346,16 +461,19 @@ class Bucket(_Base):
 
         if progress_callback:
             data = utils.make_progress_adapter(data, progress_callback)
-        
+
         if self.enable_crc:
             data = utils.make_crc_adapter(data)
 
+        logger.debug("Start to put object, bucket: {0}, key: {1}, headers: {2}".format(self.bucket_name, to_string(key),
+                                                                                       headers))
         resp = self.__do_object('PUT', key, data=data, headers=headers)
+        logger.debug("Put object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         result = PutObjectResult(resp)
-        
+
         if self.enable_crc and result.crc is not None:
-            utils.check_crc('put', data.crc, result.crc)
-            
+            utils.check_crc('put object', data.crc, result.crc, result.request_id)
+
         return result
 
     def put_object_from_file(self, key, filename,
@@ -374,9 +492,56 @@ class Bucket(_Base):
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), filename)
-
+        logger.debug("Put object from file, bucket: {0}, key: {1}, file path: {2}".format(
+            self.bucket_name, to_string(key), filename))
         with open(to_unicode(filename), 'rb') as f:
             return self.put_object(key, f, headers=headers, progress_callback=progress_callback)
+
+    def put_object_with_url(self, sign_url, data, headers=None, progress_callback=None):
+
+        """ 使用加签的url上传对象
+
+        :param sign_url: 加签的url
+        :param data: 待上传的数据
+        :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-meta-开头的头部等，必须和签名时保持一致
+        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
+        :return:
+        """
+        headers = http.CaseInsensitiveDict(headers)
+
+        if progress_callback:
+            data = utils.make_progress_adapter(data, progress_callback)
+
+        if self.enable_crc:
+            data = utils.make_crc_adapter(data)
+
+        logger.debug("Start to put object with signed url, bucket: {0}, sign_url: {1}, headers: {2}".format(
+            self.bucket_name, sign_url, headers))
+
+        resp = self._do_url('PUT', sign_url, data=data, headers=headers)
+        logger.debug("Put object with url done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        result = PutObjectResult(resp)
+
+        if self.enable_crc and result.crc is not None:
+            utils.check_crc('put object', data.crc, result.crc, result.request_id)
+
+        return result
+
+    def put_object_with_url_from_file(self, sign_url, filename,
+                                      headers=None,
+                                      progress_callback=None):
+        """ 使用加签的url上传本地文件到oss
+
+        :param sign_url: 加签的url
+        :param filename: 本地文件路径
+        :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-meta-开头的头部等，必须和签名时保持一致
+        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
+        :return:
+        """
+        logger.debug("Put object from file with signed url, bucket: {0}, sign_url: {1}, file path: {2}".format(
+            self.bucket_name, sign_url, filename))
+        with open(to_unicode(filename), 'rb') as f:
+            return self.put_object_with_url(sign_url, f, headers=headers, progress_callback=progress_callback)
 
     def append_object(self, key, position, data,
                       headers=None,
@@ -406,26 +571,30 @@ class Bucket(_Base):
 
         if progress_callback:
             data = utils.make_progress_adapter(data, progress_callback)
-        
+
         if self.enable_crc and init_crc is not None:
             data = utils.make_crc_adapter(data, init_crc)
 
+        logger.debug("Start to append object, bucket: {0}, key: {1}, headers: {2}, position: {3}".format(
+            self.bucket_name, to_string(key), headers, position))
         resp = self.__do_object('POST', key,
                                 data=data,
                                 headers=headers,
                                 params={'append': '', 'position': str(position)})
-        result =  AppendObjectResult(resp)
-    
+        logger.debug("Append object done, req_id: {0}, statu_code: {1}".format(resp.request_id, resp.status))
+        result = AppendObjectResult(resp)
+
         if self.enable_crc and result.crc is not None and init_crc is not None:
-            utils.check_crc('append', data.crc, result.crc)
-            
+            utils.check_crc('append object', data.crc, result.crc, result.request_id)
+
         return result
 
     def get_object(self, key,
                    byte_range=None,
                    headers=None,
                    progress_callback=None,
-                   process=None):
+                   process=None,
+                   params=None):
         """下载一个文件。
 
         用法 ::
@@ -443,7 +612,10 @@ class Bucket(_Base):
         :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
 
         :param process: oss文件处理，如图像服务等。指定后process，返回的内容为处理后的文件。
-        
+
+        :param params: http 请求的查询字符串参数
+        :type params: dict
+
         :return: file-like object
 
         :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
@@ -453,19 +625,64 @@ class Bucket(_Base):
         range_string = _make_range_string(byte_range)
         if range_string:
             headers['range'] = range_string
-        
-        params = None
-        if process: 
-            params={'x-oss-process': process}
-        
+
+        params = {} if params is None else params
+        if process:
+            params.update({Bucket.PROCESS: process})
+
+        logger.debug("Start to get object, bucket: {0}， key: {1}, range: {2}, headers: {3}, params: {4}".format(
+            self.bucket_name, to_string(key), range_string, headers, params))
         resp = self.__do_object('GET', key, headers=headers, params=params)
+        logger.debug("Get object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
         return GetObjectResult(resp, progress_callback, self.enable_crc)
+
+    def select_object(self, key, sql,
+                   progress_callback=None,
+                   select_params=None
+                   ):
+        """Select一个文件内容，支持(Csv,Json Doc,Json Lines及其GZIP压缩文件).
+
+        用法 ::
+        对于Csv:
+            >>> result = bucket.select_object('access.log', 'select * from ossobject where _4 > 40')
+            >>> print(result.read())
+            'hello world'
+        对于Json Doc: { contacts:[{"firstName":"abc", "lastName":"def"},{"firstName":"abc1", "lastName":"def1"}]}
+            >>> result = bucket.select_object('sample.json', 'select s.firstName, s.lastName from ossobject.contacts[*] s', select_params = {"Json_Type":"DOCUMENT"})
+        
+        对于Json Lines: {"firstName":"abc", "lastName":"def"},{"firstName":"abc1", "lastName":"def1"}
+            >>> result = bucket.select_object('sample.json', 'select s.firstName, s.lastName from ossobject s', select_params = {"Json_Type":"LINES"})
+
+        :param key: 文件名
+        :param sql: sql statement
+        :param select_params: select参数集合,对于Json文件必须制定Json_Type类型。参见 :ref:`select_params`
+
+        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
+        :return: file-like object
+
+        :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
+        """
+        headers = http.CaseInsensitiveDict()
+        body = xml_utils.to_select_object(sql, select_params)
+        params = {'x-oss-process':  'csv/select'}
+        if select_params is not None and 'Json_Type' in select_params:
+            params['x-oss-process'] = 'json/select'
+
+        self.timeout = 3600
+        resp = self.__do_object('POST', key, data=body, headers=headers, params=params)
+        crc_enabled = False
+        if select_params is not None and 'EnablePayloadCrc' in select_params:
+            if select_params['EnablePayloadCrc'] == True:
+                crc_enabled = True
+        return SelectObjectResult(resp, progress_callback, crc_enabled)
 
     def get_object_to_file(self, key, filename,
                            byte_range=None,
                            headers=None,
                            progress_callback=None,
-                           process=None):
+                           process=None,
+                           params=None):
         """下载一个文件到本地文件。
 
         :param key: 文件名
@@ -476,19 +693,114 @@ class Bucket(_Base):
         :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
 
         :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
-    
+
         :param process: oss文件处理，如图像服务等。指定后process，返回的内容为处理后的文件。
+
+        :param params: http 请求的查询字符串参数
+        :type params: dict
 
         :return: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
+        logger.debug("Start to get object to file, bucket: {0}, key: {1}, file path: {2}".format(
+            self.bucket_name, to_string(key), filename))
         with open(to_unicode(filename), 'wb') as f:
             result = self.get_object(key, byte_range=byte_range, headers=headers, progress_callback=progress_callback,
-                                     process=process)
+                                     process=process, params=params)
 
             if result.content_length is None:
                 shutil.copyfileobj(result, f)
             else:
                 utils.copyfileobj_and_verify(result, f, result.content_length, request_id=result.request_id)
+
+            if self.enable_crc and byte_range is None:
+                if (headers is None) or ('Accept-Encoding' not in headers) or (headers['Accept-Encoding'] != 'gzip'):
+                    utils.check_crc('get', result.client_crc, result.server_crc, result.request_id)
+
+            return result
+
+    def get_object_with_url(self, sign_url,
+                            byte_range=None,
+                            headers=None,
+                            progress_callback=None):
+        """使用加签的url下载文件
+
+        :param sign_url: 加签的url
+        :param byte_range: 指定下载范围。参见 :ref:`byte_range`
+
+        :param headers: HTTP头部
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict，必须和签名时保持一致
+
+        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
+
+        :return: file-like object
+
+        :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
+        """
+        headers = http.CaseInsensitiveDict(headers)
+
+        range_string = _make_range_string(byte_range)
+        if range_string:
+            headers['range'] = range_string
+
+        logger.debug("Start to get object with url, bucket: {0}, sign_url: {1}, range: {2}, headers: {3}".format(
+            self.bucket_name, sign_url, range_string, headers))
+        resp = self._do_url('GET', sign_url, headers=headers)
+        return GetObjectResult(resp, progress_callback, self.enable_crc)
+
+    def get_object_with_url_to_file(self, sign_url,
+                                    filename,
+                                    byte_range=None,
+                                    headers=None,
+                                    progress_callback=None):
+        """使用加签的url下载文件
+
+        :param sign_url: 加签的url
+        :param filename: 本地文件名。要求父目录已经存在，且有写权限。
+        :param byte_range: 指定下载范围。参见 :ref:`byte_range`
+
+        :param headers: HTTP头部
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict，，必须和签名时保持一致
+
+        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
+
+        :return: file-like object
+
+        :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
+        """
+        logger.debug(
+            "Start to get object with url, bucket: {0}, sign_url: {1}, file path: {2}, range: {3}, headers: {4}"
+            .format(self.bucket_name, sign_url, filename, byte_range, headers))
+
+        with open(to_unicode(filename), 'wb') as f:
+            result = self.get_object_with_url(sign_url, byte_range=byte_range, headers=headers,
+                                              progress_callback=progress_callback)
+            if result.content_length is None:
+                shutil.copyfileobj(result, f)
+            else:
+                utils.copyfileobj_and_verify(result, f, result.content_length, request_id=result.request_id)
+
+            return result
+
+    def select_object_to_file(self, key, filename, sql,
+                   progress_callback=None,
+                   select_params=None
+                   ):
+        """Select一个文件的内容到本地文件
+
+        :param key: OSS文件名
+        :param filename: 本地文件名。其父亲目录已经存在且有写权限。
+
+        :param progress_callback: 调用进度的callback。参考 :ref:`progress_callback`
+        :param select_params: select参数集合。参见 :ref:`select_params`
+
+        :return: 如果文件不存在, 抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>`
+        """
+        with open(to_unicode(filename), 'wb') as f:
+            result = self.select_object(key, sql, progress_callback=progress_callback,
+                                        select_params=select_params)
+
+            for chunk in result:
+                f.write(chunk)
 
             return result
 
@@ -511,9 +823,48 @@ class Bucket(_Base):
 
         :raises: 如果Bucket不存在或者Object不存在，则抛出 :class:`NotFound <oss2.exceptions.NotFound>`
         """
+        logger.debug("Start to head object, bucket: {0}, key: {1}, headers: {2}".format(
+            self.bucket_name, to_string(key), headers))
         resp = self.__do_object('HEAD', key, headers=headers)
+        logger.debug("Head object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return HeadObjectResult(resp)
-    
+
+    def create_select_object_meta(self, key, select_meta_params=None):
+        """获取或创建CSV,JSON LINES 文件元信息。如果元信息存在，返回之；不然则创建后返回之
+
+        HTTP响应的头部包含了文件元信息，可以通过 `RequestResult` 的 `headers` 成员获得。
+        CSV文件用法 ::
+
+            >>> select_meta_params = {  'FieldDelimiter': ',',
+                                'RecordDelimiter': '\r\n',
+                                'QuoteCharacter': '"',
+                                'OverwriteIfExists' : 'false'}
+            >>> result = bucket.create_select_object_meta('csv.txt', select_meta_params)
+            >>> print(result.rows)
+           
+        JSON LINES文件用法 ::
+            >>> select_meta_params = { 'Json_Type':'LINES', 'OverwriteIfExists':'False'}
+            >>> result = bucket.create_select_object_meta('jsonlines.json', select_meta_params)
+        :param key: 文件名
+        :param select_meta_params: 参数词典，可以是dict，参见ref:`csv_meta_params`
+        :return: :class:`GetSelectObjectMetaResult <oss2.models.HeadObjectResult>`. 
+          除了 rows 和splits 属性之外, 它也返回head object返回的其他属性。
+          rows表示该文件的总记录数。
+          splits表示该文件的总Split个数，一个Split包含若干条记录，每个Split的总字节数大致相当。用户可以以Split为单位进行分片查询。
+
+        :raises: 如果Bucket不存在或者Object不存在，则抛出:class:`NotFound <oss2.exceptions.NotFound>`
+        """
+        headers = http.CaseInsensitiveDict()
+
+        body = xml_utils.to_get_select_object_meta(select_meta_params)
+        params = {'x-oss-process':  'csv/meta'}
+        if select_meta_params is not None and 'Json_Type' in select_meta_params:
+            params['x-oss-process'] = 'json/meta'
+
+        self.timeout = 3600
+        resp = self.__do_object('POST', key, data=body, headers=headers, params=params)
+        return GetSelectObjectMetaResult(resp)
+
     def get_object_meta(self, key):
         """获取文件基本元信息，包括该Object的ETag、Size（文件大小）、LastModified，并不返回其内容。
 
@@ -525,7 +876,9 @@ class Bucket(_Base):
 
         :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
+        logger.debug("Start to get object metadata, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
         resp = self.__do_object('GET', key, params={'objectMeta': ''})
+        logger.debug("Get object metadata done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return GetObjectMetaResult(resp)
 
     def object_exists(self, key):
@@ -536,16 +889,17 @@ class Bucket(_Base):
         #
         # 2.2.0之前的实现是通过get_object的if-modified-since头部，把date设为当前时间24小时后，这样如果文件存在，则会返回
         # 304 (NotModified)；不存在，则会返回NoSuchKey。get_object会受回源的影响，如果配置会404回源，get_object会判断错误。
-        # 
+        #
         # 目前的实现是通过get_object_meta判断文件是否存在。
 
+        logger.debug("Start to check if object exists, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
         try:
             self.get_object_meta(key)
         except exceptions.NoSuchKey:
             return False
         except:
             raise
-        
+
         return True
 
     def copy_object(self, source_bucket_name, source_key, target_key, headers=None):
@@ -561,9 +915,13 @@ class Bucket(_Base):
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         headers = http.CaseInsensitiveDict(headers)
-        headers['x-oss-copy-source'] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
+        headers[OSS_COPY_OBJECT_SOURCE] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
 
+        logger.debug(
+            "Start to copy object, source bucket: {0}, source key: {1}, bucket: {2}, key: {3}, headers: {4}".format(
+                source_bucket_name, to_string(source_key), self.bucket_name, to_string(target_key), headers))
         resp = self.__do_object('PUT', target_key, headers=headers)
+        logger.debug("Copy object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return PutObjectResult(resp)
 
@@ -579,6 +937,7 @@ class Bucket(_Base):
 
         :return: :class:`RequestResult <oss2.models.RequestResults>`
         """
+        logger.debug("Start to update object metadata, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
         return self.copy_object(self.bucket_name, key, key, headers=headers)
 
     def delete_object(self, key):
@@ -588,7 +947,36 @@ class Bucket(_Base):
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
+        logger.warn("Start to delete object, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
         resp = self.__do_object('DELETE', key)
+        logger.debug("Delete object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
+
+    def restore_object(self, key):
+        """restore an object
+            如果是第一次针对该object调用接口，返回RequestResult.status = 202；
+            如果已经成功调用过restore接口，且服务端仍处于解冻中，抛异常RestoreAlreadyInProgress(status=409)
+            如果已经成功调用过restore接口，且服务端解冻已经完成，再次调用时返回RequestResult.status = 200，且会将object的可下载时间延长一天，最多延长7天。
+            如果object不存在，则抛异常NoSuchKey(status=404)；
+            对非Archive类型的Object提交restore，则抛异常OperationNotSupported(status=400)
+
+            也可以通过调用head_object接口来获取meta信息来判断是否可以restore与restore的状态
+            代码示例::
+            >>> meta = bucket.head_object(key)
+            >>> if meta.resp.headers['x-oss-storage-class'] == oss2.BUCKET_STORAGE_CLASS_ARCHIVE:
+            >>>     bucket.restore_object(key)
+            >>>         while True:
+            >>>             meta = bucket.head_object(key)
+            >>>             if meta.resp.headers['x-oss-restore'] == 'ongoing-request="true"':
+            >>>                 time.sleep(5)
+            >>>             else:
+            >>>                 break
+        :param str key: object name
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to restore object, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
+        resp = self.__do_object('POST', key, params={'restore': ''})
+        logger.debug("Restore object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def put_object_acl(self, key, permission):
@@ -600,7 +988,10 @@ class Bucket(_Base):
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
-        resp = self.__do_object('PUT', key, params={'acl': ''}, headers={'x-oss-object-acl': permission})
+        logger.debug("Start to put object acl, bucket: {0}, key: {1}, acl: {2}".format(
+            self.bucket_name, to_string(key), permission))
+        resp = self.__do_object('PUT', key, params={'acl': ''}, headers={OSS_OBJECT_ACL: permission})
+        logger.debug("Put object acl done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def get_object_acl(self, key):
@@ -608,7 +999,9 @@ class Bucket(_Base):
 
         :return: :class:`GetObjectAclResult <oss2.models.GetObjectAclResult>`
         """
+        logger.debug("Start to get object acl, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
         resp = self.__do_object('GET', key, params={'acl': ''})
+        logger.debug("Get object acl done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_get_object_acl, GetObjectAclResult)
 
     def batch_delete_objects(self, key_list):
@@ -622,11 +1015,13 @@ class Bucket(_Base):
         if not key_list:
             raise ClientError('key_list should not be empty')
 
+        logger.debug("Start to delete objects, bucket: {0}, keys: {1}".format(self.bucket_name, key_list))
         data = xml_utils.to_batch_delete_objects_request(key_list, False)
         resp = self.__do_object('POST', '',
                                 data=data,
                                 params={'delete': '', 'encoding-type': 'url'},
                                 headers={'Content-MD5': utils.content_md5(data)})
+        logger.debug("Delete objects done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_batch_delete_objects, BatchDeleteObjectsResult)
 
     def init_multipart_upload(self, key, headers=None):
@@ -643,7 +1038,10 @@ class Bucket(_Base):
         """
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), key)
 
+        logger.debug("Start to init multipart upload, bucket: {0}, keys: {1}, headers: {2}".format(
+            self.bucket_name, to_string(key), headers))
         resp = self.__do_object('POST', key, params={'uploads': ''}, headers=headers)
+        logger.debug("Init multipart upload done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_init_multipart_upload, InitMultipartUploadResult)
 
     def upload_part(self, key, upload_id, part_number, data, progress_callback=None, headers=None):
@@ -662,19 +1060,23 @@ class Bucket(_Base):
         """
         if progress_callback:
             data = utils.make_progress_adapter(data, progress_callback)
-        
+
         if self.enable_crc:
             data = utils.make_crc_adapter(data)
 
+        logger.debug(
+            "Start to upload multipart, bucket: {0}, key: {1}, upload_id: {2}, part_number: {3}, headers: {4}".format(
+                self.bucket_name, to_string(key), upload_id, part_number, headers))
         resp = self.__do_object('PUT', key,
                                 params={'uploadId': upload_id, 'partNumber': str(part_number)},
                                 headers=headers,
                                 data=data)
+        logger.debug("Upload multipart done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         result = PutObjectResult(resp)
-    
+
         if self.enable_crc and result.crc is not None:
-            utils.check_crc('put', data.crc, result.crc)
-        
+            utils.check_crc('upload part', data.crc, result.crc, result.request_id)
+
         return result
 
     def complete_multipart_upload(self, key, upload_id, parts, headers=None):
@@ -691,13 +1093,26 @@ class Bucket(_Base):
 
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
-        data = xml_utils.to_complete_upload_request(sorted(parts, key=lambda p: p.part_number))
+        parts = sorted(parts, key=lambda p: p.part_number);
+        data = xml_utils.to_complete_upload_request(parts);
+
+        logger.debug("Start to complete multipart upload, bucket: {0}, key: {1}, upload_id: {2}, parts: {3}".format(
+            self.bucket_name, to_string(key), upload_id, data))
+
         resp = self.__do_object('POST', key,
                                 params={'uploadId': upload_id},
                                 data=data,
                                 headers=headers)
+        logger.debug(
+            "Complete multipart upload done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
-        return PutObjectResult(resp)
+        result = PutObjectResult(resp);
+
+        if self.enable_crc:
+            object_crc = utils.calc_obj_crc_from_parts(parts)
+            utils.check_crc('resumable upload', object_crc, result.crc, result.request_id)
+
+        return result
 
     def abort_multipart_upload(self, key, upload_id):
         """取消分片上传。
@@ -707,8 +1122,12 @@ class Bucket(_Base):
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
+
+        logger.debug("Start to abort multipart upload, bucket: {0}, key: {1}, upload_id: {2}".format(
+            self.bucket_name, to_string(key), upload_id))
         resp = self.__do_object('DELETE', key,
                                 params={'uploadId': upload_id})
+        logger.debug("Abort multipart done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def list_multipart_uploads(self,
@@ -727,6 +1146,10 @@ class Bucket(_Base):
 
         :return: :class:`ListMultipartUploadsResult <oss2.models.ListMultipartUploadsResult>`
         """
+        logger.debug("Start to list multipart uploads, bucket: {0}, prefix: {1}, delimiter: {2}, key_marker: {3}, "
+                     "upload_id_marker: {4}, max_uploads: {5}".format(self.bucket_name, to_string(prefix), delimiter,
+                                                                      to_string(key_marker), upload_id_marker,
+                                                                      max_uploads))
         resp = self.__do_object('GET', '',
                                 params={'uploads': '',
                                         'prefix': prefix,
@@ -735,6 +1158,7 @@ class Bucket(_Base):
                                         'upload-id-marker': upload_id_marker,
                                         'max-uploads': str(max_uploads),
                                         'encoding-type': 'url'})
+        logger.debug("List multipart uploads done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_multipart_uploads, ListMultipartUploadsResult)
 
     def upload_part_copy(self, source_bucket_name, source_key, byte_range,
@@ -750,16 +1174,24 @@ class Bucket(_Base):
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         headers = http.CaseInsensitiveDict(headers)
-        headers['x-oss-copy-source'] = '/' + source_bucket_name + '/' + source_key
+        headers[OSS_COPY_OBJECT_SOURCE] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
 
         range_string = _make_range_string(byte_range)
         if range_string:
-            headers['x-oss-copy-source-range'] = range_string
+            headers[OSS_COPY_OBJECT_SOURCE_RANGE] = range_string
 
+        logger.debug("Start to upload part copy, source bucket: {0}, source key: {1}, bucket: {2}, key: {3}, range"
+                     ": {4}, upload id: {5}, part_number: {6}, headers: {7}".format(source_bucket_name,
+                                                                                    to_string(source_key),
+                                                                                    self.bucket_name,
+                                                                                    to_string(target_key),
+                                                                                    byte_range, target_upload_id,
+                                                                                    target_part_number, headers))
         resp = self.__do_object('PUT', target_key,
                                 params={'uploadId': target_upload_id,
                                         'partNumber': str(target_part_number)},
                                 headers=headers)
+        logger.debug("Upload part copy done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return PutObjectResult(resp)
 
@@ -774,23 +1206,29 @@ class Bucket(_Base):
 
         :return: :class:`ListPartsResult <oss2.models.ListPartsResult>`
         """
+        logger.debug("Start to list parts, bucket: {0}, key: {1}, upload_id: {2}, marker: {3}, max_parts: {4}".format(
+            self.bucket_name, to_string(key), upload_id, marker, max_parts))
         resp = self.__do_object('GET', key,
                                 params={'uploadId': upload_id,
                                         'part-number-marker': marker,
                                         'max-parts': str(max_parts)})
+        logger.debug("List parts done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_parts, ListPartsResult)
-    
+
     def put_symlink(self, target_key, symlink_key, headers=None):
         """创建Symlink。
 
         :param str target_key: 目标文件，目标文件不能为符号连接
         :param str symlink_key: 符号连接类文件，其实质是一个特殊的文件，数据指向目标文件
-        
+
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
         headers = headers or {}
-        headers['x-oss-symlink-target'] = urlquote(target_key, '')
+        headers[OSS_SYMLINK_TARGET] = urlquote(target_key, '')
+        logger.debug("Start to put symlink, bucket: {0}, target_key: {1}, symlink_key: {2}, headers: {3}".format(
+            self.bucket_name, to_string(target_key), to_string(symlink_key), headers))
         resp = self.__do_object('PUT', symlink_key, headers=headers, params={Bucket.SYMLINK: ''})
+        logger.debug("Put symlink done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def get_symlink(self, symlink_key):
@@ -802,20 +1240,30 @@ class Bucket(_Base):
 
         :raises: 如果文件的符号链接不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
+        logger.debug(
+            "Start to get symlink, bucket: {0}, symlink_key: {1}".format(self.bucket_name, to_string(symlink_key)))
         resp = self.__do_object('GET', symlink_key, params={Bucket.SYMLINK: ''})
+        logger.debug("Get symlink done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return GetSymlinkResult(resp)
 
-    def create_bucket(self, permission=None):
+    def create_bucket(self, permission=None, input=None):
         """创建新的Bucket。
 
         :param str permission: 指定Bucket的ACL。可以是oss2.BUCKET_ACL_PRIVATE（推荐、缺省）、oss2.BUCKET_ACL_PUBLIC_READ或是
             oss2.BUCKET_ACL_PUBLIC_READ_WRITE。
+
+        :param input: :class:`BucketCreateConfig <oss2.models.BucketCreateConfig>` object
         """
         if permission:
-            headers = {'x-oss-acl': permission}
+            headers = {OSS_CANNED_ACL: permission}
         else:
             headers = None
-        resp = self.__do_bucket('PUT', headers=headers)
+
+        data = self.__convert_data(BucketCreateConfig, xml_utils.to_put_bucket_config, input)
+        logger.debug("Start to create bucket, bucket: {0}, permission: {1}, config: {2}".format(self.bucket_name,
+                                                                                                permission, data))
+        resp = self.__do_bucket('PUT', headers=headers, data=data)
+        logger.debug("Create bucket done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def delete_bucket(self):
@@ -825,7 +1273,9 @@ class Bucket(_Base):
 
         ":raises: 如果试图删除一个非空Bucket，则抛出 :class:`BucketNotEmpty <oss2.exceptions.BucketNotEmpty>`
         """
+        logger.warn("Start to delete bucket, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('DELETE')
+        logger.debug("Delete bucket done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def put_bucket_acl(self, permission):
@@ -834,7 +1284,9 @@ class Bucket(_Base):
         :param str permission: 新的ACL，可以是oss2.BUCKET_ACL_PRIVATE、oss2.BUCKET_ACL_PUBLIC_READ或
             oss2.BUCKET_ACL_PUBLIC_READ_WRITE
         """
-        resp = self.__do_bucket('PUT', headers={'x-oss-acl': permission}, params={Bucket.ACL: ''})
+        logger.debug("Start to put bucket acl, bucket: {0}, acl: {1}".format(self.bucket_name, permission))
+        resp = self.__do_bucket('PUT', headers={OSS_CANNED_ACL: permission}, params={Bucket.ACL: ''})
+        logger.debug("Put bucket acl done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def get_bucket_acl(self):
@@ -842,7 +1294,9 @@ class Bucket(_Base):
 
         :return: :class:`GetBucketAclResult <oss2.models.GetBucketAclResult>`
         """
+        logger.debug("Start to get bucket acl, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('GET', params={Bucket.ACL: ''})
+        logger.debug("Get bucket acl done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_get_bucket_acl, GetBucketAclResult)
 
     def put_bucket_cors(self, input):
@@ -851,7 +1305,9 @@ class Bucket(_Base):
         :param input: :class:`BucketCors <oss2.models.BucketCors>` 对象或其他
         """
         data = self.__convert_data(BucketCors, xml_utils.to_put_bucket_cors, input)
+        logger.debug("Start to put bucket cors, bucket: {0}, cors: {1}".format(self.bucket_name, data))
         resp = self.__do_bucket('PUT', data=data, params={Bucket.CORS: ''})
+        logger.debug("Put bucket cors done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def get_bucket_cors(self):
@@ -859,12 +1315,16 @@ class Bucket(_Base):
 
         :return: :class:`GetBucketCorsResult <oss2.models.GetBucketCorsResult>`
         """
+        logger.debug("Start to get bucket CORS, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('GET', params={Bucket.CORS: ''})
+        logger.debug("Get bucket CORS done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_get_bucket_cors, GetBucketCorsResult)
 
     def delete_bucket_cors(self):
         """删除Bucket的CORS配置。"""
+        logger.debug("Start to delete bucket CORS, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('DELETE', params={Bucket.CORS: ''})
+        logger.debug("Delete bucket CORS done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def put_bucket_lifecycle(self, input):
@@ -873,7 +1333,9 @@ class Bucket(_Base):
         :param input: :class:`BucketLifecycle <oss2.models.BucketLifecycle>` 对象或其他
         """
         data = self.__convert_data(BucketLifecycle, xml_utils.to_put_bucket_lifecycle, input)
+        logger.debug("Start to put bucket lifecycle, bucket: {0}, lifecycle: {1}".format(self.bucket_name, data))
         resp = self.__do_bucket('PUT', data=data, params={Bucket.LIFECYCLE: ''})
+        logger.debug("Put bucket lifecycle done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def get_bucket_lifecycle(self):
@@ -883,12 +1345,16 @@ class Bucket(_Base):
 
         :raises: 如果没有设置Lifecycle，则抛出 :class:`NoSuchLifecycle <oss2.exceptions.NoSuchLifecycle>`
         """
+        logger.debug("Start to get bucket lifecycle, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('GET', params={Bucket.LIFECYCLE: ''})
+        logger.debug("Get bucket lifecycle done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_get_bucket_lifecycle, GetBucketLifecycleResult)
 
     def delete_bucket_lifecycle(self):
         """删除生命周期管理配置。如果Lifecycle没有设置，也返回成功。"""
+        logger.debug("Start to delete bucket lifecycle, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('DELETE', params={Bucket.LIFECYCLE: ''})
+        logger.debug("Delete bucket lifecycle done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def get_bucket_location(self):
@@ -896,7 +1362,9 @@ class Bucket(_Base):
 
         :return: :class:`GetBucketLocationResult <oss2.models.GetBucketLocationResult>`
         """
+        logger.debug("Start to get bucket location, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('GET', params={Bucket.LOCATION: ''})
+        logger.debug("Get bucket location done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_get_bucket_location, GetBucketLocationResult)
 
     def put_bucket_logging(self, input):
@@ -905,7 +1373,9 @@ class Bucket(_Base):
         :param input: :class:`BucketLogging <oss2.models.BucketLogging>` 对象或其他
         """
         data = self.__convert_data(BucketLogging, xml_utils.to_put_bucket_logging, input)
+        logger.debug("Start to put bucket logging, bucket: {0}, logging: {1}".format(self.bucket_name, data))
         resp = self.__do_bucket('PUT', data=data, params={Bucket.LOGGING: ''})
+        logger.debug("Put bucket logging done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def get_bucket_logging(self):
@@ -913,12 +1383,16 @@ class Bucket(_Base):
 
         :return: :class:`GetBucketLoggingResult <oss2.models.GetBucketLoggingResult>`
         """
+        logger.debug("Start to get bucket logging, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('GET', params={Bucket.LOGGING: ''})
+        logger.debug("Get bucket logging done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_get_bucket_logging, GetBucketLoggingResult)
 
     def delete_bucket_logging(self):
         """关闭Bucket的访问日志功能。"""
+        logger.debug("Start to delete bucket loggging, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('DELETE', params={Bucket.LOGGING: ''})
+        logger.debug("Put bucket lifecycle done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def put_bucket_referer(self, input):
@@ -927,7 +1401,9 @@ class Bucket(_Base):
         :param input: :class:`BucketReferer <oss2.models.BucketReferer>` 对象或其他
         """
         data = self.__convert_data(BucketReferer, xml_utils.to_put_bucket_referer, input)
+        logger.debug("Start to put bucket referer, bucket: {0}, referer: {1}".format(self.bucket_name, to_string(data)))
         resp = self.__do_bucket('PUT', data=data, params={Bucket.REFERER: ''})
+        logger.debug("Put bucket referer done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def get_bucket_referer(self):
@@ -935,8 +1411,30 @@ class Bucket(_Base):
 
         :return: :class:`GetBucketRefererResult <oss2.models.GetBucketRefererResult>`
         """
+        logger.debug("Start to get bucket referer, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('GET', params={Bucket.REFERER: ''})
+        logger.debug("Get bucket referer done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_get_bucket_referer, GetBucketRefererResult)
+
+    def get_bucket_stat(self):
+        """查看Bucket的状态，目前包括bucket大小，bucket的object数量，bucket正在上传的Multipart Upload事件个数等。
+
+        :return: :class:`GetBucketStatResult <oss2.models.GetBucketStatResult>`
+        """
+        logger.debug("Start to get bucket stat, bucket: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('GET', params={Bucket.STAT: ''})
+        logger.debug("Get bucket stat done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_get_bucket_stat, GetBucketStatResult)
+
+    def get_bucket_info(self):
+        """获取bucket相关信息，如创建时间，访问Endpoint，Owner与ACL等。
+
+        :return: :class:`GetBucketInfoResult <oss2.models.GetBucketInfoResult>`
+        """
+        logger.debug("Start to get bucket info, bucket: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('GET', params={Bucket.BUCKET_INFO: ''})
+        logger.debug("Get bucket info done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_get_bucket_info, GetBucketInfoResult)
 
     def put_bucket_website(self, input):
         """为Bucket配置静态网站托管功能。
@@ -944,7 +1442,9 @@ class Bucket(_Base):
         :param input: :class:`BucketWebsite <oss2.models.BucketWebsite>`
         """
         data = self.__convert_data(BucketWebsite, xml_utils.to_put_bucket_website, input)
+        logger.debug("Start to put bucket website, bucket: {0}, website: {1}".format(self.bucket_name, to_string(data)))
         resp = self.__do_bucket('PUT', data=data, params={Bucket.WEBSITE: ''})
+        logger.debug("Put bucket website done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def get_bucket_website(self):
@@ -954,12 +1454,18 @@ class Bucket(_Base):
 
         :raises: 如果没有设置静态网站托管，那么就抛出 :class:`NoSuchWebsite <oss2.exceptions.NoSuchWebsite>`
         """
+
+        logger.debug("Start to get bucket website, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('GET', params={Bucket.WEBSITE: ''})
+        logger.debug("Get bucket website done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
         return self._parse_result(resp, xml_utils.parse_get_bucket_websiste, GetBucketWebsiteResult)
 
     def delete_bucket_website(self):
         """关闭Bucket的静态网站托管功能。"""
+        logger.debug("Start to delete bucket website, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('DELETE', params={Bucket.WEBSITE: ''})
+        logger.debug("Delete bucket website done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def create_live_channel(self, channel_name, input):
@@ -971,7 +1477,10 @@ class Bucket(_Base):
         :return: :class:`CreateLiveChannelResult <oss2.models.CreateLiveChannelResult>`
         """
         data = self.__convert_data(LiveChannelInfo, xml_utils.to_create_live_channel, input)
+        logger.debug("Start to create live-channel, bucket: {0}, channel_name: {1}, info: {2}".format(
+            self.bucket_name, to_string(channel_name), to_string(data)))
         resp = self.__do_object('PUT', channel_name, data=data, params={Bucket.LIVE: ''})
+        logger.debug("Create live-channel done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_create_live_channel, CreateLiveChannelResult)
 
     def delete_live_channel(self, channel_name):
@@ -979,7 +1488,10 @@ class Bucket(_Base):
 
         :param str channel_name: 要删除的live channel的名称
         """
+        logger.debug("Start to delete live-channel, bucket: {0}, live_channel: {1}".format(
+            self.bucket_name, to_string(channel_name)))
         resp = self.__do_object('DELETE', channel_name, params={Bucket.LIVE: ''})
+        logger.debug("Delete live-channel done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def get_live_channel(self, channel_name):
@@ -989,7 +1501,10 @@ class Bucket(_Base):
 
         :return: :class:`GetLiveChannelResult <oss2.models.GetLiveChannelResult>`
         """
+        logger.debug("Start to get live-channel info: bucket: {0}, live_channel: {1}".format(
+            self.bucket_name, to_string(channel_name)))
         resp = self.__do_object('GET', channel_name, params={Bucket.LIVE: ''})
+        logger.debug("Get live-channel done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_get_live_channel, GetLiveChannelResult)
 
     def list_live_channel(self, prefix='', marker='', max_keys=100):
@@ -1001,10 +1516,13 @@ class Bucket(_Base):
 
         return: :class:`ListLiveChannelResult <oss2.models.ListLiveChannelResult>`
         """
+        logger.debug("Start to list live-channels, bucket: {0}, prefix: {1}, marker: {2}, max_keys: {3}".format(
+            self.bucket_name, to_string(prefix), to_string(marker), max_keys))
         resp = self.__do_bucket('GET', params={Bucket.LIVE: '',
                                                'prefix': prefix,
                                                'marker': marker,
                                                'max-keys': str(max_keys)})
+        logger.debug("List live-channel done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_live_channel, ListLiveChannelResult)
 
     def get_live_channel_stat(self, channel_name):
@@ -1014,7 +1532,11 @@ class Bucket(_Base):
 
         return: :class:`GetLiveChannelStatResult <oss2.models.GetLiveChannelStatResult>`
         """
+        logger.debug("Start to get live-channel stat, bucket: {0}, channel_name: {1}".format(
+            self.bucket_name, to_string(channel_name)))
         resp = self.__do_object('GET', channel_name, params={Bucket.LIVE: '', Bucket.COMP: 'stat'})
+        logger.debug("Get live-channel stat done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
         return self._parse_result(resp, xml_utils.parse_live_channel_stat, GetLiveChannelStatResult)
 
     def put_live_channel_status(self, channel_name, status):
@@ -1023,7 +1545,10 @@ class Bucket(_Base):
         param str channel_name: 要更改status的live channel的名称
         param str status: live channel的目标status
         """
+        logger.debug("Start to put live-channel status, bucket: {0}, channel_name: {1}, status: {2}".format(
+            self.bucket_name, to_string(channel_name), status))
         resp = self.__do_object('PUT', channel_name, params={Bucket.LIVE: '', Bucket.STATUS: status})
+        logger.debug("Put live-channel status done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def get_live_channel_history(self, channel_name):
@@ -1033,10 +1558,14 @@ class Bucket(_Base):
 
         return: :class:`GetLiveChannelHistoryResult <oss2.models.GetLiveChannelHistoryResult>`
         """
+        logger.debug("Start to get live-channel history, bucket: {0}, channel_name: {1}".format(
+            self.bucket_name, to_string(channel_name)))
         resp = self.__do_object('GET', channel_name, params={Bucket.LIVE: '', Bucket.COMP: 'history'})
+        logger.debug(
+            "Get live-channel history done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_live_channel_history, GetLiveChannelHistoryResult)
 
-    def post_vod_playlist(self, channel_name, playlist_name, start_time = 0, end_time = 0):
+    def post_vod_playlist(self, channel_name, playlist_name, start_time=0, end_time=0):
         """根据指定的playlist name以及startTime和endTime生成一个点播的播放列表
 
         param str channel_name: 要生成点播列表的live channel的名称
@@ -1044,11 +1573,28 @@ class Bucket(_Base):
         param int start_time: 点播的起始时间，Unix Time格式，可以使用int(time.time())获取
         param int end_time: 点播的结束时间，Unix Time格式，可以使用int(time.time())获取
         """
+        logger.debug("Start to post vod playlist, bucket: {0}, channel_name: {1}, playlist_name: {2}, start_time: "
+                     "{3}, end_time: {4}".format(self.bucket_name, to_string(channel_name), playlist_name, start_time,
+                                                 end_time))
         key = channel_name + "/" + playlist_name
-        resp = self.__do_object('POST', key, params={Bucket.VOD: '',
-                                                            'startTime': str(start_time),
-                                                            'endTime': str(end_time)})
+        resp = self.__do_object('POST', key, params={Bucket.VOD: '', 'startTime': str(start_time),
+                                                     'endTime': str(end_time)})
+        logger.debug("Post vod playlist done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
+
+    def process_object(self, key, process):
+        """处理图片的接口，支持包括调整大小，旋转，裁剪，水印，格式转换等，支持多种方式组合处理。
+
+        :param str key: 处理的图片的对象名称
+        :param str process: 处理的字符串，例如"image/resize,w_100|sys/saveas,o_dGVzdC5qcGc,b_dGVzdA"
+        """
+
+        logger.debug("Start to process object, bucket: {0}, key: {1}, process: {2}".format(
+            self.bucket_name, to_string(key), process))
+        process_data = "%s=%s" % (Bucket.PROCESS, process)
+        resp = self.__do_object('POST', key, params={Bucket.PROCESS: ''}, data=process_data)
+        logger.debug("Process object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return ProcessObjectResult(resp)
 
     def _get_bucket_config(self, config):
         """获得Bucket某项配置，具体哪种配置由 `config` 指定。该接口直接返回 `RequestResult` 对象。
@@ -1058,7 +1604,10 @@ class Bucket(_Base):
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
-        return self.__do_bucket('GET', params={config: ''})
+        logger.debug("Start to get bucket config, bucket: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('GET', params={config: ''})
+        logger.debug("Get bucket config done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return resp
 
     def __do_object(self, method, key, **kwargs):
         return self._do(method, self.bucket_name, key, **kwargs)
@@ -1071,6 +1620,176 @@ class Bucket(_Base):
             return converter(data)
         else:
             return data
+
+
+class CryptoBucket():
+    """用于加密Bucket和Object操作的类，诸如上传、下载Object等。创建、删除bucket的操作需使用Bucket类接口。
+
+    用法（假设Bucket属于杭州区域） ::
+
+        >>> import oss2
+        >>> auth = oss2.Auth('your-access-key-id', 'your-access-key-secret')
+        >>> bucket = oss2.CryptoBucket(auth, 'http://oss-cn-hangzhou.aliyuncs.com', 'your-bucket', oss2.LocalRsaProvider())
+        >>> bucket.put_object('readme.txt', 'content of the object')
+        <oss2.models.PutObjectResult object at 0x029B9930>
+
+    :param auth: 包含了用户认证信息的Auth对象
+    :type auth: oss2.Auth
+
+    :param str endpoint: 访问域名或者CNAME
+    :param str bucket_name: Bucket名
+    :param crypto_provider: 客户端加密类。该参数默认为空
+    :type crypto_provider: oss2.crypto.LocalRsaProvider
+    :param bool is_cname: 如果endpoint是CNAME则设为True；反之，则为False。
+
+    :param session: 会话。如果是None表示新开会话，非None则复用传入的会话
+    :type session: oss2.Session
+
+    :param float connect_timeout: 连接超时时间，以秒为单位。
+
+    :param str app_name: 应用名。该参数不为空，则在User Agent中加入其值。
+        注意到，最终这个字符串是要作为HTTP Header的值传输的，所以必须要遵循HTTP标准。
+
+    :param bool enable_crc: 如果开启crc校验则设为True；反之，则为False
+
+    """
+
+    def __init__(self, auth, endpoint, bucket_name, crypto_provider,
+                 is_cname=False,
+                 session=None,
+                 connect_timeout=None,
+                 app_name='',
+                 enable_crc=True):
+
+        if not isinstance(crypto_provider, BaseCryptoProvider):
+            raise ClientError('Crypto bucket must provide a valid crypto_provider')
+
+        self.crypto_provider = crypto_provider
+        self.bucket_name = bucket_name.strip()
+        self.enable_crc = enable_crc
+        self.bucket = Bucket(auth, endpoint, bucket_name, is_cname, session, connect_timeout,
+                             app_name, enable_crc=False)
+
+    def put_object(self, key, data,
+                   headers=None,
+                   progress_callback=None):
+        """上传一个普通文件。
+
+        用法 ::
+            >>> bucket.put_object('readme.txt', 'content of readme.txt')
+            >>> with open(u'local_file.txt', 'rb') as f:
+            >>>     bucket.put_object('remote_file.txt', f)
+
+        :param key: 上传到OSS的文件名
+
+        :param data: 待上传的内容。
+        :type data: bytes，str或file-like object
+
+        :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-meta-开头的头部等
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+
+        :param progress_callback: 用户指定的进度回调函数。可以用来实现进度条等功能。参考 :ref:`progress_callback` 。
+
+        :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
+        """
+        if progress_callback:
+            data = utils.make_progress_adapter(data, progress_callback)
+
+        random_key = self.crypto_provider.get_key()
+        start = self.crypto_provider.get_start()
+        data = self.crypto_provider.make_encrypt_adapter(data, random_key, start)
+        headers = self.crypto_provider.build_header(headers)
+
+        if self.enable_crc:
+            data = utils.make_crc_adapter(data)
+
+        return self.bucket.put_object(key, data, headers, progress_callback=None)
+
+    def put_object_from_file(self, key, filename,
+                             headers=None,
+                             progress_callback=None):
+        """上传一个本地文件到OSS的普通文件。
+
+        :param str key: 上传到OSS的文件名
+        :param str filename: 本地文件名，需要有可读权限
+
+        :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-meta-开头的头部等
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+
+        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
+
+        :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
+        """
+        headers = utils.set_content_type(http.CaseInsensitiveDict(headers), filename)
+
+        with open(to_unicode(filename), 'rb') as f:
+            return self.put_object(key, f, headers=headers, progress_callback=progress_callback)
+
+    def get_object(self, key,
+                   headers=None,
+                   progress_callback=None,
+                   params=None):
+        """下载一个文件。
+
+        用法 ::
+
+            >>> result = bucket.get_object('readme.txt')
+            >>> print(result.read())
+            'hello world'
+
+        :param key: 文件名
+
+        :param headers: HTTP头部
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+
+        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
+
+        :param params: http 请求的查询字符串参数
+        :type params: dict
+
+        :return: file-like object
+
+        :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
+        """
+        headers = http.CaseInsensitiveDict(headers)
+
+        if 'range' in headers:
+            raise ClientError('Crypto bucket do not support range get')
+
+        encrypted_result = self.bucket.get_object(key, headers=headers, params=params, progress_callback=None)
+
+        return GetObjectResult(encrypted_result.resp, progress_callback, self.enable_crc,
+                               crypto_provider=self.crypto_provider)
+
+    def get_object_to_file(self, key, filename,
+                           headers=None,
+                           progress_callback=None,
+                           params=None):
+        """下载一个文件到本地文件。
+
+        :param key: 文件名
+        :param filename: 本地文件名。要求父目录已经存在，且有写权限。
+
+        :param headers: HTTP头部
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+
+        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
+
+        :param params: http 请求的查询字符串参数
+        :type params: dict
+
+        :return: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
+        """
+        with open(to_unicode(filename), 'wb') as f:
+            result = self.get_object(key, headers=headers, progress_callback=progress_callback,
+                                     params=params)
+
+            if result.content_length is None:
+                shutil.copyfileobj(result, f)
+            else:
+                utils.copyfileobj_and_verify(result, f, result.content_length, request_id=result.request_id)
+
+            return result
 
 
 def _normalize_endpoint(endpoint):

@@ -32,6 +32,35 @@ print('\n'.join(info.name for info in oss2.BucketIterator(service)))
 # 创建Bucket对象，所有Object相关的接口都可以通过Bucket对象来进行
 bucket = oss2.Bucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name)
 
+# 带权限与存储类型创建bucket
+bucket.create_bucket(permission=oss2.BUCKET_ACL_PRIVATE,
+                     input=oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_STANDARD))
+
+# 获取bucket相关信息
+bucket_info = bucket.get_bucket_info()
+print('name: ' + bucket_info.name)
+print('storage class: ' + bucket_info.storage_class)
+print('creation date: ' + bucket_info.creation_date)
+
+# 查看Bucket的状态
+bucket_stat = bucket.get_bucket_stat()
+print('storage: ' + str(bucket_stat.storage_size_in_bytes))
+print('object count: ' + str(bucket_stat.object_count))
+print('multi part upload count: ' + str(bucket_stat.multi_part_upload_count))
+
+# 设置bucket生命周期， 有'中文/'前缀的对象在最后修改时间之后357天失效
+rule = oss2.models.LifecycleRule('lc_for_chinese_prefix', '中文/', status=oss2.models.LifecycleRule.ENABLED,
+                                 expiration=oss2.models.LifecycleExpiration(days=357))
+
+# 删除相对最后修改时间365天之后的parts
+rule.abort_multipart_upload = oss2.models.AbortMultipartUpload(days=356)
+# 对象最后修改时间超过180天后转为IA
+rule.storage_transitions = [oss2.models.StorageTransition(days=180, storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
+# 对象最后修改时间超过356天后转为ARCHIVE
+rule.storage_transitions.append(oss2.models.StorageTransition(days=356, storage_class=oss2.BUCKET_STORAGE_CLASS_ARCHIVE))
+
+lifecycle = oss2.models.BucketLifecycle([rule])
+bucket.put_bucket_lifecycle(lifecycle)
 
 # 下面只展示如何配置静态网站托管。其他的Bucket操作方式类似，可以参考tests/test_bucket.py里的内容
 

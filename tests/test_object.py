@@ -3,9 +3,13 @@
 import requests
 import filecmp
 import calendar
+import json
+import base64
 
-from oss2.exceptions import (ClientError, RequestError, NoSuchBucket,
+from oss2.exceptions import (ClientError, RequestError, NoSuchBucket, OpenApiServerError,
                              NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable)
+
+from oss2.compat import is_py2, is_py33
 from common import *
 
 
@@ -52,6 +56,96 @@ class TestObject(OssTestCase):
 
         self.assertRaises(NoSuchKey, self.bucket.get_object, key)
 
+    def test_rsa_crypto_object(self):
+        key = self.random_key('.js')
+        content = random_bytes(1024)
+
+        self.assertRaises(NotFound, self.bucket.head_object, key)
+
+        lower_bound = now() - 60 * 16
+        upper_bound = now() + 60 * 16
+
+        def assert_result(result):
+            self.assertEqual(result.content_length, len(content))
+            self.assertEqual(result.content_type, 'application/javascript')
+            self.assertEqual(result.object_type, 'Normal')
+
+            self.assertTrue(result.last_modified > lower_bound)
+            self.assertTrue(result.last_modified < upper_bound)
+
+            self.assertTrue(result.etag)
+
+        self.rsa_crypto_bucket.put_object(key, content)
+
+        get_result = self.rsa_crypto_bucket.get_object(key)
+        self.assertEqual(get_result.read(), content)
+        assert_result(get_result)
+        self.assertTrue(get_result.client_crc is not None)
+        self.assertTrue(get_result.server_crc is not None)
+        self.assertTrue(get_result.client_crc == get_result.server_crc)
+
+    def test_kms_crypto_object(self):
+        if is_py33:
+            return
+
+        key = self.random_key('.js')
+        content = random_bytes(1024)
+
+        self.assertRaises(NotFound, self.bucket.head_object, key)
+
+        lower_bound = now() - 60 * 16
+        upper_bound = now() + 60 * 16
+
+        def assert_result(result):
+            self.assertEqual(result.content_length, len(content))
+            self.assertEqual(result.content_type, 'application/javascript')
+            self.assertEqual(result.object_type, 'Normal')
+
+            self.assertTrue(result.last_modified > lower_bound)
+            self.assertTrue(result.last_modified < upper_bound)
+
+            self.assertTrue(result.etag)
+
+        self.kms_crypto_bucket.put_object(key, content, headers={'content-md5': oss2.utils.md5_string(content),
+                                                                        'content-length': str(len(content))})
+
+        get_result = self.kms_crypto_bucket.get_object(key)
+        self.assertEqual(get_result.read(), content)
+        assert_result(get_result)
+        self.assertTrue(get_result.client_crc is not None)
+        self.assertTrue(get_result.server_crc is not None)
+        self.assertTrue(get_result.client_crc == get_result.server_crc)
+
+    def test_restore_object(self):
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE, oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_ARCHIVE))
+
+        service = oss2.Service(auth, OSS_ENDPOINT)
+        wait_meta_sync()
+        self.retry_assert(lambda: bucket.bucket_name in (b.name for b in
+                                                         service.list_buckets(prefix=bucket.bucket_name).buckets))
+
+        key = 'a.txt'
+        bucket.put_object(key, 'content')
+        self.assertEqual(202, bucket.restore_object(key).status)
+        bucket.delete_object(key)
+        bucket.delete_bucket()
+
+    def test_last_modified_time(self):
+        key = self.random_key()
+        content = random_bytes(10)
+
+        self.bucket.put_object(key, content)
+
+        res = self.bucket.get_object(key)
+        res.read()
+
+        time_string = res.headers['Last-Modified']
+        self.assertEqual(oss2.utils.http_to_unixtime(time_string), res.last_modified)
+        self.assertEqual(oss2.utils.to_unixtime(time_string, '%a, %d %b %Y %H:%M:%S GMT'), res.last_modified)
+
     def test_file(self):
         filename = random_string(12) + '.js'
         filename2 = random_string(12)
@@ -70,7 +164,7 @@ class TestObject(OssTestCase):
         self.assertEqual(result.headers['content-type'], 'application/javascript')
 
         # 下载到本地文件
-        self.bucket.get_object_to_file(key, filename2)
+        get_result = self.bucket.get_object_to_file(key, filename2)
 
         self.assertTrue(filecmp.cmp(filename, filename2))
 
@@ -89,6 +183,30 @@ class TestObject(OssTestCase):
         # 清理
         os.remove(filename)
         os.remove(filename2)
+
+    def test_object_empty(self):
+        key = self.random_key()
+        content = b''
+
+        self.bucket.put_object(key, content)
+        res = self.bucket.get_object(key)
+
+        self.assertEqual(res.read(), b'')
+
+    def test_file_empty(self):
+        input_filename = random_string(12)
+        output_filename = random_string(12)
+
+        key = self.random_key()
+        content = b''
+
+        with open(input_filename, 'wb') as f:
+            f.write(content)
+
+        self.bucket.put_object_from_file(key, input_filename)
+        self.bucket.get_object_to_file(key, output_filename)
+
+        self.assertTrue(filecmp.cmp(input_filename, output_filename))
 
     def test_streaming(self):
         src_key = self.random_key('.src')
@@ -179,13 +297,21 @@ class TestObject(OssTestCase):
         self.assertEqual(len(content), len(content_got))
         self.assertEqual(content, content_got)
 
+    def test_query_parameter(self):
+        key = self.random_key()
+        content = random_bytes(1024 * 1024)
+        self.bucket.put_object(key, content, headers={'Content-Type': 'plain/text'})
+        query_params = {'response-content-type': 'image/jpeg'}
+        result = self.bucket.get_object(key, params=query_params)
+        self.assertEqual(result.headers['content-type'], 'image/jpeg')
+
     def test_anonymous(self):
         key = self.random_key()
         content = random_bytes(512)
 
         # 设置bucket为public-read，并确认可以上传和下载
         self.bucket.put_bucket_acl('public-read-write')
-        time.sleep(2)
+        wait_meta_sync()
 
         b = oss2.Bucket(oss2.AnonymousAuth(), OSS_ENDPOINT, OSS_BUCKET)
         b.put_object(key, content)
@@ -193,13 +319,13 @@ class TestObject(OssTestCase):
         self.assertEqual(result.read(), content)
 
         # 测试sign_url
-        url = b.sign_url('GET', key, 100)
+        url = b.sign_url('GET', key, 100, params={'para1':'test'})
         resp = requests.get(url)
         self.assertEqual(content, resp.content)
 
         # 设置bucket为private，并确认上传和下载都会失败
         self.bucket.put_bucket_acl('private')
-        time.sleep(1)
+        wait_meta_sync()
 
         self.assertRaises(oss2.exceptions.AccessDenied, b.put_object, key, content)
         self.assertRaises(oss2.exceptions.AccessDenied, b.get_object, key)
@@ -280,6 +406,135 @@ class TestObject(OssTestCase):
 
             resp = requests.get(url)
             self.assertEqual(content, resp.content)
+            
+    def test_sign_url_with_callback(self):
+        key = self.random_key()
+        
+        def encode_callback(cb_dict):
+            cb_str = json.dumps(callback_params).strip()
+            return oss2.compat.to_string(base64.b64encode(oss2.compat.to_bytes(cb_str))) 
+        
+        # callback
+        callback_params = {}
+        callback_params['callbackUrl'] = 'http://cbsrv.oss.demo.com'
+        callback_params['callbackBody'] = 'bucket=${bucket}&object=${object}' 
+        encoded_callback = encode_callback(callback_params)
+        
+        # callback vars
+        callback_var_params = {'x:my_var1': 'my_val1', 'x:my_var2': 'my_val2'}
+        encoded_callback_var = encode_callback(callback_var_params)
+        
+        # put with callback
+        params = {'callback': encoded_callback, 'callback-var': encoded_callback_var}
+        url = self.bucket.sign_url('PUT', key, 60, params=params)
+        resp = requests.put(url)
+        self.assertEqual(resp.status_code, 203)
+
+    def test_private_download_url_with_extra_query(self):
+        if os.getenv('OSS_TEST_AUTH_VERSION') != oss2.AUTH_VERSION_2:
+            return
+        key = self.random_key()
+        content = random_bytes(42)
+
+        self.bucket.put_object(key, content)
+        url = self.bucket.sign_url('GET', key, 60, params={'extra-query': '1'})
+
+        resp = requests.get(url)
+        self.assertEqual(content, resp.content)
+
+        resp = requests.get(url + '&another-query=1')
+        self.assertEqual(resp.status_code, 403)
+
+        e = oss2.exceptions.make_exception(oss2.http.Response(resp))
+        self.assertEqual(e.status, 403)
+        self.assertEqual(e.code, 'SignatureDoesNotMatch')
+
+    def test_put_object_with_sign_url(self):
+        key = self.random_key(".jpg")
+        with open("tests/example.jpg", 'rb') as fr:
+            data = fr.read()
+
+        url = self.bucket.sign_url('PUT', key, 3600)
+        result = self.bucket.put_object_with_url(url, data)
+        self.assertEqual(result.status, 200)
+        result = self.bucket.head_object(key)
+        self.assertEqual(result.content_type, "application/octet-stream")
+
+        headers = {'Content-Type': "image/jpeg"}
+        self.assertRaises(oss2.exceptions.SignatureDoesNotMatch, self.bucket.put_object_with_url, url, data, headers=headers)
+
+        url = self.bucket.sign_url('PUT', key, 3600, headers=headers)
+        self.assertRaises(oss2.exceptions.SignatureDoesNotMatch, self.bucket.put_object_with_url, url, data)
+        result = self.bucket.put_object_with_url(url, data, headers)
+        self.assertEqual(result.status, 200)
+        result = self.bucket.head_object(key)
+        self.assertEqual(result.content_type, "image/jpeg")
+
+    def test_get_object_with_sign_url(self):
+        key = self.random_key('.txt')
+        content = random_bytes(100)
+
+        result = self.bucket.put_object(key, content)
+        self.assertEqual(result.status, 200)
+
+        # normal get with signed url
+        url = self.bucket.sign_url("GET", key, 3600)
+        result = self.bucket.get_object_with_url(url)
+        self.assertEqual(result.status, 200)
+
+        # signed without range, and get with range
+        result = self.bucket.get_object_with_url(url, byte_range=(50, 99))
+        self.assertEqual(result.status, 206)
+        range_content = result.read()
+        self.assertEqual(content[50:], range_content)
+
+        # signed with range, and get without range
+        headers = {'Range': 'bytes=50-99'}
+        url = self.bucket.sign_url("GET", key, 3600, headers=headers)
+        result = self.bucket.get_object_with_url(url)
+        self.assertEqual(result.status, 200)
+        range_content = result.read()
+        self.assertEqual(content, range_content)
+
+    def test_put_object_from_file_with_sign_url(self):
+        key = self.random_key()
+        file_name = self.random_filename()
+        content = random_bytes(100)
+
+        with open(file_name, 'wb') as fw:
+            fw.write(content)
+
+        headers = {'Content-Type': "text/plain"}
+        url = self.bucket.sign_url('PUT', key, 3600, headers)
+        result = self.bucket.put_object_with_url_from_file(url, file_name, headers=headers)
+        self.assertEqual(result.status, 200)
+        result = self.bucket.head_object(key)
+        self.assertEqual(result.content_type, "text/plain")
+
+    def test_get_object_to_file_with_sign_url(self):
+        key = self.random_key('txt')
+        file_name = self.random_filename()
+        content = random_bytes(100)
+
+        result = self.bucket.put_object(key, content)
+        self.assertEqual(result.status, 200)
+
+        url = self.bucket.sign_url("GET", key, 3600)
+        result = self.bucket.get_object_with_url_to_file(url, file_name)
+        self.assertEqual(result.status, 200)
+
+    def test_modified_since(self):
+        key = self.random_key()
+        content = random_bytes(16)
+
+        self.bucket.put_object(key, content)
+        self.assertRaises(oss2.exceptions.NotModified,
+                          self.bucket.get_object,
+                          key,
+                          headers={
+                              'if-modified-since': oss2.utils.http_date(int(time.time()) + 60),
+                          },
+                          byte_range=(0, 7))
 
     def test_copy_object(self):
         source_key = self.random_key()
@@ -419,6 +674,45 @@ class TestObject(OssTestCase):
 
         os.remove(filename)
 
+    def test_crypto_progress(self):
+        stats = {'previous': -1}
+
+        def progress_callback(bytes_consumed, total_bytes):
+            self.assertTrue(bytes_consumed <= total_bytes)
+            self.assertTrue(bytes_consumed > stats['previous'])
+
+            stats['previous'] = bytes_consumed
+
+        key = self.random_key()
+        content = random_bytes(2 * 1024 * 1024)
+
+        # 上传内存中的内容
+        stats = {'previous': -1}
+        self.rsa_crypto_bucket.put_object(key, content, progress_callback=progress_callback)
+        self.assertEqual(stats['previous'], len(content))
+
+        # 下载到文件
+        stats = {'previous': -1}
+        filename = random_string(12) + '.txt'
+        self.rsa_crypto_bucket.get_object_to_file(key, filename, progress_callback=progress_callback)
+        self.assertEqual(stats['previous'], len(content))
+
+        # 上传本地文件
+        stats = {'previous': -1}
+        self.rsa_crypto_bucket.put_object_from_file(key, filename, progress_callback=progress_callback)
+        self.assertEqual(stats['previous'], len(content))
+
+        # 下载到本地，采用iterator语法
+        stats = {'previous': -1}
+        result = self.rsa_crypto_bucket.get_object(key, progress_callback=progress_callback)
+        content_got = b''
+        for chunk in result:
+            content_got += chunk
+        self.assertEqual(stats['previous'], len(content))
+        self.assertEqual(content, content_got)
+
+        os.remove(filename)
+
     def test_exceptions(self):
         key = self.random_key()
         content = random_bytes(16)
@@ -440,7 +734,9 @@ class TestObject(OssTestCase):
         self.bucket.put_object(key, content)
 
         result = self.bucket.get_object(key, headers={'Accept-Encoding': 'gzip'})
-        self.assertEqual(result.read(), content)
+        content_read = result.read()
+        self.assertEqual(len(content_read), len(content))
+        self.assertEqual(content_read, content)
         self.assertTrue(result.content_length is None)
         self.assertEqual(result.headers['Content-Encoding'], 'gzip')
 
@@ -514,7 +810,7 @@ class TestObject(OssTestCase):
             self.bucket.append_object(key, 0, content, init_crc=1)
         except oss2.exceptions.InconsistentError as e:
             self.assertEqual(e.status, -3)
-            self.assertTrue(e.body.startswith('InconsistentError: the crc of'))
+            self.assertTrue(e.body.startswith('InconsistentError'))
         else:
             self.assertTrue(False)
 
@@ -563,6 +859,56 @@ class TestObject(OssTestCase):
         # get symlink normal
         result = self.bucket.get_symlink(symlink)
         self.assertEqual(result.target_key, key)
+
+    def test_process_object(self):
+        key = self.random_key(".jpg")
+        result = self.bucket.put_object_from_file(key, "tests/example.jpg")
+        self.assertEqual(result.status, 200)
+
+        dest_key = self.random_key(".jpg")
+        process = "image/resize,w_100|sys/saveas,o_{0},b_{1}".format(
+            oss2.compat.to_string(base64.urlsafe_b64encode(oss2.compat.to_bytes(dest_key))),
+            oss2.compat.to_string(base64.urlsafe_b64encode(oss2.compat.to_bytes(self.bucket.bucket_name))))
+        result = self.bucket.process_object(key, process)
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.bucket, self.bucket.bucket_name)
+        self.assertEqual(result.object, dest_key)
+        result = self.bucket.object_exists(dest_key)
+        self.assertEqual(result, True)
+
+
+        # If bucket-name not specified, it is saved to the current bucket by default.
+        dest_key = self.random_key(".jpg")
+        process = "image/resize,w_100|sys/saveas,o_{0}".format(
+            oss2.compat.to_string(base64.urlsafe_b64encode(oss2.compat.to_bytes(dest_key))))
+        result = self.bucket.process_object(key, process)
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.bucket, "")
+        self.assertEqual(result.object, dest_key)
+        result = self.bucket.object_exists(dest_key)
+        self.assertEqual(result, True)
+
+
+class TestSign(TestObject):
+    """
+        这个类主要是用来增加测试覆盖率，当环境变量为oss2.AUTH_VERSION_2，则重新设置为oss2.AUTH_VERSION_1再运行TestObject，反之亦然
+    """
+    def __init__(self, *args, **kwargs):
+        super(TestSign, self).__init__(*args, **kwargs)
+
+    def setUp(self):
+        if os.getenv('OSS_TEST_AUTH_VERSION') == oss2.AUTH_VERSION_2:
+            os.environ['OSS_TEST_AUTH_VERSION'] = oss2.AUTH_VERSION_1
+        else:
+            os.environ['OSS_TEST_AUTH_VERSION'] = oss2.AUTH_VERSION_2
+        super(TestSign, self).setUp()
+
+    def tearDown(self):
+        if os.getenv('OSS_TEST_AUTH_VERSION') == oss2.AUTH_VERSION_2:
+            os.environ['OSS_TEST_AUTH_VERSION'] = oss2.AUTH_VERSION_1
+        else:
+            os.environ['OSS_TEST_AUTH_VERSION'] = oss2.AUTH_VERSION_2
+        super(TestSign, self).tearDown()
 
 
 if __name__ == '__main__':

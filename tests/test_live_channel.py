@@ -155,6 +155,7 @@ class TestLiveChannel(OssTestCase):
         for channel_name in channel_name_list:
             bucket.delete_live_channel(channel_name)
         bucket.delete_bucket()
+        wait_meta_sync()
         self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.delete_bucket)
 
     def test_get_live_channel_stat(self):
@@ -237,6 +238,10 @@ class TestLiveChannel(OssTestCase):
         
         expires = 3600
         signed_url = self.bucket.sign_rtmp_url(channel_name, playlist_name, expires)
+        self.assertTrue(signed_url.startswith(self._get_publish_url(self.bucket.bucket_name, channel_name)))
+
+        # empty playlist name
+        signed_url = self.bucket.sign_rtmp_url(channel_name, '', expires)
         self.assertTrue(signed_url.startswith(self._get_publish_url(self.bucket.bucket_name, channel_name)))
          
         self.bucket.delete_live_channel(channel_name)

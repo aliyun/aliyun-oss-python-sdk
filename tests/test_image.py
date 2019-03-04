@@ -69,7 +69,7 @@ class TestImage(OssTestCase):
         
         original_image, new_image = self.__prepare()
         self.__test(original_image, new_image, style)
-        self.__check(new_image, 267, 400, 26369, 'jpg')
+        self.__check(new_image, 267, 400, 26378, 'jpg')
         
     def test_format(self):
         style = "image/format,png"  # 图像格式转换

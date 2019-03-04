@@ -184,3 +184,7 @@ x-oss-request-id: 566B6BEC1BA604C27DD438F8'''
 
         self.assertRequest(req_info, request_text)
 
+
+if __name__ == '__main__':
+    unittest.main()
+
