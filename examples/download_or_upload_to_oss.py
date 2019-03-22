@@ -51,8 +51,8 @@ FLAGS = None
 
 # ------------------ SET YOUR OWN INFORMATION HERE !! ------------------------ #
 # Those infomation is used frequently。 Put it at the top of scripts
-#                    AccessKeyId         AccessKeySecret
-auth = oss2.Auth("<你的AccessKeyId>", "<你的AccessKeySecret>")
+#                                                       AccessKeyId                                                    AccessKeySecret
+auth = oss2.Auth(os.getenv('OSS_TEST_ACCESS_KEY_ID', '<你的AccessKeyId>'), os.getenv('OSS_TEST_ACCESS_KEY_SECRET', '<你的AccessKeySecret>'))
 
 # 以杭州区域为例，Endpoint可以是：
 #   http://oss-cn-hangzhou.aliyuncs.com
@@ -65,10 +65,10 @@ auth = oss2.Auth("<你的AccessKeyId>", "<你的AccessKeySecret>")
 endpoint = "<你的VPC内网访问域名>"
 
 # Public endpoint
-public_endpoint = "<你的访问域名>"
+public_endpoint = os.getenv('OSS_TEST_BUCKET', '<你的Bucket>')
 
 # Your bucket name
-bucket_name = "<你的Bucket>"
+bucket_name = "os.getenv('OSS_TEST_ENDPOINT', '<你的访问域名>')"
 # ---------------------------------------------------------------------------- #
 
 def downloadFiles(bucket):
