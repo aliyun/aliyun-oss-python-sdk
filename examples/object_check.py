@@ -54,10 +54,10 @@ def calculate_data_md5(data):
 
 
 def calculate_file_crc64(file_name, block_size=64 * 1024, init_crc=0):
-    """计算文件的MD5
+    """计算文件的CRC64
     :param file_name: 文件名
-    :param block_size: 计算MD5的数据块大小，默认64KB
-    :return 文件内容的MD5值
+    :param block_size: 计算CRC64的数据块大小，默认64KB
+    :return 文件内容的CRC64值
     """
     with open(file_name, 'rb') as f:
         crc64 = oss2.utils.Crc64(init_crc)
