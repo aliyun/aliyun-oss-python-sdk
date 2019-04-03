@@ -588,9 +588,55 @@ def random_counter(begin=1, end=10):
 # aes 256, key always is 32 bytes
 _AES_256_KEY_SIZE = 32
 
-_AES_CTR_COUNTER_BITS_LEN = 8 * 16
+_AES_CTR_COUNTER_LEN = 16
+_AES_CTR_COUNTER_BITS_LEN = 8 * _AES_CTR_COUNTER_LEN
 
 _AES_GCM = 'AES/GCM/NoPadding'
+
+
+_MAX_PART_COUNT = 10000
+_MIN_PART_SIZE = 100 * 1024
+
+def is_multiple_sizeof_encrypt_block(data_offset):
+    if data_offset is None:
+        data_offset = 0
+    return (data_offset % _AES_CTR_COUNTER_LEN == 0)
+
+def calc_aes_ctr_offset_by_data_offset(data_offset):
+    if not is_multiple_sizeof_encrypt_block(data_offset):
+        raise ClientError('data_offset is not align to encrypt block')
+    return data_offset / _AES_CTR_COUNTER_LEN
+
+def is_valid_crypto_part_size(part_size, data_size):
+    if not is_multiple_sizeof_encrypt_block(part_size) or part_size < _MIN_PART_SIZE:
+        return False
+    part_num = (data_size - 1) / part_size + 1
+    if part_num > _MAX_PART_COUNT:
+        return False
+    return True
+
+def determine_crypto_part_size(data_size, excepted_part_size = None):
+    if excepted_part_size:
+        # excepted_part_size is valid
+        if is_valid_crypto_part_size(excepted_part_size, data_size):
+            return excepted_part_size
+        # excepted_part_size is enough big but not algin
+        elif excepted_part_size > data_size/_MAX_PART_COUNT:
+            part_size = int(excepted_part_size/_AES_CTR_COUNTER_LEN + 1) * _AES_CTR_COUNTER_LEN
+            return part_size
+
+    # if excepted_part_size is None or is too small, calculate a correct part_size
+    if data_size % _MAX_PART_COUNT == 0:
+        part_size = data_size / _MAX_PART_COUNT
+    else:
+        part_size = int(data_size / (_MAX_PART_COUNT - 1))
+
+    if part_size < _MIN_PART_SIZE:
+        part_size = _MIN_PART_SIZE
+    elif not is_multiple_sizeof_encrypt_block(part_size):
+        part_size = int(part_size / _AES_CTR_COUNTER_LEN + 1) * _AES_CTR_COUNTER_LEN
+
+    return part_size
 
 
 class AESCipher:
@@ -613,15 +659,16 @@ class AESCipher:
     def get_start():
         return random_counter()
 
-    def __init__(self, key=None, start=None):
+    def __init__(self, key=None, count_start=None, count_offset=0):
         self.key = key
+        self.count_offset = int(count_offset)
         if not self.key:
             self.key = random_aes256_key()
-        if not start:
-            self.start = random_counter()
+        if not count_start:
+            self.count_start = random_counter()
         else:
-            self.start = int(start)
-        ctr = Counter.new(_AES_CTR_COUNTER_BITS_LEN, initial_value=self.start)
+            self.count_start = int(count_start)
+        ctr = Counter.new(_AES_CTR_COUNTER_BITS_LEN, initial_value=(self.count_start + self.count_offset))
         self.__cipher = AES.new(self.key, AES.MODE_CTR, counter=ctr)
 
     def encrypt(self, raw):

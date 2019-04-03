@@ -192,6 +192,8 @@ from .compat import urlquote, urlparse, to_unicode, to_string
 from .crypto import BaseCryptoProvider
 from .headers import *
 
+from .utils import calc_aes_ctr_offset_by_data_offset, is_valid_crypto_part_size, determine_crypto_part_size
+
 import time
 import shutil
 import base64
@@ -635,6 +637,8 @@ class Bucket(_Base):
         resp = self.__do_object('GET', key, headers=headers, params=params)
         logger.debug("Get object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
+        if models._hget(resp.headers, OSS_CLIENT_SIDE_ENCRYPTION_KEY):
+            raise ClientError('Could not use normal bucket to decrypt an encrypted object')
         return GetObjectResult(resp, progress_callback, self.enable_crc)
 
     def select_object(self, key, sql,
@@ -1196,7 +1200,7 @@ class Bucket(_Base):
         return PutObjectResult(resp)
 
     def list_parts(self, key, upload_id,
-                   marker='', max_parts=1000):
+                   marker='', max_parts=1000, headers=None):
         """列举已经上传的分片。支持分页。
 
         :param str key: 文件名
@@ -1211,7 +1215,8 @@ class Bucket(_Base):
         resp = self.__do_object('GET', key,
                                 params={'uploadId': upload_id,
                                         'part-number-marker': marker,
-                                        'max-parts': str(max_parts)})
+                                        'max-parts': str(max_parts)},
+                                headers=headers)
         logger.debug("List parts done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_parts, ListPartsResult)
 
@@ -1622,7 +1627,7 @@ class Bucket(_Base):
             return data
 
 
-class CryptoBucket():
+class CryptoBucket(_Base):
     """用于加密Bucket和Object操作的类，诸如上传、下载Object等。创建、删除bucket的操作需使用Bucket类接口。
 
     用法（假设Bucket属于杭州区域） ::
@@ -1663,6 +1668,11 @@ class CryptoBucket():
 
         if not isinstance(crypto_provider, BaseCryptoProvider):
             raise ClientError('Crypto bucket must provide a valid crypto_provider')
+
+        logger.debug("Init oss crypto bucket, endpoint: {0}, isCname: {1}, connect_timeout: {2}, app_name: {3}, enabled_crc: "
+                     "{4}".format(endpoint, is_cname, connect_timeout, app_name, enable_crc))
+        super(CryptoBucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout,
+                                     app_name, enable_crc)
 
         self.crypto_provider = crypto_provider
         self.bucket_name = bucket_name.strip()
@@ -1726,6 +1736,7 @@ class CryptoBucket():
             return self.put_object(key, f, headers=headers, progress_callback=progress_callback)
 
     def get_object(self, key,
+                   byte_range=None,
                    headers=None,
                    progress_callback=None,
                    params=None):
@@ -1738,6 +1749,7 @@ class CryptoBucket():
             'hello world'
 
         :param key: 文件名
+        :param byte_range: 指定下载范围。参见 :ref:`byte_range`
 
         :param headers: HTTP头部
         :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
@@ -1753,12 +1765,23 @@ class CryptoBucket():
         """
         headers = http.CaseInsensitiveDict(headers)
 
-        if 'range' in headers:
-            raise ClientError('Crypto bucket do not support range get')
+        if byte_range and (not utils.is_multiple_sizeof_encrypt_block(byte_range[0])):
+            raise ClientError('Crypto bucket get range start must align to encrypt block')
 
-        encrypted_result = self.bucket.get_object(key, headers=headers, params=params, progress_callback=None)
+        range_string = _make_range_string(byte_range)
+        if range_string:
+            headers['range'] = range_string
 
-        return GetObjectResult(encrypted_result.resp, progress_callback, self.enable_crc,
+        params = {} if params is None else params
+
+        logger.debug("Start to get object, bucket: {0}， key: {1}, range: {2}, headers: {3}, params: {4}".format(
+            self.bucket_name, to_string(key), range_string, headers, params))
+        resp = self.__do_object('GET', key, headers=headers, params=params)
+        logger.debug("Get object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        if models._hget(resp.headers, OSS_CLIENT_SIDE_ENCRYPTION_KEY) is None:
+            raise ClientError('Could not use crypto bucket to decrypt an unencrypted object')
+        return GetObjectResult(resp, progress_callback, self.enable_crc,
                                crypto_provider=self.crypto_provider)
 
     def get_object_to_file(self, key, filename,
@@ -1791,6 +1814,150 @@ class CryptoBucket():
 
             return result
 
+    def init_multipart_upload(self, key, data_size, part_size = None, headers=None):
+        """客户端加密初始化分片上传。
+
+        :param str key: 待上传的文件名
+        :param int data_size : 待上传文件总大小
+        :param int part_size : 后续分片上传时除最后一个分片之外的其他分片大小
+
+        :param headers: HTTP头部
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+
+        :return: :class:`InitMultipartUploadResult <oss2.models.InitMultipartUploadResult>`
+        返回值中的 `crypto_multipart_context` 记录了加密Meta信息，在upload_part时需要一并传入
+        """
+        if part_size is not None:
+            res = is_valid_crypto_part_size(part_size, data_size)
+            if not res:
+                raise ClientError("Crypto bucket get an invalid part_size")
+        else:
+            part_size = determine_crypto_part_size(data_size)
+
+        logger.info("Start to init multipart upload by crypto bucket, data_size: {0}, part_size: {1}".format(data_size, part_size))
+
+        crypto_key = self.crypto_provider.get_key()
+        crypto_start = self.crypto_provider.get_start()
+
+        part_number = int((data_size - 1) / part_size + 1)
+        context = CryptoMultipartContext(crypto_key, crypto_start, data_size, part_size)
+
+        headers = self.crypto_provider.build_header(headers, context)
+
+        resp = self.bucket.init_multipart_upload(key, headers)
+        resp.crypto_multipart_context = context;
+
+        logger.info("Init multipart upload by crypto bucket done, upload_id = {0}.".format(resp.upload_id))
+
+        return resp
+
+    def upload_part(self, key, upload_id, part_number, data, crypto_multipart_context, progress_callback=None, headers=None):
+        """客户端加密上传一个分片。
+
+        :param str key: 待上传文件名，这个文件名要和 :func:`init_multipart_upload` 的文件名一致。
+        :param str upload_id: 分片上传ID
+        :param int part_number: 分片号，最小值是1.
+        :param data: 待上传数据。
+        :param crypto_multipart_context: 加密Meta信息，在`init_multipart_upload` 时获得
+        :param progress_callback: 用户指定进度回调函数。可以用来实现进度条等功能。参考 :ref:`progress_callback` 。
+
+        :param headers: 用户指定的HTTP头部。可以指定Content-MD5头部等
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+
+        :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
+        """
+        logger.info("Start upload part by crypto bucket, upload_id = {0}, part_number = {1}".format(upload_id, part_number))
+
+        headers = http.CaseInsensitiveDict(headers)
+        headers[FLAG_CLIENT_SIDE_ENCRYPTION_MULTIPART_FILE] = "true"
+        headers = self.crypto_provider.build_header_for_upload_part(headers)
+
+        crypto_key = crypto_multipart_context.crypto_key
+        start = crypto_multipart_context.crypto_start
+        offset = crypto_multipart_context.part_size * (part_number - 1)
+        count_offset = utils.calc_aes_ctr_offset_by_data_offset(offset)
+
+        data = self.crypto_provider.make_encrypt_adapter(data, crypto_key, start, count_offset=count_offset)
+        if self.enable_crc:
+            data = utils.make_crc_adapter(data)
+
+        resp  = self.bucket.upload_part(key, upload_id, part_number, data, progress_callback, headers)
+
+        logger.info("Upload part {0} by crypto bucket done.".format(part_number))
+
+        return resp
+
+
+    def complete_multipart_upload(self, key, upload_id, parts, headers=None):
+        """客户端加密完成分片上传，创建文件。
+        当所有分片均已上传成功，才可以调用此函数
+
+        :param str key: 待上传的文件名，这个文件名要和 :func:`init_multipart_upload` 的文件名一致。
+        :param str upload_id: 分片上传ID
+
+        :param parts: PartInfo列表。PartInfo中的part_number和etag是必填项。其中的etag可以从 :func:`upload_part` 的返回值中得到。
+        :type parts: list of `PartInfo <oss2.models.PartInfo>`
+
+        :param headers: HTTP头部
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+
+        :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
+        """
+        logger.info("Start complete multipart upload by crypto bucket, upload_id = {0}".format(upload_id))
+
+        headers = http.CaseInsensitiveDict(headers)
+        headers[FLAG_CLIENT_SIDE_ENCRYPTION_MULTIPART_FILE] = "true"
+
+        res = self.bucket.complete_multipart_upload(key, upload_id, parts, headers)
+
+        logger.info("Complete multipart upload by crypto bucket done, upload_id = {0}.".format(upload_id))
+
+        return res
+
+    def abort_multipart_upload(self, key, upload_id):
+        """取消分片上传。
+
+        :param str key: 待上传的文件名，这个文件名要和 :func:`init_multipart_upload` 的文件名一致。
+        :param str upload_id: 分片上传ID
+
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.info("Start abort multipart upload by crypto bucket, upload_id = {0}".format(upload_id))
+
+        res = self.bucket.abort_multipart_upload(key, upload_id)
+
+        logger.info("Abort multipart upload by crypto bucket done, upload_id = {0}.".format(upload_id))
+
+        return res
+
+    def list_parts(self, key, upload_id,
+                   marker='', max_parts=1000):
+        """列举已经上传的分片。支持分页。
+
+        :param str key: 文件名
+        :param str upload_id: 分片上传ID
+        :param str marker: 分页符
+        :param int max_parts: 一次最多罗列多少分片
+
+        :return: :class:`ListPartsResult <oss2.models.ListPartsResult>`
+        """
+        logger.info("Start list parts by crypto bucket, upload_id = {0}".format(upload_id))
+
+        headers = http.CaseInsensitiveDict()
+        headers[FLAG_CLIENT_SIDE_ENCRYPTION_MULTIPART_FILE] = "true"
+
+        res = self.bucket.list_parts(key, upload_id, marker = marker, max_parts = max_parts, headers=headers)
+
+        crypto_key = self.crypto_provider.decrypt_from_str(OSS_CLIENT_SIDE_ENCRYPTION_KEY, res.crypto_key)
+        crypto_start = int(self.crypto_provider.decrypt_from_str(OSS_CLIENT_SIDE_ENCRYPTION_START, res.crypto_start))
+        context = CryptoMultipartContext(crypto_key, crypto_start, res.client_encryption_data_size, res.client_encryption_part_size)
+        res.crypto_multipart_context = context
+
+        logger.info("List parts by crypto bucket done, upload_id = {0}".format(upload_id))
+        return res
+
+    def __do_object(self, method, key, **kwargs):
+        return self._do(method, self.bucket_name, key, **kwargs)
 
 def _normalize_endpoint(endpoint):
     if not endpoint.startswith('http://') and not endpoint.startswith('https://'):

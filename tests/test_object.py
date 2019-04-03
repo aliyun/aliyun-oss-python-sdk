@@ -84,6 +84,121 @@ class TestObject(OssTestCase):
         self.assertTrue(get_result.server_crc is not None)
         self.assertTrue(get_result.client_crc == get_result.server_crc)
 
+    def test_rsa_crypto_range_get(self):
+        key = self.random_key()
+        content = random_bytes(1024)
+
+        self.rsa_crypto_bucket.put_object(key, content)
+
+        get_result = self.rsa_crypto_bucket.get_object(key, byte_range=(None, None))
+        self.assertEqual(get_result.read(), content[:])
+
+        get_result = self.rsa_crypto_bucket.get_object(key, byte_range=(32, None))
+        self.assertEqual(get_result.read(), content[32:])
+
+        get_result = self.rsa_crypto_bucket.get_object(key, byte_range=(None, 32))
+        self.assertEqual(get_result.read(), content[-32:])
+
+        get_result = self.rsa_crypto_bucket.get_object(key, byte_range=(32, 103))
+        self.assertEqual(get_result.read(), content[32:103+1])
+
+        self.assertRaises(oss2.exceptions.ClientError, self.rsa_crypto_bucket.get_object, key, byte_range=(31, None))
+        self.assertRaises(oss2.exceptions.ClientError, self.rsa_crypto_bucket.get_object, key, byte_range=(None, 31))
+
+    def test_rsa_crypto_object_decrypt_by_normal_bucket(self):
+        key = self.random_key('.js')
+        content = random_bytes(1024)
+
+        self.assertRaises(NotFound, self.bucket.head_object, key)
+
+        result = self.rsa_crypto_bucket.put_object(key, content)
+        self.assertTrue(result.status == 200)
+
+        self.assertRaises(ClientError, self.bucket.get_object, key)
+
+    def test_get_unencrypt_object_decrypt_by_rsa_crypto_bucket(self):
+        key = self.random_key('.js')
+        content = random_bytes(1024)
+
+        self.assertRaises(NotFound, self.bucket.head_object, key)
+
+        result = self.bucket.put_object(key, content)
+        self.assertTrue(result.status == 200)
+
+        self.assertRaises(ClientError, self.rsa_crypto_bucket.get_object, key)
+
+    def test_copy_rsa_crypto_object_by_normal_bucket(self):
+        key = self.random_key('.js')
+        content = random_bytes(1024)
+
+        self.assertRaises(NotFound, self.bucket.head_object, key)
+
+        headers={'content-md5': oss2.utils.md5_string(content),
+                 'content-length': str(len(content))}
+        result = self.rsa_crypto_bucket.put_object(key, content, headers=headers)
+        self.assertTrue(result.status == 200)
+
+        copy_key = key + "_copy";
+        result = self.bucket.copy_object(self.bucket.bucket_name, key, copy_key)
+        self.assertTrue(result.status == 200)
+
+        def assert_result(result):
+            self.assertEqual(result.content_length, len(content))
+            self.assertEqual(result.content_type, 'application/javascript')
+            self.assertEqual(result.object_type, 'Normal')
+            self.assertTrue(result.etag)
+
+        get_result = self.rsa_crypto_bucket.get_object(copy_key)
+        self.assertEqual(get_result.read(), content)
+        assert_result(get_result)
+        self.assertTrue(get_result.client_crc is not None)
+        self.assertTrue(get_result.server_crc is not None)
+        self.assertTrue(get_result.client_crc == get_result.server_crc)
+
+    def test_replace_rsa_crypto_object_by_normal_bucket(self):
+        key = self.random_key('.js')
+        content = random_bytes(1024)
+
+        self.assertRaises(NotFound, self.bucket.head_object, key)
+
+        result = self.rsa_crypto_bucket.put_object(key, content)
+        self.assertTrue(result.status == 200)
+
+        replace_key = key + "_replace";
+        headers={'content-md5': oss2.utils.md5_string(content),
+                 'content-length': str(len(content)),
+                 'x-oss-metadata-directive':'REPLACE'}
+        result = self.bucket.copy_object(self.bucket.bucket_name, key, replace_key, headers=headers)
+        self.assertTrue(result.status == 200)
+
+        def assert_result(result):
+            self.assertEqual(result.content_length, len(content))
+            self.assertEqual(result.content_type, 'application/javascript')
+            self.assertEqual(result.object_type, 'Normal')
+            self.assertTrue(result.etag)
+
+        get_result = self.rsa_crypto_bucket.get_object(replace_key)
+        self.assertEqual(get_result.read(), content)
+        assert_result(get_result)
+        self.assertTrue(get_result.client_crc is not None)
+        self.assertTrue(get_result.server_crc is not None)
+        self.assertTrue(get_result.client_crc == get_result.server_crc)
+
+    def test_update_crypto_meta_rsa_crypto_object_by_normal_bucket(self):
+        key = self.random_key('.js')
+        content = random_bytes(1024)
+
+        self.assertRaises(NotFound, self.bucket.head_object, key)
+
+        result = self.rsa_crypto_bucket.put_object(key, content)
+        self.assertTrue(result.status == 200)
+
+        headers={'content-md5': oss2.utils.md5_string(content),
+                 'content-length': str(len(content)),
+                 'x-oss-client-side-encryption-key':'aaaa'}
+        self.assertRaises(oss2.exceptions.DuplicateClientEncryptionMetaSettings, self.bucket.copy_object,
+                          self.bucket.bucket_name, key, key, headers=headers)
+
     def test_kms_crypto_object(self):
         if is_py33:
             return
@@ -115,6 +230,141 @@ class TestObject(OssTestCase):
         self.assertTrue(get_result.client_crc is not None)
         self.assertTrue(get_result.server_crc is not None)
         self.assertTrue(get_result.client_crc == get_result.server_crc)
+
+    def test_kms_crypto_range_get(self):
+        if is_py33:
+            return
+
+        key = self.random_key()
+        content = random_bytes(1024)
+
+        self.kms_crypto_bucket.put_object(key, content, headers={'content-md5': oss2.utils.md5_string(content),
+                                                                        'content-length': str(len(content))})
+
+        get_result = self.kms_crypto_bucket.get_object(key, byte_range=(None, None))
+        self.assertEqual(get_result.read(), content[:])
+
+        get_result = self.kms_crypto_bucket.get_object(key, byte_range=(32, None))
+        self.assertEqual(get_result.read(), content[32:])
+
+        get_result = self.kms_crypto_bucket.get_object(key, byte_range=(None, 32))
+        self.assertEqual(get_result.read(), content[-32:])
+
+        get_result = self.kms_crypto_bucket.get_object(key, byte_range=(32, 103))
+        self.assertEqual(get_result.read(), content[32:103+1])
+
+        self.assertRaises(oss2.exceptions.ClientError, self.kms_crypto_bucket.get_object, key, byte_range=(31, None))
+        self.assertRaises(oss2.exceptions.ClientError, self.kms_crypto_bucket.get_object, key, byte_range=(None, 31))
+
+    def test_kms_crypto_object_decrypt_by_normal_bucket(self):
+        if is_py33:
+            return
+
+        key = self.random_key('.js')
+        content = random_bytes(1024)
+
+        self.assertRaises(NotFound, self.bucket.head_object, key)
+
+        result = self.kms_crypto_bucket.put_object(key, content, headers={'content-md5': oss2.utils.md5_string(content),
+                                                                        'content-length': str(len(content))})
+        self.assertTrue(result.status == 200)
+
+        self.assertRaises(ClientError, self.bucket.get_object, key)
+
+    def test_get_unencrypt_object_decrypt_by_kms_crypto_bucket(self):
+        if is_py33:
+            return
+
+        key = self.random_key('.js')
+        content = random_bytes(1024)
+
+        self.assertRaises(NotFound, self.bucket.head_object, key)
+
+        result = self.bucket.put_object(key, content)
+        self.assertTrue(result.status == 200)
+
+        self.assertRaises(ClientError, self.kms_crypto_bucket.get_object, key)
+
+    def test_copy_kms_crypto_object_by_normal_bucket(self):
+        if is_py33:
+            return
+
+        key = self.random_key('.js')
+        content = random_bytes(1024)
+
+        self.assertRaises(NotFound, self.bucket.head_object, key)
+
+        headers={'content-md5': oss2.utils.md5_string(content),
+                 'content-length': str(len(content))}
+        result = self.kms_crypto_bucket.put_object(key, content, headers=headers)
+        self.assertTrue(result.status == 200)
+
+        copy_key = key + "_copy";
+        result = self.bucket.copy_object(self.bucket.bucket_name, key, copy_key)
+        self.assertTrue(result.status == 200)
+
+        def assert_result(result):
+            self.assertEqual(result.content_length, len(content))
+            self.assertEqual(result.content_type, 'application/javascript')
+            self.assertEqual(result.object_type, 'Normal')
+            self.assertTrue(result.etag)
+
+        get_result = self.kms_crypto_bucket.get_object(copy_key)
+        self.assertEqual(get_result.read(), content)
+        assert_result(get_result)
+        self.assertTrue(get_result.client_crc is not None)
+        self.assertTrue(get_result.server_crc is not None)
+        self.assertTrue(get_result.client_crc == get_result.server_crc)
+
+    def test_replace_kms_crypto_object_by_normal_bucket(self):
+        if is_py33:
+            return
+
+        key = self.random_key('.js')
+        content = random_bytes(1024)
+
+        self.assertRaises(NotFound, self.bucket.head_object, key)
+
+        result = self.kms_crypto_bucket.put_object(key, content)
+        self.assertTrue(result.status == 200)
+
+        replace_key = key + "_replace";
+        headers={'content-md5': oss2.utils.md5_string(content),
+                 'content-length': str(len(content)),
+                 'x-oss-metadata-directive':'REPLACE'}
+        result = self.bucket.copy_object(self.bucket.bucket_name, key, replace_key, headers=headers)
+        self.assertTrue(result.status == 200)
+
+        def assert_result(result):
+            self.assertEqual(result.content_length, len(content))
+            self.assertEqual(result.content_type, 'application/javascript')
+            self.assertEqual(result.object_type, 'Normal')
+            self.assertTrue(result.etag)
+
+        get_result = self.kms_crypto_bucket.get_object(replace_key)
+        self.assertEqual(get_result.read(), content)
+        assert_result(get_result)
+        self.assertTrue(get_result.client_crc is not None)
+        self.assertTrue(get_result.server_crc is not None)
+        self.assertTrue(get_result.client_crc == get_result.server_crc)
+
+    def test_update_crypto_meta_kms_crypto_object_by_normal_bucket(self):
+        if is_py33:
+            return
+
+        key = self.random_key('.js')
+        content = random_bytes(1024)
+
+        self.assertRaises(NotFound, self.bucket.head_object, key)
+
+        result = self.kms_crypto_bucket.put_object(key, content)
+        self.assertTrue(result.status == 200)
+
+        headers={'content-md5': oss2.utils.md5_string(content),
+                 'content-length': str(len(content)),
+                 'x-oss-client-side-encryption-key':'aaaa'}
+        self.assertRaises(oss2.exceptions.DuplicateClientEncryptionMetaSettings, self.bucket.copy_object,
+                          self.bucket.bucket_name, key, key, headers=headers)
 
     def test_restore_object(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
