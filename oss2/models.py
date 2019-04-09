@@ -95,8 +95,10 @@ class GetSelectObjectMetaResult(HeadObjectResult):
         for data in self.select_resp: # waiting the response body to finish
             pass
 
-        self.csv_rows = self.select_resp.rows
-        self.csv_splits = self.select_resp.splits
+        self.csv_rows = self.select_resp.rows  # to be compatible with previous version. 
+        self.csv_splits = self.select_resp.splits  # to be compatible with previous version. 
+        self.rows = self.csv_rows 
+        self.splits = self.csv_splits
 
 
 class GetObjectMetaResult(RequestResult):
@@ -671,7 +673,7 @@ class LiveChannelInfo(object):
     def __init__(self,
             status = 'enabled',
             description = '',
-            target = None,
+            target = LiveChannelInfoTarget(),
             last_modified = None,
             name = None,
             play_url = None,

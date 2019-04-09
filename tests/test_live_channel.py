@@ -239,6 +239,10 @@ class TestLiveChannel(OssTestCase):
         expires = 3600
         signed_url = self.bucket.sign_rtmp_url(channel_name, playlist_name, expires)
         self.assertTrue(signed_url.startswith(self._get_publish_url(self.bucket.bucket_name, channel_name)))
+
+        # empty playlist name
+        signed_url = self.bucket.sign_rtmp_url(channel_name, '', expires)
+        self.assertTrue(signed_url.startswith(self._get_publish_url(self.bucket.bucket_name, channel_name)))
          
         self.bucket.delete_live_channel(channel_name)
         

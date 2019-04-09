@@ -6,6 +6,8 @@ python:
 - 3.4
 - 3.5
 install:
+- if [[ $TRAVIS_PYTHON_VERSION == '3.3' ]]; then travis_retry pip install pycryptodome==3.6.6;
+  fi
 - pip install crcmod requests nose nose-cov python-coveralls pycryptodome aliyun-python-sdk-sts
   aliyun-python-sdk-kms
 - pip install --upgrade mock
