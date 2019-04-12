@@ -63,7 +63,6 @@ class TestBucket(OssTestCase):
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
 
         bucket.create_bucket(oss2.BUCKET_ACL_PUBLIC_READ)
-        bucket.create_bucket()
 
         self.retry_assert(lambda: bucket.get_bucket_acl().acl == oss2.BUCKET_ACL_PUBLIC_READ)
 
