@@ -42,6 +42,7 @@ class SelectCsvObjectTestHelper(object):
         if line_range is None:
             testCase.assertEqual(self.scannedSize, file_size)
 
+        self.bucket.delete_object(key)
         return content
 
     def test_select_csv_object_invalid_request(self, testCase, sql, line_range = None):
@@ -60,6 +61,8 @@ class SelectCsvObjectTestHelper(object):
             testCase.assertEqual(result.status, 400)
         except oss2.exceptions.ServerError as e:
             testCase.assertEqual(e.status, 400)
+        
+        self.bucket.delete_object(key)
 
 class TestSelectCsvObject(OssTestCase):
     def test_select_csv_object_not_empty_city(self):
@@ -244,6 +247,7 @@ class TestSelectCsvObject(OssTestCase):
             self.assertFalse(True, "expect to raise exception")
         except SelectOperationFailed:
             print("Got the exception. Ok.")
+        self.bucket.delete_object(key)
 
     def test_select_csv_object_into_file(self):
         key = "city_sample_data.csv"
@@ -276,6 +280,7 @@ class TestSelectCsvObject(OssTestCase):
 
         os.remove(output_file)
         self.assertEqual(content1, content2)
+        self.bucket.delete_object(key)
 
     def test_select_gzip_csv_object_into_file(self):
         key = "city_sample_data.csv.gz"
@@ -300,6 +305,7 @@ class TestSelectCsvObject(OssTestCase):
 
         os.remove(output_file)
         self.assertEqual(content1, content2)
+        self.bucket.delete_object(key)
 
     def test_select_csv_object_none_range(self):
         key = "city_sample_data.csv"
@@ -319,7 +325,10 @@ class TestSelectCsvObject(OssTestCase):
             for chunk in result:
                 content += chunk
 
+            if len(content) <= 0 :
+                self.bucket.delete_object(key)
             self.assertTrue(len(content) > 0)
+        self.bucket.delete_object(key)
     
     def test_select_csv_object_with_output_delimiters(self):
         key = "test_select_csv_object_with_output_delimiters"
@@ -332,6 +341,7 @@ class TestSelectCsvObject(OssTestCase):
             content += chunk
         
         self.assertEqual(content, 'abc|def\r\n'.encode('utf-8'))
+        self.bucket.delete_object(key)
 
     def test_select_csv_object_with_crc(self):
         key = "test_select_csv_object_with_crc"
@@ -344,6 +354,7 @@ class TestSelectCsvObject(OssTestCase):
             content += chunk
         
         self.assertEqual(content, 'abc,def\n'.encode('utf-8'))
+        self.bucket.delete_object(key)
     
     def test_select_csv_object_with_skip_partial_data(self):
         key = "test_select_csv_object_with_skip_partial_data"
@@ -359,6 +370,7 @@ class TestSelectCsvObject(OssTestCase):
             print("expected error occurs")
         
         self.assertEqual(content, 'abc,def\n'.encode('utf-8'))
+        self.bucket.delete_object(key)
 
     def test_select_csv_object_with_output_raw(self):
         key = "test_select_csv_object_with_output_raw"
@@ -371,6 +383,7 @@ class TestSelectCsvObject(OssTestCase):
             content += chunk
         
         self.assertEqual(content, 'abc\n'.encode('utf-8'))
+        self.bucket.delete_object(key)
     
     def test_select_csv_object_with_keep_columns(self):
         key = "test_select_csv_object_with_keep_columns"
@@ -383,6 +396,7 @@ class TestSelectCsvObject(OssTestCase):
             content += chunk
         
         self.assertEqual(content, 'abc,\n'.encode('utf-8'))
+        self.bucket.delete_object(key)
     
     def test_select_csv_object_with_output_header(self):
         key = "test_select_csv_object_with_output_header"
@@ -395,6 +409,7 @@ class TestSelectCsvObject(OssTestCase):
             content += chunk
         
         self.assertEqual(content, 'name\nabc\n'.encode('utf-8'))
+        self.bucket.delete_object(key)
     
     def test_select_csv_object_with_invalid_parameters(self):
         key = "test_select_csv_object_with_invalid_parameters"
@@ -403,8 +418,14 @@ class TestSelectCsvObject(OssTestCase):
         select_params = {'OutputHeader123':'true', 'CsvHeaderInfo':'Use'}
         try:
             result = self.bucket.select_object(key, "select name from ossobject", None, select_params)
-            self.assertFalse()
+            content = b''
+            for chunk in result:
+                content += chunk
+            
+            self.bucket.delete_object(key)
+            self.assertEqual(content, 'abc\n'.encode('utf-8'))
         except SelectOperationClientError:
+            self.bucket.delete_object(key)
             print("expected error")
     
 if __name__ == '__main__':
