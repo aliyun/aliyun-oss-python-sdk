@@ -76,6 +76,7 @@ class TestUpload(OssTestCase):
         result = self.bucket.get_object(key)
         self.assertEqual(content, result.read())
         self.assertEqual(result.headers['x-oss-object-type'], 'Multipart')
+        self.bucket.delete_object(key)
 
     def test_progress(self):
         stats = {'previous': -1, 'ncalled': 0}
@@ -180,7 +181,8 @@ class TestUpload(OssTestCase):
         self.assertEqual(len(list(oss2.ObjectUploadIterator(self.bucket, key))), expected_unfinished)
         upload = self.bucket.list_multipart_uploads()
         for upload_id in upload.upload_list :
-            self.bucket.abort_multipart_upload(key, upload_id.upload_id)
+            if key == upload_id.key:
+                self.bucket.abort_multipart_upload(key, upload_id.upload_id)
         self.bucket.delete_object(key)
 
     def test_interrupt_empty(self):
