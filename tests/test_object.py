@@ -557,6 +557,7 @@ class TestObject(OssTestCase):
 
         result = self.bucket.get_object(target_key)
         self.assertEqual(content, result.read())
+        self.bucket.delete_object(source_key)
 
     def test_update_object_meta(self):
         key = self.random_key('.txt')

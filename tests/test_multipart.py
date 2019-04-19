@@ -50,6 +50,7 @@ class TestMultipart(OssTestCase):
         headers = {'Content-Md5': oss2.utils.content_md5(content + content)}
 
         self.assertRaises(oss2.exceptions.InvalidDigest, self.bucket.upload_part, key, upload_id, 1, content, headers=headers)
+        self.bucket.abort_multipart_upload(key, upload_id)
 
     def test_progress(self):
         stats = {'previous': -1}

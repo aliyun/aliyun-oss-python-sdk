@@ -52,7 +52,7 @@ class SelectJsonObjectTestHelper(object):
 
         if 'SplitRange' not in input_format and 'LineRange' not in input_format:
             testCase.assertEqual(self.scannedSize, file_size)
-
+        self.bucket.delete_object(key)
         return content
 
     def test_select_json_object_invalid_request(self, testCase, sql, input_format):
@@ -235,6 +235,7 @@ class TestSelectJsonObject(OssTestCase):
             self.assertFalse(True, "expect to raise exception")
         except oss2.exceptions.ServerError:
             print("Got the exception. Ok.")
+        self.bucket.delete_object(key)
     
     def test_select_json_object_none_range(self):
         print("test_select_json_object_none_range")
@@ -258,6 +259,7 @@ class TestSelectJsonObject(OssTestCase):
                 content += chunk
 
             self.assertTrue(len(content) > 0)
+        self.bucket.delete_object(key)
 
     def test_select_json_object_parse_num_as_string(self):
         key = "test_select_json_object_parse_num_as_string"
@@ -267,6 +269,7 @@ class TestSelectJsonObject(OssTestCase):
         for chunk in result:
             content += chunk
         self.assertEqual(content, b"{\"a\":123456789.123456789}\n")
+        self.bucket.delete_object(key)
     
 if __name__ == '__main__':
     unittest.main()
