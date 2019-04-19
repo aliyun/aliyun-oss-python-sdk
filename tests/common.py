@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.DEBUG)
 OSS_ID = os.getenv("OSS_TEST_ACCESS_KEY_ID")
 OSS_SECRET = os.getenv("OSS_TEST_ACCESS_KEY_SECRET")
 OSS_ENDPOINT = os.getenv("OSS_TEST_ENDPOINT")
-OSS_BUCKET = os.getenv("OSS_TEST_BUCKET")
+OSS_TEST_BUCKET = os.getenv("OSS_TEST_BUCKET")
 OSS_CNAME = os.getenv("OSS_TEST_CNAME")
 OSS_CMK = os.getenv("OSS_TEST_CMK")
 OSS_REGION = os.getenv("OSS_TEST_REGION", "cn-hangzhou")
@@ -30,7 +30,11 @@ OSS_AUTH_VERSION = None
 def random_string(n):
     return ''.join(random.choice(string.ascii_lowercase) for i in range(n))
 
-
+OSS_BUCKET = ''
+if OSS_TEST_BUCKET is None:
+    OSS_BUCKET = 'aliyun-oss-python-sdk-'+random_string(10)
+else:
+    OSS_BUCKET = OSS_TEST_BUCKET + random_string(10)
 
 def random_bytes(n):
     return oss2.to_bytes(random_string(n))
@@ -82,7 +86,7 @@ class OssTestCase(unittest.TestCase):
 
         global OSS_AUTH_VERSION
         OSS_AUTH_VERSION = os.getenv('OSS_TEST_AUTH_VERSION')
-
+        
         self.bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET)
 
         try:

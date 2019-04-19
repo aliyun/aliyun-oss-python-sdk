@@ -552,6 +552,10 @@ class LifecycleRule(object):
     :param expiration: 过期删除操作。
     :type expiration: :class:`LifecycleExpiration`
     :param status: 启用还是禁止该规则。可选值为 `LifecycleRule.ENABLED` 或 `LifecycleRule.DISABLED`
+    :param storage_transitions: 存储类型转换规则
+    :type storage_transitions: :class:`StorageTransition`
+    :param tagging: object tagging 规则
+    :type tagging: :class:`ObjectTagging`
     """
 
     ENABLED = 'Enabled'
@@ -560,13 +564,14 @@ class LifecycleRule(object):
     def __init__(self, id, prefix,
                  status=ENABLED, expiration=None,
                  abort_multipart_upload=None,
-                 storage_transitions=None):
+                 storage_transitions=None, tagging=None):
         self.id = id
         self.prefix = prefix
         self.status = status
         self.expiration = expiration
         self.abort_multipart_upload = abort_multipart_upload
         self.storage_transitions = storage_transitions
+        self.tagging = tagging
 
 
 class BucketLifecycle(object):
@@ -878,3 +883,42 @@ class ProcessObjectResult(RequestResult):
             self.object = result['object']
         if 'status' in result:
             self.process_status = result['status']
+
+_MAX_OBJECT_TAGGING_KEY_LENGTH=128
+_MAX_OBJECT_TAGGING_VALUE_LENGTH=256
+
+class ObjectTagging(object):
+
+    def __init__(self, tagging_rules=None):
+        
+        self.tag_set = tagging_rules or ObjectTaggingRule() 
+
+class ObjectTaggingRule(object):
+
+    def __init__(self):
+        self.tagging_rule = dict()
+
+    def add(self, key, value):
+
+        if key is None or key == '':
+            raise ClientError("ObjectTagging key should not be empty")
+
+        if len(key) > _MAX_OBJECT_TAGGING_KEY_LENGTH:
+            raise ClientError("ObjectTagging key is too long")
+
+        if len(value) > _MAX_OBJECT_TAGGING_VALUE_LENGTH:
+            raise ClientError("ObjectTagging value is too long")
+
+        self.tagging_rule[key] = value
+
+    def delete(self, key):
+        del self.tagging_rule[key]
+
+    def len(self):
+        return len(self.tagging_rule)
+
+class GetObjectTaggingResult(RequestResult, ObjectTagging):
+    
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        ObjectTagging.__init__(self)

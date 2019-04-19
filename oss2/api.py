@@ -349,6 +349,7 @@ class Bucket(_Base):
     STAT = 'stat'
     BUCKET_INFO = 'bucketInfo'
     PROCESS = 'x-oss-process'
+    TAGGING = 'tagging'
 
     def __init__(self, auth, endpoint, bucket_name,
                  is_cname=False,
@@ -1595,6 +1596,50 @@ class Bucket(_Base):
         resp = self.__do_object('POST', key, params={Bucket.PROCESS: ''}, data=process_data)
         logger.debug("Process object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return ProcessObjectResult(resp)
+    
+    def put_object_tagging(self, key, input, headers=None):
+        """
+
+        :param str key: 上传tagging的对象名称，不能为空。
+
+        :param input: tag 标签内容 
+        :type input: :class:`ObjectTagging <oss2.models.ObjectTagging>` 对象
+
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to put object tagging, bucket: {0}, key: {1}, tagging: {2}".format(
+            self.bucket_name, to_string(key), input))
+
+        if headers is not None:
+            headers = http.CaseInsensitiveDict(headers)
+
+        data = self.__convert_data(ObjectTagging, xml_utils.to_put_object_tagging, input) 
+        resp = self.__do_object('PUT', key, data=data, params={Bucket.TAGGING: ''}, headers=headers)
+
+        return RequestResult(resp)
+
+    def get_object_tagging(self, key):
+
+        """
+        :param str key: 要获取tagging的对象名称
+        :return: :class:`ObjectTagging <oss2.models.ObjectTagging>` 
+        """
+        logger.debug("Start to get object tagging, bucket: {0}, key: {1}".format(
+                    self.bucket_name, to_string(key)))
+        resp = self.__do_object('GET', key, params={Bucket.TAGGING: ''})
+
+        return self._parse_result(resp, xml_utils.parse_get_object_tagging, GetObjectTaggingResult)
+
+    def delete_object_tagging(self, key):
+        """
+        :param str key: 要删除tagging的对象名称
+        :return: :class:`ObjectTagging <oss2.models.ObjectTagging>` 
+        """
+        logger.debug("Start to delete object tagging, bucket: {0}, key: {1}".format(
+                    self.bucket_name, to_string(key)))
+        resp = self.__do_object('DELETE', key, params={Bucket.TAGGING: ''})
+        logger.debug("Delete object tagging done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
 
     def _get_bucket_config(self, config):
         """获得Bucket某项配置，具体哪种配置由 `config` 指定。该接口直接返回 `RequestResult` 对象。
