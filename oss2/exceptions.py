@@ -230,6 +230,14 @@ class AccessDenied(ServerError):
     status = 403
     code = 'AccessDenied'
 
+class NoSuchServerSideEncryptionRule(NotFound):
+    status = 404
+    code = 'NoSuchServerSideEncryptionRule'
+
+class InvalidEncryptionAlgorithmError(ServerError):
+    status = 400
+    code = 'InvalidEncryptionAlgorithmError' 
+
 class SelectOperationFailed(ServerError):
     code = 'SelectOperationFailed'
     def __init__(self, status, code, message):

@@ -7,9 +7,13 @@ import json
 import base64
 
 from oss2.exceptions import (ClientError, RequestError, NoSuchBucket, OpenApiServerError,
-                             NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable)
+        NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable)
 
 from oss2.compat import is_py2, is_py33
+from oss2.models import Tagging, TaggingRule
+from oss2.headers import OSS_OBJECT_TAGGING, OSS_OBJECT_TAGGING_COPY_DIRECTIVE
+from oss2.compat import urlunquote, urlquote
+
 from common import *
 
 
@@ -208,6 +212,9 @@ class TestObject(OssTestCase):
 
         self.assertTrue(filecmp.cmp(input_filename, output_filename))
 
+        os.remove(input_filename)
+        os.remove(output_filename)
+
     def test_streaming(self):
         src_key = self.random_key('.src')
         dst_key = self.random_key('.dst')
@@ -359,6 +366,7 @@ class TestObject(OssTestCase):
 
         result = self.bucket.batch_delete_objects(object_list)
         self.assertEqual(sorted(object_list), sorted(result.deleted_keys))
+        self.assertEqual(5, len(result.deleted_keys))
 
         for object in object_list:
             self.assertTrue(not self.bucket.object_exists(object))
@@ -887,7 +895,423 @@ class TestObject(OssTestCase):
         self.assertEqual(result.object, dest_key)
         result = self.bucket.object_exists(dest_key)
         self.assertEqual(result, True)
+    
+    def test_object_tagging_client_error(self):
 
+        rule = TaggingRule()
+        self.assertRaises(oss2.exceptions.ClientError, rule.add, 129*'a', 'test')
+        self.assertRaises(oss2.exceptions.ClientError, rule.add, 'test', 257*'a')
+        self.assertRaises(oss2.exceptions.ClientError, rule.add, None, 'test')
+        self.assertRaises(oss2.exceptions.ClientError, rule.add, '', 'test')
+        self.assertRaises(KeyError, rule.delete, 'not_exist')
+
+    def test_object_tagging_wrong_key(self):
+       
+        tagging = Tagging()
+        tagging.tag_set.tagging_rule[129*'a'] = 'test'
+        
+        key = self.random_key('.dat')
+        result = self.bucket.put_object(key, "test")
+
+        try:
+            result = self.bucket.put_object_tagging(key, tagging)
+            self.assertFalse(True, 'should get exception')
+        except oss2.exceptions.OssError:
+            pass
+
+        tagging.tag_set.delete(129*'a')
+
+        self.assertTrue( 129*'a' not in tagging.tag_set.tagging_rule )
+
+        tagging.tag_set.tagging_rule['%@abc'] = 'abc'
+
+        try:
+            result = self.bucket.put_object_tagging(key, tagging)
+            self.assertFalse(True, 'should get exception')
+        except oss2.exceptions.OssError:
+            pass
+
+        tagging.tag_set.delete('%@abc')
+
+        self.assertTrue( '%@abc' not in tagging.tag_set.tagging_rule )
+
+        tagging.tag_set.tagging_rule[''] = 'abc'
+
+        try:
+            result = self.bucket.put_object_tagging(key, tagging)
+            self.assertFalse(True, 'should get exception')
+        except oss2.exceptions.OssError:
+            pass
+
+
+    def test_object_tagging_wrong_value(self):
+       
+        tagging = Tagging()
+
+        tagging.tag_set.tagging_rule['test'] = 257*'a'
+
+        key = self.random_key('.dat')
+
+        result = self.bucket.put_object(key, "test")
+
+        try:
+            result = self.bucket.put_object_tagging(key, tagging)
+            self.assertFalse(True, 'should get exception')
+        except oss2.exceptions.OssError:
+            pass
+
+        tagging.tag_set.tagging_rule['test']= '%abc'
+
+        try:
+            result = self.bucket.put_object_tagging(key, tagging)
+            self.assertFalse(True, 'should get exception')
+        except oss2.exceptions.OssError:
+            pass
+
+        tagging.tag_set.tagging_rule['test']= ''
+
+        try:
+            result = self.bucket.put_object_tagging(key, tagging)
+        except oss2.exceptions.OssError:
+            self.assertFalse(True, 'should get exception')
+
+    def test_object_tagging_wrong_rule_num(self):
+        
+        key = self.random_key('.dat')
+        result = self.bucket.put_object(key, "test")
+
+        tagging = Tagging(None)
+        for i in range(0,12):
+            key='test_'+str(i)
+            value='test_'+str(i)
+            tagging.tag_set.add(key, value)
+
+        try:
+            result = self.bucket.put_object_tagging(key, tagging)
+            self.assertFalse(True, 'should get exception')
+        except oss2.exceptions.OssError:
+            pass
+
+    def test_object_tagging(self):
+
+        key = self.random_key('.dat')
+        result = self.bucket.put_object(key, "test")
+
+        try:
+            result=self.bucket.get_object_tagging(key)
+            self.assertEqual(0, result.tag_set.len())
+        except oss2.exceptions.OssError:
+            self.assertFalse(True, "should get exception")
+
+        rule = TaggingRule()
+        key1=128*'a'
+        value1=256*'a'
+        rule.add(key1, value1)
+
+        key2='+-.:'
+        value2='_/'
+        rule.add(key2, value2)
+
+        tagging = Tagging(rule) 
+        result = self.bucket.put_object_tagging(key, tagging)
+        self.assertTrue(200, result.status)
+
+        result = self.bucket.get_object_tagging(key)
+
+        self.assertEqual(2, result.tag_set.len())
+        self.assertEqual(256*'a', result.tag_set.tagging_rule[128*'a'])
+        self.assertEqual('_/', result.tag_set.tagging_rule['+-.:'])
+
+    def test_put_object_with_tagging(self):
+    
+        key = self.random_key('.dat')
+        headers = dict()
+        headers[OSS_OBJECT_TAGGING] = "k1=v1&k2=v2&k3=v3"
+
+        result = self.bucket.put_object(key, 'test', headers=headers)
+        self.assertEqual(200, result.status)
+        
+        result = self.bucket.get_object_tagging(key)
+        self.assertEqual(3, result.tag_set.len())
+        self.assertEqual('v1', result.tag_set.tagging_rule['k1'])
+        self.assertEqual('v2', result.tag_set.tagging_rule['k2'])
+        self.assertEqual('v3', result.tag_set.tagging_rule['k3'])
+
+        result = self.bucket.delete_object_tagging(key)
+
+        self.assertEqual(204, result.status)
+
+        result = self.bucket.get_object_tagging(key)
+        self.assertEqual(0, result.tag_set.len())
+
+    def test_copy_object_with_tagging(self):
+    
+        #key = self.random_key('.dat')
+        key = 'aaaaaaaaaaaaaa' 
+        headers = dict()
+        headers[OSS_OBJECT_TAGGING] = "k1=v1&k2=v2&k3=v3"
+
+        result = self.bucket.put_object(key, 'test', headers=headers)
+        self.assertEqual(200, result.status)
+
+        result = self.bucket.get_object_tagging(key)
+        self.assertEqual(3, result.tag_set.len())
+        self.assertEqual('v1', result.tag_set.tagging_rule['k1'])
+        self.assertEqual('v2', result.tag_set.tagging_rule['k2'])
+        self.assertEqual('v3', result.tag_set.tagging_rule['k3'])
+
+        headers=dict()
+        headers[OSS_OBJECT_TAGGING_COPY_DIRECTIVE] = 'COPY'
+        result = self.bucket.copy_object(self.bucket.bucket_name, key, key+'_test', headers=headers)
+
+        result = self.bucket.get_object_tagging(key+'_test')
+        self.assertEqual(3, result.tag_set.len())
+        self.assertEqual('v1', result.tag_set.tagging_rule['k1'])
+        self.assertEqual('v2', result.tag_set.tagging_rule['k2'])
+        self.assertEqual('v3', result.tag_set.tagging_rule['k3'])
+
+        tag_key1 = u' +/ '
+        tag_value1 = u'中文'
+        tag_str = urlquote(tag_key1.encode('UTF-8')) + '=' + urlquote(tag_value1.encode('UTF-8'))
+
+        tag_key2 = u'中文'
+        tag_value2 = u'test++/'
+        tag_str += '&' + urlquote(tag_key2.encode('UTF-8')) + '=' + urlquote(tag_value2.encode('UTF-8'))
+
+        headers[OSS_OBJECT_TAGGING] = tag_str
+        headers[OSS_OBJECT_TAGGING_COPY_DIRECTIVE] = 'REPLACE'
+        result = self.bucket.copy_object(self.bucket.bucket_name, key, key+'_test', headers=headers)
+
+        result = self.bucket.get_object_tagging(key+'_test')
+        self.assertEqual(2, result.tag_set.len())
+        self.assertEqual('中文', result.tag_set.tagging_rule[' +/ '])
+        self.assertEqual('test++/', result.tag_set.tagging_rule['中文'])
+
+    def test_append_object_with_tagging(self):
+        key = self.random_key()
+        content1 = random_bytes(512)
+        content2 = random_bytes(128)
+
+        result = self.bucket.append_object(key, 0, content1, init_crc=0)
+        self.assertEqual(result.next_position, len(content1))
+        self.assertTrue(result.crc is not None)
+
+        try:
+            self.bucket.append_object(key, 0, content2)
+        except PositionNotEqualToLength as e:
+            self.assertEqual(e.next_position, len(content1))
+        else:
+            self.assertTrue(False)
+        
+        result = self.bucket.append_object(key, len(content1), content2, init_crc=result.crc)
+        self.assertEqual(result.next_position, len(content1) + len(content2))
+        self.assertTrue(result.crc is not None)
+
+        self.bucket.delete_object(key)
+
+        rule = TaggingRule()
+        self.assertEqual('', rule.to_query_string())
+
+        rule.add('key1', 'value1')
+        self.assertEqual(rule.to_query_string(), 'key1=value1')
+
+        rule.add(128*'a', 256*'b')
+        rule.add('+-/', ':+:')
+        self.assertEqual(rule.to_query_string(), 128*'a' + '=' + 256*'b' + '&%2B-/=%3A%2B%3A&key1=value1')
+
+        headers = dict()
+        headers[OSS_OBJECT_TAGGING] = rule.to_query_string()
+
+        result = self.bucket.append_object(key, 0, content1, init_crc=0, headers=headers)
+        self.assertEqual(result.next_position, len(content1))
+        self.assertTrue(result.crc is not None)
+
+        result = self.bucket.append_object(key, len(content1), content2, init_crc=result.crc)
+        self.assertEqual(result.next_position, len(content1) + len(content2))
+        self.assertTrue(result.crc is not None)
+
+        result = self.bucket.get_object_tagging(key)
+        self.assertEqual(3, result.tag_set.len())
+
+        tagging_rule = result.tag_set.tagging_rule
+        self.assertEqual('value1', tagging_rule['key1'])
+        self.assertEqual(256*'b', tagging_rule[128*'a'])
+        self.assertEqual(':+:', tagging_rule['+-/'])
+
+    def test_append_object_with_tagging_wrong_num(self):
+        key = self.random_key()
+        content1 = random_bytes(512)
+        content2 = random_bytes(128)
+
+        result = self.bucket.append_object(key, 0, content1, init_crc=0)
+        self.assertEqual(result.next_position, len(content1))
+        self.assertTrue(result.crc is not None)
+
+        try:
+            self.bucket.append_object(key, 0, content2)
+        except PositionNotEqualToLength as e:
+            self.assertEqual(e.next_position, len(content1))
+        else:
+            self.assertTrue(False)
+        
+        result = self.bucket.append_object(key, len(content1), content2, init_crc=result.crc)
+        self.assertEqual(result.next_position, len(content1) + len(content2))
+        self.assertTrue(result.crc is not None)
+
+        self.bucket.delete_object(key)
+        
+        # append object with wrong tagging kv num, but not in 
+        # first call, it will be ignored
+        rule = TaggingRule()
+        self.assertEqual('', rule.to_query_string())
+
+        for i in range(0, 15):
+            tag_key = 'key' + str(i)
+            tag_value = 'value' + str(i)
+            rule.add(tag_key, tag_value)
+
+        headers = dict()
+        headers[OSS_OBJECT_TAGGING] = rule.to_query_string()
+
+        self.assertEqual(rule.to_query_string(), 'key9=value9&key8=value8&key3=value3&' + 
+                'key2=value2&key1=value1&key0=value0&key7=value7&key6=value6&key5=value5&' + 
+                'key4=value4&key14=value14&key13=value13&key12=value12&key11=value11&key10=value10')
+
+        result = self.bucket.append_object(key, 0, content1, init_crc=0)
+        self.assertEqual(result.next_position, len(content1))
+        self.assertTrue(result.crc is not None)
+
+        result = self.bucket.append_object(key, len(content1), content2, init_crc=result.crc, headers=headers)
+
+        result_tagging = self.bucket.get_object_tagging(key)
+        self.assertEqual(0, result_tagging.tag_set.len())
+        
+        rule.delete('key1')
+        rule.delete('key2')
+        rule.delete('key3')
+        rule.delete('key4')
+        rule.delete('key5')
+        rule.delete('key6')
+
+        self.assertEqual(9, rule.len())
+
+        headers[OSS_OBJECT_TAGGING] = rule.to_query_string()
+
+        try:
+            result = self.bucket.append_object(key, len(content1)+len(content2), 
+                    content2, init_crc=result.crc, headers=headers)
+        except oss2.exceptions.OssError:
+            self.assertFalse(True, 'should not get exception')
+
+        result = self.bucket.get_object_tagging(key)
+        self.assertEqual(0, result.tag_set.len())
+
+        self.bucket.delete_object(key)
+
+        wait_meta_sync()
+
+        # append object with wrong tagging kv num in first call,
+        # it will be fail
+        rule = TaggingRule()
+        self.assertEqual('', rule.to_query_string())
+
+        for i in range(0, 15):
+            tag_key = 'key' + str(i)
+            tag_value = 'value' + str(i)
+            rule.add(tag_key, tag_value)
+
+        headers = dict()
+        headers[OSS_OBJECT_TAGGING] = rule.to_query_string()
+
+        try:
+            self.bucket.append_object(key, 0, content1, init_crc=0, headers=headers)
+            self.assertFalse(True, 'should get exception')
+        except oss2.exceptions.OssError:
+            pass
+
+    def test_put_symlink_with_tagging(self):
+        key  = self.random_key()
+        symlink = self.random_key()
+        content = 'hello'
+        
+        self.bucket.put_object(key, content)
+        
+        rule = TaggingRule()
+        self.assertEqual('', rule.to_query_string())
+
+        rule.add('key1', 'value1')
+        self.assertTrue(rule.to_query_string() != '')
+
+        rule.add(128*'a', 256*'b')
+        rule.add('+-/', ':+:')
+
+        headers = dict()
+        headers[OSS_OBJECT_TAGGING] = rule.to_query_string()
+
+        # put symlink normal
+        self.bucket.put_symlink(key, symlink, headers=headers)
+
+        result = self.bucket.get_object_tagging(symlink)
+        self.assertEqual(3, result.tag_set.len())
+
+        tagging_rule = result.tag_set.tagging_rule
+        self.assertEqual('value1', tagging_rule['key1'])
+        self.assertEqual(256*'b', tagging_rule[128*'a'])
+        self.assertEqual(':+:', tagging_rule['+-/'])
+
+        result = self.bucket.delete_object(symlink)
+        self.assertEqual(2, int(result.status)/100)
+
+    def test_put_symlink_with_tagging_with_wrong_num(self):
+        key  = self.random_key()
+        symlink = self.random_key()
+        content = 'hello'
+        self.bucket.put_object(key, content)
+        
+        rule = TaggingRule()
+        self.assertEqual('', rule.to_query_string())
+
+        for i in range(0, 15):
+            tag_key = 'key' + str(i)
+            tag_value = 'value' + str(i)
+            rule.add(tag_key, tag_value)
+
+        headers = dict()
+        headers[OSS_OBJECT_TAGGING] = rule.to_query_string()
+        
+        try:
+            self.bucket.put_symlink(key, symlink, headers=headers)
+            self.assertFalse(True, 'should get exception')
+        except:
+            pass
+       
+        rule.delete('key1')
+        rule.delete('key2')
+        rule.delete('key3')
+        rule.delete('key4')
+        rule.delete('key5')
+        rule.delete('key6')
+
+        headers[OSS_OBJECT_TAGGING] = rule.to_query_string()
+
+        try:
+            result = self.bucket.put_symlink(key, symlink, headers=headers)
+        except:
+            self.assertFalse(True, 'should not get exception')
+
+        head_result = self.bucket.head_object(symlink)
+        self.assertEqual(head_result.content_length, len(content))
+        self.assertEqual(head_result.etag, '5D41402ABC4B2A76B9719D911017C592')
+
+        # put symlink with meta
+        self.bucket.put_symlink(key, symlink, headers={'x-oss-meta-key1': 'value1',
+                'x-oss-meta-KEY2': 'value2'})
+
+        head_result = self.bucket.head_object(symlink)
+        self.assertEqual(head_result.content_length, len(content))
+        self.assertEqual(head_result.etag, '5D41402ABC4B2A76B9719D911017C592')
+        self.assertEqual(head_result.headers['x-oss-meta-key1'], 'value1')
+        self.assertEqual(head_result.headers['x-oss-meta-key2'], 'value2')
 
 class TestSign(TestObject):
     """
