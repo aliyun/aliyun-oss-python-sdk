@@ -1029,12 +1029,19 @@ class TestObject(OssTestCase):
 
         result = self.bucket.put_object(key, 'test', headers=headers)
         self.assertEqual(200, result.status)
-
+        
         result = self.bucket.get_object_tagging(key)
         self.assertEqual(3, result.tag_set.len())
         self.assertEqual('v1', result.tag_set.tagging_rule['k1'])
         self.assertEqual('v2', result.tag_set.tagging_rule['k2'])
         self.assertEqual('v3', result.tag_set.tagging_rule['k3'])
+
+        result = self.bucket.delete_object_tagging(key)
+
+        self.assertEqual(204, result.status)
+
+        result = self.bucket.get_object_tagging(key)
+        self.assertEqual(0, result.tag_set.len())
 
     def test_copy_object_with_tagging(self):
     

@@ -1597,23 +1597,23 @@ class Bucket(_Base):
         logger.debug("Process object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return ProcessObjectResult(resp)
     
-    def put_object_tagging(self, key, input, headers=None):
+    def put_object_tagging(self, key, tagging, headers=None):
         """
 
         :param str key: 上传tagging的对象名称，不能为空。
 
-        :param input: tag 标签内容 
-        :type input: :class:`ObjectTagging <oss2.models.ObjectTagging>` 对象
+        :param tagging: tag 标签内容 
+        :type tagging: :class:`ObjectTagging <oss2.models.ObjectTagging>` 对象
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
         logger.debug("Start to put object tagging, bucket: {0}, key: {1}, tagging: {2}".format(
-            self.bucket_name, to_string(key), input))
+            self.bucket_name, to_string(key), tagging))
 
         if headers is not None:
             headers = http.CaseInsensitiveDict(headers)
 
-        data = self.__convert_data(ObjectTagging, xml_utils.to_put_object_tagging, input) 
+        data = self.__convert_data(ObjectTagging, xml_utils.to_put_object_tagging, tagging) 
         resp = self.__do_object('PUT', key, data=data, params={Bucket.TAGGING: ''}, headers=headers)
 
         return RequestResult(resp)

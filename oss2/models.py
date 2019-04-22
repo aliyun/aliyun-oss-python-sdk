@@ -893,6 +893,18 @@ class ObjectTagging(object):
         
         self.tag_set = tagging_rules or ObjectTaggingRule() 
 
+    def __str__(self):
+
+        tag_str = ""
+        
+        tagging_rule = self.tag_set.tagging_rule
+
+        for key in tagging_rule:
+            tag_str += key
+            tag_str += ":" + tagging_rule[key] + " "
+
+        return tag_str
+
 class ObjectTaggingRule(object):
 
     def __init__(self):
