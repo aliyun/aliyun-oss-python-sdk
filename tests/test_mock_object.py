@@ -887,8 +887,6 @@ x-oss-server-time: 39'''
         with open(filename, 'rb') as f:
             self.assertEqual(content, oss2.to_bytes(f.read()))
 
-        os.remove(filename)
-
     @patch('oss2.Session.do_request')
     def test_crypto_get_to_file_with_progress(self, do_request):
         size = 1024 * 1024 + 1
@@ -908,8 +906,6 @@ x-oss-server-time: 39'''
         self.assertEqual(os.path.getsize(filename), size)
         with open(filename, 'rb') as f:
             self.assertEqual(oss2.to_bytes(content), f.read())
-
-        os.remove(filename)
 
     @patch('oss2.Session.do_request')
     def test_crypto_put_bytes(self, do_request):

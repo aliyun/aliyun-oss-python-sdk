@@ -424,15 +424,15 @@ def parse_lifecycle_storage_transitions(storage_transition_nodes):
 
     return storage_transitions
 
-def parse_lifecycle_object_taggings(lifecycle_tagging_nodes, url_encoded):
+def parse_lifecycle_object_taggings(lifecycle_tagging_nodes):
     
     if lifecycle_tagging_nodes is None: 
         return ObjectTagging()
 
     tagging_rule = ObjectTaggingRule()
     for tag_node in lifecycle_tagging_nodes:
-        key = _find_object(tag_node, 'Key', url_encoded)
-        value = _find_object(tag_node, 'Value', url_encoded)
+        key = _find_tag(tag_node, 'Key')
+        value = _find_tag(tag_node, 'Value')
         tagging_rule.add(key, value)
 
     return ObjectTagging(tagging_rule)
@@ -445,7 +445,7 @@ def parse_get_bucket_lifecycle(result, body):
         expiration = parse_lifecycle_expiration(rule_node.find('Expiration'))
         abort_multipart_upload = parse_lifecycle_abort_multipart_upload(rule_node.find('AbortMultipartUpload'))
         storage_transitions = parse_lifecycle_storage_transitions(rule_node.findall('Transition'))
-        tagging = parse_lifecycle_object_taggings(rule_node.findall('Tag'), url_encoded)
+        tagging = parse_lifecycle_object_taggings(rule_node.findall('Tag'))
         rule = LifecycleRule(
             _find_tag(rule_node, 'ID'),
             _find_tag(rule_node, 'Prefix'),

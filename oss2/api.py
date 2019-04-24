@@ -1633,7 +1633,7 @@ class Bucket(_Base):
     def delete_object_tagging(self, key):
         """
         :param str key: 要删除tagging的对象名称
-        :return: :class:`ObjectTagging <oss2.models.ObjectTagging>` 
+        :return: :class:`RequestResult <oss2.models.RequestResult>` 
         """
         logger.debug("Start to delete object tagging, bucket: {0}, key: {1}".format(
                     self.bucket_name, to_string(key)))
