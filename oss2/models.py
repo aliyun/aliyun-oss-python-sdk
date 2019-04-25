@@ -9,7 +9,7 @@ oss2.models
 
 from .utils import http_to_unixtime, make_progress_adapter, make_crc_adapter
 from .exceptions import ClientError, InconsistentError
-from .compat import urlunquote, to_string
+from .compat import urlunquote, to_string, urlquote
 from .select_response import SelectResponseAdapter
 from .headers import *
 import json
@@ -928,6 +928,22 @@ class ObjectTaggingRule(object):
 
     def len(self):
         return len(self.tagging_rule)
+
+    def to_query_string(self):
+        query_string = ''
+
+        for key in self.tagging_rule:
+            query_string += urlquote(key)
+            query_string += '='
+            query_string += urlquote(self.tagging_rule[key])
+            query_string += '&'
+
+        if len(query_string) == 0:
+            return ''
+        else:
+            query_string = query_string[:-1]
+
+        return query_string
 
 class GetObjectTaggingResult(RequestResult, ObjectTagging):
     
