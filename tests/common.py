@@ -9,14 +9,14 @@ import tempfile
 import errno
 import logging
 
-import oss2
+import oss2 
 
 logging.basicConfig(level=logging.DEBUG)
 
 OSS_ID = os.getenv("OSS_TEST_ACCESS_KEY_ID")
 OSS_SECRET = os.getenv("OSS_TEST_ACCESS_KEY_SECRET")
 OSS_ENDPOINT = os.getenv("OSS_TEST_ENDPOINT")
-OSS_BUCKET = os.getenv("OSS_TEST_BUCKET")
+OSS_TEST_BUCKET = os.getenv("OSS_TEST_BUCKET")
 OSS_CNAME = os.getenv("OSS_TEST_CNAME")
 OSS_CMK = os.getenv("OSS_TEST_CMK")
 OSS_REGION = os.getenv("OSS_TEST_REGION", "cn-hangzhou")
@@ -30,21 +30,27 @@ OSS_AUTH_VERSION = None
 def random_string(n):
     return ''.join(random.choice(string.ascii_lowercase) for i in range(n))
 
-
+if OSS_TEST_BUCKET is None:
+    OSS_BUCKET = 'aliyun-oss-python-sdk-'+random_string(10)
+else:
+    OSS_BUCKET = OSS_TEST_BUCKET + '-' + random_string(10)
 
 def random_bytes(n):
     return oss2.to_bytes(random_string(n))
 
-
-def delete_keys(bucket, key_list):
-    if not key_list:
-        return
-
-    n = 100
-    grouped = [key_list[i:i+n] for i in range(0, len(key_list), n)]
-    for g in grouped:
-        bucket.batch_delete_objects(g)
-
+def clean_and_delete_bucket(bucket):
+    #list all upload_parts to delete
+    up_iter = oss2.MultipartUploadIterator(bucket)
+    for up in up_iter:
+        bucket.abort_multipart_upload(up.key, up.upload_id)
+    
+    #list all object to delete
+    obj_iter = oss2.ObjectIterator(bucket)
+    for obj in obj_iter:
+        bucket.delete_object(obj.key)
+    
+    #delete_bucket
+    bucket.delete_bucket()
 
 class NonlocalObject(object):
     def __init__(self, value):
@@ -96,18 +102,16 @@ class OssTestCase(unittest.TestCase):
         self.kms_crypto_bucket = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET,
                                              crypto_provider=oss2.AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK))
 
-        self.key_list = []
         self.temp_files = []
 
     def tearDown(self):
         for temp_file in self.temp_files:
             oss2.utils.silently_remove(temp_file)
 
-        delete_keys(self.bucket, self.key_list)
+        clean_and_delete_bucket(self.bucket)
 
     def random_key(self, suffix=''):
         key = self.prefix + random_string(12) + suffix
-        self.key_list.append(key)
 
         return key
 
