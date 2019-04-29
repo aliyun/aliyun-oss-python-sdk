@@ -38,6 +38,16 @@ else:
 def random_bytes(n):
     return oss2.to_bytes(random_string(n))
 
+
+def delete_keys(bucket, key_list):
+    if not key_list:
+        return
+
+    n = 100
+    grouped = [key_list[i:i+n] for i in range(0, len(key_list), n)]
+    for g in grouped:
+        bucket.batch_delete_objects(g)
+
 def clean_and_delete_bucket(bucket):
     #list all upload_parts to delete
     up_iter = oss2.MultipartUploadIterator(bucket)
