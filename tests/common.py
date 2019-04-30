@@ -54,10 +54,14 @@ def clean_and_delete_bucket(bucket):
     for up in up_iter:
         bucket.abort_multipart_upload(up.key, up.upload_id)
     
-    #list all object to delete
+    #list all objects to delete
     obj_iter = oss2.ObjectIterator(bucket)
     for obj in obj_iter:
         bucket.delete_object(obj.key)
+
+    #list all live channels to delete
+    for ch_iter in oss2.LiveChannelIterator(bucket):
+        bucket.delete_live_channel(ch_iter.name)
     
     #delete_bucket
     bucket.delete_bucket()
