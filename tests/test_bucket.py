@@ -254,6 +254,8 @@ class TestBucket(OssTestCase):
         self.assertEqual(1, len(result.rules))
         self.assertEqual(356, result.rules[0].abort_multipart_upload.days)
 
+        self.assertEqual(0, result.rules[0].tagging.tag_set.len())
+
         self.bucket.delete_bucket_lifecycle()
 
     def test_lifecycle_abort_multipart_upload_date(self):
@@ -272,6 +274,8 @@ class TestBucket(OssTestCase):
         result = self.bucket.get_bucket_lifecycle()
         self.assertEqual(1, len(result.rules))
         self.assertEqual(datetime.date(2016, 12, 20), result.rules[0].abort_multipart_upload.created_before_date)
+
+        self.assertEqual(0, result.rules[0].tagging.tag_set.len())
 
         self.bucket.delete_bucket_lifecycle()
 
@@ -306,6 +310,8 @@ class TestBucket(OssTestCase):
         self.assertEqual(1, len(result.rules[0].storage_transitions))
         self.assertEqual(356, result.rules[0].storage_transitions[0].days)
 
+        self.assertEqual(0, result.rules[0].tagging.tag_set.len())
+
         self.bucket.delete_bucket_lifecycle()
 
     def test_lifecycle_storage_transitions_more_days(self):
@@ -325,6 +331,7 @@ class TestBucket(OssTestCase):
         result = self.bucket.get_bucket_lifecycle()
         self.assertEqual(1, len(result.rules))
         self.assertEqual(2, len(result.rules[0].storage_transitions))
+        self.assertEqual(0, result.rules[0].tagging.tag_set.len())
         if result.rules[0].storage_transitions[0].storage_class == oss2.BUCKET_STORAGE_CLASS_IA:
             self.assertEqual(355, result.rules[0].storage_transitions[0].days)
             self.assertEqual(356, result.rules[0].storage_transitions[1].days)
@@ -353,7 +360,39 @@ class TestBucket(OssTestCase):
         self.assertEqual(1, len(result.rules[0].storage_transitions))
         self.assertEqual(datetime.date(2016, 12, 20), result.rules[0].storage_transitions[0].created_before_date)
 
+        self.assertEqual(0, result.rules[0].tagging.tag_set.len())
+
         self.bucket.delete_bucket_lifecycle()
+
+    def test_lifecycle_object_tagging(self):
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition, ObjectTagging, ObjectTaggingRule
+
+        rule = LifecycleRule(random_string(10), 'aaaaaaaaaaa/',
+                             status=LifecycleRule.ENABLED,
+                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 25)))
+        rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 20),
+                                                      storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
+
+        tagging_rule = ObjectTaggingRule()
+        tagging_rule.add('test_key', 'test_value')
+        tagging = ObjectTagging(tagging_rule)
+
+        rule.tagging = tagging
+
+        lifecycle = BucketLifecycle([rule])
+
+        self.bucket.put_bucket_lifecycle(lifecycle)
+        wait_meta_sync()
+        result = self.bucket.get_bucket_lifecycle()
+        self.assertEqual(1, len(result.rules))
+        self.assertEqual(1, len(result.rules[0].storage_transitions))
+        self.assertEqual(datetime.date(2016, 12, 20), result.rules[0].storage_transitions[0].created_before_date)
+
+        self.assertEqual(1, result.rules[0].tagging.tag_set.len())
+        self.assertEqual('test_value', result.rules[0].tagging.tag_set.tagging_rule['test_key'])
+
+        self.bucket.delete_bucket_lifecycle()
+
 
     def test_lifecycle_all_without_object_expiration(self):
         from oss2.models import LifecycleRule, BucketLifecycle, AbortMultipartUpload, StorageTransition
@@ -406,6 +445,101 @@ class TestBucket(OssTestCase):
         self.assertEqual(356, result.rules[0].storage_transitions[0].days)
 
         self.bucket.delete_bucket_lifecycle()
+
+    def test_lifecycle_object_tagging_exceptions_wrong_key(self):
+
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition, ObjectTagging, ObjectTaggingRule
+
+        rule = LifecycleRule(random_string(10), '中文前缀/',
+                             status=LifecycleRule.ENABLED,
+                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 25)))
+        rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 20),
+                                                      storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
+
+        tagging = ObjectTagging()
+        
+        tagging.tag_set.tagging_rule[129*'a'] = 'test'
+
+        rule.tagging = tagging
+
+        lifecycle = BucketLifecycle([rule])
+        
+        try:
+            # do not return error,but the lifecycle rule doesn't take effect
+            result = self.bucket.put_bucket_lifecycle(lifecycle)
+        except oss2.exceptions.OssError:
+            self.assertFalse(True, "put lifecycle with tagging should fail ,but success")
+        
+        del tagging.tag_set.tagging_rule[129*'a']
+
+        tagging.tag_set.tagging_rule['%&'] = 'test'
+        lifecycle.rules[0].tagging = tagging 
+        try:
+            # do not return error,but the lifecycle rule doesn't take effect
+            result = self.bucket.put_bucket_lifecycle(lifecycle)
+            self.assertFalse(True, "put lifecycle with tagging should fail ,but success")
+        except oss2.exceptions.OssError:
+            pass
+
+    def test_lifecycle_object_tagging_exceptions_wrong_value(self):
+
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition, ObjectTagging, ObjectTaggingRule
+
+        rule = LifecycleRule(random_string(10), '中文前缀/',
+                             status=LifecycleRule.ENABLED,
+                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 25)))
+        rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 20),
+                                                      storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
+
+        tagging = ObjectTagging()
+        
+        tagging.tag_set.tagging_rule['test'] = 257*'a'
+
+        rule.tagging = tagging
+
+        lifecycle = BucketLifecycle([rule])
+        
+        try:
+            # do not return error,but the lifecycle rule doesn't take effect
+            result = self.bucket.put_bucket_lifecycle(lifecycle)
+        except oss2.exceptions.OssError:
+            self.assertFalse(True, "put lifecycle with tagging should fail ,but success")
+
+        tagging.tag_set.tagging_rule['test'] = ')%'
+        rule.tagging = tagging
+        lifecycle = BucketLifecycle([rule])
+        try:
+            # do not return error,but the lifecycle rule doesn't take effect
+            result = self.bucket.put_bucket_lifecycle(lifecycle)
+            self.assertFalse(True, "put lifecycle with tagging should fail ,but success")
+        except oss2.exceptions.OssError:
+            pass
+    def test_lifecycle_object_tagging_exceptions_too_much_rules(self):
+
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition, ObjectTagging, ObjectTaggingRule
+
+        rule = LifecycleRule(random_string(10), '中文前缀/',
+                             status=LifecycleRule.ENABLED,
+                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 25)))
+        rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 20),
+                                                      storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
+
+        tagging = ObjectTagging()
+        for i in range(1, 20):
+            key='test_key_'+str(i)
+            value='test_value_'+str(i)
+            tagging.tag_set.tagging_rule[key]=value
+
+        
+        rule.tagging = tagging
+
+        lifecycle = BucketLifecycle([rule])
+        
+        try:
+            # do not return error,but the lifecycle rule doesn't take effect
+            result = self.bucket.put_bucket_lifecycle(lifecycle)
+        except oss2.exceptions.OssError:
+            self.assertFalse(True, "put lifecycle with tagging should fail ,but success")
 
     def test_cors(self):
         rule = oss2.models.CorsRule(allowed_origins=['*'],
