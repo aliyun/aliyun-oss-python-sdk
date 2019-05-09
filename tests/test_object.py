@@ -10,7 +10,7 @@ from oss2.exceptions import (ClientError, RequestError, NoSuchBucket, OpenApiSer
         NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable)
 
 from oss2.compat import is_py2, is_py33
-from oss2.models import ObjectTagging, ObjectTaggingRule
+from oss2.models import Tagging, TaggingRule
 from oss2.headers import OSS_OBJECT_TAGGING, OSS_OBJECT_TAGGING_COPY_DIRECTIVE
 from oss2.compat import urlunquote, urlquote
 
@@ -897,7 +897,7 @@ class TestObject(OssTestCase):
     
     def test_object_tagging_client_error(self):
 
-        rule = ObjectTaggingRule()
+        rule = TaggingRule()
         self.assertRaises(oss2.exceptions.ClientError, rule.add, 129*'a', 'test')
         self.assertRaises(oss2.exceptions.ClientError, rule.add, 'test', 257*'a')
         self.assertRaises(oss2.exceptions.ClientError, rule.add, None, 'test')
@@ -906,7 +906,7 @@ class TestObject(OssTestCase):
 
     def test_object_tagging_wrong_key(self):
        
-        tagging = ObjectTagging()
+        tagging = Tagging()
         tagging.tag_set.tagging_rule[129*'a'] = 'test'
         
         key = self.random_key('.dat')
@@ -945,7 +945,7 @@ class TestObject(OssTestCase):
 
     def test_object_tagging_wrong_value(self):
        
-        tagging = ObjectTagging()
+        tagging = Tagging()
 
         tagging.tag_set.tagging_rule['test'] = 257*'a'
 
@@ -979,7 +979,7 @@ class TestObject(OssTestCase):
         key = self.random_key('.dat')
         result = self.bucket.put_object(key, "test")
 
-        tagging = ObjectTagging(None)
+        tagging = Tagging(None)
         for i in range(0,12):
             key='test_'+str(i)
             value='test_'+str(i)
@@ -1002,7 +1002,7 @@ class TestObject(OssTestCase):
         except oss2.exceptions.OssError:
             self.assertFalse(True, "should get exception")
 
-        rule = ObjectTaggingRule()
+        rule = TaggingRule()
         key1=128*'a'
         value1=256*'a'
         rule.add(key1, value1)
@@ -1011,7 +1011,7 @@ class TestObject(OssTestCase):
         value2='_/'
         rule.add(key2, value2)
 
-        tagging = ObjectTagging(rule) 
+        tagging = Tagging(rule) 
         result = self.bucket.put_object_tagging(key, tagging)
         self.assertTrue(200, result.status)
 
@@ -1108,7 +1108,7 @@ class TestObject(OssTestCase):
 
         self.bucket.delete_object(key)
 
-        rule = ObjectTaggingRule()
+        rule = TaggingRule()
         self.assertEqual('', rule.to_query_string())
 
         rule.add('key1', 'value1')
@@ -1161,7 +1161,7 @@ class TestObject(OssTestCase):
         
         # append object with wrong tagging kv num, but not in 
         # first call, it will be ignored
-        rule = ObjectTaggingRule()
+        rule = TaggingRule()
         self.assertEqual('', rule.to_query_string())
 
         for i in range(0, 15):
@@ -1211,7 +1211,7 @@ class TestObject(OssTestCase):
 
         # append object with wrong tagging kv num in first call,
         # it will be fail
-        rule = ObjectTaggingRule()
+        rule = TaggingRule()
         self.assertEqual('', rule.to_query_string())
 
         for i in range(0, 15):
@@ -1235,7 +1235,7 @@ class TestObject(OssTestCase):
         
         self.bucket.put_object(key, content)
         
-        rule = ObjectTaggingRule()
+        rule = TaggingRule()
         self.assertEqual('', rule.to_query_string())
 
         rule.add('key1', 'value1')
@@ -1267,7 +1267,7 @@ class TestObject(OssTestCase):
         content = 'hello'
         self.bucket.put_object(key, content)
         
-        rule = ObjectTaggingRule()
+        rule = TaggingRule()
         self.assertEqual('', rule.to_query_string())
 
         for i in range(0, 15):
@@ -1311,6 +1311,454 @@ class TestObject(OssTestCase):
         self.assertEqual(head_result.etag, '5D41402ABC4B2A76B9719D911017C592')
         self.assertEqual(head_result.headers['x-oss-meta-key1'], 'value1')
         self.assertEqual(head_result.headers['x-oss-meta-key2'], 'value2')
+
+    def test_put_symlink_with_version(self):
+
+        from oss2.models import BucketVersioningConfig
+
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
+
+        wait_meta_sync()
+
+        config = BucketVersioningConfig()
+        config.status = 'Enabled'
+
+        result = bucket.put_bucket_versioning(config)
+
+        wait_meta_sync()
+
+        result = bucket.get_bucket_info()
+
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, "None")
+        self.assertEqual(result.versioning_status, "Enabled")
+
+        result = bucket.put_object("test", "test")
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertTrue(result.versionid != "")
+        versionid = result.versionid
+        object_version = result.versionid
+
+        params = dict()
+        params['versionId'] = result.versionid
+
+        result = bucket.put_symlink("test", "test_link")
+        self.assertEqual(int(result.status)/100, 2)
+
+        params['versionId'] = result.versionid
+        result = bucket.get_symlink("test_link", params=params)
+        self.assertEqual(int(result.status)/100, 2)
+
+        result = bucket.delete_object("test_link")
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertTrue(result.versionid != '')
+        delete_marker_versionid = result.versionid
+
+        try:
+            result = bucket.get_symlink("test_link")
+        except oss2.exceptions.NotFound:
+            pass
+
+        self.assertEqual(result.delete_marker, True)
+
+        result = bucket.delete_object("test_link", params=params)
+        self.assertEqual(int(result.status)/100, 2)
+
+        params['versionId'] = delete_marker_versionid
+        result = bucket.delete_object("test_link", params=params)
+        self.assertEqual(int(result.status)/100, 2)
+
+        params['versionId'] = object_version 
+        result = bucket.delete_object("test", params=params)
+        self.assertEqual(int(result.status)/100, 2)
+
+        bucket.delete_bucket()
+
+    def test_put_object_tagging_with_versioning(self):
+
+        from oss2.models import BucketVersioningConfig
+        from oss2.models import Tagging
+
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
+
+        wait_meta_sync()
+
+        config = BucketVersioningConfig()
+        config.status = 'Enabled'
+
+        result = bucket.put_bucket_versioning(config)
+
+        wait_meta_sync()
+
+        result = bucket.get_bucket_info()
+
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, "None")
+        self.assertEqual(result.versioning_status, "Enabled")
+
+        result = bucket.put_object("test", "test1")
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertTrue(result.versionid != "")
+        versionid1 = result.versionid
+        
+        result = bucket.put_object("test", "test2")
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertTrue(result.versionid != "")
+        versionid2 = result.versionid
+
+        self.assertTrue(versionid1 != versionid2)
+
+        tagging = Tagging()
+
+        tagging.tag_set.add('k1', 'v1')
+        tagging.tag_set.add('+++', ':::')
+        
+        # put object tagging without version
+        result = bucket.put_object_tagging("test", tagging)
+        self.assertEqual(int(result.status)/100, 2)
+
+        params = dict()
+        params['versionId'] = versionid2
+
+        result = bucket.get_object_tagging("test", params=params)
+        self.assertEqual(int(result.status)/100, 2)
+
+        rule = result.tag_set.tagging_rule
+
+        self.assertEqual('v1', rule['k1'])
+        self.assertEqual(':::', rule['+++'])
+
+        tagging = Tagging()
+
+        tagging.tag_set.add('k2', 'v2')
+        tagging.tag_set.add(':::', '+++')
+
+        params['versionId'] = versionid1
+
+        # put object tagging with version
+        result = bucket.put_object_tagging("test", tagging, params=params)
+        self.assertEqual(int(result.status)/100, 2)
+
+        result = bucket.get_object_tagging("test", params=params)
+        self.assertEqual(int(result.status)/100, 2)
+
+        rule = result.tag_set.tagging_rule
+
+        self.assertEqual('v2', rule['k2'])
+        self.assertEqual('+++', rule[':::'])
+    
+        result = bucket.delete_object_tagging("test", params=params) 
+        self.assertEqual(int(result.status)/100, 2)
+
+        params['versionId'] = versionid2
+
+        result = bucket.delete_object_tagging("test", params=params) 
+        self.assertEqual(int(result.status)/100, 2)
+
+
+        result = bucket.delete_object("test")
+        self.assertEqual(int(result.status)/100, 2)
+        delete_marker_versionid = result.versionid
+        self.assertTrue(delete_marker_versionid is not None)
+
+        params['versionId'] = versionid2
+
+        try:
+            result = bucket.get_object("test", params=params)
+            self.assertFalse(True)
+        except:
+            pass
+
+        # delete 'DELETE' mark
+        bucket.delete_object("test", params={'versionId': delete_marker_versionid})
+
+        bucket.delete_object("test", params={'versionId': versionid1})
+        bucket.delete_object("test", params={'versionId': versionid2})
+
+        bucket.delete_bucket()
+
+    def test_batch_delete_same_object_multi_version(self):
+
+        from oss2.models import BucketVersioningConfig
+        from oss2.models import BatchDeleteObjectVersion
+        from oss2.models import BatchDeleteObjectVersionList
+
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
+
+        wait_meta_sync()
+
+        config = BucketVersioningConfig()
+        config.status = 'Enabled'
+
+        result = bucket.put_bucket_versioning(config)
+
+        wait_meta_sync()
+
+        result = bucket.get_bucket_info()
+
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, "None")
+        self.assertEqual(result.versioning_status, "Enabled")
+        
+        # put version 1
+        result = bucket.put_object("test", "test1")
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertTrue(result.versionid != "")
+        versionid1 = result.versionid
+
+        # put version 2
+        result = bucket.put_object("test", "test2")
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertTrue(result.versionid != "")
+        versionid2 = result.versionid
+
+        version_list = BatchDeleteObjectVersionList()
+        version_list.append(BatchDeleteObjectVersion(key="test", versionid=versionid1))
+        version_list.append(BatchDeleteObjectVersion(key="test", versionid=versionid2))
+
+        self.assertTrue(version_list.len(), 2)
+
+        result = bucket.batch_delete_objects(["test"], version_list)
+
+        self.assertTrue(len(result.delete_versions) == 2)
+        self.assertTrue(result.delete_versions[0].versionid == versionid1 
+                or result.delete_versions[0].versionid == versionid2)
+        self.assertTrue(result.delete_versions[1].versionid == versionid1 
+                or result.delete_versions[1].versionid == versionid2)
+
+        try:
+            bucket.delete_bucket()
+        except:
+            self.assertFalse(True, "should not get a exception")
+
+    def test_batch_delete_objects_multi_version(self):
+
+        from oss2.models import BucketVersioningConfig
+        from oss2.models import BatchDeleteObjectVersion
+        from oss2.models import BatchDeleteObjectVersionList
+
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket_name = random_string(63).lower()
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
+
+        wait_meta_sync()
+
+        config = BucketVersioningConfig()
+        config.status = 'Enabled'
+
+        result = bucket.put_bucket_versioning(config)
+
+        wait_meta_sync()
+
+        result = bucket.get_bucket_info()
+
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, "None")
+        self.assertEqual(result.versioning_status, "Enabled")
+        
+        # put "test" version 1
+        result = bucket.put_object("test", "test1")
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertTrue(result.versionid != "")
+        versionid1 = result.versionid
+
+        # put "test" version 2
+        result = bucket.put_object("test", "test2")
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertTrue(result.versionid != "")
+        versionid2 = result.versionid
+
+        # put "foo" version 1 
+        result = bucket.put_object("foo", "bar")
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertTrue(result.versionid != "")
+        versionid2 = result.versionid
+
+        result = bucket.list_object_versions()
+        self.assertTrue(result.is_truncated == False)
+        self.assertTrue(result.key_marker == '')
+        self.assertTrue(result.versionid_marker == '')
+        self.assertTrue(result.next_key_marker == '')
+        self.assertTrue(result.next_versionid_marker == '')
+        self.assertTrue(result.name == bucket_name)
+        self.assertTrue(result.prefix == '')
+        self.assertTrue(result.delimiter == '')
+        self.assertTrue(len(result.delete_marker) == 0)
+        self.assertTrue(len(result.versions) == 3)
+        self.assertTrue(result.versions[0].key == "foo")
+        self.assertTrue(result.versions[1].key == "test")
+
+        # batch delete without version
+        key_list = []
+        key_list.append("foo")
+        key_list.append("test")
+
+        result = bucket.batch_delete_objects(key_list)
+
+        self.assertTrue(len(result.delete_versions) == 2)
+        self.assertTrue(len(result.deleted_keys) == 2)
+        self.assertTrue(result.delete_versions[0].delete_marker == True)
+        self.assertTrue(result.delete_versions[1].delete_marker == True)
+
+        result = bucket.list_object_versions()
+        self.assertTrue(result.is_truncated == False)
+        self.assertTrue(result.key_marker == '')
+        self.assertTrue(result.versionid_marker == '')
+        self.assertTrue(result.next_key_marker == '')
+        self.assertTrue(result.next_versionid_marker == '')
+        self.assertTrue(result.prefix == '')
+        self.assertTrue(result.delimiter == '')
+        self.assertTrue(len(result.delete_marker) == 2)
+        self.assertTrue(len(result.versions) == 3)
+        self.assertTrue(result.versions[0].key == "foo")
+        self.assertTrue(result.versions[1].key == "test")
+
+        version_list = BatchDeleteObjectVersionList()
+        version_list.append(BatchDeleteObjectVersion(result.delete_marker[0].key, result.delete_marker[0].versionid))
+        version_list.append(BatchDeleteObjectVersion(result.delete_marker[1].key, result.delete_marker[1].versionid))
+        version_list.append(BatchDeleteObjectVersion(result.versions[0].key, result.versions[0].versionid))
+        version_list.append(BatchDeleteObjectVersion(result.versions[1].key, result.versions[1].versionid))
+        version_list.append(BatchDeleteObjectVersion(result.versions[2].key, result.versions[2].versionid))
+
+        result = bucket.batch_delete_objects(["test", "foo"], version_list)
+
+        self.assertTrue(len(result.delete_versions) == 5)
+
+        
+        try:
+            bucket.delete_bucket()
+        except:
+            self.assertFalse(True, "should not get a exception")
+
+    def test_get_object_meta_with_version(self):
+
+        from oss2.models import BucketVersioningConfig
+        from oss2.models import BatchDeleteObjectVersion
+        from oss2.models import BatchDeleteObjectVersionList
+
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket_name = random_string(63).lower()
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
+
+        wait_meta_sync()
+
+        config = BucketVersioningConfig()
+        config.status = 'Enabled'
+
+        result = bucket.put_bucket_versioning(config)
+
+        wait_meta_sync()
+
+        result = bucket.get_bucket_info()
+
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, "None")
+        self.assertEqual(result.versioning_status, "Enabled")
+        
+        # put "test" version 1
+        result = bucket.put_object("test", "test1")
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertTrue(result.versionid != "")
+        versionid1 = result.versionid
+
+        # put "test" version 2
+        result = bucket.put_object("test", "test2")
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertTrue(result.versionid != "")
+        versionid2 = result.versionid
+
+        result1 = bucket.head_object("test", params={"versionId": versionid1})
+        result2 = bucket.head_object("test", params={"versionId": versionid2})
+
+        self.assertTrue(result1.versionid == versionid1)
+        self.assertTrue(result2.versionid == versionid2)
+
+        version_list = BatchDeleteObjectVersionList()
+        version_list.append(BatchDeleteObjectVersion(key="test", versionid=versionid1))
+        version_list.append(BatchDeleteObjectVersion(key="test", versionid=versionid2))
+
+        self.assertTrue(version_list.len(), 2)
+
+        result = bucket.batch_delete_objects(["test"], version_list)
+
+        try:
+            bucket.delete_bucket()
+        except:
+            self.assertFalse(True, "should not get a exception")
+
+    def test_object_acl_with_version(self):
+
+        from oss2.models import BucketVersioningConfig
+        from oss2.models import BatchDeleteObjectVersion
+        from oss2.models import BatchDeleteObjectVersionList
+
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket_name = random_string(63).lower()
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
+
+        wait_meta_sync()
+
+        config = BucketVersioningConfig()
+        config.status = 'Enabled'
+
+        result = bucket.put_bucket_versioning(config)
+
+        wait_meta_sync()
+
+        result = bucket.get_bucket_info()
+
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, "None")
+        self.assertEqual(result.versioning_status, "Enabled")
+        
+        # put "test" version 1
+        result = bucket.put_object("test", "test1")
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertTrue(result.versionid != "")
+        versionid1 = result.versionid
+
+        # put "test" version 2
+        result = bucket.put_object("test", "test2")
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertTrue(result.versionid != "")
+        versionid2 = result.versionid
+
+        result = bucket.get_object_acl("test", params={"versionId": versionid2})
+        self.assertEqual(result.acl, oss2.OBJECT_ACL_PRIVATE)
+
+        result = bucket.put_object_acl("test", oss2.OBJECT_ACL_PUBLIC_READ, params={"versionId": versionid2})
+        self.assertEqual(int(result.status)/100, 2)
+
+        result = bucket.get_object_acl("test", params={"versionId": versionid2})
+        self.assertEqual(result.acl, oss2.OBJECT_ACL_PUBLIC_READ)
+
+        version_list = BatchDeleteObjectVersionList()
+        version_list.append(BatchDeleteObjectVersion(key="test", versionid=versionid1))
+        version_list.append(BatchDeleteObjectVersion(key="test", versionid=versionid2))
+
+        self.assertTrue(version_list.len(), 2)
+
+        result = bucket.batch_delete_objects(["test"], version_list)
+
+        try:
+            bucket.delete_bucket()
+        except:
+            self.assertFalse(True, "should not get a exception")
 
 class TestSign(TestObject):
     """

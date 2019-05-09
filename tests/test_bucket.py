@@ -63,7 +63,6 @@ class TestBucket(OssTestCase):
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
 
         bucket.create_bucket(oss2.BUCKET_ACL_PUBLIC_READ)
-        bucket.create_bucket()
 
         self.retry_assert(lambda: bucket.get_bucket_acl().acl == oss2.BUCKET_ACL_PUBLIC_READ)
 
@@ -365,7 +364,7 @@ class TestBucket(OssTestCase):
         self.bucket.delete_bucket_lifecycle()
 
     def test_lifecycle_object_tagging(self):
-        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition, ObjectTagging, ObjectTaggingRule
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition, Tagging, TaggingRule
 
         rule = LifecycleRule(random_string(10), 'aaaaaaaaaaa/',
                              status=LifecycleRule.ENABLED,
@@ -373,9 +372,9 @@ class TestBucket(OssTestCase):
         rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 20),
                                                       storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
 
-        tagging_rule = ObjectTaggingRule()
+        tagging_rule = TaggingRule()
         tagging_rule.add('test_key', 'test_value')
-        tagging = ObjectTagging(tagging_rule)
+        tagging = Tagging(tagging_rule)
 
         rule.tagging = tagging
 
@@ -448,7 +447,7 @@ class TestBucket(OssTestCase):
 
     def test_lifecycle_object_tagging_exceptions_wrong_key(self):
 
-        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition, ObjectTagging, ObjectTaggingRule
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition, Tagging, TaggingRule
 
         rule = LifecycleRule(random_string(10), '中文前缀/',
                              status=LifecycleRule.ENABLED,
@@ -456,7 +455,7 @@ class TestBucket(OssTestCase):
         rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 20),
                                                       storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
 
-        tagging = ObjectTagging()
+        tagging = Tagging()
         
         tagging.tag_set.tagging_rule[129*'a'] = 'test'
 
@@ -483,7 +482,7 @@ class TestBucket(OssTestCase):
 
     def test_lifecycle_object_tagging_exceptions_wrong_value(self):
 
-        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition, ObjectTagging, ObjectTaggingRule
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition, Tagging, TaggingRule
 
         rule = LifecycleRule(random_string(10), '中文前缀/',
                              status=LifecycleRule.ENABLED,
@@ -491,7 +490,7 @@ class TestBucket(OssTestCase):
         rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 20),
                                                       storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
 
-        tagging = ObjectTagging()
+        tagging = Tagging()
         
         tagging.tag_set.tagging_rule['test'] = 257*'a'
 
@@ -516,7 +515,7 @@ class TestBucket(OssTestCase):
             pass
     def test_lifecycle_object_tagging_exceptions_too_much_rules(self):
 
-        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition, ObjectTagging, ObjectTaggingRule
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition, Tagging, TaggingRule
 
         rule = LifecycleRule(random_string(10), '中文前缀/',
                              status=LifecycleRule.ENABLED,
@@ -524,7 +523,7 @@ class TestBucket(OssTestCase):
         rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 20),
                                                       storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
 
-        tagging = ObjectTagging()
+        tagging = Tagging()
         for i in range(1, 20):
             key='test_key_'+str(i)
             value='test_value_'+str(i)
@@ -610,6 +609,8 @@ class TestBucket(OssTestCase):
         self.assertTrue(len(result.extranet_endpoint) > 0)
         self.assertTrue(len(result.owner.id) > 0)
         self.assertEqual(result.acl.grant, oss2.BUCKET_ACL_PRIVATE)
+        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, 'None')
+        self.assertEqual(result.versioning_status, None)
         bucket.delete_bucket()
 
         wait_meta_sync()
@@ -630,6 +631,176 @@ class TestBucket(OssTestCase):
     def test_location(self):
         result = self.bucket.get_bucket_location()
         self.assertTrue(result.location)
+
+    def test_bucket_encryption_wrong(self):
+
+        from oss2.models import ServerSideEncryptionRule
+
+        self.assertRaises(oss2.exceptions.NoSuchServerSideEncryptionRule, self.bucket.get_bucket_encryption)
+
+        rule = ServerSideEncryptionRule()
+        rule.ssealgorithm = oss2.SERVER_SIDE_ENCRYPTION_AES 
+        rule.kmsmasterkeyid = "test"
+
+        self.assertRaises(oss2.exceptions.InvalidArgument,
+                self.bucket.put_bucket_encryption, rule)
+
+        rule.ssealgorithm = "random"
+        rule.kmsmasterkeyid = ""
+        self.assertRaises(oss2.exceptions.InvalidEncryptionAlgorithmError,
+                self.bucket.put_bucket_encryption, rule)
+
+        rule.ssealgorithm = oss2.SERVER_SIDE_ENCRYPTION_KMS 
+        rule.kmsmasterkeyid = ""
+        result = self.bucket.put_bucket_encryption(rule)
+        self.assertEqual(int(result.status)/100, 2)
+
+        #self.bucket.put_object("test", "test")
+
+        result = self.bucket.delete_bucket_encryption()
+
+        rule.ssealgorithm = oss2.SERVER_SIDE_ENCRYPTION_KMS
+        rule.kmsmasterkeyid = "test_wrong"
+
+        result = self.bucket.put_bucket_encryption(rule)
+        self.assertEqual(int(result.status)/100, 2)
+
+        '''
+        self.assertRaises(oss2.exceptions.InvalidArgument,
+                self.bucket.put_object, "test", "test")
+        '''
+
+        result = self.bucket.get_bucket_encryption()
+        self.assertEqual(result.ssealgorithm, oss2.SERVER_SIDE_ENCRYPTION_KMS)
+        self.assertEqual(result.kmsmasterkeyid, "test_wrong")
+
+        result = self.bucket.delete_bucket_encryption()
+
+        self.assertEqual(int(result.status), 204)
+
+    def test_bucket_encryption(self):
+
+        from oss2.models import ServerSideEncryptionRule
+
+        rule = ServerSideEncryptionRule()
+        rule.ssealgorithm = oss2.SERVER_SIDE_ENCRYPTION_AES 
+        rule.kmsmasterkeyid = ""
+
+        result = self.bucket.put_bucket_encryption(rule)
+        self.assertEqual(int(result.status)/100, 2)
+    
+        wait_meta_sync()
+
+        result = self.bucket.get_bucket_info()
+        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, 'AES256')
+
+        result = self.bucket.put_object("test", "test")
+        self.assertEqual(int(result.status)/100, 2)
+        
+        result = self.bucket.get_object("test")
+        self.assertEqual(int(result.status)/100, 2)
+
+        self.assertEqual("test", result.read())
+
+        result = self.bucket.delete_bucket_encryption()
+        self.assertEqual(int(result.status)/100, 2)
+
+    def test_bucket_versioning_wrong(self):
+
+        from oss2.models import BucketVersioningConfig
+
+        config = BucketVersioningConfig()
+
+        self.assertRaises(oss2.exceptions.MalformedXml, 
+                self.bucket.put_bucket_versioning, config)
+
+        config.status = "Disabled"
+        self.assertRaises(oss2.exceptions.MalformedXml, 
+                self.bucket.put_bucket_versioning, config)
+
+    def test_bucket_versioning(self):
+
+        from oss2.models import BucketVersioningConfig
+
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+
+        self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.get_bucket_info)
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
+
+        wait_meta_sync()
+
+        config = BucketVersioningConfig()
+
+        config.status = "Enabled"
+        result = bucket.put_bucket_versioning(config)
+        self.assertEqual(int(result.status)/100, 2)
+        
+        wait_meta_sync()
+
+        result = bucket.get_bucket_info()
+        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, 'None')
+        self.assertEqual(result.versioning_status, 'Enabled')
+
+        config.status = "Suspended"
+        result = bucket.put_bucket_versioning(config)
+        self.assertEqual(int(result.status)/100, 2)
+
+        bucket.delete_bucket()
+
+    def test_list_object_versions_wrong(self):
+        from oss2.models import BucketVersioningConfig
+
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+
+        self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.get_bucket_info)
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
+
+        wait_meta_sync()
+
+        config = BucketVersioningConfig()
+
+        config.status = "Enabled"
+        result = bucket.put_bucket_versioning(config)
+        self.assertEqual(int(result.status)/100, 2)
+
+        result = bucket.put_object("test", "test1")
+        self.assertEqual(int(result.status)/100, 2)
+        versionid1 = result.versionid
+        
+        result = bucket.put_object("test", "test2")
+        self.assertEqual(int(result.status)/100, 2)
+        versionid2 = result.versionid
+
+        self.assertRaises(oss2.exceptions.InvalidArgument, 
+                bucket.list_object_versions, prefix=1025*'a')
+
+        self.assertRaises(oss2.exceptions.InvalidArgument, 
+                bucket.list_object_versions, key_marker=1025*'a')
+
+        self.assertRaises(oss2.exceptions.InvalidArgument, 
+                bucket.list_object_versions, versionid_marker=1025*'a')
+
+        self.assertRaises(oss2.exceptions.InvalidArgument, 
+                bucket.list_object_versions, delimiter=1025*'a')
+
+        self.assertRaises(oss2.exceptions.InvalidArgument, 
+                bucket.list_object_versions, max_keys=1001)
+
+        result = bucket.list_object_versions()
+        self.assertEqual(len(result.versions), 2)
+        self.assertEqual(result.versions[0].versionid, versionid2)
+        self.assertEqual(result.versions[1].versionid, versionid1)
+        self.assertEqual(len(result.delete_marker), 0)
+
+        bucket.delete_object("test", {"versionId": versionid1})
+        bucket.delete_object("test", {"versionId": versionid2})
+
+        bucket.delete_bucket()
+
 
     def test_malformed_xml(self):
         xml_input = '''<This is a bad xml></bad as I am>'''
