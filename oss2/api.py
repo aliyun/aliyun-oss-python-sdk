@@ -1776,13 +1776,13 @@ class Bucket(_Base):
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
-        logger.debug("Start to put object tagging, bucket: {0}, key: {1}, tagging: {2}".format(
-            self.bucket_name, to_string(key), tagging))
+        logger.debug("Start to put object tagging, bucket: {0} tagging: {1}".format(
+            self.bucket_name, tagging))
 
         if headers is not None:
             headers = http.CaseInsensitiveDict(headers)
 
-        data = self.__convert_data(ObjectTagging, xml_utils.to_put_tagging, tagging) 
+        data = self.__convert_data(Tagging, xml_utils.to_put_tagging, tagging) 
         resp = self.__do_bucket('PUT', data=data, params={Bucket.TAGGING: ''}, headers=headers)
 
         return RequestResult(resp)
@@ -1801,7 +1801,7 @@ class Bucket(_Base):
 
         return self._parse_result(resp, xml_utils.parse_get_tagging, GetTaggingResult)
 
-    def delete_bucket_tagging(self, params=None):
+    def delete_bucket_tagging(self):
         """
         :param str key: 要删除tagging的对象名称
         :return: :class:`RequestResult <oss2.models.RequestResult>` 
@@ -1809,7 +1809,7 @@ class Bucket(_Base):
         logger.debug("Start to delete bucket tagging, bucket: {0}".format(
                     self.bucket_name))
 
-        resp = self.__do_bucket('DELETE', params)
+        resp = self.__do_bucket('DELETE', params={Bucket.TAGGING: ''})
 
         logger.debug("Delete bucket tagging done, req_id: {0}, status_code: {1}".format(
                     resp.request_id, resp.status))

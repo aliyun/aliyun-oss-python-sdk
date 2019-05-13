@@ -884,7 +884,36 @@ class TestBucket(OssTestCase):
             bucket.delete_bucket()
         except:
             self.assertFalse(True, "should not get a exception")
-    
+
+    def test_bucket_tagging(self):
+        
+        from oss2.models import Tagging, TaggingRule
+
+        rule = TaggingRule()
+        self.assertRaises(oss2.exceptions.ClientError, rule.add, 129*'a', 'test')
+        self.assertRaises(oss2.exceptions.ClientError, rule.add, 'test', 257*'a')
+        self.assertRaises(oss2.exceptions.ClientError, rule.add, None, 'test')
+        self.assertRaises(oss2.exceptions.ClientError, rule.add, '', 'test')
+        self.assertRaises(KeyError, rule.delete, 'not_exist')
+
+        tagging = Tagging()
+        tagging.tag_set.tagging_rule['%@abc'] = 'abc'
+        tagging.tag_set.tagging_rule['123++'] = '++123%'
+
+        try:
+            result = self.bucket.put_bucket_tagging(tagging)
+        except oss2.exceptions.OssError:
+            self.assertFalse(True, 'should not get exception')
+            pass
+
+        result = self.bucket.get_bucket_tagging()
+        tag_rule = result.tag_set.tagging_rule
+        self.assertEqual(2, len(tag_rule))
+        self.assertEqual('abc', tag_rule['%@abc'])
+        self.assertEqual('++123%', tag_rule['123++'])
+
+        result = self.bucket.delete_bucket_tagging()
+        self.assertEqual(int(result.status)/100, 2)
 
 
     def test_malformed_xml(self):
