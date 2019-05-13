@@ -1333,7 +1333,7 @@ class TestObject(OssTestCase):
         result = bucket.get_bucket_info()
 
         self.assertEqual(int(result.status)/100, 2)
-        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, "None")
+        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, None)
         self.assertEqual(result.versioning_status, "Enabled")
 
         result = bucket.put_object("test", "test")
@@ -1399,7 +1399,7 @@ class TestObject(OssTestCase):
         result = bucket.get_bucket_info()
 
         self.assertEqual(int(result.status)/100, 2)
-        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, "None")
+        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, None)
         self.assertEqual(result.versioning_status, "Enabled")
 
         result = bucket.put_object("test", "test1")
@@ -1506,7 +1506,7 @@ class TestObject(OssTestCase):
         result = bucket.get_bucket_info()
 
         self.assertEqual(int(result.status)/100, 2)
-        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, "None")
+        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, None)
         self.assertEqual(result.versioning_status, "Enabled")
         
         # put version 1
@@ -1564,7 +1564,7 @@ class TestObject(OssTestCase):
         result = bucket.get_bucket_info()
 
         self.assertEqual(int(result.status)/100, 2)
-        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, "None")
+        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, None)
         self.assertEqual(result.versioning_status, "Enabled")
         
         # put "test" version 1
@@ -1665,7 +1665,7 @@ class TestObject(OssTestCase):
         result = bucket.get_bucket_info()
 
         self.assertEqual(int(result.status)/100, 2)
-        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, "None")
+        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, None)
         self.assertEqual(result.versioning_status, "Enabled")
         
         # put "test" version 1
@@ -1723,7 +1723,7 @@ class TestObject(OssTestCase):
         result = bucket.get_bucket_info()
 
         self.assertEqual(int(result.status)/100, 2)
-        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, "None")
+        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, None)
         self.assertEqual(result.versioning_status, "Enabled")
         
         # put "test" version 1
@@ -1739,7 +1739,7 @@ class TestObject(OssTestCase):
         versionid2 = result.versionid
 
         result = bucket.get_object_acl("test", params={"versionId": versionid2})
-        self.assertEqual(result.acl, oss2.OBJECT_ACL_PRIVATE)
+        self.assertEqual(result.acl, oss2.OBJECT_ACL_DEFAULT)
 
         result = bucket.put_object_acl("test", oss2.OBJECT_ACL_PUBLIC_READ, params={"versionId": versionid2})
         self.assertEqual(int(result.status)/100, 2)
@@ -1760,6 +1760,137 @@ class TestObject(OssTestCase):
         except:
             self.assertFalse(True, "should not get a exception")
 
+    def test_head_object_with_version(self):
+
+        from oss2.models import BucketVersioningConfig
+        from oss2.models import BatchDeleteObjectVersion
+        from oss2.models import BatchDeleteObjectVersionList
+
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket_name = random_string(63).lower()
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
+
+        wait_meta_sync()
+
+        config = BucketVersioningConfig()
+        config.status = 'Enabled'
+
+        result = bucket.put_bucket_versioning(config)
+
+        wait_meta_sync()
+
+        result = bucket.get_bucket_info()
+
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, None)
+        self.assertEqual(result.versioning_status, "Enabled")
+        
+        # put "test" version 1
+        result = bucket.put_object("test", "test1")
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertTrue(result.versionid != "")
+        versionid1 = result.versionid
+
+        # put "test" version 2
+        headers = {}
+        headers['x-oss-storage-class'] = oss2.BUCKET_STORAGE_CLASS_ARCHIVE
+        result = bucket.put_object("test", "test2", headers=headers)
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertTrue(result.versionid != "")
+        versionid2 = result.versionid
+
+        result1 = bucket.head_object("test", params={"versionId": versionid1})
+
+        result2 = bucket.head_object("test", params={"versionId": versionid2})
+        self.assertEqual(result1.object_type, result2.object_type)
+        self.assertEqual(result1.content_type, result2.content_type)
+        self.assertEqual(result1.content_length, result2.content_length)
+        self.assertTrue(result1.etag != result2.etag)
+
+        delete_result = bucket.delete_object("test")
+        delete_marker_versionid = delete_result.versionid
+
+        try:
+            result3 = bucket.head_object("test", params={'versionId': delete_marker_versionid})
+            self.assertFalse(True, "should get a exception, but not")
+        except:
+            pass
+
+        version_list = BatchDeleteObjectVersionList()
+        version_list.append(BatchDeleteObjectVersion(key="test", versionid=versionid1))
+        version_list.append(BatchDeleteObjectVersion(key="test", versionid=versionid2))
+        version_list.append(BatchDeleteObjectVersion(key="test", versionid=delete_marker_versionid))
+
+        self.assertTrue(version_list.len(), 3)
+
+        result = bucket.batch_delete_objects(["test"], version_list)
+
+        try:
+            bucket.delete_bucket()
+        except:
+            self.assertFalse(True, "should not get a exception")
+
+    def test_copy_object_with_version(self):
+
+        from oss2.models import BucketVersioningConfig
+        from oss2.models import BatchDeleteObjectVersion
+        from oss2.models import BatchDeleteObjectVersionList
+
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket_name = random_string(63).lower()
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
+
+        wait_meta_sync()
+
+        config = BucketVersioningConfig()
+        config.status = 'Enabled'
+
+        result = bucket.put_bucket_versioning(config)
+
+        wait_meta_sync()
+
+        result = bucket.get_bucket_info()
+
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, None)
+        self.assertEqual(result.versioning_status, "Enabled")
+        
+        # put "test" version 1
+        result = bucket.put_object("test", "test1")
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertTrue(result.versionid != "")
+        versionid1 = result.versionid
+
+        # put "test" version 2
+        result = bucket.put_object("test", "test2")
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertTrue(result.versionid != "")
+        versionid2 = result.versionid
+
+        result = bucket.copy_object(bucket_name, "test", "test_copy", params={'versionId': versionid1})
+
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertTrue(result.versionid != "")
+        copy_versionid = result.versionid
+
+        version_list = BatchDeleteObjectVersionList()
+        version_list.append(BatchDeleteObjectVersion(key="test", versionid=versionid1))
+        version_list.append(BatchDeleteObjectVersion(key="test", versionid=versionid2))
+        version_list.append(BatchDeleteObjectVersion(key="test_copy", versionid=copy_versionid))
+
+        self.assertTrue(version_list.len(), 3)
+
+        result = bucket.batch_delete_objects(["test"], version_list)
+
+        try:
+            bucket.delete_bucket()
+        except:
+            self.assertFalse(True, "should not get a exception")
+    
 class TestSign(TestObject):
     """
         这个类主要是用来增加测试覆盖率，当环境变量为oss2.AUTH_VERSION_2，则重新设置为oss2.AUTH_VERSION_1再运行TestObject，反之亦然

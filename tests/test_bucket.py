@@ -609,7 +609,7 @@ class TestBucket(OssTestCase):
         self.assertTrue(len(result.extranet_endpoint) > 0)
         self.assertTrue(len(result.owner.id) > 0)
         self.assertEqual(result.acl.grant, oss2.BUCKET_ACL_PRIVATE)
-        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, 'None')
+        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, None)
         self.assertEqual(result.versioning_status, None)
         bucket.delete_bucket()
 
@@ -654,6 +654,9 @@ class TestBucket(OssTestCase):
         rule.kmsmasterkeyid = ""
         result = self.bucket.put_bucket_encryption(rule)
         self.assertEqual(int(result.status)/100, 2)
+        result = self.bucket.get_bucket_encryption()
+        self.assertEqual(result.ssealgorithm, oss2.SERVER_SIDE_ENCRYPTION_KMS)
+        self.assertEqual(result.kmsmasterkeyid, "")
 
         #self.bucket.put_object("test", "test")
 
@@ -683,6 +686,8 @@ class TestBucket(OssTestCase):
         from oss2.models import ServerSideEncryptionRule
 
         rule = ServerSideEncryptionRule()
+
+        # AES256
         rule.ssealgorithm = oss2.SERVER_SIDE_ENCRYPTION_AES 
         rule.kmsmasterkeyid = ""
 
@@ -701,6 +706,22 @@ class TestBucket(OssTestCase):
         self.assertEqual(int(result.status)/100, 2)
 
         self.assertEqual("test", result.read())
+
+        result = self.bucket.delete_bucket_encryption()
+        self.assertEqual(int(result.status)/100, 2)
+
+        # KMS
+        rule.ssealgorithm = oss2.SERVER_SIDE_ENCRYPTION_KMS
+        rule.kmsmasterkeyid = ""
+
+        result = self.bucket.put_bucket_encryption(rule)
+        self.assertEqual(int(result.status)/100, 2)
+    
+        wait_meta_sync()
+
+        result = self.bucket.get_bucket_info()
+        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, 'KMS')
+        self.assertEqual(result.bucket_encryption_rule.kmsmasterkeyid, '')
 
         result = self.bucket.delete_bucket_encryption()
         self.assertEqual(int(result.status)/100, 2)
@@ -733,17 +754,17 @@ class TestBucket(OssTestCase):
 
         config = BucketVersioningConfig()
 
-        config.status = "Enabled"
+        config.status = oss2.BUCKET_VERSIONING_ENABLE 
         result = bucket.put_bucket_versioning(config)
         self.assertEqual(int(result.status)/100, 2)
         
         wait_meta_sync()
 
         result = bucket.get_bucket_info()
-        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, 'None')
+        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, None)
         self.assertEqual(result.versioning_status, 'Enabled')
 
-        config.status = "Suspended"
+        config.status = oss2.BUCKET_VERSIONING_SUSPEND 
         result = bucket.put_bucket_versioning(config)
         self.assertEqual(int(result.status)/100, 2)
 
@@ -800,6 +821,70 @@ class TestBucket(OssTestCase):
         bucket.delete_object("test", {"versionId": versionid2})
 
         bucket.delete_bucket()
+
+    def test_list_object_versions_truncated(self):
+
+        from oss2.models import BucketVersioningConfig
+        from oss2.models import BatchDeleteObjectVersion
+        from oss2.models import BatchDeleteObjectVersionList
+
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket_name = random_string(63).lower()
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
+
+        wait_meta_sync()
+
+        config = BucketVersioningConfig()
+        config.status = 'Enabled'
+
+        result = bucket.put_bucket_versioning(config)
+
+        wait_meta_sync()
+
+        result = bucket.get_bucket_info()
+
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, None)
+        self.assertEqual(result.versioning_status, "Enabled")
+
+        for i in range(0, 1024):
+            bucket.put_object("test", "test"+str(i))
+
+        loop_time = 0
+        next_key_marker = ''
+        next_version_marker = ''
+        delete_versions = []
+
+        while True:
+
+            result = bucket.list_object_versions(key_marker=next_key_marker, versionid_marker=next_version_marker)
+            self.assertTrue(len(result.versions) > 0)
+            self.assertTrue(len(result.delete_marker) == 0)
+            version_list = BatchDeleteObjectVersionList()
+            for item in result.versions:
+                version_list.append(BatchDeleteObjectVersion(item.key, item.versionid))
+            delete_versions.append(version_list)
+            
+            if result.is_truncated:
+                next_key_marker = result.next_key_marker
+                next_version_marker = result.next_versionid_marker
+            else:
+                break
+
+            loop_time += 1
+            if loop_time > 12:
+                self.assertFalse(True, "loop too much times, break")
+        
+        for item in delete_versions:
+            result = bucket.batch_delete_objects(["test"], item)
+
+        try:
+            bucket.delete_bucket()
+        except:
+            self.assertFalse(True, "should not get a exception")
+    
 
 
     def test_malformed_xml(self):
