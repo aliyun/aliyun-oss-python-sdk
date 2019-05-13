@@ -921,7 +921,7 @@ class Bucket(_Base):
 
         return True
 
-    def copy_object(self, source_bucket_name, source_key, target_key, headers=None):
+    def copy_object(self, source_bucket_name, source_key, target_key, headers=None, params=None):
         """拷贝一个文件到当前Bucket。
 
         :param str source_bucket_name: 源Bucket名
@@ -933,8 +933,14 @@ class Bucket(_Base):
 
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
+
         headers = http.CaseInsensitiveDict(headers)
-        headers[OSS_COPY_OBJECT_SOURCE] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
+
+        if params and Bucket.VERSIONID in params:
+            headers[OSS_COPY_OBJECT_SOURCE] = '/' + source_bucket_name + \
+                '/' + urlquote(source_key, '') + '?versionId=' + params[Bucket.VERSIONID]
+        else:
+            headers[OSS_COPY_OBJECT_SOURCE] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
 
         logger.debug(
             "Start to copy object, source bucket: {0}, source key: {1}, bucket: {2}, key: {3}, headers: {4}".format(
@@ -1223,7 +1229,13 @@ class Bucket(_Base):
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         headers = http.CaseInsensitiveDict(headers)
-        headers[OSS_COPY_OBJECT_SOURCE] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
+
+        if params and Bucket.VERSIONID in params:
+            headers[OSS_COPY_OBJECT_SOURCE] = '/' + source_bucket_name + \
+                '/' + urlquote(source_key, '') + '?versionId=' + params[Bucket.VERSIONID]
+        else:
+            headers[OSS_COPY_OBJECT_SOURCE] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
+
 
         range_string = _make_range_string(byte_range)
         if range_string:

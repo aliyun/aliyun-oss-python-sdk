@@ -288,10 +288,10 @@ def parse_get_bucket_info(result, body):
 
     bucket_versioning = root.find('Bucket/Versioning')
     
-    if bucket_versioning is None:
+    if bucket_versioning is None or bucket_versioning.text is None:
         result.versioning_status = None
     else:
-        result.versioning_status = bucket_versioning.text
+        result.versioning_status = to_string(bucket_versioning.text)
 
     return result
 
@@ -303,10 +303,12 @@ def _parse_bucket_encryption_info(node):
     
     if rule.ssealgorithm == "None":
         rule.kmsmasterkeyid = None
+        rule.ssealgorithm = None
+        return rule
 
     kmsnode = node.find("KMSMasterKeyID")
-    if kmsnode is None:
-        rule.kmsmasterkeyid = None
+    if kmsnode is None or kmsnode.text is None:
+        rule.kmsmasterkeyid = '' 
     else:
         rule.kmsmasterkeyid = to_string(kmsnode.text)
 
@@ -874,7 +876,12 @@ def parse_get_bucket_encryption(result, body):
     apply_node = root.find('ApplyServerSideEncryptionByDefault')
 
     result.ssealgorithm = _find_tag(apply_node, "SSEAlgorithm")
-    result.kmsmasterkeyid = _find_tag(apply_node, "KMSMasterKeyID")
+
+    kmsnode = apply_node.find('KMSMasterKeyID')
+    if kmsnode is None or kmsnode.text is None:
+        result.kmsmasterkeyid = ''
+    else:
+        result.kmsmasterkeyid = to_string(kmsnode.text)
 
     return result
 
@@ -895,7 +902,7 @@ def parse_list_object_versions(result, body):
 
     for delete_marker in root.findall("DeleteMarker"):
         deleteInfo = DeleteMarkerInfo()
-        deleteInfo.key = _find_tag(delete_marker, "Key", url_encoded)
+        deleteInfo.key = _find_object(delete_marker, "Key", url_encoded)
         deleteInfo.versionid = _find_tag(delete_marker, "VersionId")
         deleteInfo.is_latest = _find_bool(delete_marker, "IsLatest")
         deleteInfo.last_modified = iso8601_to_unixtime(_find_tag(delete_marker, "LastModified"))

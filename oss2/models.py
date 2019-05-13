@@ -1056,6 +1056,9 @@ class ObjectVersionInfo(object):
         self.size = ''
         self.etag = ''
 
+BUCKET_VERSIONING_ENABLE = 'Enabled'
+BUCKET_VERSIONING_SUSPEND = 'Suspended'
+
 class BucketVersioningConfig(object):
     def __init__(self, status=None):
         self.status = status
