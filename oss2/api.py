@@ -289,7 +289,7 @@ class Service(_Base):
         super(Service, self).__init__(auth, endpoint, False, session, connect_timeout,
                                       app_name=app_name)
 
-    def list_buckets(self, prefix='', marker='', max_keys=100):
+    def list_buckets(self, prefix='', marker='', max_keys=100, params=None):
         """根据前缀罗列用户的Bucket。
 
         :param str prefix: 只罗列Bucket名为该前缀的Bucket，空串表示罗列所有的Bucket
@@ -300,10 +300,19 @@ class Service(_Base):
         :rtype: oss2.models.ListBucketsResult
         """
         logger.debug("Start to list buckets, prefix: {0}, marker: {1}, max-keys: {2}".format(prefix, marker, max_keys))
-        resp = self._do('GET', '', '',
-                        params={'prefix': prefix,
-                                'marker': marker,
-                                'max-keys': str(max_keys)})
+
+        listParam = {}
+        listParam['prefix'] = prefix
+        listParam['marker'] = marker
+        listParam['max-keys'] = str(max_keys)
+
+        if params is not None:
+            if 'tag-key' in params:
+                listParam['tag-key'] = params['tag-key']
+            if 'tag-value' in params:
+                listParam['tag-value'] = params['tag-value']
+
+        resp = self._do('GET', '', '', params=listParam)
         logger.debug("List buckets done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_buckets, ListBucketsResult)
 

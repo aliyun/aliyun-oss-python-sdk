@@ -915,6 +915,60 @@ class TestBucket(OssTestCase):
         result = self.bucket.delete_bucket_tagging()
         self.assertEqual(int(result.status)/100, 2)
 
+    def test_list_bucket_with_tagging(self):
+
+        from oss2.models import Tagging, TaggingRule
+
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        service = oss2.Service(auth, OSS_ENDPOINT)
+
+        bucket_name1 = random_string(63).lower()
+        bucket1 = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name1)
+
+        bucket1.create_bucket(oss2.BUCKET_ACL_PRIVATE)
+
+        wait_meta_sync()
+
+        bucket_name2 = random_string(63).lower()
+        bucket2 = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name2)
+
+        bucket2.create_bucket(oss2.BUCKET_ACL_PRIVATE)
+        
+        wait_meta_sync()
+
+        rule = TaggingRule()
+        rule.add('tagging_key1', 'value1')
+        rule.add('tagging_key_test1', 'value1')
+
+        tagging1 = Tagging(rule)
+        try:
+            result = bucket1.put_bucket_tagging(tagging1)
+        except oss2.exceptions.OssError:
+            self.assertFalse(True, 'should not get exception')
+            pass
+
+        rule = TaggingRule()
+        rule.add('tagging_key2', 'value2')
+
+        tagging2 = Tagging(rule)
+        try:
+            result = bucket2.put_bucket_tagging(tagging2)
+        except oss2.exceptions.OssError:
+            self.assertFalse(True, 'should not get exception')
+            pass
+        
+        params = {}
+        params['tag-key'] = 'tagging_key1'
+        params['tag-value'] = 'value1'
+
+        result = service.list_buckets(params=params)
+        self.assertEqual(1, len(result.buckets))
+
+        result = service.list_buckets()
+        self.assertTrue(len(result.buckets) > 1)
+
+        bucket1.delete_bucket()
+        bucket2.delete_bucket()
 
     def test_malformed_xml(self):
         xml_input = '''<This is a bad xml></bad as I am>'''
