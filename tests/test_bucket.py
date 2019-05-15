@@ -639,7 +639,7 @@ class TestBucket(OssTestCase):
         self.assertRaises(oss2.exceptions.NoSuchServerSideEncryptionRule, self.bucket.get_bucket_encryption)
 
         rule = ServerSideEncryptionRule()
-        rule.ssealgorithm = oss2.SERVER_SIDE_ENCRYPTION_AES 
+        rule.ssealgorithm = oss2.SERVER_SIDE_ENCRYPTION_AES256
         rule.kmsmasterkeyid = "test"
 
         self.assertRaises(oss2.exceptions.InvalidArgument,
@@ -654,6 +654,11 @@ class TestBucket(OssTestCase):
         rule.kmsmasterkeyid = ""
         result = self.bucket.put_bucket_encryption(rule)
         self.assertEqual(int(result.status)/100, 2)
+
+        rule.kmsmasterkeyid = None
+        result = self.bucket.put_bucket_encryption(rule)
+        self.assertEqual(int(result.status)/100, 2)
+
         result = self.bucket.get_bucket_encryption()
         self.assertEqual(result.ssealgorithm, oss2.SERVER_SIDE_ENCRYPTION_KMS)
         self.assertEqual(result.kmsmasterkeyid, "")
@@ -688,7 +693,7 @@ class TestBucket(OssTestCase):
         rule = ServerSideEncryptionRule()
 
         # AES256
-        rule.ssealgorithm = oss2.SERVER_SIDE_ENCRYPTION_AES 
+        rule.ssealgorithm = oss2.SERVER_SIDE_ENCRYPTION_AES256
         rule.kmsmasterkeyid = ""
 
         result = self.bucket.put_bucket_encryption(rule)
@@ -937,7 +942,7 @@ class TestBucket(OssTestCase):
         wait_meta_sync()
 
         rule = TaggingRule()
-        rule.add('tagging_key1', 'value1')
+        rule.add('tagging_key_test_test1', 'value1')
         rule.add('tagging_key_test1', 'value1')
 
         tagging1 = Tagging(rule)
@@ -958,7 +963,7 @@ class TestBucket(OssTestCase):
             pass
         
         params = {}
-        params['tag-key'] = 'tagging_key1'
+        params['tag-key'] = 'tagging_key_test_test1'
         params['tag-value'] = 'value1'
 
         result = service.list_buckets(params=params)

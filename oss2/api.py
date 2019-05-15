@@ -295,6 +295,7 @@ class Service(_Base):
         :param str prefix: 只罗列Bucket名为该前缀的Bucket，空串表示罗列所有的Bucket
         :param str marker: 分页标志。首次调用传空串，后续使用返回值中的next_marker
         :param int max_keys: 每次调用最多返回的Bucket数目
+        :param dict params: list操作参数，传入'tag-key','tag-value'对结果进行过滤
 
         :return: 罗列的结果
         :rtype: oss2.models.ListBucketsResult
@@ -835,7 +836,7 @@ class Bucket(_Base):
         :param headers: HTTP头部
         :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
 
-        :param params: HTTP请求参数
+        :param params: HTTP请求参数，传入versionId，获取指定版本Object元信息
         :type params: 可以是dict，建议是oss2.CaseInsensitiveDict
 
         :return: :class:`HeadObjectResult <oss2.models.HeadObjectResult>`
@@ -1292,7 +1293,6 @@ class Bucket(_Base):
 
         :param str target_key: 目标文件，目标文件不能为符号连接
         :param str symlink_key: 符号连接类文件，其实质是一个特殊的文件，数据指向目标文件
-        :param dict params: 请求参数 
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
@@ -1309,7 +1309,7 @@ class Bucket(_Base):
         """获取符号连接文件的目标文件。
 
         :param str symlink_key: 符号连接类文件
-        :param dict params: 请求参数 
+        :param dict params: 请求参数
 
         :return: :class:`GetSymlinkResult <oss2.models.GetSymlinkResult>`
 

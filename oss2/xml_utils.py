@@ -867,7 +867,9 @@ def to_put_bucket_encryption(rule):
     apply_node = ElementTree.SubElement(root, "ApplyServerSideEncryptionByDefault")
 
     _add_text_child(apply_node, "SSEAlgorithm", rule.ssealgorithm)
-    _add_text_child(apply_node, "KMSMasterKeyID", rule.kmsmasterkeyid)
+
+    if rule.kmsmasterkeyid is not None:
+        _add_text_child(apply_node, "KMSMasterKeyID", rule.kmsmasterkeyid)
 
     return _node_to_string(root)
 

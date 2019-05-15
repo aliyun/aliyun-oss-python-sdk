@@ -1680,11 +1680,25 @@ class TestObject(OssTestCase):
         self.assertTrue(result.versionid != "")
         versionid2 = result.versionid
 
-        result1 = bucket.head_object("test", params={"versionId": versionid1})
-        result2 = bucket.head_object("test", params={"versionId": versionid2})
+        try:
+            result_exception = bucket.get_object_meta("test", params={"versionId": None})
+            self.assertFalse(True, "should get a exception")
+        except:
+            pass
+
+        try:
+            result_normal = bucket.get_object_meta("test", params={"versionId": ''})
+            self.assertFalse(True, "should get a exception")
+        except:
+            pass
+
+
+        result1 = bucket.get_object_meta("test", params={"versionId": versionid1})
+        result2 = bucket.get_object_meta("test", params={"versionId": versionid2})
 
         self.assertTrue(result1.versionid == versionid1)
         self.assertTrue(result2.versionid == versionid2)
+        self.assertTrue(result1.content_length == result2.content_length)
 
         version_list = BatchDeleteObjectVersionList()
         version_list.append(BatchDeleteObjectVersion(key="test", versionid=versionid1))
@@ -1713,6 +1727,15 @@ class TestObject(OssTestCase):
 
         wait_meta_sync()
 
+        # put "test"
+        result = bucket.put_object("test_no_version", "test1")
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertTrue(result.versionid is None)
+
+        result = bucket.get_object_acl("test_no_version")
+
+        bucket.delete_object("test_no_version")
+
         config = BucketVersioningConfig()
         config.status = 'Enabled'
 
@@ -1737,6 +1760,33 @@ class TestObject(OssTestCase):
         self.assertEqual(int(result.status)/100, 2)
         self.assertTrue(result.versionid != "")
         versionid2 = result.versionid
+    
+        try:
+            result_exception = bucket.put_object_acl("test", oss2.OBJECT_ACL_DEFAULT, 
+                    params={'versionId': 'IllegalVersion'})
+            self.assertFalse(True, "should get a exception")
+        except:
+            pass
+
+        try:
+            result_exception = bucket.put_object_acl("test", oss2.OBJECT_ACL_DEFAULT, 
+                    params={'versionId': ''})
+            self.assertFalse(True, "should get a exception")
+        except:
+            pass
+
+    
+        try:
+            result_exception = bucket.get_object_acl("test", params={'versionId': 'IllegalVersion'})
+            self.assertFalse(True, "should get a exception")
+        except:
+            pass
+
+        try:
+            result_exception = bucket.get_object_acl("test", params={'versionId': ''})
+            self.assertFalse(True, "should get a exception")
+        except:
+            pass
 
         result = bucket.get_object_acl("test", params={"versionId": versionid2})
         self.assertEqual(result.acl, oss2.OBJECT_ACL_DEFAULT)
@@ -1774,6 +1824,19 @@ class TestObject(OssTestCase):
 
         wait_meta_sync()
 
+        # put "test" version 1
+        result = bucket.put_object("test_no_version", "test")
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertTrue(result.versionid is None)
+
+        try:
+            result_exception = bucket.head_object("test_no_version", params={"versionId": "IllegalVersion"})
+            self.assertFalse(True, "should get a exception")
+        except:
+            pass
+
+        bucket.delete_object("test_no_version")
+
         config = BucketVersioningConfig()
         config.status = 'Enabled'
 
@@ -1801,9 +1864,39 @@ class TestObject(OssTestCase):
         self.assertTrue(result.versionid != "")
         versionid2 = result.versionid
 
+        try:
+            result_exception = bucket.head_object("test", params={"versionId": None})
+            self.assertFalse(True, "should get a exception")
+        except:
+            pass
+
+        try:
+            result_normal = bucket.head_object("test", params={"versionId": ''})
+            self.assertFalse(True, "should get a exception")
+        except:
+            pass
+
+        try:
+            result_exception = bucket.head_object("test_no_version", params={"versionId": "IllegalVersion"})
+            self.assertFalse(True, "should get a exception")
+        except:
+            pass
+
+        try:
+            result_exception = bucket.head_object("test", 
+                    params={"versionId": "CAEQJhiBgIDVmYrr1RYiIGE5ZmUxMjViZDIwYjQwY2I5ODA1YWIxNmIyNDNjYjk4"})
+            self.assertFalse(True, "should get a exception")
+        except:
+            pass
+
+
         result1 = bucket.head_object("test", params={"versionId": versionid1})
 
         result2 = bucket.head_object("test", params={"versionId": versionid2})
+
+        result3 = bucket.head_object("test")
+        self.assertEqual(result2.versionid, result3.versionid)
+
         self.assertEqual(result1.object_type, result2.object_type)
         self.assertEqual(result1.content_type, result2.content_type)
         self.assertEqual(result1.content_length, result2.content_length)
@@ -1871,6 +1964,27 @@ class TestObject(OssTestCase):
         self.assertTrue(result.versionid != "")
         versionid2 = result.versionid
 
+        try:
+            result_exception = bucket.copy_object(bucket_name, 
+                    "test", "test_copy_wrong", params={"versionId": None})
+            self.assertFalse(True, "should get a exception")
+        except:
+            pass
+
+        try:
+            result_exception = bucket.copy_object(bucket_name, 
+                    "test", "test_copy_wrong", params={"versionId": ''})
+            self.assertFalse(True, "should get a exception")
+        except:
+            pass
+
+        try:
+            result_exception = bucket.copy_object(bucket_name, 
+                    "test", "test_copy_wrong", params={"versionId": 'NotExistVersionID'})
+            self.assertFalse(True, "should get a exception")
+        except:
+            pass
+
         result = bucket.copy_object(bucket_name, "test", "test_copy", params={'versionId': versionid1})
 
         self.assertEqual(int(result.status)/100, 2)
@@ -1890,6 +2004,113 @@ class TestObject(OssTestCase):
             bucket.delete_bucket()
         except:
             self.assertFalse(True, "should not get a exception")
+
+    def test_delete_object_with_version(self):
+
+        from oss2.models import BucketVersioningConfig
+        from oss2.models import BatchDeleteObjectVersion
+        from oss2.models import BatchDeleteObjectVersionList
+
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket_name = random_string(63).lower()
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
+
+        wait_meta_sync()
+
+        # put "test" version 1
+        result = bucket.put_object("test_no_version", "test")
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertTrue(result.versionid is None)
+
+        try:
+            result_exception = bucket.head_object("test_no_version", params={"versionId": "IllegalVersion"})
+            self.assertFalse(True, "should get a exception")
+        except:
+            pass
+        
+        try:
+            bucket.delete_object("test_no_version", params={"versionId": None})
+            self.assertFalse(True, "should get a exception")
+        except:
+            pass
+
+        try:
+            bucket.delete_object("test_no_version", params={"versionId": ""})
+            self.assertFalse(True, "should get a exception")
+        except:
+            pass
+
+        bucket.delete_object("test_no_version")
+
+        config = BucketVersioningConfig()
+        config.status = 'Enabled'
+
+        result = bucket.put_bucket_versioning(config)
+
+        wait_meta_sync()
+
+        result = bucket.get_bucket_info()
+
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, None)
+        self.assertEqual(result.versioning_status, "Enabled")
+        
+        # put "test" version 1
+        result = bucket.put_object("test", "test1")
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertTrue(result.versionid != "")
+        versionid1 = result.versionid
+
+        # put "test" version 2
+        headers = {}
+        headers['x-oss-storage-class'] = oss2.BUCKET_STORAGE_CLASS_ARCHIVE
+        result = bucket.put_object("test", "test2", headers=headers)
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertTrue(result.versionid != "")
+        versionid2 = result.versionid
+
+        bucket.delete_object("test", params={'versionId': versionid1})
+        bucket.delete_object("test", params={'versionId': versionid2})
+        bucket.delete_bucket()
+
+    def test_restore_object_with_version(self):
+
+        from oss2.models import BucketVersioningConfig
+
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE, oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_ARCHIVE))
+
+        service = oss2.Service(auth, OSS_ENDPOINT)
+
+        config = BucketVersioningConfig()
+        config.status = 'Enabled'
+
+        result = bucket.put_bucket_versioning(config)
+
+        wait_meta_sync()
+
+        self.retry_assert(lambda: bucket.bucket_name in (b.name for b in
+                                                         service.list_buckets(prefix=bucket.bucket_name).buckets))
+
+        key = 'a.txt'
+        result = bucket.put_object(key, 'content_version1')
+        self.assertEqual(202, bucket.restore_object(key).status)
+        version1 = result.versionid
+
+        result = bucket.put_object(key, 'content_version2')
+        version2 = result.versionid
+
+        result = bucket.restore_object(key, params={'versionId': version2})
+        self.assertEqual(202, result.status)
+
+        bucket.delete_object(key, params={'versionId': version1})
+        bucket.delete_object(key, params={'versionId': version2})
+        bucket.delete_bucket()
+
     
 class TestSign(TestObject):
     """

@@ -983,7 +983,7 @@ class GetTaggingResult(RequestResult, Tagging):
         RequestResult.__init__(self, resp)
         Tagging.__init__(self)
 
-SERVER_SIDE_ENCRYPTION_AES = 'AES256'
+SERVER_SIDE_ENCRYPTION_AES256 = 'AES256'
 SERVER_SIDE_ENCRYPTION_KMS = 'KMS'
 
 class ServerSideEncryptionRule(object):
