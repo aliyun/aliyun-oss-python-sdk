@@ -1535,6 +1535,8 @@ class TestObject(OssTestCase):
         self.assertTrue(result.delete_versions[1].versionid == versionid1 
                 or result.delete_versions[1].versionid == versionid2)
 
+        result = bucket.batch_delete_objects([""], version_list)
+
         try:
             bucket.delete_bucket()
         except:

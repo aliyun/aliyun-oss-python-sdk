@@ -757,6 +757,10 @@ class TestBucket(OssTestCase):
 
         wait_meta_sync()
 
+        result = bucket.get_bucket_versioning()
+        
+        self.assertTrue(result.status is None)
+
         config = BucketVersioningConfig()
 
         config.status = oss2.BUCKET_VERSIONING_ENABLE 

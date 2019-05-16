@@ -942,6 +942,10 @@ def to_put_bucket_versioning(bucket_version_config):
 def parse_get_bucket_versioning(result, body):
     root = ElementTree.fromstring(body)
 
-    result.status = _find_tag(root, "Status")
+    status_node = root.find("Status")
+    if status_node is None:
+        result.status = None
+    else:
+        result.status = _find_tag(root, "Status")
 
     return result
