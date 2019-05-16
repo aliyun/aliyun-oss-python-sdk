@@ -19,6 +19,7 @@ from .models import PartInfo
 from .compat import json, stringify, to_unicode, to_string
 from .task_queue import TaskQueue
 from .headers import *
+from .utils import _MAX_PART_COUNT, _MIN_PART_SIZE
 
 import functools
 import threading
@@ -28,10 +29,6 @@ import string
 import logging
 
 logger = logging.getLogger(__name__)
-
-_MAX_PART_COUNT = 10000
-_MIN_PART_SIZE = 100 * 1024
-
 
 def resumable_upload(bucket, key, filename,
                      store=None,

@@ -180,6 +180,20 @@ def parse_list_parts(result, body):
 
     result.is_truncated = _find_bool(root, 'IsTruncated')
     result.next_marker = _find_tag(root, 'NextPartNumberMarker')
+
+    try:
+        result.is_client_encryption = _find_bool(root, 'IsClientEncryption')
+        result.crypto_key = _find_tag(root, 'ClientEncryptionKey')
+        result.crypto_start = _find_tag(root, 'ClientEncryptionStart')
+        result.client_encryption_data_size = _find_int(root, 'ClientEncryptionDataSize')
+        result.client_encryption_part_size = _find_int(root, 'ClientEncryptionPartSize')
+    except RuntimeError as e:
+        result.is_client_encryption = False
+        result.crypto_key = None
+        result.crypto_start = None
+        result.client_encryption_data_size = 0
+        result.client_encryption_part_size = 0
+
     for part_node in root.findall('Part'):
         result.parts.append(PartInfo(
             _find_int(part_node, 'PartNumber'),

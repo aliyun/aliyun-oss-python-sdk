@@ -13,6 +13,7 @@ from oss2.utils import b64decode_from_string, b64encode_as_string
 from . import utils
 from .compat import to_string, to_bytes, to_unicode
 from .exceptions import OssError, ClientError, OpenApiFormatError, OpenApiServerError
+from .headers import *
 
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.PublicKey import RSA
@@ -35,12 +36,14 @@ class BaseCryptoProvider(object):
         self.plain_start = None
         self.cipher = cipher
 
-    def make_encrypt_adapter(self, stream, key, start):
-        return utils.make_cipher_adapter(stream, partial(self.cipher.encrypt, self.cipher(key, start)))
+    def make_encrypt_adapter(self, stream, key, count_start, count_offset=0):
+        return utils.make_cipher_adapter(stream, partial(self.cipher.encrypt, self.cipher(key, count_start, count_offset)))
 
-    def make_decrypt_adapter(self, stream, key, start):
-        return utils.make_cipher_adapter(stream, partial(self.cipher.decrypt, self.cipher(key, start)))
+    def make_decrypt_adapter(self, stream, key, count_start, count_offset=0):
+        return utils.make_cipher_adapter(stream, partial(self.cipher.decrypt, self.cipher(key, count_start, count_offset)))
 
+    def check_plain_key_valid(self, plain_key, plain_key_hmac):
+        pass
 
 _LOCAL_RSA_TMP_DIR = '.oss-local-rsa'
 
@@ -88,22 +91,45 @@ class LocalRsaProvider(BaseCryptoProvider):
         except (ValueError, TypeError, IndexError) as e:
             raise ClientError(str(e))
 
-    def build_header(self, headers=None):
+    def build_header(self, headers=None, multipart_context=None):
         if not isinstance(headers, CaseInsensitiveDict):
             headers = CaseInsensitiveDict(headers)
 
         if 'content-md5' in headers:
-            headers['x-oss-meta-unencrypted-content-md5'] = headers['content-md5']
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_MD5] = headers['content-md5']
             del headers['content-md5']
 
         if 'content-length' in headers:
-            headers['x-oss-meta-unencrypted-content-length'] = headers['content-length']
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_LENGTH] = headers['content-length']
             del headers['content-length']
 
-        headers['x-oss-meta-oss-crypto-key'] = b64encode_as_string(self.__encrypt_obj.encrypt(self.plain_key))
-        headers['x-oss-meta-oss-crypto-start'] = b64encode_as_string(self.__encrypt_obj.encrypt(to_bytes(str(self.plain_start))))
-        headers['x-oss-meta-oss-cek-alg'] = self.cipher.ALGORITHM
-        headers['x-oss-meta-oss-wrap-alg'] = 'rsa'
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_KEY] = b64encode_as_string(self.__encrypt_obj.encrypt(self.plain_key))
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_START] = b64encode_as_string(self.__encrypt_obj.encrypt(to_bytes(str(self.plain_start))))
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG] = self.cipher.ALGORITHM
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG] = 'rsa'
+
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_KEY_HMAC] = b64encode_as_string(str(hash(self.plain_key)))
+        # multipart file build header
+        if multipart_context:
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_DATA_SIZE] = str(multipart_context.data_size)
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_PART_SIZE] = str(multipart_context.part_size)
+
+        self.plain_key = None
+        self.plain_start = None
+
+        return headers
+
+    def build_header_for_upload_part(self, headers=None):
+        if not isinstance(headers, CaseInsensitiveDict):
+            headers = CaseInsensitiveDict(headers)
+
+        if 'content-md5' in headers:
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_MD5] = headers['content-md5']
+            del headers['content-md5']
+
+        if 'content-length' in headers:
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_LENGTH] = headers['content-length']
+            del headers['content-length']
 
         self.plain_key = None
         self.plain_start = None
@@ -120,10 +146,25 @@ class LocalRsaProvider(BaseCryptoProvider):
 
     def decrypt_oss_meta_data(self, headers, key, conv=lambda x:x):
         try:
-            return conv(self.__decrypt_obj.decrypt(utils.b64decode_from_string(headers[key])))
+            if key.lower() == OSS_CLIENT_SIDE_ENCRYPTION_KEY_HMAC.lower():
+                return conv(utils.b64decode_from_string(headers[key]))
+            else:
+                return conv(self.__decrypt_obj.decrypt(utils.b64decode_from_string(headers[key])))
         except:
             return None
 
+    def decrypt_from_str(self, key, value, conv=lambda x:x):
+        try:
+            if key.lower() == OSS_CLIENT_SIDE_ENCRYPTION_KEY_HMAC.lower():
+                return conv(utils.b64decode_from_string(value))
+            else:
+                return conv(self.__decrypt_obj.decrypt(utils.b64decode_from_string(value)))
+        except:
+            return None
+
+    def check_plain_key_valid(self, plain_key, plain_key_hmac):
+        if str(hash(plain_key)) != plain_key_hmac:
+            raise ClientError("The decrypted key is inconsistent, make sure use right RSA key pair")
 
 class AliKMSProvider(BaseCryptoProvider):
     """使用aliyun kms服务加密数据密钥。kms的详细说明参见
@@ -152,23 +193,46 @@ class AliKMSProvider(BaseCryptoProvider):
 
         self.encrypted_key = None
 
-    def build_header(self, headers=None):
+    def build_header(self, headers=None, multipart_context=None):
         if not isinstance(headers, CaseInsensitiveDict):
             headers = CaseInsensitiveDict(headers)
+
         if 'content-md5' in headers:
-            headers['x-oss-meta-unencrypted-content-md5'] = headers['content-md5']
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_MD5] = headers['content-md5']
             del headers['content-md5']
 
         if 'content-length' in headers:
-            headers['x-oss-meta-unencrypted-content-length'] = headers['content-length']
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_LENGTH] = headers['content-length']
             del headers['content-length']
 
-        headers['x-oss-meta-oss-crypto-key'] = self.encrypted_key
-        headers['x-oss-meta-oss-crypto-start'] = self.__encrypt_data(to_bytes(str(self.plain_start)))
-        headers['x-oss-meta-oss-cek-alg'] = self.cipher.ALGORITHM
-        headers['x-oss-meta-oss-wrap-alg'] = 'kms'
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_KEY] = self.encrypted_key
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_START] = self.__encrypt_data(to_bytes(str(self.plain_start)))
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG] = self.cipher.ALGORITHM
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG] = 'kms'
+
+        # multipart file build header
+        if multipart_context:
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_DATA_SIZE] = str(multipart_context.data_size)
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_PART_SIZE] = str(multipart_context.part_size)
 
         self.encrypted_key = None
+        self.plain_start = None
+
+        return headers
+
+    def build_header_for_upload_part(self, headers=None):
+        if not isinstance(headers, CaseInsensitiveDict):
+            headers = CaseInsensitiveDict(headers)
+
+        if 'content-md5' in headers:
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_MD5] = headers['content-md5']
+            del headers['content-md5']
+
+        if 'content-length' in headers:
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_LENGTH] = headers['content-length']
+            del headers['content-length']
+
+        self.plain_key = None
         self.plain_start = None
 
         return headers
@@ -241,10 +305,21 @@ class AliKMSProvider(BaseCryptoProvider):
 
     def decrypt_oss_meta_data(self, headers, key, conv=lambda x: x):
         try:
-            if key.lower() == 'x-oss-meta-oss-crypto-key'.lower():
+            if key.lower() == OSS_CLIENT_SIDE_ENCRYPTION_KEY.lower():
                 return conv(b64decode_from_string(self.__decrypt_data(headers[key])))
             else:
                 return conv(self.__decrypt_data(headers[key]))
+        except OssError as e:
+            raise e
+        except:
+            return None
+
+    def decrypt_from_str(self, key, value, conv=lambda x:x):
+        try:
+            if key.lower() == OSS_CLIENT_SIDE_ENCRYPTION_KEY.lower():
+                return conv(b64decode_from_string(self.__decrypt_data(value)))
+            else:
+                return conv(self.__decrypt_data(value))
         except OssError as e:
             raise e
         except:

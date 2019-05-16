@@ -7,7 +7,8 @@ oss2.models
 该模块包含Python SDK API接口所需要的输入参数以及返回值类型。
 """
 
-from .utils import http_to_unixtime, make_progress_adapter, make_crc_adapter
+from .utils import http_to_unixtime, make_progress_adapter, make_crc_adapter, \
+                   calc_aes_ctr_offset_by_data_offset, is_multiple_sizeof_encrypt_block
 from .exceptions import ClientError, InconsistentError
 from .compat import urlunquote, to_string
 from .select_response import SelectResponseAdapter
@@ -33,6 +34,14 @@ class PartInfo(object):
         self.last_modified = last_modified
         self.part_crc = part_crc
 
+class CryptoMultipartContext(object):
+    """表示客户端加密文件通过Multipart接口上传的meta信息
+    """
+    def __init__(self, crypto_key, crypto_start, data_size, part_size):
+        self.crypto_key = crypto_key
+        self.crypto_start = crypto_start
+        self.data_size = data_size
+        self.part_size = part_size
 
 def _hget(headers, key, converter=lambda x: x):
     if key in headers:
@@ -129,8 +138,11 @@ class GetObjectResult(HeadObjectResult):
         self.__crc_enabled = crc_enabled
         self.__crypto_provider = crypto_provider
 
-        if _hget(resp.headers, 'x-oss-meta-oss-crypto-key') and _hget(resp.headers, 'Content-Range'):
-            raise ClientError('Could not get an encrypted object using byte-range parameter')
+        content_range = _hget(resp.headers, 'Content-Range')
+        if _hget(resp.headers, OSS_CLIENT_SIDE_ENCRYPTION_KEY) and content_range:
+            byte_range = self._parse_range_str(content_range)
+            if not is_multiple_sizeof_encrypt_block(byte_range[0]):
+                raise ClientError('Could not get an encrypted object using byte-range parameter')
 
         if progress_callback:
             self.stream = make_progress_adapter(self.resp, progress_callback, self.content_length)
@@ -141,14 +153,36 @@ class GetObjectResult(HeadObjectResult):
             self.stream = make_crc_adapter(self.stream)
 
         if self.__crypto_provider:
-            key = self.__crypto_provider.decrypt_oss_meta_data(resp.headers, 'x-oss-meta-oss-crypto-key')
-            start = self.__crypto_provider.decrypt_oss_meta_data(resp.headers, 'x-oss-meta-oss-crypto-start')
-            cek_alg = _hget(resp.headers, 'x-oss-meta-oss-cek-alg')
-            if key and start and cek_alg:
-                self.stream = self.__crypto_provider.make_decrypt_adapter(self.stream, key, start)
+            key = self.__crypto_provider.decrypt_oss_meta_data(resp.headers, OSS_CLIENT_SIDE_ENCRYPTION_KEY)
+            count_start = self.__crypto_provider.decrypt_oss_meta_data(resp.headers, OSS_CLIENT_SIDE_ENCRYPTION_START)
+
+            # if content range , adjust the decrypt adapter
+            count_offset = 0;
+            if content_range:
+                byte_range = self._parse_range_str(content_range)
+                count_offset = calc_aes_ctr_offset_by_data_offset(byte_range[0])
+
+            cek_alg = _hget(resp.headers, OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG)
+
+            # check the key wrap algorthm is correct if rsa
+            if cek_alg == "rsa":
+                key_hmac = self.__crypto_provider.decrypt_oss_meta_data(resp.headers, OSS_CLIENT_SIDE_ENCRYPTION_KEY_HMAC)
+                self.__crypto_provider.check_plain_key_valid(key, to_string(key_hmac))
+
+            if key and count_start and cek_alg:
+                self.stream = self.__crypto_provider.make_decrypt_adapter(self.stream, key, count_start, count_offset)
             else:
-                raise InconsistentError('all metadata keys are required for decryption (x-oss-meta-oss-crypto-key, \
-                                        x-oss-meta-oss-crypto-start, x-oss-meta-oss-cek-alg)', self.request_id)
+                err_msg = 'all metadata keys are required for decryption (' \
+                            + OSS_CLIENT_SIDE_ENCRYPTION_KEY + ', ' \
+                            + OSS_CLIENT_SIDE_ENCRYPTION_START + ', ' \
+                            + OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG + ')'
+                raise InconsistentError(err_msg, self.request_id)
+
+    def _parse_range_str(self, content_range):
+        # :param str content_range: sample 'bytes 0-128/1024'
+        range_data = (content_range.split(' ',2)[1]).split('/',2)[0]
+        range_start, range_end = range_data.split('-',2)
+        return (int(range_start), int(range_end))
 
     def read(self, amt=None):
         return self.stream.read(amt)
@@ -218,6 +252,8 @@ class InitMultipartUploadResult(RequestResult):
         #: 新生成的Upload ID
         self.upload_id = None
 
+        # 客户端加密Bucket关于Multipart文件的context
+        self.crypto_multipart_context = None
 
 class ListObjectsResult(RequestResult):
     def __init__(self, resp):
@@ -234,6 +270,7 @@ class ListObjectsResult(RequestResult):
 
         #: 本次罗列得到的公共前缀列表，类型为str列表。
         self.prefix_list = []
+
 
 
 class SimplifiedObjectInfo(object):
@@ -361,6 +398,23 @@ class ListPartsResult(RequestResult):
         # 罗列出的Part信息，类型为 `PartInfo` 列表。
         self.parts = []
 
+        # 是否是客户端加密
+        self.is_client_encryption = False
+
+        # 客户端加密文件密钥
+        self.crypto_key = None
+
+        # 客户端加密文件初始向量
+        self.crypto_start = None
+
+        # 客户端加密Multipart文件总大小
+        self.client_encryption_data_size = 0
+
+        # 客户端加密Multipart文件块大小
+        self.client_encryption_part_size = 0
+
+        # 客户端加密Bucket关于Multipart文件的context
+        self.crypto_multipart_context = None
 
 BUCKET_ACL_PRIVATE = 'private'
 BUCKET_ACL_PUBLIC_READ = 'public-read'

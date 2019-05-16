@@ -146,6 +146,17 @@ class InvalidObjectName(ServerError):
     status = 400
     code = 'InvalidObjectName'
 
+class NotImplemented(ServerError):
+    status = 400
+    code = 'NotImplemented'
+
+class UnexpectedClientEncryptionPartsList(ServerError):
+    status = 400
+    code = 'UnexpectedClientEncryptionPartsList'
+
+class DuplicateClientEncryptionMetaSettings(ServerError):
+    status = 400
+    code = 'DuplicateClientEncryptionMetaSettings'
 
 class NoSuchBucket(NotFound):
     status = 404
