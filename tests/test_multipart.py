@@ -331,7 +331,7 @@ class TestMultipart(OssTestCase):
 
         self.assertTrue(version_list.len(), 3)
 
-        result = bucket.batch_delete_objects(["test"], version_list)
+        result = bucket.delete_object_versions(version_list)
 
         try:
             bucket.delete_bucket()

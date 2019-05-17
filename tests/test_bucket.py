@@ -887,7 +887,7 @@ class TestBucket(OssTestCase):
                 self.assertFalse(True, "loop too much times, break")
         
         for item in delete_versions:
-            result = bucket.batch_delete_objects(["test"], item)
+            result = bucket.delete_object_versions(item)
 
         try:
             bucket.delete_bucket()

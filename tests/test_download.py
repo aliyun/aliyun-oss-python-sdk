@@ -653,7 +653,7 @@ class TestDownload(OssTestCase):
         version_list.append(BatchDeleteObjectVersion("object_small", version_small))
         version_list.append(BatchDeleteObjectVersion("object_big", version_big))
 
-        result = bucket.batch_delete_objects(["test", "foo"], version_list)
+        result = bucket.delete_object_versions(version_list)
         self.assertTrue(len(result.delete_versions) == 2)
 
         bucket.delete_bucket()

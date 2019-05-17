@@ -1061,14 +1061,11 @@ class Bucket(_Base):
         logger.debug("Get object acl done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_get_object_acl, GetObjectAclResult)
 
-    def batch_delete_objects(self, key_list, keylist_version=None):
+    def batch_delete_objects(self, key_list):
         """批量删除文件。待删除文件列表不能为空。
 
         :param key_list: 文件名列表，不能为空。
         :type key_list: list of str
-
-        :param key_list_with_version: 带版本的文件名列表，不能为空。（如果传入，则不能为空）
-        :type key_list: list of BatchDeleteObjectsList 
 
         :return: :class:`BatchDeleteObjectsResult <oss2.models.BatchDeleteObjectsResult>`
         """
@@ -1077,16 +1074,35 @@ class Bucket(_Base):
 
         logger.debug("Start to delete objects, bucket: {0}, keys: {1}".format(self.bucket_name, key_list))
         
-        if keylist_version is None:
-            data = xml_utils.to_batch_delete_objects_request(key_list, False)
-        else:
-            data = xml_utils.to_batch_delete_objects_version_request(keylist_version, False)
+        data = xml_utils.to_batch_delete_objects_request(key_list, False)
 
         resp = self.__do_object('POST', '',
                                 data=data,
                                 params={'delete': '', 'encoding-type': 'url'},
                                 headers={'Content-MD5': utils.content_md5(data)})
         logger.debug("Delete objects done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_batch_delete_objects, BatchDeleteObjectsResult)
+
+    def delete_object_versions(self, keylist_versions):
+        """批量删除带版本文件。待删除文件列表不能为空。
+
+        :param key_list_with_version: 带版本的文件名列表，不能为空。（如果传入，则不能为空）
+        :type key_list: list of BatchDeleteObjectsList 
+
+        :return: :class:`BatchDeleteObjectsResult <oss2.models.BatchDeleteObjectsResult>`
+        """
+        if not keylist_versions:
+            raise ClientError('keylist_versions should not be empty')
+
+        logger.debug("Start to delete object versions, bucket: {0}".format(self.bucket_name))
+        
+        data = xml_utils.to_batch_delete_objects_version_request(keylist_versions, False)
+
+        resp = self.__do_object('POST', '',
+                                data=data,
+                                params={'delete': '', 'encoding-type': 'url'},
+                                headers={'Content-MD5': utils.content_md5(data)})
+        logger.debug("Delete object versions done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_batch_delete_objects, BatchDeleteObjectsResult)
 
     def init_multipart_upload(self, key, headers=None):

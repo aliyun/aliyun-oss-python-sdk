@@ -304,6 +304,15 @@ class TestObject(OssTestCase):
         self.assertEqual(len(content), len(content_got))
         self.assertEqual(content, content_got)
 
+        result = self.bucket.get_object(key, params={'versionId': 'null'})
+        content_got = b''
+
+        for chunk in result:
+            content_got += chunk
+
+        self.assertEqual(len(content), len(content_got))
+        self.assertEqual(content, content_got)
+
     def test_query_parameter(self):
         key = self.random_key()
         content = random_bytes(1024 * 1024)
@@ -366,6 +375,12 @@ class TestObject(OssTestCase):
 
         result = self.bucket.batch_delete_objects(object_list)
         self.assertEqual(sorted(object_list), sorted(result.deleted_keys))
+        keys = []
+        for i in range(0, 5):
+            keys.append(result.delete_versions[i].key)
+        self.assertEqual(sorted(object_list), sorted(keys))
+        self.assertEqual(5, len(result.deleted_keys))
+        self.assertEqual(5, len(result.delete_versions))
 
         for object in object_list:
             self.assertTrue(not self.bucket.object_exists(object))
@@ -1527,7 +1542,7 @@ class TestObject(OssTestCase):
 
         self.assertTrue(version_list.len(), 2)
 
-        result = bucket.batch_delete_objects(["test"], version_list)
+        result = bucket.delete_object_versions(version_list)
 
         self.assertTrue(len(result.delete_versions) == 2)
         self.assertTrue(result.delete_versions[0].versionid == versionid1 
@@ -1535,7 +1550,7 @@ class TestObject(OssTestCase):
         self.assertTrue(result.delete_versions[1].versionid == versionid1 
                 or result.delete_versions[1].versionid == versionid2)
 
-        result = bucket.batch_delete_objects([""], version_list)
+        result = bucket.delete_object_versions(version_list)
 
         try:
             bucket.delete_bucket()
@@ -1633,7 +1648,7 @@ class TestObject(OssTestCase):
         version_list.append(BatchDeleteObjectVersion(result.versions[1].key, result.versions[1].versionid))
         version_list.append(BatchDeleteObjectVersion(result.versions[2].key, result.versions[2].versionid))
 
-        result = bucket.batch_delete_objects(["test", "foo"], version_list)
+        result = bucket.delete_object_versions(version_list)
 
         self.assertTrue(len(result.delete_versions) == 5)
 
@@ -1708,7 +1723,7 @@ class TestObject(OssTestCase):
 
         self.assertTrue(version_list.len(), 2)
 
-        result = bucket.batch_delete_objects(["test"], version_list)
+        result = bucket.delete_object_versions(version_list)
 
         try:
             bucket.delete_bucket()
@@ -1805,7 +1820,7 @@ class TestObject(OssTestCase):
 
         self.assertTrue(version_list.len(), 2)
 
-        result = bucket.batch_delete_objects(["test"], version_list)
+        result = bucket.delete_object_versions(version_list)
 
         try:
             bucket.delete_bucket()
@@ -1920,7 +1935,7 @@ class TestObject(OssTestCase):
 
         self.assertTrue(version_list.len(), 3)
 
-        result = bucket.batch_delete_objects(["test"], version_list)
+        result = bucket.delete_object_versions(version_list)
 
         try:
             bucket.delete_bucket()
@@ -2000,7 +2015,7 @@ class TestObject(OssTestCase):
 
         self.assertTrue(version_list.len(), 3)
 
-        result = bucket.batch_delete_objects(["test"], version_list)
+        result = bucket.delete_object_versions(version_list)
 
         try:
             bucket.delete_bucket()
