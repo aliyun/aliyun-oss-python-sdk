@@ -59,6 +59,10 @@ class RequestResult(object):
         #: 请求ID，用于跟踪一个OSS请求。提交工单时，最后能够提供请求ID
         self.request_id = resp.request_id
 
+        self.versionid = _hget(self.headers, 'x-oss-version-id')
+
+        self.delete_marker = _hget(self.headers, 'x-oss-delete-marker', bool)
+
 class HeadObjectResult(RequestResult):
     def __init__(self, resp):
         super(HeadObjectResult, self).__init__(resp)
@@ -202,6 +206,27 @@ class AppendObjectResult(RequestResult):
         #: 下次追加写的偏移
         self.next_position = _hget(resp.headers, OSS_NEXT_APPEND_POSITION, int)
 
+class BatchDeleteObjectVersion(object):
+    def __init__(self, key=None, versionid=None):
+        self.key = key or ''
+        self.versionid = versionid or ''
+
+class BatchDeleteObjectVersionList(object):
+    def __init__(self, object_version_list=None):
+        self.object_version_list = object_version_list or []
+
+    def append(self, object_version):
+        self.object_version_list.append(object_version)
+
+    def len(self):
+        return len(self.object_version_list)
+
+class BatchDeleteObjectVersionResult(object):
+    def __init__(self, key, versionid=None, delete_marker=None, delete_marker_versionid=None):
+        self.key = key
+        self.versionid = versionid or ''
+        self.delete_marker = delete_marker or False
+        self.delete_marker_versionid = delete_marker_versionid or ''
 
 class BatchDeleteObjectsResult(RequestResult):
     def __init__(self, resp):
@@ -209,6 +234,9 @@ class BatchDeleteObjectsResult(RequestResult):
 
         #: 已经删除的文件名列表
         self.deleted_keys = []
+
+        #：已经删除的带版本信息的文件信息列表
+        self.delete_versions = []
 
 
 class InitMultipartUploadResult(RequestResult):
@@ -429,7 +457,8 @@ class Owner(object):
 
 class BucketInfo(object):
     def __init__(self, name=None, owner=None, location=None, storage_class=None, intranet_endpoint=None,
-                 extranet_endpoint=None, creation_date=None, acl=None):
+                 extranet_endpoint=None, creation_date=None, acl=None, bucket_encryption_rule=None,
+                 versioning_status=None):
         self.name = name
         self.owner = owner
         self.location = location
@@ -438,6 +467,9 @@ class BucketInfo(object):
         self.extranet_endpoint = extranet_endpoint
         self.creation_date = creation_date
         self.acl = acl
+
+        self.bucket_encryption_rule = bucket_encryption_rule
+        self.versioning_status = versioning_status
 
 
 class GetBucketStatResult(RequestResult, BucketStat):
@@ -555,7 +587,7 @@ class LifecycleRule(object):
     :param storage_transitions: 存储类型转换规则
     :type storage_transitions: :class:`StorageTransition`
     :param tagging: object tagging 规则
-    :type tagging: :class:`ObjectTagging`
+    :type tagging: :class:`Tagging`
     """
 
     ENABLED = 'Enabled'
@@ -887,11 +919,11 @@ class ProcessObjectResult(RequestResult):
 _MAX_OBJECT_TAGGING_KEY_LENGTH=128
 _MAX_OBJECT_TAGGING_VALUE_LENGTH=256
 
-class ObjectTagging(object):
+class Tagging(object):
 
     def __init__(self, tagging_rules=None):
         
-        self.tag_set = tagging_rules or ObjectTaggingRule() 
+        self.tag_set = tagging_rules or TaggingRule() 
 
     def __str__(self):
 
@@ -905,7 +937,7 @@ class ObjectTagging(object):
 
         return tag_str
 
-class ObjectTaggingRule(object):
+class TaggingRule(object):
 
     def __init__(self):
         self.tagging_rule = dict()
@@ -913,13 +945,13 @@ class ObjectTaggingRule(object):
     def add(self, key, value):
 
         if key is None or key == '':
-            raise ClientError("ObjectTagging key should not be empty")
+            raise ClientError("Tagging key should not be empty")
 
         if len(key) > _MAX_OBJECT_TAGGING_KEY_LENGTH:
-            raise ClientError("ObjectTagging key is too long")
+            raise ClientError("Tagging key is too long")
 
         if len(value) > _MAX_OBJECT_TAGGING_VALUE_LENGTH:
-            raise ClientError("ObjectTagging value is too long")
+            raise ClientError("Tagging value is too long")
 
         self.tagging_rule[key] = value
 
@@ -945,8 +977,93 @@ class ObjectTaggingRule(object):
 
         return query_string
 
-class GetObjectTaggingResult(RequestResult, ObjectTagging):
+class GetTaggingResult(RequestResult, Tagging):
     
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
-        ObjectTagging.__init__(self)
+        Tagging.__init__(self)
+
+SERVER_SIDE_ENCRYPTION_AES256 = 'AES256'
+SERVER_SIDE_ENCRYPTION_KMS = 'KMS'
+
+class ServerSideEncryptionRule(object):
+
+    def __init__(self, ssealgorithm=None, kmsmasterkeyid=None):
+
+        self.ssealgorithm = ssealgorithm
+        self.kmsmasterkeyid = kmsmasterkeyid
+
+class GetServerSideEncryptionResult(RequestResult, ServerSideEncryptionRule):
+    
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        ServerSideEncryptionRule.__init__(self)
+
+class ListObjectVersionsResult(RequestResult):
+    def __init__(self, resp):
+        super(ListObjectVersionsResult, self).__init__(resp)
+
+        #: True表示还有更多的文件可以罗列；False表示已经列举完毕。
+        self.is_truncated = False
+
+        #: 本次使用的分页标记符
+        self.key_marker = ''
+
+        #: 下一次罗列的分页标记符，即，可以作为 :func:`list_object_versions <oss2.Bucket.list_object_versions>` 的 `key_marker` 参数。
+        self.next_key_marker = ''
+
+        #: 本次使用的versionid分页标记符
+        self.versionid_marker = ''
+
+        #: 下一次罗列的versionid分页标记符，即，可以作为 :func:`list_object_versions <oss2.Bucket.list_object_versions>` 的 `versionid_marker` 参数。
+        self.next_versionid_marker = ''
+
+        self.name = ''
+        
+        self.owner = ''
+
+        self.prefix = ''
+
+        self.max_keys = ''
+
+        self.delimiter = ''
+
+        #: 本次罗列得到的delete marker列表。其中元素的类型为 :class:`DeleteMarkerInfo` 。
+        self.delete_marker = []
+
+        #: 本次罗列得到的文件version列表。其中元素的类型为 :class:`ObjectVersionInfo` 。
+        self.versions = []
+
+        self.common_prefix = []
+
+class DeleteMarkerInfo(object):
+    def __init__(self):
+        self.key = ''
+        self.versionid = ''
+        self.is_latest = False
+        self.last_modified = ''
+        self.owner = Owner('', '')
+
+class ObjectVersionInfo(object):
+    def __init__(self):
+        self.key = ''
+        self.versionid = ''
+        self.is_latest = False
+        self.last_modified = ''
+        self.owner = Owner('', '')
+        self.type = ''
+        self.storage_class = ''
+        self.size = ''
+        self.etag = ''
+
+BUCKET_VERSIONING_ENABLE = 'Enabled'
+BUCKET_VERSIONING_SUSPEND = 'Suspended'
+
+class BucketVersioningConfig(object):
+    def __init__(self, status=None):
+        self.status = status
+
+class GetBucketVersioningResult(RequestResult, BucketVersioningConfig):
+    def __init__(self, resp):
+        RequestResult.__init__(self,resp)
+        BucketVersioningConfig.__init__(self) 

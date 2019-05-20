@@ -30,8 +30,13 @@ from .models import (SimplifiedObjectInfo,
                      AccessControlList,
                      AbortMultipartUpload,
                      StorageTransition,
-                     ObjectTagging,
-                     ObjectTaggingRule)
+                     Tagging,
+                     TaggingRule,
+                     ServerSideEncryptionRule,
+                     ListObjectVersionsResult,
+                     ObjectVersionInfo,
+                     DeleteMarkerInfo,
+                     BatchDeleteObjectVersionResult)
 
 from .compat import urlunquote, to_unicode, to_string
 from .utils import iso8601_to_unixtime, date_to_iso8601, iso8601_to_date
@@ -201,7 +206,25 @@ def parse_batch_delete_objects(result, body):
     url_encoded = _is_url_encoding(root)
 
     for deleted_node in root.findall('Deleted'):
-        result.deleted_keys.append(_find_object(deleted_node, 'Key', url_encoded))
+        key = _find_object(deleted_node, 'Key', url_encoded)
+
+        result.deleted_keys.append(key)
+
+        versionid_node = deleted_node.find('VersionId')
+        versionid = None
+        if versionid_node is not None:
+            versionid = _find_tag(deleted_node, 'VersionId')
+
+        delete_marker_node = deleted_node.find('DeleteMarker')
+        delete_marker = False
+        if delete_marker_node is not None:
+            delete_marker = _find_bool(deleted_node, 'DeleteMarker')
+
+        marker_versionid_node = deleted_node.find('DeleteMarkerVersionId')
+        delete_marker_versionid = ''
+        if marker_versionid_node is not None:
+            delete_marker_versionid = _find_tag(deleted_node, 'DeleteMarkerVersionId')
+        result.delete_versions.append(BatchDeleteObjectVersionResult(key, versionid, delete_marker, delete_marker_versionid))
 
     return result
 
@@ -259,8 +282,37 @@ def parse_get_bucket_info(result, body):
     result.owner = Owner(_find_tag(root, 'Bucket/Owner/DisplayName'), _find_tag(root, 'Bucket/Owner/ID'))
     result.acl = AccessControlList(_find_tag(root, 'Bucket/AccessControlList/Grant'))
 
+    server_side_encryption = root.find("Bucket/ServerSideEncryptionRule")
+
+    result.bucket_encryption_rule = _parse_bucket_encryption_info(server_side_encryption)
+
+    bucket_versioning = root.find('Bucket/Versioning')
+    
+    if bucket_versioning is None or bucket_versioning.text is None:
+        result.versioning_status = None
+    else:
+        result.versioning_status = to_string(bucket_versioning.text)
+
     return result
 
+def _parse_bucket_encryption_info(node):
+
+    rule = ServerSideEncryptionRule()
+
+    rule.ssealgorithm = _find_tag(node,"SSEAlgorithm")
+    
+    if rule.ssealgorithm == "None":
+        rule.kmsmasterkeyid = None
+        rule.ssealgorithm = None
+        return rule
+
+    kmsnode = node.find("KMSMasterKeyID")
+    if kmsnode is None or kmsnode.text is None:
+        rule.kmsmasterkeyid = '' 
+    else:
+        rule.kmsmasterkeyid = to_string(kmsnode.text)
+
+    return rule
 
 def parse_get_bucket_referer(result, body):
     root = ElementTree.fromstring(body)
@@ -427,15 +479,15 @@ def parse_lifecycle_storage_transitions(storage_transition_nodes):
 def parse_lifecycle_object_taggings(lifecycle_tagging_nodes):
     
     if lifecycle_tagging_nodes is None: 
-        return ObjectTagging()
+        return Tagging()
 
-    tagging_rule = ObjectTaggingRule()
+    tagging_rule = TaggingRule()
     for tag_node in lifecycle_tagging_nodes:
         key = _find_tag(tag_node, 'Key')
         value = _find_tag(tag_node, 'Value')
         tagging_rule.add(key, value)
 
-    return ObjectTagging(tagging_rule)
+    return Tagging(tagging_rule)
 
 def parse_get_bucket_lifecycle(result, body):
     root = ElementTree.fromstring(body)
@@ -497,6 +549,22 @@ def to_batch_delete_objects_request(keys, quiet):
     for key in keys:
         object_node = ElementTree.SubElement(root_node, 'Object')
         _add_text_child(object_node, 'Key', key)
+
+    return _node_to_string(root_node)
+
+def to_batch_delete_objects_version_request(objectVersions, quiet):
+
+    root_node = ElementTree.Element('Delete')
+
+    _add_text_child(root_node, 'Quiet', str(quiet).lower())
+
+    objectVersionList = objectVersions.object_version_list
+
+    for ver in objectVersionList:
+        object_node = ElementTree.SubElement(root_node, 'Object')
+        _add_text_child(object_node, 'Key', ver.key)
+        if ver.versionid != '':
+            _add_text_child(object_node, 'VersionId', ver.versionid)
 
     return _node_to_string(root_node)
 
@@ -766,7 +834,7 @@ def to_get_select_json_object_meta(json_meta_param):
             
     return _node_to_string(root)
 
-def to_put_object_tagging(object_tagging):
+def to_put_tagging(object_tagging):
     root = ElementTree.Element("Tagging")
     tag_set = ElementTree.SubElement(root, "TagSet")
 
@@ -777,7 +845,7 @@ def to_put_object_tagging(object_tagging):
 
     return _node_to_string(root)
 
-def parse_get_object_tagging(result, body):
+def parse_get_tagging(result, body):
     root = ElementTree.fromstring(body)
     url_encoded = _is_url_encoding(root)
     tagset_node = root.find('TagSet')
@@ -785,7 +853,7 @@ def parse_get_object_tagging(result, body):
     if tagset_node is None:
         return result
 
-    tagging_rules = ObjectTaggingRule()
+    tagging_rules = TaggingRule()
     for tag_node in tagset_node.findall('Tag'):
         key = _find_object(tag_node, 'Key', url_encoded)
         value = _find_object(tag_node, 'Value', url_encoded)
@@ -794,3 +862,90 @@ def parse_get_object_tagging(result, body):
     result.tag_set = tagging_rules
     return result
 
+def to_put_bucket_encryption(rule):
+    root = ElementTree.Element("ServerSideEncryptionRule")
+    apply_node = ElementTree.SubElement(root, "ApplyServerSideEncryptionByDefault")
+
+    _add_text_child(apply_node, "SSEAlgorithm", rule.ssealgorithm)
+
+    if rule.kmsmasterkeyid is not None:
+        _add_text_child(apply_node, "KMSMasterKeyID", rule.kmsmasterkeyid)
+
+    return _node_to_string(root)
+
+def parse_get_bucket_encryption(result, body):
+    root = ElementTree.fromstring(body)
+    apply_node = root.find('ApplyServerSideEncryptionByDefault')
+
+    result.ssealgorithm = _find_tag(apply_node, "SSEAlgorithm")
+
+    kmsnode = apply_node.find('KMSMasterKeyID')
+    if kmsnode is None or kmsnode.text is None:
+        result.kmsmasterkeyid = ''
+    else:
+        result.kmsmasterkeyid = to_string(kmsnode.text)
+
+    return result
+
+def parse_list_object_versions(result, body):
+    root = ElementTree.fromstring(body)
+    url_encoded = _is_url_encoding(root)
+    result.is_truncated = _find_bool(root, 'IsTruncated')
+    if result.is_truncated:
+        result.next_key_marker = _find_object(root, 'NextKeyMarker', url_encoded)
+        result.next_versionid_marker = _find_object(root, "NextVersionIdMarker", url_encoded)
+
+    result.name = _find_tag(root, "Name")
+    result.prefix = _find_object(root, "Prefix", url_encoded)
+    result.key_marker = _find_object(root, "KeyMarker", url_encoded)
+    result.versionid_marker = _find_object(root, "VersionIdMarker", url_encoded)
+    result.max_keys = _find_int(root, "MaxKeys")
+    result.delimiter = _find_object(root, "Delimiter", url_encoded)
+
+    for delete_marker in root.findall("DeleteMarker"):
+        deleteInfo = DeleteMarkerInfo()
+        deleteInfo.key = _find_object(delete_marker, "Key", url_encoded)
+        deleteInfo.versionid = _find_tag(delete_marker, "VersionId")
+        deleteInfo.is_latest = _find_bool(delete_marker, "IsLatest")
+        deleteInfo.last_modified = iso8601_to_unixtime(_find_tag(delete_marker, "LastModified"))
+        deleteInfo.owner.id = _find_tag(delete_marker, "Owner/ID")
+        deleteInfo.owner.display_name = _find_tag(delete_marker, "Owner/DisplayName")
+        result.delete_marker.append(deleteInfo)
+
+    for version in root.findall("Version"):
+        versionInfo = ObjectVersionInfo()
+        versionInfo.key = _find_object(version, "Key", url_encoded)
+        versionInfo.versionid = _find_tag(version, "VersionId")
+        versionInfo.is_latest = _find_bool(version, "IsLatest")
+        versionInfo.last_modified = iso8601_to_unixtime(_find_tag(version, "LastModified"))
+        versionInfo.owner.id = _find_tag(version, "Owner/ID")
+        versionInfo.owner.display_name = _find_tag(version, "Owner/DisplayName")
+        versionInfo.type = _find_tag(version, "Type")
+        versionInfo.storage_class = _find_tag(version, "StorageClass")
+        versionInfo.size = _find_int(version, "Size")
+        versionInfo.etag = _find_tag(version, "ETag").strip('"')
+
+        result.versions.append(versionInfo)
+
+    for common_prefix in root.findall("CommonPrefixes"):
+        result.common_prefix.append(_find_object(common_prefix, "Prefix", url_encoded))
+
+    return result
+
+def to_put_bucket_versioning(bucket_version_config):
+    root = ElementTree.Element('VersioningConfiguration')
+
+    _add_text_child(root, 'Status', str(bucket_version_config.status))
+
+    return _node_to_string(root)
+
+def parse_get_bucket_versioning(result, body):
+    root = ElementTree.fromstring(body)
+
+    status_node = root.find("Status")
+    if status_node is None:
+        result.status = None
+    else:
+        result.status = _find_tag(root, "Status")
+
+    return result

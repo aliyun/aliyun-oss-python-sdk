@@ -89,7 +89,8 @@ def resumable_download(bucket, key, filename,
                        part_size=None,
                        progress_callback=None,
                        num_threads=None,
-                       store=None):
+                       store=None,
+                       params=None):
     """断点下载。
 
     实现的方法是：
@@ -120,6 +121,8 @@ def resumable_download(bucket, key, filename,
     :param store: 用来保存断点信息的持久存储，可以指定断点信息所在的目录。
     :type store: `ResumableDownloadStore`
 
+    :param dict params: 指定下载参数，可以传入versionId下载指定版本文件
+
     :raises: 如果OSS文件不存在，则抛出 :class:`NotFound <oss2.exceptions.NotFound>` ；也有可能抛出其他因下载文件而产生的异常。
     """
 
@@ -129,7 +132,7 @@ def resumable_download(bucket, key, filename,
     multiget_threshold = defaults.get(multiget_threshold, defaults.multiget_threshold)
 
     if isinstance(bucket, Bucket):
-        result = bucket.head_object(key)
+        result = bucket.head_object(key, params=params)
         logger.debug("The size of object to download is: {0}, multiget_threshold: {1}".format(result.content_length,
                      multiget_threshold))
         if result.content_length >= multiget_threshold:
@@ -137,12 +140,13 @@ def resumable_download(bucket, key, filename,
                                               part_size=part_size,
                                               progress_callback=progress_callback,
                                               num_threads=num_threads,
-                                              store=store)
+                                              store=store,
+                                              params=params)
             downloader.download(result.server_crc)
         else:
-            bucket.get_object_to_file(key, filename, progress_callback=progress_callback)
+            bucket.get_object_to_file(key, filename, progress_callback=progress_callback, params=params)
     else:
-        bucket.get_object_to_file(key, filename, progress_callback=progress_callback)
+        bucket.get_object_to_file(key, filename, progress_callback=progress_callback, params=params)
 
 
 _MAX_MULTIGET_PART_COUNT = 100
@@ -248,7 +252,8 @@ class _ResumableDownloader(_ResumableOperation):
                  part_size=None,
                  store=None,
                  progress_callback=None,
-                 num_threads=None):
+                 num_threads=None,
+                 params=None):
         super(_ResumableDownloader, self).__init__(bucket, key, filename, objectInfo.size,
                                                    store or ResumableDownloadStore(),
                                                    progress_callback=progress_callback)
@@ -261,6 +266,7 @@ class _ResumableDownloader(_ResumableOperation):
         self.__num_threads = defaults.get(num_threads, defaults.multiget_num_threads)
         self.__finished_parts = None
         self.__finished_size = None
+        self.__params = params
 
         # protect record
         self.__lock = threading.Lock()
@@ -311,7 +317,7 @@ class _ResumableDownloader(_ResumableOperation):
 
             headers = {IF_MATCH : self.objectInfo.etag,
                        IF_UNMODIFIED_SINCE : utils.http_date(self.objectInfo.mtime)}
-            result = self.bucket.get_object(self.key, byte_range=(part.start, part.end - 1), headers=headers)
+            result = self.bucket.get_object(self.key, byte_range=(part.start, part.end - 1), headers=headers, params=self.__params)
             utils.copyfileobj_and_verify(result, f, part.end - part.start, request_id=result.request_id)
 
         part.part_crc = result.client_crc
