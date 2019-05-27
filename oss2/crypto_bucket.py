@@ -398,3 +398,6 @@ class CryptoBucket(Bucket):
 
         logger.info("List parts by crypto bucket done, upload_id = {0}".format(upload_id))
         return resp
+
+    def process_object(self, key, process):
+        raise ClientError("The operation is not supported for Crypto Bucket")
