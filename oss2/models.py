@@ -7,13 +7,15 @@ oss2.models
 该模块包含Python SDK API接口所需要的输入参数以及返回值类型。
 """
 
-from .utils import http_to_unixtime, make_progress_adapter, make_crc_adapter, \
-                   calc_aes_ctr_offset_by_data_offset, is_multiple_sizeof_encrypt_block
+from .utils import http_to_unixtime, make_progress_adapter, make_crc_adapter, calc_counter_offset, \
+    is_encrypt_block_aligned, b64encode_as_string
 from .exceptions import ClientError, InconsistentError
-from .compat import urlunquote, to_string
+from .compat import urlunquote, to_string, to_bytes
 from .select_response import SelectResponseAdapter
 from .headers import *
 import json
+from requests.structures import CaseInsensitiveDict
+
 
 class PartInfo(object):
     """表示分片信息的文件。
@@ -27,6 +29,7 @@ class PartInfo(object):
     :param int last_modified: 该分片最后修改的时间戳，类型为int。参考 :ref:`unix_time`
     :param int part_crc: 该分片的crc64值
     """
+
     def __init__(self, part_number, etag, size=None, last_modified=None, part_crc=None):
         self.part_number = part_number
         self.etag = etag
@@ -34,14 +37,50 @@ class PartInfo(object):
         self.last_modified = last_modified
         self.part_crc = part_crc
 
-class CryptoMultipartContext(object):
+
+class MultipartUploadCryptoContext(object):
     """表示客户端加密文件通过Multipart接口上传的meta信息
     """
-    def __init__(self, crypto_key, crypto_start, data_size, part_size):
-        self.crypto_key = crypto_key
-        self.crypto_start = crypto_start
+
+    def __init__(self, crypto_provider, key, start, data_size, part_size):
+        self.crypto_provider = crypto_provider
+        self.wrap_alg = crypto_provider.wrap_alg
+        self.cek_alg = crypto_provider.cihper.alg
+        # self.crypto_key = key
+        # self.crypto_start = start
+        self.crypto_key = b64encode_as_string(self.crypto_provider.__encrypt_obj.encrypt(self.key))
+        self.crypto_start = b64encode_as_string(self.crypro_provider.__encrypt_obj.encrypt(self.start))
         self.data_size = data_size
         self.part_size = part_size
+        self.crypto_magic_number_hmac = self.crypto_provider.encryption_magic_number_hmac
+
+    def add_encryption_meta(self, headers=None):
+        if not isinstance(headers, CaseInsensitiveDict):
+            headers = CaseInsensitiveDict(headers)
+
+        if 'content-md5' in headers:
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_MD5] = headers['content-md5']
+            del headers['content-md5']
+
+        if 'content-length' in headers:
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_LENGTH] = headers['content-length']
+            del headers['content-length']
+
+        # headers[OSS_CLIENT_SIDE_ENCRYPTION_KEY] = b64encode_as_string(
+        # self.crypto_provider.__encrypt_obj.encrypt(self.plain_key))
+        # headers[OSS_CLIENT_SIDE_ENCRYPTION_START] = b64encode_as_string(
+        # self.crypto_provider.__encrypt_obj.encrypt(to_bytes(str(self.plain_start))))
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_KEY] = self.crypto_key
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_START] = self.crypto_start
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG] = self.cek_alg
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG] = self.wrap_alg
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_MAGIC_NUMBER_HMAC] = self.crypto_magic_number_hmac
+
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_DATA_SIZE] = str(self.data_size)
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_PART_SIZE] = str(self.part_size)
+
+        return headers
+
 
 def _hget(headers, key, converter=lambda x: x):
     if key in headers:
@@ -67,6 +106,7 @@ class RequestResult(object):
 
         #: 请求ID，用于跟踪一个OSS请求。提交工单时，最后能够提供请求ID
         self.request_id = resp.request_id
+
 
 class HeadObjectResult(RequestResult):
     def __init__(self, resp):
@@ -101,12 +141,12 @@ class GetSelectObjectMetaResult(HeadObjectResult):
         super(GetSelectObjectMetaResult, self).__init__(resp)
         self.select_resp = SelectResponseAdapter(resp, None, None, False)
 
-        for data in self.select_resp: # waiting the response body to finish
+        for data in self.select_resp:  # waiting the response body to finish
             pass
 
         self.csv_rows = self.select_resp.rows  # to be compatible with previous version. 
         self.csv_splits = self.select_resp.splits  # to be compatible with previous version. 
-        self.rows = self.csv_rows 
+        self.rows = self.csv_rows
         self.splits = self.csv_splits
 
 
@@ -130,10 +170,10 @@ class GetSymlinkResult(RequestResult):
 
         #: 符号连接的目标文件
         self.target_key = urlunquote(_hget(self.headers, OSS_SYMLINK_TARGET))
-        
-        
+
+
 class GetObjectResult(HeadObjectResult):
-    def __init__(self, resp, progress_callback=None, crc_enabled=False, crypto_provider=None):
+    def __init__(self, resp, progress_callback=None, crc_enabled=False, crypto_provider=None, decrypt_discard=0):
         super(GetObjectResult, self).__init__(resp)
         self.__crc_enabled = crc_enabled
         self.__crypto_provider = crypto_provider
@@ -141,47 +181,49 @@ class GetObjectResult(HeadObjectResult):
         content_range = _hget(resp.headers, 'Content-Range')
         if _hget(resp.headers, OSS_CLIENT_SIDE_ENCRYPTION_KEY) and content_range:
             byte_range = self._parse_range_str(content_range)
-            if not is_multiple_sizeof_encrypt_block(byte_range[0]):
+            if not is_encrypt_block_aligned(byte_range[0]):
                 raise ClientError('Could not get an encrypted object using byte-range parameter')
 
         if progress_callback:
             self.stream = make_progress_adapter(self.resp, progress_callback, self.content_length)
         else:
             self.stream = self.resp
-        
+
         if self.__crc_enabled:
             self.stream = make_crc_adapter(self.stream)
 
         if self.__crypto_provider:
-            key = self.__crypto_provider.decrypt_oss_meta_data(resp.headers, OSS_CLIENT_SIDE_ENCRYPTION_KEY)
-            count_start = self.__crypto_provider.decrypt_oss_meta_data(resp.headers, OSS_CLIENT_SIDE_ENCRYPTION_START)
+            key = self.__crypto_provider.decrypt_encryption_meta(resp.headers, OSS_CLIENT_SIDE_ENCRYPTION_KEY)
+            counter_start = self.__crypto_provider.decrypt_encryption_meta(resp.headers,
+                                                                           OSS_CLIENT_SIDE_ENCRYPTION_START)
 
             # if content range , adjust the decrypt adapter
-            count_offset = 0;
+            counter_offset = 0
             if content_range:
                 byte_range = self._parse_range_str(content_range)
-                count_offset = calc_aes_ctr_offset_by_data_offset(byte_range[0])
+                counter_offset = calc_counter_offset(byte_range[0])
 
             cek_alg = _hget(resp.headers, OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG)
 
-            # check the key wrap algorthm is correct if rsa
+            # check the key wrap algorithm is correct if rsa
             if cek_alg == "rsa":
-                key_hmac = self.__crypto_provider.decrypt_oss_meta_data(resp.headers, OSS_CLIENT_SIDE_ENCRYPTION_KEY_HMAC)
-                self.__crypto_provider.check_plain_key_valid(key, to_string(key_hmac))
+                magic_number_hmac = resp.headers[OSS_CLIENT_SIDE_ENCRYPTION_MAGIC_NUMBER_HMAC]
+                self.__crypto_provider.check_magic_number_hmac(magic_number_hmac)
 
-            if key and count_start and cek_alg:
-                self.stream = self.__crypto_provider.make_decrypt_adapter(self.stream, key, count_start, count_offset)
+            if key and counter_start and cek_alg:
+                self.stream = self.__crypto_provider.make_decrypt_adapter(self.stream, key, counter_start,
+                                                                          counter_offset, decrypt_discard)
             else:
                 err_msg = 'all metadata keys are required for decryption (' \
-                            + OSS_CLIENT_SIDE_ENCRYPTION_KEY + ', ' \
-                            + OSS_CLIENT_SIDE_ENCRYPTION_START + ', ' \
-                            + OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG + ')'
+                          + OSS_CLIENT_SIDE_ENCRYPTION_KEY + ', ' \
+                          + OSS_CLIENT_SIDE_ENCRYPTION_START + ', ' \
+                          + OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG + ')'
                 raise InconsistentError(err_msg, self.request_id)
 
     def _parse_range_str(self, content_range):
         # :param str content_range: sample 'bytes 0-128/1024'
-        range_data = (content_range.split(' ',2)[1]).split('/',2)[0]
-        range_start, range_end = range_data.split('-',2)
+        range_data = (content_range.split(' ', 2)[1]).split('/', 2)[0]
+        range_start, range_end = range_data.split('-', 2)
         return (int(range_start), int(range_end))
 
     def read(self, amt=None):
@@ -189,7 +231,7 @@ class GetObjectResult(HeadObjectResult):
 
     def __iter__(self):
         return iter(self.stream)
-    
+
     @property
     def client_crc(self):
         if self.__crc_enabled:
@@ -197,20 +239,22 @@ class GetObjectResult(HeadObjectResult):
         else:
             return None
 
+
 class SelectObjectResult(HeadObjectResult):
     def __init__(self, resp, progress_callback=None, crc_enabled=False):
         super(SelectObjectResult, self).__init__(resp)
         self.__crc_enabled = crc_enabled
-        self.select_resp = SelectResponseAdapter(resp, progress_callback, None, enable_crc = self.__crc_enabled)
+        self.select_resp = SelectResponseAdapter(resp, progress_callback, None, enable_crc=self.__crc_enabled)
 
     def read(self):
         return self.select_resp.read()
-        
+
     def __iter__(self):
         return iter(self.select_resp)
-    
+
     def __next__(self):
         return self.select_resp.next()
+
 
 class PutObjectResult(RequestResult):
     def __init__(self, resp):
@@ -218,7 +262,7 @@ class PutObjectResult(RequestResult):
 
         #: HTTP ETag
         self.etag = _get_etag(self.headers)
-        
+
         #: 文件上传后，OSS上文件的CRC64值
         self.crc = _hget(resp.headers, OSS_HASH_CRC64_ECMA, int)
 
@@ -253,7 +297,8 @@ class InitMultipartUploadResult(RequestResult):
         self.upload_id = None
 
         # 客户端加密Bucket关于Multipart文件的context
-        self.crypto_multipart_context = None
+        # self.crypto_multipart_context = None
+
 
 class ListObjectsResult(RequestResult):
     def __init__(self, resp):
@@ -270,7 +315,6 @@ class ListObjectsResult(RequestResult):
 
         #: 本次罗列得到的公共前缀列表，类型为str列表。
         self.prefix_list = []
-
 
 
 class SimplifiedObjectInfo(object):
@@ -315,6 +359,7 @@ class GetObjectAclResult(RequestResult):
 
 class SimplifiedBucketInfo(object):
     """:func:`list_buckets <oss2.Service.list_objects>` 结果中的单个元素类型。"""
+
     def __init__(self, name, location, creation_date, extranet_endpoint, intranet_endpoint, storage_class):
         #: Bucket名
         self.name = name
@@ -389,6 +434,14 @@ class ListPartsResult(RequestResult):
     def __init__(self, resp):
         super(ListPartsResult, self).__init__(resp)
 
+        # 列出的bucket名称
+        self.bucket = None
+        # 列出的key名称
+        self.key = None
+        # Upload事件的ID
+        self.upload_id = None
+        # 返回请求的最大的Part数目
+        self.max_parts = 0
         # True表示还有更多的Part可以罗列；False表示已经列举完毕。
         self.is_truncated = False
 
@@ -398,14 +451,17 @@ class ListPartsResult(RequestResult):
         # 罗列出的Part信息，类型为 `PartInfo` 列表。
         self.parts = []
 
-        # 是否是客户端加密
-        self.is_client_encryption = False
-
         # 客户端加密文件密钥
-        self.crypto_key = None
+        self.client_encryption_key = None
 
         # 客户端加密文件初始向量
-        self.crypto_start = None
+        self.client_encryption_start = None
+
+        # 数据加密采用的算法
+        self.client_encryption_cek_alg = None
+
+        # 加密数据加密密钥的算法
+        self.client_encryption_wrap_alg = None
 
         # 客户端加密Multipart文件总大小
         self.client_encryption_data_size = 0
@@ -413,8 +469,8 @@ class ListPartsResult(RequestResult):
         # 客户端加密Multipart文件块大小
         self.client_encryption_part_size = 0
 
-        # 客户端加密Bucket关于Multipart文件的context
-        self.crypto_multipart_context = None
+        # 加密幻数的哈希值
+        self.client_encryption_magic_number_hmac = None
 
 BUCKET_ACL_PRIVATE = 'private'
 BUCKET_ACL_PUBLIC_READ = 'public-read'
@@ -447,6 +503,7 @@ class BucketLogging(object):
     :param str target_bucket: 存储日志到这个Bucket。
     :param str target_prefix: 生成的日志文件名加上该前缀。
     """
+
     def __init__(self, target_bucket, target_prefix):
         self.target_bucket = target_bucket
         self.target_prefix = target_prefix
@@ -512,6 +569,7 @@ class BucketReferer(object):
     :param bool allow_empty_referer: 是否允许空的Referer。
     :param referers: Referer列表，每个元素是一个str。
     """
+
     def __init__(self, allow_empty_referer, referers):
         self.allow_empty_referer = allow_empty_referer
         self.referers = referers
@@ -529,6 +587,7 @@ class BucketWebsite(object):
     :param str index_file: 索引页面文件
     :param str error_file: 404页面文件
     """
+
     def __init__(self, index_file, error_file):
         self.index_file = index_file
         self.error_file = error_file
@@ -550,6 +609,7 @@ class LifecycleExpiration(object):
 
     :type date: `datetime.date`
     """
+
     def __init__(self, days=None, date=None, created_before_date=None):
         not_none_fields = 0
         if days is not None:
@@ -574,6 +634,7 @@ class AbortMultipartUpload(object):
     :param created_before_date: 删除最后修改时间早于created_before_date的parts
 
     """
+
     def __init__(self, days=None, created_before_date=None):
         if days is not None and created_before_date is not None:
             raise ClientError('days and created_before_date should not be both specified')
@@ -589,6 +650,7 @@ class StorageTransition(object):
     :param created_before_date: 将最后修改时间早于created_before_date的对象转储
     :param storage_class: 对象转储到OSS的目标存储类型
     """
+
     def __init__(self, days=None, created_before_date=None, storage_class=None):
         if days is not None and created_before_date is not None:
             raise ClientError('days and created_before_date should not be both specified')
@@ -629,6 +691,7 @@ class BucketLifecycle(object):
     :param rules: 规则列表，
     :type rules: list of :class:`LifecycleRule`
     """
+
     def __init__(self, rules=None):
         self.rules = rules or []
 
@@ -653,6 +716,7 @@ class CorsRule(object):
 
 
     """
+
     def __init__(self,
                  allowed_origins=None,
                  allowed_methods=None,
@@ -690,10 +754,10 @@ class LiveChannelInfoTarget(object):
     :type frag_count: int"""
 
     def __init__(self,
-            type = 'HLS',
-            frag_duration = 5,
-            frag_count = 3,
-            playlist_name = ''):
+                 type='HLS',
+                 frag_duration=5,
+                 frag_count=3,
+                 playlist_name=''):
         self.type = type
         self.frag_duration = frag_duration
         self.frag_count = frag_count
@@ -723,15 +787,15 @@ class LiveChannelInfo(object):
         
     :param publish_url: 推流地址。
     :type publish_url: str"""
-    
+
     def __init__(self,
-            status = 'enabled',
-            description = '',
-            target = LiveChannelInfoTarget(),
-            last_modified = None,
-            name = None,
-            play_url = None,
-            publish_url = None):
+                 status='enabled',
+                 description='',
+                 target=LiveChannelInfoTarget(),
+                 last_modified=None,
+                 name=None,
+                 play_url=None,
+                 publish_url=None):
         self.status = status
         self.description = description
         self.target = target
@@ -763,11 +827,11 @@ class LiveChannelList(object):
     :type channels: list，类型为 :class:`LiveChannelInfo`"""
 
     def __init__(self,
-            prefix = '',
-            marker = '',
-            max_keys = 100,
-            is_truncated = False,
-            next_marker = ''):
+                 prefix='',
+                 marker='',
+                 max_keys=100,
+                 is_truncated=False,
+                 next_marker=''):
         self.prefix = prefix
         self.marker = marker
         self.max_keys = max_keys
@@ -795,11 +859,11 @@ class LiveChannelVideoStat(object):
     :type bandwidth: int"""
 
     def __init__(self,
-            width = 0,
-            height = 0,
-            frame_rate = 0,
-            codec = '',
-            bandwidth = 0):
+                 width=0,
+                 height=0,
+                 frame_rate=0,
+                 codec='',
+                 bandwidth=0):
         self.width = width
         self.height = height
         self.frame_rate = frame_rate
@@ -820,9 +884,9 @@ class LiveChannelAudioStat(object):
     :type bandwidth: int"""
 
     def __init__(self,
-            codec = '',
-            sample_rate = 0,
-            bandwidth = 0):
+                 codec='',
+                 sample_rate=0,
+                 bandwidth=0):
         self.codec = codec
         self.sample_rate = sample_rate
         self.bandwidth = bandwidth
@@ -847,11 +911,11 @@ class LiveChannelStat(object):
     :type audio: class:`LiveChannelAudioStat <oss2.models.LiveChannelAudioStat>`"""
 
     def __init__(self,
-            status = '',
-            remote_addr = '',
-            connected_time = '',
-            video = None,
-            audio = None):
+                 status='',
+                 remote_addr='',
+                 connected_time='',
+                 video=None,
+                 audio=None):
         self.status = status
         self.remote_addr = remote_addr
         self.connected_time = connected_time
@@ -872,9 +936,9 @@ class LiveRecord(object):
     :type remote_addr: str"""
 
     def __init__(self,
-            start_time = '',
-            end_time = '',
-            remote_addr = ''):
+                 start_time='',
+                 end_time='',
+                 remote_addr=''):
         self.start_time = start_time
         self.end_time = end_time
         self.remote_addr = remote_addr
@@ -901,14 +965,15 @@ class GetLiveChannelResult(RequestResult, LiveChannelInfo):
 
 class ListLiveChannelResult(RequestResult, LiveChannelList):
     def __init__(self, resp):
-       RequestResult.__init__(self, resp)
-       LiveChannelList.__init__(self)
+        RequestResult.__init__(self, resp)
+        LiveChannelList.__init__(self)
 
 
 class GetLiveChannelStatResult(RequestResult, LiveChannelStat):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         LiveChannelStat.__init__(self)
+
 
 class GetLiveChannelHistoryResult(RequestResult, LiveChannelHistory):
     def __init__(self, resp):

@@ -25,8 +25,10 @@ _USER_AGENT = 'aliyun-sdk-python/{0}({1}/{2}/{3};{4})'.format(
 
 logger = logging.getLogger(__name__)
 
+
 class Session(object):
     """属于同一个Session的请求共享一组连接池，如有可能也会重用HTTP连接。"""
+
     def __init__(self):
         self.session = requests.Session()
 
@@ -112,7 +114,6 @@ class Response(object):
             content = b''.join(content_list)
 
             self.__all_read = True
-            # logger.debug("Get response body, req-id: {0}, content: {1}", self.request_id, content)
             return content
         else:
             try:
@@ -140,5 +141,3 @@ def _convert_request_body(data):
         return SizedFileAdapter(data, file_object_remaining_bytes(data))
 
     return data
-
-

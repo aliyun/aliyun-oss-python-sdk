@@ -189,14 +189,10 @@ from . import models
 
 from .models import *
 from .compat import urlquote, urlparse, to_unicode, to_string
-from .crypto import BaseCryptoProvider
 from .headers import *
-
-from .utils import calc_aes_ctr_offset_by_data_offset, is_valid_crypto_part_size, determine_crypto_part_size
 
 import time
 import shutil
-import base64
 
 logger = logging.getLogger(__name__)
 
@@ -223,7 +219,7 @@ class _Base(object):
         resp = self.session.do_request(req, timeout=self.timeout)
         if resp.status // 100 != 2:
             e = exceptions.make_exception(resp)
-            logger.error("Exception: {0}".format(e))
+            # logger.error("Exception: {0}".format(e))
             raise e
 
         # Note that connections are only released back to the pool for reuse once all body data has been read;
@@ -252,6 +248,7 @@ class _Base(object):
 
         return resp
 
+    @staticmethod
     def _parse_result(self, resp, parse_func, klass):
         result = klass(resp)
         parse_func(result, resp.read())
@@ -308,6 +305,7 @@ class Service(_Base):
                                 'max-keys': str(max_keys)})
         logger.debug("List buckets done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_buckets, ListBucketsResult)
+
 
 class Bucket(_Base):
     """用于Bucket和Object操作的类，诸如创建、删除Bucket，上传、下载Object等。
@@ -642,9 +640,9 @@ class Bucket(_Base):
         return GetObjectResult(resp, progress_callback, self.enable_crc)
 
     def select_object(self, key, sql,
-                   progress_callback=None,
-                   select_params=None
-                   ):
+                      progress_callback=None,
+                      select_params=None
+                      ):
         """Select一个文件内容，支持(Csv,Json Doc,Json Lines及其GZIP压缩文件).
 
         用法 ::
@@ -669,7 +667,7 @@ class Bucket(_Base):
         """
         headers = http.CaseInsensitiveDict()
         body = xml_utils.to_select_object(sql, select_params)
-        params = {'x-oss-process':  'csv/select'}
+        params = {'x-oss-process': 'csv/select'}
         if select_params is not None and 'Json_Type' in select_params:
             params['x-oss-process'] = 'json/select'
 
@@ -773,7 +771,7 @@ class Bucket(_Base):
         """
         logger.debug(
             "Start to get object with url, bucket: {0}, sign_url: {1}, file path: {2}, range: {3}, headers: {4}"
-            .format(self.bucket_name, sign_url, filename, byte_range, headers))
+                .format(self.bucket_name, sign_url, filename, byte_range, headers))
 
         with open(to_unicode(filename), 'wb') as f:
             result = self.get_object_with_url(sign_url, byte_range=byte_range, headers=headers,
@@ -786,9 +784,9 @@ class Bucket(_Base):
             return result
 
     def select_object_to_file(self, key, filename, sql,
-                   progress_callback=None,
-                   select_params=None
-                   ):
+                              progress_callback=None,
+                              select_params=None
+                              ):
         """Select一个文件的内容到本地文件
 
         :param key: OSS文件名
@@ -861,7 +859,7 @@ class Bucket(_Base):
         headers = http.CaseInsensitiveDict()
 
         body = xml_utils.to_get_select_object_meta(select_meta_params)
-        params = {'x-oss-process':  'csv/meta'}
+        params = {'x-oss-process': 'csv/meta'}
         if select_meta_params is not None and 'Json_Type' in select_meta_params:
             params['x-oss-process'] = 'json/meta'
 
@@ -1097,8 +1095,8 @@ class Bucket(_Base):
 
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
-        parts = sorted(parts, key=lambda p: p.part_number);
-        data = xml_utils.to_complete_upload_request(parts);
+        parts = sorted(parts, key=lambda p: p.part_number)
+        data = xml_utils.to_complete_upload_request(parts)
 
         logger.debug("Start to complete multipart upload, bucket: {0}, key: {1}, upload_id: {2}, parts: {3}".format(
             self.bucket_name, to_string(key), upload_id, data))
@@ -1110,11 +1108,11 @@ class Bucket(_Base):
         logger.debug(
             "Complete multipart upload done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
-        result = PutObjectResult(resp);
+        result = PutObjectResult(resp)
 
         if self.enable_crc:
             object_crc = utils.calc_obj_crc_from_parts(parts)
-            utils.check_crc('resumable upload', object_crc, result.crc, result.request_id)
+            utils.check_crc('multipart upload', object_crc, result.crc, result.request_id)
 
         return result
 
@@ -1203,6 +1201,7 @@ class Bucket(_Base):
                    marker='', max_parts=1000, headers=None):
         """列举已经上传的分片。支持分页。
 
+        :param headers: HTTP头部
         :param str key: 文件名
         :param str upload_id: 分片上传ID
         :param str marker: 分页符
@@ -1626,338 +1625,6 @@ class Bucket(_Base):
         else:
             return data
 
-
-class CryptoBucket(_Base):
-    """用于加密Bucket和Object操作的类，诸如上传、下载Object等。创建、删除bucket的操作需使用Bucket类接口。
-
-    用法（假设Bucket属于杭州区域） ::
-
-        >>> import oss2
-        >>> auth = oss2.Auth('your-access-key-id', 'your-access-key-secret')
-        >>> bucket = oss2.CryptoBucket(auth, 'http://oss-cn-hangzhou.aliyuncs.com', 'your-bucket', oss2.LocalRsaProvider())
-        >>> bucket.put_object('readme.txt', 'content of the object')
-        <oss2.models.PutObjectResult object at 0x029B9930>
-
-    :param auth: 包含了用户认证信息的Auth对象
-    :type auth: oss2.Auth
-
-    :param str endpoint: 访问域名或者CNAME
-    :param str bucket_name: Bucket名
-    :param crypto_provider: 客户端加密类。该参数默认为空
-    :type crypto_provider: oss2.crypto.LocalRsaProvider
-    :param bool is_cname: 如果endpoint是CNAME则设为True；反之，则为False。
-
-    :param session: 会话。如果是None表示新开会话，非None则复用传入的会话
-    :type session: oss2.Session
-
-    :param float connect_timeout: 连接超时时间，以秒为单位。
-
-    :param str app_name: 应用名。该参数不为空，则在User Agent中加入其值。
-        注意到，最终这个字符串是要作为HTTP Header的值传输的，所以必须要遵循HTTP标准。
-
-    :param bool enable_crc: 如果开启crc校验则设为True；反之，则为False
-
-    """
-
-    def __init__(self, auth, endpoint, bucket_name, crypto_provider,
-                 is_cname=False,
-                 session=None,
-                 connect_timeout=None,
-                 app_name='',
-                 enable_crc=True):
-
-        if not isinstance(crypto_provider, BaseCryptoProvider):
-            raise ClientError('Crypto bucket must provide a valid crypto_provider')
-
-        logger.debug("Init oss crypto bucket, endpoint: {0}, isCname: {1}, connect_timeout: {2}, app_name: {3}, enabled_crc: "
-                     "{4}".format(endpoint, is_cname, connect_timeout, app_name, enable_crc))
-        super(CryptoBucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout,
-                                     app_name, enable_crc)
-
-        self.crypto_provider = crypto_provider
-        self.bucket_name = bucket_name.strip()
-        self.enable_crc = enable_crc
-        self.bucket = Bucket(auth, endpoint, bucket_name, is_cname, session, connect_timeout,
-                             app_name, enable_crc=False)
-
-    def put_object(self, key, data,
-                   headers=None,
-                   progress_callback=None):
-        """上传一个普通文件。
-
-        用法 ::
-            >>> bucket.put_object('readme.txt', 'content of readme.txt')
-            >>> with open(u'local_file.txt', 'rb') as f:
-            >>>     bucket.put_object('remote_file.txt', f)
-
-        :param key: 上传到OSS的文件名
-
-        :param data: 待上传的内容。
-        :type data: bytes，str或file-like object
-
-        :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-meta-开头的头部等
-        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
-
-        :param progress_callback: 用户指定的进度回调函数。可以用来实现进度条等功能。参考 :ref:`progress_callback` 。
-
-        :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
-        """
-        if progress_callback:
-            data = utils.make_progress_adapter(data, progress_callback)
-
-        random_key = self.crypto_provider.get_key()
-        start = self.crypto_provider.get_start()
-        data = self.crypto_provider.make_encrypt_adapter(data, random_key, start)
-        headers = self.crypto_provider.build_header(headers)
-
-        if self.enable_crc:
-            data = utils.make_crc_adapter(data)
-
-        return self.bucket.put_object(key, data, headers, progress_callback=None)
-
-    def put_object_from_file(self, key, filename,
-                             headers=None,
-                             progress_callback=None):
-        """上传一个本地文件到OSS的普通文件。
-
-        :param str key: 上传到OSS的文件名
-        :param str filename: 本地文件名，需要有可读权限
-
-        :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-meta-开头的头部等
-        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
-
-        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
-
-        :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
-        """
-        headers = utils.set_content_type(http.CaseInsensitiveDict(headers), filename)
-
-        with open(to_unicode(filename), 'rb') as f:
-            return self.put_object(key, f, headers=headers, progress_callback=progress_callback)
-
-    def get_object(self, key,
-                   byte_range=None,
-                   headers=None,
-                   progress_callback=None,
-                   params=None):
-        """下载一个文件。
-
-        用法 ::
-
-            >>> result = bucket.get_object('readme.txt')
-            >>> print(result.read())
-            'hello world'
-
-        :param key: 文件名
-        :param byte_range: 指定下载范围。参见 :ref:`byte_range`
-
-        :param headers: HTTP头部
-        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
-
-        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
-
-        :param params: http 请求的查询字符串参数
-        :type params: dict
-
-        :return: file-like object
-
-        :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
-        """
-        headers = http.CaseInsensitiveDict(headers)
-
-        if byte_range and (not utils.is_multiple_sizeof_encrypt_block(byte_range[0])):
-            raise ClientError('Crypto bucket get range start must align to encrypt block')
-
-        range_string = _make_range_string(byte_range)
-        if range_string:
-            headers['range'] = range_string
-
-        params = {} if params is None else params
-
-        logger.debug("Start to get object, bucket: {0}， key: {1}, range: {2}, headers: {3}, params: {4}".format(
-            self.bucket_name, to_string(key), range_string, headers, params))
-        resp = self.__do_object('GET', key, headers=headers, params=params)
-        logger.debug("Get object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
-
-        if models._hget(resp.headers, OSS_CLIENT_SIDE_ENCRYPTION_KEY) is None:
-            raise ClientError('Could not use crypto bucket to decrypt an unencrypted object')
-        return GetObjectResult(resp, progress_callback, self.enable_crc,
-                               crypto_provider=self.crypto_provider)
-
-    def get_object_to_file(self, key, filename,
-                           headers=None,
-                           progress_callback=None,
-                           params=None):
-        """下载一个文件到本地文件。
-
-        :param key: 文件名
-        :param filename: 本地文件名。要求父目录已经存在，且有写权限。
-
-        :param headers: HTTP头部
-        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
-
-        :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
-
-        :param params: http 请求的查询字符串参数
-        :type params: dict
-
-        :return: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
-        """
-        with open(to_unicode(filename), 'wb') as f:
-            result = self.get_object(key, headers=headers, progress_callback=progress_callback,
-                                     params=params)
-
-            if result.content_length is None:
-                shutil.copyfileobj(result, f)
-            else:
-                utils.copyfileobj_and_verify(result, f, result.content_length, request_id=result.request_id)
-
-            return result
-
-    def init_multipart_upload(self, key, data_size, part_size = None, headers=None):
-        """客户端加密初始化分片上传。
-
-        :param str key: 待上传的文件名
-        :param int data_size : 待上传文件总大小
-        :param int part_size : 后续分片上传时除最后一个分片之外的其他分片大小
-
-        :param headers: HTTP头部
-        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
-
-        :return: :class:`InitMultipartUploadResult <oss2.models.InitMultipartUploadResult>`
-        返回值中的 `crypto_multipart_context` 记录了加密Meta信息，在upload_part时需要一并传入
-        """
-        if part_size is not None:
-            res = is_valid_crypto_part_size(part_size, data_size)
-            if not res:
-                raise ClientError("Crypto bucket get an invalid part_size")
-        else:
-            part_size = determine_crypto_part_size(data_size)
-
-        logger.info("Start to init multipart upload by crypto bucket, data_size: {0}, part_size: {1}".format(data_size, part_size))
-
-        crypto_key = self.crypto_provider.get_key()
-        crypto_start = self.crypto_provider.get_start()
-
-        part_number = int((data_size - 1) / part_size + 1)
-        context = CryptoMultipartContext(crypto_key, crypto_start, data_size, part_size)
-
-        headers = self.crypto_provider.build_header(headers, context)
-
-        resp = self.bucket.init_multipart_upload(key, headers)
-        resp.crypto_multipart_context = context;
-
-        logger.info("Init multipart upload by crypto bucket done, upload_id = {0}.".format(resp.upload_id))
-
-        return resp
-
-    def upload_part(self, key, upload_id, part_number, data, crypto_multipart_context, progress_callback=None, headers=None):
-        """客户端加密上传一个分片。
-
-        :param str key: 待上传文件名，这个文件名要和 :func:`init_multipart_upload` 的文件名一致。
-        :param str upload_id: 分片上传ID
-        :param int part_number: 分片号，最小值是1.
-        :param data: 待上传数据。
-        :param crypto_multipart_context: 加密Meta信息，在`init_multipart_upload` 时获得
-        :param progress_callback: 用户指定进度回调函数。可以用来实现进度条等功能。参考 :ref:`progress_callback` 。
-
-        :param headers: 用户指定的HTTP头部。可以指定Content-MD5头部等
-        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
-
-        :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
-        """
-        logger.info("Start upload part by crypto bucket, upload_id = {0}, part_number = {1}".format(upload_id, part_number))
-
-        headers = http.CaseInsensitiveDict(headers)
-        headers[FLAG_CLIENT_SIDE_ENCRYPTION_MULTIPART_FILE] = "true"
-        headers = self.crypto_provider.build_header_for_upload_part(headers)
-
-        crypto_key = crypto_multipart_context.crypto_key
-        start = crypto_multipart_context.crypto_start
-        offset = crypto_multipart_context.part_size * (part_number - 1)
-        count_offset = utils.calc_aes_ctr_offset_by_data_offset(offset)
-
-        data = self.crypto_provider.make_encrypt_adapter(data, crypto_key, start, count_offset=count_offset)
-        if self.enable_crc:
-            data = utils.make_crc_adapter(data)
-
-        resp  = self.bucket.upload_part(key, upload_id, part_number, data, progress_callback, headers)
-
-        logger.info("Upload part {0} by crypto bucket done.".format(part_number))
-
-        return resp
-
-
-    def complete_multipart_upload(self, key, upload_id, parts, headers=None):
-        """客户端加密完成分片上传，创建文件。
-        当所有分片均已上传成功，才可以调用此函数
-
-        :param str key: 待上传的文件名，这个文件名要和 :func:`init_multipart_upload` 的文件名一致。
-        :param str upload_id: 分片上传ID
-
-        :param parts: PartInfo列表。PartInfo中的part_number和etag是必填项。其中的etag可以从 :func:`upload_part` 的返回值中得到。
-        :type parts: list of `PartInfo <oss2.models.PartInfo>`
-
-        :param headers: HTTP头部
-        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
-
-        :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
-        """
-        logger.info("Start complete multipart upload by crypto bucket, upload_id = {0}".format(upload_id))
-
-        headers = http.CaseInsensitiveDict(headers)
-        headers[FLAG_CLIENT_SIDE_ENCRYPTION_MULTIPART_FILE] = "true"
-
-        res = self.bucket.complete_multipart_upload(key, upload_id, parts, headers)
-
-        logger.info("Complete multipart upload by crypto bucket done, upload_id = {0}.".format(upload_id))
-
-        return res
-
-    def abort_multipart_upload(self, key, upload_id):
-        """取消分片上传。
-
-        :param str key: 待上传的文件名，这个文件名要和 :func:`init_multipart_upload` 的文件名一致。
-        :param str upload_id: 分片上传ID
-
-        :return: :class:`RequestResult <oss2.models.RequestResult>`
-        """
-        logger.info("Start abort multipart upload by crypto bucket, upload_id = {0}".format(upload_id))
-
-        res = self.bucket.abort_multipart_upload(key, upload_id)
-
-        logger.info("Abort multipart upload by crypto bucket done, upload_id = {0}.".format(upload_id))
-
-        return res
-
-    def list_parts(self, key, upload_id,
-                   marker='', max_parts=1000):
-        """列举已经上传的分片。支持分页。
-
-        :param str key: 文件名
-        :param str upload_id: 分片上传ID
-        :param str marker: 分页符
-        :param int max_parts: 一次最多罗列多少分片
-
-        :return: :class:`ListPartsResult <oss2.models.ListPartsResult>`
-        """
-        logger.info("Start list parts by crypto bucket, upload_id = {0}".format(upload_id))
-
-        headers = http.CaseInsensitiveDict()
-        headers[FLAG_CLIENT_SIDE_ENCRYPTION_MULTIPART_FILE] = "true"
-
-        res = self.bucket.list_parts(key, upload_id, marker = marker, max_parts = max_parts, headers=headers)
-
-        crypto_key = self.crypto_provider.decrypt_from_str(OSS_CLIENT_SIDE_ENCRYPTION_KEY, res.crypto_key)
-        crypto_start = int(self.crypto_provider.decrypt_from_str(OSS_CLIENT_SIDE_ENCRYPTION_START, res.crypto_start))
-        context = CryptoMultipartContext(crypto_key, crypto_start, res.client_encryption_data_size, res.client_encryption_part_size)
-        res.crypto_multipart_context = context
-
-        logger.info("List parts by crypto bucket done, upload_id = {0}".format(upload_id))
-        return res
-
-    def __do_object(self, method, key, **kwargs):
-        return self._do(method, self.bucket_name, key, **kwargs)
 
 def _normalize_endpoint(endpoint):
     if not endpoint.startswith('http://') and not endpoint.startswith('https://'):

@@ -35,7 +35,7 @@ from .compat import urlunquote, to_unicode, to_string
 from .utils import iso8601_to_unixtime, date_to_iso8601, iso8601_to_date
 from . import utils
 import base64
-from .exceptions import SelectOperationClientError
+from .exceptions import SelectOperationClientError, ClientError
 
 logger = logging.getLogger(__name__)
 
@@ -178,21 +178,29 @@ def parse_list_multipart_uploads(result, body):
 def parse_list_parts(result, body):
     root = ElementTree.fromstring(body)
 
+    result.bucket = _find_tag(root, 'Bucket')
+    result.key = _find_tag(root, 'Key')
+    result.upload_id = _find_tag(root, 'UploadId')
+    result.max_parts = _find_int(root, 'MaxParts')
+
     result.is_truncated = _find_bool(root, 'IsTruncated')
     result.next_marker = _find_tag(root, 'NextPartNumberMarker')
 
-    try:
-        result.is_client_encryption = _find_bool(root, 'IsClientEncryption')
-        result.crypto_key = _find_tag(root, 'ClientEncryptionKey')
-        result.crypto_start = _find_tag(root, 'ClientEncryptionStart')
-        result.client_encryption_data_size = _find_int(root, 'ClientEncryptionDataSize')
-        result.client_encryption_part_size = _find_int(root, 'ClientEncryptionPartSize')
-    except RuntimeError as e:
-        result.is_client_encryption = False
-        result.crypto_key = None
-        result.crypto_start = None
-        result.client_encryption_data_size = 0
-        result.client_encryption_part_size = 0
+    client_encryption_key = root.find(root, 'ClientEncryptionKey')
+    if client_encryption_key:
+        try:
+            result.client_encryption_key = to_string(client_encryption_key.text)
+            result.client_encryption_start = _find_tag(root, 'ClientEncryptionStart')
+            result.client_encryption_wrap_alg = _find_tag(root, 'ClientEncryptionWrapAlg')
+            result.client_encryption_cek_alg = _find_tag(root, 'ClientEncryptionCekAlg')
+            if result.client_encryption_wrap_alg == 'rsa':
+                result.client_encryption_magic_number_hmac = _find_tag(root, 'ClientEncryptionMagicNumberHMAC')
+            if result.client_encryption_cek_alg == 'AES/GCM/NoPadding':
+                result.client_encryption_data_size = _find_int(root, 'ClientEncryptionDataSize')
+                result.client_encryption_part_size = _find_int(root, 'ClientEncryptionPartSize')
+
+        except RuntimeError as e:
+            raise ClientError('Invalid response of list_parts, exception: ' + str(e))
 
     for part_node in root.findall('Part'):
         result.parts.append(PartInfo(

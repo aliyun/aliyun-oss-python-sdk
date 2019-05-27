@@ -4,8 +4,6 @@ from . import models, exceptions
 
 from .api import Service, Bucket, CryptoBucket
 from .auth import Auth, AuthV2, AnonymousAuth, StsAuth, AUTH_VERSION_1, AUTH_VERSION_2, make_auth
-from .http import Session, CaseInsensitiveDict
-
 
 from .iterators import (BucketIterator, ObjectIterator,
                         MultipartUploadIterator, ObjectUploadIterator,
@@ -15,8 +13,6 @@ from .iterators import (BucketIterator, ObjectIterator,
 from .resumable import resumable_upload, resumable_download, ResumableStore, ResumableDownloadStore, determine_part_size
 from .resumable import make_upload_store, make_download_store
 
-
-from .compat import to_bytes, to_string, to_unicode, urlparse, urlquote, urlunquote
 
 from .utils import SizedFileAdapter, make_progress_adapter
 from .utils import content_type_by_name, is_valid_bucket_name
