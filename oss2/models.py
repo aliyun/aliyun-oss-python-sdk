@@ -9,7 +9,7 @@ oss2.models
 
 from .utils import http_to_unixtime, make_progress_adapter, make_crc_adapter
 from .exceptions import ClientError, InconsistentError
-from .compat import urlunquote, to_string
+from .compat import urlunquote, to_string, urlquote
 from .select_response import SelectResponseAdapter
 from .headers import *
 import json
@@ -552,6 +552,10 @@ class LifecycleRule(object):
     :param expiration: 过期删除操作。
     :type expiration: :class:`LifecycleExpiration`
     :param status: 启用还是禁止该规则。可选值为 `LifecycleRule.ENABLED` 或 `LifecycleRule.DISABLED`
+    :param storage_transitions: 存储类型转换规则
+    :type storage_transitions: :class:`StorageTransition`
+    :param tagging: object tagging 规则
+    :type tagging: :class:`ObjectTagging`
     """
 
     ENABLED = 'Enabled'
@@ -560,13 +564,14 @@ class LifecycleRule(object):
     def __init__(self, id, prefix,
                  status=ENABLED, expiration=None,
                  abort_multipart_upload=None,
-                 storage_transitions=None):
+                 storage_transitions=None, tagging=None):
         self.id = id
         self.prefix = prefix
         self.status = status
         self.expiration = expiration
         self.abort_multipart_upload = abort_multipart_upload
         self.storage_transitions = storage_transitions
+        self.tagging = tagging
 
 
 class BucketLifecycle(object):
@@ -878,3 +883,70 @@ class ProcessObjectResult(RequestResult):
             self.object = result['object']
         if 'status' in result:
             self.process_status = result['status']
+
+_MAX_OBJECT_TAGGING_KEY_LENGTH=128
+_MAX_OBJECT_TAGGING_VALUE_LENGTH=256
+
+class ObjectTagging(object):
+
+    def __init__(self, tagging_rules=None):
+        
+        self.tag_set = tagging_rules or ObjectTaggingRule() 
+
+    def __str__(self):
+
+        tag_str = ""
+        
+        tagging_rule = self.tag_set.tagging_rule
+
+        for key in tagging_rule:
+            tag_str += key
+            tag_str += ":" + tagging_rule[key] + " "
+
+        return tag_str
+
+class ObjectTaggingRule(object):
+
+    def __init__(self):
+        self.tagging_rule = dict()
+
+    def add(self, key, value):
+
+        if key is None or key == '':
+            raise ClientError("ObjectTagging key should not be empty")
+
+        if len(key) > _MAX_OBJECT_TAGGING_KEY_LENGTH:
+            raise ClientError("ObjectTagging key is too long")
+
+        if len(value) > _MAX_OBJECT_TAGGING_VALUE_LENGTH:
+            raise ClientError("ObjectTagging value is too long")
+
+        self.tagging_rule[key] = value
+
+    def delete(self, key):
+        del self.tagging_rule[key]
+
+    def len(self):
+        return len(self.tagging_rule)
+
+    def to_query_string(self):
+        query_string = ''
+
+        for key in self.tagging_rule:
+            query_string += urlquote(key)
+            query_string += '='
+            query_string += urlquote(self.tagging_rule[key])
+            query_string += '&'
+
+        if len(query_string) == 0:
+            return ''
+        else:
+            query_string = query_string[:-1]
+
+        return query_string
+
+class GetObjectTaggingResult(RequestResult, ObjectTagging):
+    
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        ObjectTagging.__init__(self)

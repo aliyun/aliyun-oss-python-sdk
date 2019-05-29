@@ -29,7 +29,9 @@ from .models import (SimplifiedObjectInfo,
                      Owner,
                      AccessControlList,
                      AbortMultipartUpload,
-                     StorageTransition)
+                     StorageTransition,
+                     ObjectTagging,
+                     ObjectTaggingRule)
 
 from .select_params import (SelectJsonTypes, SelectParameters)
 
@@ -424,21 +426,36 @@ def parse_lifecycle_storage_transitions(storage_transition_nodes):
 
     return storage_transitions
 
+def parse_lifecycle_object_taggings(lifecycle_tagging_nodes):
+    
+    if lifecycle_tagging_nodes is None: 
+        return ObjectTagging()
+
+    tagging_rule = ObjectTaggingRule()
+    for tag_node in lifecycle_tagging_nodes:
+        key = _find_tag(tag_node, 'Key')
+        value = _find_tag(tag_node, 'Value')
+        tagging_rule.add(key, value)
+
+    return ObjectTagging(tagging_rule)
 
 def parse_get_bucket_lifecycle(result, body):
     root = ElementTree.fromstring(body)
+    url_encoded = _is_url_encoding(root)
 
     for rule_node in root.findall('Rule'):
         expiration = parse_lifecycle_expiration(rule_node.find('Expiration'))
         abort_multipart_upload = parse_lifecycle_abort_multipart_upload(rule_node.find('AbortMultipartUpload'))
         storage_transitions = parse_lifecycle_storage_transitions(rule_node.findall('Transition'))
+        tagging = parse_lifecycle_object_taggings(rule_node.findall('Tag'))
         rule = LifecycleRule(
             _find_tag(rule_node, 'ID'),
             _find_tag(rule_node, 'Prefix'),
             status=_find_tag(rule_node, 'Status'),
             expiration=expiration,
             abort_multipart_upload=abort_multipart_upload,
-            storage_transitions=storage_transitions
+            storage_transitions=storage_transitions,
+            tagging=tagging 
             )
         result.rules.append(rule)
 
@@ -569,6 +586,13 @@ def to_put_bucket_lifecycle(bucket_lifecycle):
                     _add_text_child(storage_transition_node, 'CreatedBeforeDate',
                                     date_to_iso8601(storage_transition.created_before_date))
 
+        tagging = rule.tagging
+        if tagging:
+            tagging_rule = tagging.tag_set.tagging_rule
+            for key in tagging.tag_set.tagging_rule:
+                tag_node = ElementTree.SubElement(rule_node, 'Tag')
+                _add_text_child(tag_node, 'Key', key)
+                _add_text_child(tag_node, 'Value', tagging_rule[key])
     return _node_to_string(root)
 
 
@@ -745,3 +769,32 @@ def to_get_select_json_object_meta(json_meta_param):
                 raise SelectOperationClientError("The json_meta_param contains unsupported key " + key, "")
             
     return _node_to_string(root)
+
+def to_put_object_tagging(object_tagging):
+    root = ElementTree.Element("Tagging")
+    tag_set = ElementTree.SubElement(root, "TagSet")
+
+    for item in object_tagging.tag_set.tagging_rule:
+        tag_xml = ElementTree.SubElement(tag_set, "Tag")
+        _add_text_child(tag_xml, 'Key', item)
+        _add_text_child(tag_xml, 'Value', object_tagging.tag_set.tagging_rule[item])
+
+    return _node_to_string(root)
+
+def parse_get_object_tagging(result, body):
+    root = ElementTree.fromstring(body)
+    url_encoded = _is_url_encoding(root)
+    tagset_node = root.find('TagSet')
+
+    if tagset_node is None:
+        return result
+
+    tagging_rules = ObjectTaggingRule()
+    for tag_node in tagset_node.findall('Tag'):
+        key = _find_object(tag_node, 'Key', url_encoded)
+        value = _find_object(tag_node, 'Value', url_encoded)
+        tagging_rules.add(key, value)
+    
+    result.tag_set = tagging_rules
+    return result
+

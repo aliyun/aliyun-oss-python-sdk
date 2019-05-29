@@ -164,6 +164,47 @@ x-oss-hash-crc64ecma: {1}'''.format(position + len(content), unittests.common.ca
 
     return request_text, response_text
 
+def make_get_object_tagging():
+    request_text = '''GET /sjbhlsgsbecvlpbf?tagging HTTP/1.1
+        Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+        Accept-Encoding: identity
+        Connection: keep-alive
+        date: Sat, 12 Dec 2015 00:35:53 GMT
+        User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+        Accept: */*
+                    authorization: OSS ZCDmm7TPZKHtx77j:PAedG7U86ZxQ2WTB+GdpSltoiTI='''
+
+    response_text = '''HTTP/1.1 200 OK
+                    Server: AliyunOSS
+                    Date: Sat, 12 Dec 2015 00:35:53 GMT
+                    Content-Type: text/plain
+                    Content-Length: 278 
+                    Connection: keep-alive
+                    x-oss-request-id: 566B6BE93A7B8CFD53D4BAA3
+                    Accept-Ranges: bytes
+                    ETag: "D80CF0E5BE2436514894D64B2BCFB2AE"
+                    Last-Modified: Sat, 12 Dec 2015 00:35:53 GMT
+x-oss-object-type: Normal
+
+<?xml version="1.0" encoding="UTF-8"?>
+<Tagging>
+<TagSet>
+<Tag>
+<Key>k1</Key>
+<Value>v1</Value>
+</Tag>
+<Tag>
+<Key>k2</Key>
+<Value>v2</Value>
+</Tag>
+<Tag>
+<Key>k3</Key>
+<Value>v3</Value>
+</Tag>
+</TagSet>
+</Tagging>'''
+
+    return request_text, response_text
 
 class TestObject(unittests.common.OssTestCase):
     @patch('oss2.Session.do_request')
@@ -930,6 +971,23 @@ x-oss-server-time: 39'''
 
         self.assertRaises(oss2.exceptions.ClientError, oss2.CryptoBucket, oss2.Auth('fake-access-key-id', 'fake-access-key-secret'),
                           'http://oss-cn-hangzhou.aliyuncs.com', '123', None)
+
+
+    @patch('oss2.Session.do_request')
+    def test_get_object_tagging(self, do_request):
+
+        request_text, response_text = make_get_object_tagging()
+
+        req_info = unittests.common.mock_response(do_request, response_text)
+
+        result = unittests.common.bucket().get_object_tagging('sjbhlsgsbecvlpbf')
+
+        req_info = unittests.common.mock_response(do_request, response_text)
+
+        self.assertEqual(3, result.tag_set.len())
+        self.assertEqual('v1', result.tag_set.tagging_rule['k1'])
+        self.assertEqual('v2', result.tag_set.tagging_rule['k2'])
+        self.assertEqual('v3', result.tag_set.tagging_rule['k3'])
 
 
     # for ci
