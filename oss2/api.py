@@ -1627,7 +1627,7 @@ class Bucket(_Base):
         :param str key: 上传tagging的对象名称，不能为空。
 
         :param tagging: tag 标签内容 
-        :type tagging: :class:`ObjectTagging <oss2.models.Tagging>` 对象
+        :type tagging: :class:`Tagging <oss2.models.Tagging>` 对象
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
@@ -1721,7 +1721,7 @@ class Bucket(_Base):
         :param str key: 上传tagging的对象名称，不能为空。
 
         :param tagging: tag 标签内容 
-        :type tagging: :class:`ObjectTagging <oss2.models.Tagging>` 对象
+        :type tagging: :class:`Tagging <oss2.models.Tagging>` 对象
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
