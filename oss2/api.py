@@ -293,21 +293,31 @@ class Service(_Base):
         super(Service, self).__init__(auth, endpoint, False, session, connect_timeout,
                                       app_name=app_name)
 
-    def list_buckets(self, prefix='', marker='', max_keys=100):
+    def list_buckets(self, prefix='', marker='', max_keys=100, params=None):
         """根据前缀罗列用户的Bucket。
 
         :param str prefix: 只罗列Bucket名为该前缀的Bucket，空串表示罗列所有的Bucket
         :param str marker: 分页标志。首次调用传空串，后续使用返回值中的next_marker
         :param int max_keys: 每次调用最多返回的Bucket数目
+        :param dict params: list操作参数，传入'tag-key','tag-value'对结果进行过滤
 
         :return: 罗列的结果
         :rtype: oss2.models.ListBucketsResult
         """
         logger.debug("Start to list buckets, prefix: {0}, marker: {1}, max-keys: {2}".format(prefix, marker, max_keys))
-        resp = self._do('GET', '', '',
-                        params={'prefix': prefix,
-                                'marker': marker,
-                                'max-keys': str(max_keys)})
+
+        listParam = {}
+        listParam['prefix'] = prefix
+        listParam['marker'] = marker
+        listParam['max-keys'] = str(max_keys)
+
+        if params is not None:
+            if 'tag-key' in params:
+                listParam['tag-key'] = params['tag-key']
+            if 'tag-value' in params:
+                listParam['tag-value'] = params['tag-value']
+
+        resp = self._do('GET', '', '', params=listParam)
         logger.debug("List buckets done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_buckets, ListBucketsResult)
 
@@ -353,6 +363,10 @@ class Bucket(_Base):
     STAT = 'stat'
     BUCKET_INFO = 'bucketInfo'
     PROCESS = 'x-oss-process'
+    TAGGING = 'tagging'
+    ENCRYPTION = 'encryption'
+    RESTORE = 'restore'
+    OBJECTMETA = 'objectMeta'
 
     def __init__(self, auth, endpoint, bucket_name,
                  is_cname=False,
@@ -842,7 +856,9 @@ class Bucket(_Base):
         """
         logger.debug("Start to head object, bucket: {0}, key: {1}, headers: {2}".format(
             self.bucket_name, to_string(key), headers))
+
         resp = self.__do_object('HEAD', key, headers=headers)
+
         logger.debug("Head object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return HeadObjectResult(resp)
 
@@ -894,6 +910,7 @@ class Bucket(_Base):
         :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
         logger.debug("Start to get object metadata, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
+
         resp = self.__do_object('GET', key, params={'objectMeta': ''})
         logger.debug("Get object metadata done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return GetObjectMetaResult(resp)
@@ -931,7 +948,9 @@ class Bucket(_Base):
 
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
+
         headers = http.CaseInsensitiveDict(headers)
+
         headers[OSS_COPY_OBJECT_SOURCE] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
 
         logger.debug(
@@ -992,6 +1011,7 @@ class Bucket(_Base):
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
         logger.debug("Start to restore object, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
+
         resp = self.__do_object('POST', key, params={'restore': ''})
         logger.debug("Restore object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
@@ -1007,6 +1027,7 @@ class Bucket(_Base):
         """
         logger.debug("Start to put object acl, bucket: {0}, key: {1}, acl: {2}".format(
             self.bucket_name, to_string(key), permission))
+
         resp = self.__do_object('PUT', key, params={'acl': ''}, headers={OSS_OBJECT_ACL: permission})
         logger.debug("Put object acl done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
@@ -1017,6 +1038,7 @@ class Bucket(_Base):
         :return: :class:`GetObjectAclResult <oss2.models.GetObjectAclResult>`
         """
         logger.debug("Start to get object acl, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
+
         resp = self.__do_object('GET', key, params={'acl': ''})
         logger.debug("Get object acl done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_get_object_acl, GetObjectAclResult)
@@ -1033,7 +1055,9 @@ class Bucket(_Base):
             raise ClientError('key_list should not be empty')
 
         logger.debug("Start to delete objects, bucket: {0}, keys: {1}".format(self.bucket_name, key_list))
+        
         data = xml_utils.to_batch_delete_objects_request(key_list, False)
+
         resp = self.__do_object('POST', '',
                                 data=data,
                                 params={'delete': '', 'encoding-type': 'url'},
@@ -1191,7 +1215,9 @@ class Bucket(_Base):
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         headers = http.CaseInsensitiveDict(headers)
+
         headers[OSS_COPY_OBJECT_SOURCE] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
+
 
         range_string = _make_range_string(byte_range)
         if range_string:
@@ -1199,15 +1225,12 @@ class Bucket(_Base):
 
         logger.debug("Start to upload part copy, source bucket: {0}, source key: {1}, bucket: {2}, key: {3}, range"
                      ": {4}, upload id: {5}, part_number: {6}, headers: {7}".format(source_bucket_name,
-                                                                                    to_string(source_key),
-                                                                                    self.bucket_name,
-                                                                                    to_string(target_key),
-                                                                                    byte_range, target_upload_id,
-                                                                                    target_part_number, headers))
+                    to_string(source_key),self.bucket_name,to_string(target_key),
+                    byte_range, target_upload_id,target_part_number, headers))
+
         resp = self.__do_object('PUT', target_key,
                                 params={'uploadId': target_upload_id,
-                                        'partNumber': str(target_part_number)},
-                                headers=headers)
+                                'partNumber': str(target_part_number)},headers=headers)
         logger.debug("Upload part copy done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return PutObjectResult(resp)
@@ -1242,6 +1265,7 @@ class Bucket(_Base):
         """
         headers = headers or {}
         headers[OSS_SYMLINK_TARGET] = urlquote(target_key, '')
+
         logger.debug("Start to put symlink, bucket: {0}, target_key: {1}, symlink_key: {2}, headers: {3}".format(
             self.bucket_name, to_string(target_key), to_string(symlink_key), headers))
         resp = self.__do_object('PUT', symlink_key, headers=headers, params={Bucket.SYMLINK: ''})
@@ -1259,6 +1283,7 @@ class Bucket(_Base):
         """
         logger.debug(
             "Start to get symlink, bucket: {0}, symlink_key: {1}".format(self.bucket_name, to_string(symlink_key)))
+
         resp = self.__do_object('GET', symlink_key, params={Bucket.SYMLINK: ''})
         logger.debug("Get symlink done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return GetSymlinkResult(resp)
@@ -1612,6 +1637,148 @@ class Bucket(_Base):
         resp = self.__do_object('POST', key, params={Bucket.PROCESS: ''}, data=process_data)
         logger.debug("Process object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return ProcessObjectResult(resp)
+    
+    def put_object_tagging(self, key, tagging, headers=None, params=None):
+        """
+
+        :param str key: 上传tagging的对象名称，不能为空。
+
+        :param tagging: tag 标签内容 
+        :type tagging: :class:`Tagging <oss2.models.Tagging>` 对象
+
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to put object tagging, bucket: {0}, key: {1}, tagging: {2}".format(
+            self.bucket_name, to_string(key), tagging))
+
+        if headers is not None:
+            headers = http.CaseInsensitiveDict(headers)
+
+        if params is None:
+            params = dict()
+
+        params[Bucket.TAGGING] = ""
+
+        data = self.__convert_data(Tagging, xml_utils.to_put_tagging, tagging) 
+        resp = self.__do_object('PUT', key, data=data, params=params, headers=headers)
+
+        return RequestResult(resp)
+
+    def get_object_tagging(self, key, params=None):
+
+        """
+        :param str key: 要获取tagging的对象名称
+        :param dict params: 请求参数
+        :return: :class:`GetTaggingResult <oss2.models.GetTaggingResult>` 
+        """
+        logger.debug("Start to get object tagging, bucket: {0}, key: {1} params: {2}".format(
+                    self.bucket_name, to_string(key), str(params)))
+        
+        if params is None:
+            params = dict()
+
+        params[Bucket.TAGGING] = ""
+
+        resp = self.__do_object('GET', key, params=params)
+
+        return self._parse_result(resp, xml_utils.parse_get_tagging, GetTaggingResult)
+
+    def delete_object_tagging(self, key, params=None):
+        """
+        :param str key: 要删除tagging的对象名称
+        :return: :class:`RequestResult <oss2.models.RequestResult>` 
+        """
+        logger.debug("Start to delete object tagging, bucket: {0}, key: {1}".format(
+                    self.bucket_name, to_string(key)))
+
+        if params is None:
+            params = dict()
+
+        params[Bucket.TAGGING] = ""
+
+        resp = self.__do_object('DELETE', key, params=params)
+
+        logger.debug("Delete object tagging done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
+    
+    def put_bucket_encryption(self, rule):
+        """设置bucket加密配置。
+
+        :param rule: :class:` ServerSideEncryptionRule<oss2.models.ServerSideEncryptionRule>` 对象
+        """
+        data = self.__convert_data(ServerSideEncryptionRule, xml_utils.to_put_bucket_encryption, rule)
+
+        logger.debug("Start to put bucket encryption, bucket: {0}, rule: {1}".format(self.bucket_name, data))
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.ENCRYPTION: ""})
+        logger.debug("Put bucket encryption done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
+
+    def get_bucket_encryption(self):
+        """获取bucket加密配置。
+
+        :return: :class:`GetServerSideEncryptionResult <oss2.models.GetServerSideEncryptionResult>`
+
+        :raises: 如果没有设置Bucket encryption，则抛出 :class:`NoSuchServerSideEncryptionRule <oss2.exceptions.NoSuchServerSideEncryptionRule>`
+        """
+        logger.debug("Start to get bucket encryption, bucket: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('GET', params={Bucket.ENCRYPTION: ''})
+        logger.debug("Get bucket encryption done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_get_bucket_encryption, GetServerSideEncryptionResult)
+
+    def delete_bucket_encryption(self):
+        """删除Bucket加密配置。如果Bucket加密没有设置，也返回成功。"""
+        logger.debug("Start to delete bucket encryption, bucket: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('DELETE', params={Bucket.ENCRYPTION: ''})
+        logger.debug("Delete bucket encryption done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
+
+    def put_bucket_tagging(self, tagging, headers=None):
+        """
+
+        :param str key: 上传tagging的对象名称，不能为空。
+
+        :param tagging: tag 标签内容 
+        :type tagging: :class:`Tagging <oss2.models.Tagging>` 对象
+
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to put object tagging, bucket: {0} tagging: {1}".format(
+            self.bucket_name, tagging))
+
+        if headers is not None:
+            headers = http.CaseInsensitiveDict(headers)
+
+        data = self.__convert_data(Tagging, xml_utils.to_put_tagging, tagging) 
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.TAGGING: ''}, headers=headers)
+
+        logger.debug("Put bucket tagging done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
+
+    def get_bucket_tagging(self):
+
+        """
+        :return: :class:`GetTaggingResult<oss2.models.GetTaggingResult>` 
+        """
+        logger.debug("Start to get bucket tagging, bucket: {0}".format(
+                    self.bucket_name))
+        
+        resp = self.__do_bucket('GET', params={Bucket.TAGGING: ''})
+
+        logger.debug("Get bucket tagging done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_get_tagging, GetTaggingResult)
+
+    def delete_bucket_tagging(self):
+        """
+        :return: :class:`RequestResult <oss2.models.RequestResult>` 
+        """
+        logger.debug("Start to delete bucket tagging, bucket: {0}".format(
+                    self.bucket_name))
+
+        resp = self.__do_bucket('DELETE', params={Bucket.TAGGING: ''})
+
+        logger.debug("Delete bucket tagging done, req_id: {0}, status_code: {1}".format(
+                    resp.request_id, resp.status))
+        return RequestResult(resp)
 
     def _get_bucket_config(self, config):
         """获得Bucket某项配置，具体哪种配置由 `config` 指定。该接口直接返回 `RequestResult` 对象。

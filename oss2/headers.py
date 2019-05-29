@@ -30,6 +30,9 @@ OSS_SYMLINK_TARGET = "x-oss-symlink-target"
 OSS_SERVER_SIDE_ENCRYPTION = "x-oss-server-side-encryption"
 OSS_SERVER_SIDE_ENCRYPTION_KEY_ID = "x-oss-server-side-encryption-key-id"
 
+OSS_OBJECT_TAGGING = "x-oss-tagging"
+OSS_OBJECT_TAGGING_COPY_DIRECTIVE = "x-oss-tagging-directive"
+
 
 class RequestHeader(dict):
     def __init__(self, *arg, **kw): 

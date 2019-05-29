@@ -29,7 +29,10 @@ from .models import (SimplifiedObjectInfo,
                      Owner,
                      AccessControlList,
                      AbortMultipartUpload,
-                     StorageTransition)
+                     StorageTransition,
+                     Tagging,
+                     TaggingRule,
+                     ServerSideEncryptionRule)
 
 from .select_params import (SelectJsonTypes, SelectParameters)
 
@@ -201,7 +204,9 @@ def parse_batch_delete_objects(result, body):
     url_encoded = _is_url_encoding(root)
 
     for deleted_node in root.findall('Deleted'):
-        result.deleted_keys.append(_find_object(deleted_node, 'Key', url_encoded))
+        key = _find_object(deleted_node, 'Key', url_encoded)
+
+        result.deleted_keys.append(key)
 
     return result
 
@@ -259,8 +264,30 @@ def parse_get_bucket_info(result, body):
     result.owner = Owner(_find_tag(root, 'Bucket/Owner/DisplayName'), _find_tag(root, 'Bucket/Owner/ID'))
     result.acl = AccessControlList(_find_tag(root, 'Bucket/AccessControlList/Grant'))
 
+    server_side_encryption = root.find("Bucket/ServerSideEncryptionRule")
+
+    result.bucket_encryption_rule = _parse_bucket_encryption_info(server_side_encryption)
+
     return result
 
+def _parse_bucket_encryption_info(node):
+
+    rule = ServerSideEncryptionRule()
+
+    rule.sse_algorithm = _find_tag(node,"SSEAlgorithm")
+    
+    if rule.sse_algorithm == "None":
+        rule.kms_master_keyid = None
+        rule.sse_algorithm = None
+        return rule
+
+    kmsnode = node.find("KMSMasterKeyID")
+    if kmsnode is None or kmsnode.text is None:
+        rule.kms_master_keyid = None 
+    else:
+        rule.kms_master_keyid = to_string(kmsnode.text)
+
+    return rule
 
 def parse_get_bucket_referer(result, body):
     root = ElementTree.fromstring(body)
@@ -424,21 +451,38 @@ def parse_lifecycle_storage_transitions(storage_transition_nodes):
 
     return storage_transitions
 
+def parse_lifecycle_object_taggings(lifecycle_tagging_nodes):
+    
+    if lifecycle_tagging_nodes is None or \
+        len(lifecycle_tagging_nodes) == 0: 
+        return None 
+    
+    tagging_rule = TaggingRule()
+    for tag_node in lifecycle_tagging_nodes:
+        key = _find_tag(tag_node, 'Key')
+        value = _find_tag(tag_node, 'Value')
+        tagging_rule.add(key, value)
+
+    return Tagging(tagging_rule)
 
 def parse_get_bucket_lifecycle(result, body):
+
     root = ElementTree.fromstring(body)
+    url_encoded = _is_url_encoding(root)
 
     for rule_node in root.findall('Rule'):
         expiration = parse_lifecycle_expiration(rule_node.find('Expiration'))
         abort_multipart_upload = parse_lifecycle_abort_multipart_upload(rule_node.find('AbortMultipartUpload'))
         storage_transitions = parse_lifecycle_storage_transitions(rule_node.findall('Transition'))
+        tagging = parse_lifecycle_object_taggings(rule_node.findall('Tag'))
         rule = LifecycleRule(
             _find_tag(rule_node, 'ID'),
             _find_tag(rule_node, 'Prefix'),
             status=_find_tag(rule_node, 'Status'),
             expiration=expiration,
             abort_multipart_upload=abort_multipart_upload,
-            storage_transitions=storage_transitions
+            storage_transitions=storage_transitions,
+            tagging=tagging 
             )
         result.rules.append(rule)
 
@@ -484,7 +528,6 @@ def to_batch_delete_objects_request(keys, quiet):
         _add_text_child(object_node, 'Key', key)
 
     return _node_to_string(root_node)
-
 
 def to_put_bucket_config(bucket_config):
     root = ElementTree.Element('CreateBucketConfiguration')
@@ -569,6 +612,13 @@ def to_put_bucket_lifecycle(bucket_lifecycle):
                     _add_text_child(storage_transition_node, 'CreatedBeforeDate',
                                     date_to_iso8601(storage_transition.created_before_date))
 
+        tagging = rule.tagging
+        if tagging:
+            tagging_rule = tagging.tag_set.tagging_rule
+            for key in tagging.tag_set.tagging_rule:
+                tag_node = ElementTree.SubElement(rule_node, 'Tag')
+                _add_text_child(tag_node, 'Key', key)
+                _add_text_child(tag_node, 'Value', tagging_rule[key])
     return _node_to_string(root)
 
 
@@ -745,3 +795,56 @@ def to_get_select_json_object_meta(json_meta_param):
                 raise SelectOperationClientError("The json_meta_param contains unsupported key " + key, "")
             
     return _node_to_string(root)
+
+def to_put_tagging(object_tagging):
+    root = ElementTree.Element("Tagging")
+    tag_set = ElementTree.SubElement(root, "TagSet")
+
+    for item in object_tagging.tag_set.tagging_rule:
+        tag_xml = ElementTree.SubElement(tag_set, "Tag")
+        _add_text_child(tag_xml, 'Key', item)
+        _add_text_child(tag_xml, 'Value', object_tagging.tag_set.tagging_rule[item])
+
+    return _node_to_string(root)
+
+def parse_get_tagging(result, body):
+    root = ElementTree.fromstring(body)
+    url_encoded = _is_url_encoding(root)
+    tagset_node = root.find('TagSet')
+
+    if tagset_node is None:
+        return result
+
+    tagging_rules = TaggingRule()
+    for tag_node in tagset_node.findall('Tag'):
+        key = _find_object(tag_node, 'Key', url_encoded)
+        value = _find_object(tag_node, 'Value', url_encoded)
+        tagging_rules.add(key, value)
+    
+    result.tag_set = tagging_rules
+    return result
+
+def to_put_bucket_encryption(rule):
+    root = ElementTree.Element("ServerSideEncryptionRule")
+    apply_node = ElementTree.SubElement(root, "ApplyServerSideEncryptionByDefault")
+
+    _add_text_child(apply_node, "SSEAlgorithm", rule.sse_algorithm)
+
+    if rule.kms_master_keyid:
+        _add_text_child(apply_node, "KMSMasterKeyID", rule.kms_master_keyid)
+
+    return _node_to_string(root)
+
+def parse_get_bucket_encryption(result, body):
+    root = ElementTree.fromstring(body)
+    apply_node = root.find('ApplyServerSideEncryptionByDefault')
+
+    result.sse_algorithm = _find_tag(apply_node, "SSEAlgorithm")
+
+    kmsnode = apply_node.find('KMSMasterKeyID')
+    if kmsnode is None or kmsnode.text is None:
+        result.kms_master_keyid = None 
+    else:
+        result.kms_master_keyid = to_string(kmsnode.text)
+
+    return result
