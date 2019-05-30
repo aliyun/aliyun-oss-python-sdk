@@ -365,6 +365,9 @@ class Bucket(_Base):
     PROCESS = 'x-oss-process'
     TAGGING = 'tagging'
     ENCRYPTION = 'encryption'
+    VERSIONS = 'versions'
+    VERSIONING = 'versioning'
+    VERSIONID = 'versionId'
     RESTORE = 'restore'
     OBJECTMETA = 'objectMeta'
 
@@ -835,7 +838,7 @@ class Bucket(_Base):
 
             return result
 
-    def head_object(self, key, headers=None):
+    def head_object(self, key, headers=None, params=None):
         """获取文件元信息。
 
         HTTP响应的头部包含了文件元信息，可以通过 `RequestResult` 的 `headers` 成员获得。
@@ -850,6 +853,9 @@ class Bucket(_Base):
         :param headers: HTTP头部
         :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
 
+        :param params: HTTP请求参数，传入versionId，获取指定版本Object元信息
+        :type params: 可以是dict，建议是oss2.CaseInsensitiveDict
+
         :return: :class:`HeadObjectResult <oss2.models.HeadObjectResult>`
 
         :raises: 如果Bucket不存在或者Object不存在，则抛出 :class:`NotFound <oss2.exceptions.NotFound>`
@@ -857,7 +863,7 @@ class Bucket(_Base):
         logger.debug("Start to head object, bucket: {0}, key: {1}, headers: {2}".format(
             self.bucket_name, to_string(key), headers))
 
-        resp = self.__do_object('HEAD', key, headers=headers)
+        resp = self.__do_object('HEAD', key, headers=headers, params=params)
 
         logger.debug("Head object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return HeadObjectResult(resp)
@@ -898,7 +904,7 @@ class Bucket(_Base):
         resp = self.__do_object('POST', key, data=body, headers=headers, params=params)
         return GetSelectObjectMetaResult(resp)
 
-    def get_object_meta(self, key):
+    def get_object_meta(self, key, params=None):
         """获取文件基本元信息，包括该Object的ETag、Size（文件大小）、LastModified，并不返回其内容。
 
         HTTP响应的头部包含了文件基本元信息，可以通过 `GetObjectMetaResult` 的 `last_modified`，`content_length`,`etag` 成员获得。
@@ -911,7 +917,13 @@ class Bucket(_Base):
         """
         logger.debug("Start to get object metadata, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
 
-        resp = self.__do_object('GET', key, params={'objectMeta': ''})
+        if params is None:
+            params = dict()
+
+        if Bucket.OBJECTMETA not in params:
+            params[Bucket.OBJECTMETA] = ''
+
+        resp = self.__do_object('GET', key, params=params)
         logger.debug("Get object metadata done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return GetObjectMetaResult(resp)
 
@@ -936,7 +948,7 @@ class Bucket(_Base):
 
         return True
 
-    def copy_object(self, source_bucket_name, source_key, target_key, headers=None):
+    def copy_object(self, source_bucket_name, source_key, target_key, headers=None, params=None):
         """拷贝一个文件到当前Bucket。
 
         :param str source_bucket_name: 源Bucket名
@@ -951,7 +963,11 @@ class Bucket(_Base):
 
         headers = http.CaseInsensitiveDict(headers)
 
-        headers[OSS_COPY_OBJECT_SOURCE] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
+        if params and Bucket.VERSIONID in params:
+            headers[OSS_COPY_OBJECT_SOURCE] = '/' + source_bucket_name + \
+                '/' + urlquote(source_key, '') + '?versionId=' + params[Bucket.VERSIONID]
+        else:
+            headers[OSS_COPY_OBJECT_SOURCE] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
 
         logger.debug(
             "Start to copy object, source bucket: {0}, source key: {1}, bucket: {2}, key: {3}, headers: {4}".format(
@@ -976,7 +992,7 @@ class Bucket(_Base):
         logger.debug("Start to update object metadata, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
         return self.copy_object(self.bucket_name, key, key, headers=headers)
 
-    def delete_object(self, key):
+    def delete_object(self, key, params=None):
         """删除一个文件。
 
         :param str key: 文件名
@@ -984,11 +1000,11 @@ class Bucket(_Base):
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
         logger.warn("Start to delete object, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
-        resp = self.__do_object('DELETE', key)
+        resp = self.__do_object('DELETE', key, params=params)
         logger.debug("Delete object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
-    def restore_object(self, key):
+    def restore_object(self, key, params=None):
         """restore an object
             如果是第一次针对该object调用接口，返回RequestResult.status = 202；
             如果已经成功调用过restore接口，且服务端仍处于解冻中，抛异常RestoreAlreadyInProgress(status=409)
@@ -1012,34 +1028,53 @@ class Bucket(_Base):
         """
         logger.debug("Start to restore object, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
 
-        resp = self.__do_object('POST', key, params={'restore': ''})
+        if params is None:
+            params = dict()
+        
+        if Bucket.RESTORE not in params:
+            params[Bucket.RESTORE] = ''
+
+        resp = self.__do_object('POST', key, params=params)
         logger.debug("Restore object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
-    def put_object_acl(self, key, permission):
+    def put_object_acl(self, key, permission, params=None):
         """设置文件的ACL。
 
         :param str key: 文件名
         :param str permission: 可以是oss2.OBJECT_ACL_DEFAULT、oss2.OBJECT_ACL_PRIVATE、oss2.OBJECT_ACL_PUBLIC_READ或
             oss2.OBJECT_ACL_PUBLIC_READ_WRITE。
+        :param dict params: 请求参数
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
         logger.debug("Start to put object acl, bucket: {0}, key: {1}, acl: {2}".format(
             self.bucket_name, to_string(key), permission))
 
-        resp = self.__do_object('PUT', key, params={'acl': ''}, headers={OSS_OBJECT_ACL: permission})
+        if params is None:
+            params = dict()
+
+        if Bucket.ACL not in params:
+            params[Bucket.ACL] = ''
+
+        resp = self.__do_object('PUT', key, params=params, headers={OSS_OBJECT_ACL: permission})
         logger.debug("Put object acl done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
-    def get_object_acl(self, key):
+    def get_object_acl(self, key, params=None):
         """获取文件的ACL。
 
         :return: :class:`GetObjectAclResult <oss2.models.GetObjectAclResult>`
         """
         logger.debug("Start to get object acl, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
 
-        resp = self.__do_object('GET', key, params={'acl': ''})
+        if params is None:
+            params = dict()
+
+        if Bucket.ACL not in params:
+            params[Bucket.ACL] = ''
+
+        resp = self.__do_object('GET', key, params=params)
         logger.debug("Get object acl done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_get_object_acl, GetObjectAclResult)
 
@@ -1063,6 +1098,28 @@ class Bucket(_Base):
                                 params={'delete': '', 'encoding-type': 'url'},
                                 headers={'Content-MD5': utils.content_md5(data)})
         logger.debug("Delete objects done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_batch_delete_objects, BatchDeleteObjectsResult)
+
+    def delete_object_versions(self, keylist_versions):
+        """批量删除带版本文件。待删除文件列表不能为空。
+
+        :param key_list_with_version: 带版本的文件名列表，不能为空。（如果传入，则不能为空）
+        :type key_list: list of BatchDeleteObjectsList 
+
+        :return: :class:`BatchDeleteObjectsResult <oss2.models.BatchDeleteObjectsResult>`
+        """
+        if not keylist_versions:
+            raise ClientError('keylist_versions should not be empty')
+
+        logger.debug("Start to delete object versions, bucket: {0}".format(self.bucket_name))
+        
+        data = xml_utils.to_batch_delete_objects_version_request(keylist_versions, False)
+
+        resp = self.__do_object('POST', '',
+                                data=data,
+                                params={'delete': '', 'encoding-type': 'url'},
+                                headers={'Content-MD5': utils.content_md5(data)})
+        logger.debug("Delete object versions done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_batch_delete_objects, BatchDeleteObjectsResult)
 
     def init_multipart_upload(self, key, headers=None):
@@ -1204,7 +1261,7 @@ class Bucket(_Base):
 
     def upload_part_copy(self, source_bucket_name, source_key, byte_range,
                          target_key, target_upload_id, target_part_number,
-                         headers=None):
+                         headers=None, params=None):
         """分片拷贝。把一个已有文件的一部分或整体拷贝成目标文件的一个分片。
 
         :param byte_range: 指定待拷贝内容在源文件里的范围。参见 :ref:`byte_range`
@@ -1216,7 +1273,11 @@ class Bucket(_Base):
         """
         headers = http.CaseInsensitiveDict(headers)
 
-        headers[OSS_COPY_OBJECT_SOURCE] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
+        if params and Bucket.VERSIONID in params:
+            headers[OSS_COPY_OBJECT_SOURCE] = '/' + source_bucket_name + \
+                '/' + urlquote(source_key, '') + '?versionId=' + params[Bucket.VERSIONID]
+        else:
+            headers[OSS_COPY_OBJECT_SOURCE] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
 
 
         range_string = _make_range_string(byte_range)
@@ -1228,9 +1289,14 @@ class Bucket(_Base):
                     to_string(source_key),self.bucket_name,to_string(target_key),
                     byte_range, target_upload_id,target_part_number, headers))
 
+        if params is None:
+            params = dict()
+
+        params['uploadId'] = target_upload_id
+        params['partNumber'] = str(target_part_number)
+
         resp = self.__do_object('PUT', target_key,
-                                params={'uploadId': target_upload_id,
-                                'partNumber': str(target_part_number)},headers=headers)
+                                params=params,headers=headers)
         logger.debug("Upload part copy done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return PutObjectResult(resp)
@@ -1272,10 +1338,11 @@ class Bucket(_Base):
         logger.debug("Put symlink done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
-    def get_symlink(self, symlink_key):
+    def get_symlink(self, symlink_key, params=None):
         """获取符号连接文件的目标文件。
 
         :param str symlink_key: 符号连接类文件
+        :param dict params: 请求参数
 
         :return: :class:`GetSymlinkResult <oss2.models.GetSymlinkResult>`
 
@@ -1284,7 +1351,13 @@ class Bucket(_Base):
         logger.debug(
             "Start to get symlink, bucket: {0}, symlink_key: {1}".format(self.bucket_name, to_string(symlink_key)))
 
-        resp = self.__do_object('GET', symlink_key, params={Bucket.SYMLINK: ''})
+        if params is None:
+            params = dict()
+
+        if Bucket.SYMLINK not in params:
+            params[Bucket.SYMLINK] = ''
+
+        resp = self.__do_object('GET', symlink_key, params=params)
         logger.debug("Get symlink done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return GetSymlinkResult(resp)
 
@@ -1757,6 +1830,8 @@ class Bucket(_Base):
     def get_bucket_tagging(self):
 
         """
+        :param str key: 要获取tagging的对象名称
+        :param dict params: 请求参数
         :return: :class:`GetTaggingResult<oss2.models.GetTaggingResult>` 
         """
         logger.debug("Start to get bucket tagging, bucket: {0}".format(
@@ -1779,6 +1854,67 @@ class Bucket(_Base):
         logger.debug("Delete bucket tagging done, req_id: {0}, status_code: {1}".format(
                     resp.request_id, resp.status))
         return RequestResult(resp)
+
+    def list_object_versions(self, prefix='', delimiter='', key_marker='',
+            max_keys=100, versionid_marker=''):
+        """根据前缀罗列Bucket里的文件的版本。
+
+        :param str prefix: 只罗列文件名为该前缀的文件
+        :param str delimiter: 分隔符。可以用来模拟目录
+        :param str key_marker: 分页标志。首次调用传空串，后续使用返回值的next_marker
+        :param int max_keys: 最多返回文件的个数，文件和目录的和不能超过该值
+        :param str versionid_marker: 设定结果从key-marker对象的
+            versionid-marker之后按新旧版本排序开始返回，该版本不会在返回的结果当中。 
+
+        :return: :class:`ListObjectVersionsResult <oss2.models.ListObjectVersionsResult>`
+        """
+        logger.debug(
+            "Start to List object versions, bucket: {0}, prefix: {1}, delimiter: {2},"
+            +"key_marker: {3}, versionid_marker: {4}, max-keys: {5}".format(
+            self.bucket_name, to_string(prefix), delimiter, to_string(key_marker),
+            to_string(versionid_marker), max_keys))
+
+        resp = self.__do_bucket('GET',
+                                params={'prefix': prefix,
+                                        'delimiter': delimiter,
+                                        'key-marker': key_marker,
+                                        'version-id-marker': versionid_marker,
+                                        'max-keys': str(max_keys),
+                                        'encoding-type': 'url',
+                                        Bucket.VERSIONS: ''})
+        logger.debug("List object versions done, req_id: {0}, status_code: {1}"
+                .format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_list_object_versions, ListObjectVersionsResult)
+
+    def put_bucket_versioning(self, config, headers=None):
+        """
+
+        :param str operation: 设置bucket是否开启多版本特性，可取值为:[Enabled,Suspend] 
+
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to put object versioning, bucket: {0}".format(
+            self.bucket_name))
+
+        if headers is not None:
+            headers = http.CaseInsensitiveDict(headers)
+
+        data = self.__convert_data(BucketVersioningConfig, xml_utils.to_put_bucket_versioning, config) 
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.VERSIONING: ''}, headers=headers)
+
+        return RequestResult(resp)
+
+    def get_bucket_versioning(self):
+        """
+        :return: :class:`GetBucketVersioningResult<oss2.models.GetBucketVersioningResult>` 
+        """
+        logger.debug("Start to get bucket versioning, bucket: {0}".format(
+                    self.bucket_name))
+        
+        resp = self.__do_bucket('GET', params={Bucket.VERSIONING: ''})
+
+        return self._parse_result(resp, xml_utils.parse_get_bucket_versioning, GetBucketVersioningResult)
 
     def _get_bucket_config(self, config):
         """获得Bucket某项配置，具体哪种配置由 `config` 指定。该接口直接返回 `RequestResult` 对象。
