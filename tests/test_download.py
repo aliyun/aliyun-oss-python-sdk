@@ -609,5 +609,54 @@ class TestDownload(OssTestCase):
             except:
                 self.assertTrue(False)
 
+    def test_resumable_download_with_version(self):
+
+        from oss2.models import BucketVersioningConfig
+        from oss2.models import BatchDeleteObjectVersion
+        from oss2.models import BatchDeleteObjectVersionList
+
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
+
+        wait_meta_sync()
+
+        config = BucketVersioningConfig()
+        config.status = 'Enabled'
+
+        result = bucket.put_bucket_versioning(config)
+
+        wait_meta_sync()
+
+        self.version_bucket = bucket
+
+        content_small = random_bytes(5*1024)
+        result = bucket.put_object("object_small", content_small)
+
+        version_small = result.versionid
+        filename_small = self.random_filename()
+        result = oss2.resumable_download(bucket, "object_small", filename_small)
+
+        self.assertFileContent(filename_small, content_small)
+
+        content_big = random_bytes(30*1024*1024)
+        result = bucket.put_object("object_big", content_big)
+
+        version_big = result.versionid
+        filename_big = self.random_filename()
+        result = oss2.resumable_download(bucket, "object_big", filename_big)
+
+        self.assertFileContent(filename_big, content_big)
+
+        version_list = BatchDeleteObjectVersionList()
+        version_list.append(BatchDeleteObjectVersion("object_small", version_small))
+        version_list.append(BatchDeleteObjectVersion("object_big", version_big))
+
+        result = bucket.delete_object_versions(version_list)
+        self.assertTrue(len(result.delete_versions) == 2)
+
+        bucket.delete_bucket()
+
 if __name__ == '__main__':
     unittest.main()
