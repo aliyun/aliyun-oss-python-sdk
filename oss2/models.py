@@ -178,11 +178,9 @@ class GetObjectResult(HeadObjectResult):
         self.__crc_enabled = crc_enabled
         self.__crypto_provider = crypto_provider
 
-        content_range = _hget(resp.headers, 'Content-Range')
-        if _hget(resp.headers, OSS_CLIENT_SIDE_ENCRYPTION_KEY) and content_range:
-            byte_range = self._parse_range_str(content_range)
-            if not is_encrypt_block_aligned(byte_range[0]):
-                raise ClientError('Could not get an encrypted object using byte-range parameter')
+        self.content_range = _hget(resp.headers, 'Content-Range')
+        if self.content_range:
+            byte_range = self._parse_range_str(self.content_range)
 
         if progress_callback:
             self.stream = make_progress_adapter(self.resp, progress_callback, self.content_length)
@@ -193,25 +191,35 @@ class GetObjectResult(HeadObjectResult):
             self.stream = make_crc_adapter(self.stream)
 
         if self.__crypto_provider:
-            key = self.__crypto_provider.decrypt_encryption_meta(resp.headers, OSS_CLIENT_SIDE_ENCRYPTION_KEY)
-            counter_start = self.__crypto_provider.decrypt_encryption_meta(resp.headers,
-                                                                           OSS_CLIENT_SIDE_ENCRYPTION_START)
+            if DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY in resp.headers:
+                deprecated = True
+
+            if deprecated:
+                self.client_encryption_key = self.__crypto_provider.decrypt_encryption_meta(resp.headers,
+                                                                                            DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY)
+                self.client_encryption_start = self.__crypto_provider.decrypt_encryption_meta(resp.headers,
+                                                                                              DEPRECATED_CLIENT_SIDE_ENCRYPTION_START)
+                self.wrap_alg = _hget(resp.headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_WRAP_ALG)
+            else:
+                self.client_encryption_key = self.__crypto_provider.decrypt_encryption_meta(resp.headers,
+                                                                                            OSS_CLIENT_SIDE_ENCRYPTION_KEY)
+                self.client_encryption_start = self.__crypto_provider.decrypt_encryption_meta(resp.headers,
+                                                                                              OSS_CLIENT_SIDE_ENCRYPTION_START)
+                self.client_encryption_wrap_alg = _hget(resp.headers, OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG)
 
             # if content range , adjust the decrypt adapter
             counter_offset = 0
-            if content_range:
-                byte_range = self._parse_range_str(content_range)
+            if self.content_range:
                 counter_offset = calc_counter_offset(byte_range[0])
 
-            cek_alg = _hget(resp.headers, OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG)
-
             # check the key wrap algorithm is correct if rsa
-            if cek_alg == "rsa":
-                magic_number_hmac = resp.headers[OSS_CLIENT_SIDE_ENCRYPTION_MAGIC_NUMBER_HMAC]
-                self.__crypto_provider.check_magic_number_hmac(magic_number_hmac)
+            if self.client_encryption_wrap_alg == "rsa":
+                self.magic_number_hmac = resp.headers[OSS_CLIENT_SIDE_ENCRYPTION_MAGIC_NUMBER_HMAC]
+                self.__crypto_provider.check_magic_number_hmac(self.magic_number_hmac)
 
-            if key and counter_start and cek_alg:
-                self.stream = self.__crypto_provider.make_decrypt_adapter(self.stream, key, counter_start,
+            if self.client_encryption_key and self.client_encryption_start and self.client_encryption_wrap_alg:
+                self.stream = self.__crypto_provider.make_decrypt_adapter(self.stream, self.client_encryption_key,
+                                                                          self.client_encryption_start,
                                                                           counter_offset, decrypt_discard)
             else:
                 err_msg = 'all metadata keys are required for decryption (' \
@@ -220,24 +228,29 @@ class GetObjectResult(HeadObjectResult):
                           + OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG + ')'
                 raise InconsistentError(err_msg, self.request_id)
 
-    def _parse_range_str(self, content_range):
-        # :param str content_range: sample 'bytes 0-128/1024'
-        range_data = (content_range.split(' ', 2)[1]).split('/', 2)[0]
-        range_start, range_end = range_data.split('-', 2)
-        return (int(range_start), int(range_end))
 
-    def read(self, amt=None):
-        return self.stream.read(amt)
+@staticmethod
+def _parse_range_str(content_range):
+    # :param str content_range: sample 'bytes 0-128/1024'
+    range_data = (content_range.split(' ', 2)[1]).split('/', 2)[0]
+    range_start, range_end = range_data.split('-', 2)
+    return int(range_start), int(range_end)
 
-    def __iter__(self):
-        return iter(self.stream)
 
-    @property
-    def client_crc(self):
-        if self.__crc_enabled:
-            return self.stream.crc
-        else:
-            return None
+def read(self, amt=None):
+    return self.stream.read(amt)
+
+
+def __iter__(self):
+    return iter(self.stream)
+
+
+@property
+def client_crc(self):
+    if self.__crc_enabled:
+        return self.stream.crc
+    else:
+        return None
 
 
 class SelectObjectResult(HeadObjectResult):
@@ -471,6 +484,7 @@ class ListPartsResult(RequestResult):
 
         # 加密幻数的哈希值
         self.client_encryption_magic_number_hmac = None
+
 
 BUCKET_ACL_PRIVATE = 'private'
 BUCKET_ACL_PUBLIC_READ = 'public-read'

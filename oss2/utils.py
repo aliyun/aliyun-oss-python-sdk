@@ -549,25 +549,17 @@ def random_counter(begin=1, end=10):
     return random.randint(begin, end)
 
 
-# aes 256, key always is 32 bytes
-_AES_256_KEY_SIZE = 32
-
-_AES_CTR_COUNTER_BITS_LEN = 8 * 16
-
-_AES_GCM = 'AES/GCM/NoPadding'
-_AES_CTR = 'AES/CTR/NoPadding'
-
-# aes 256, key always is 32 bytes
-_AES_256_KEY_SIZE = 32
-
-_AES_CTR_BLOCK_LEN = 16
-_AES_CTR_BLOCK_BITS_LEN = 8 * _AES_CTR_BLOCK_LEN
-
-_AES_GCM = 'AES/GCM/NoPadding'
-
 _MAX_PART_COUNT = 10000
 _MIN_PART_SIZE = 100 * 1024
 _DEFAULT_PART_SIZE = 4 * 1024 * 1024
+
+_AES_256_KEY_SIZE = 32
+
+_AES_CTR_BLOCK_LEN = 16
+_AES_CTR_BLOCK_BITS_LEN = 8 * 16
+
+_AES_GCM = 'AES/GCM/NoPadding'
+_AES_CTR = 'AES/CTR/NoPadding'
 
 
 class AESCiper:
@@ -579,15 +571,16 @@ class AESCiper:
             1、提供对称加密算法名，ALGORITHM
             2、提供静态方法，返回加密密钥和初始随机值（若算法不需要初始随机值，也需要提供）
             3、提供加密解密方法
-        """
-    @staticmethod
-    def get_key():
-        return random_aes256_key()
-
+    """
+    # aes 256, key always is 32 bytes
     def __init__(self, key=None):
         self.key = key
         if not self.key:
             self.key = self.get_key()
+
+    @staticmethod
+    def get_key():
+        return random_aes256_key()
 
     def encrypt(self, raw):
         return self.__cipher.encrypt(raw)
@@ -622,7 +615,7 @@ class AESCTRCipher(AESCiper):
         else:
             self.start = int(start)
         self.alg = _AES_CTR
-        ctr = Counter.new(_AES_CTR_COUNTER_BITS_LEN, initial_value=self.start)
+        ctr = Counter.new(_AES_CTR_BLOCK_BITS_LEN, initial_value=self.start)
         self.__cipher = AES.new(self.key, AES.MODE_CTR, counter=ctr)
 
     @staticmethod
@@ -673,7 +666,7 @@ def determine_crypto_part_size(data_size, excepted_part_size=None):
             return excepted_part_size
         # excepted_part_size is enough big but not algin
         elif excepted_part_size * _MAX_PART_COUNT >= data_size:
-            part_size = int(excepted_part_size / _AES_CTR_COUNTER_LEN + 1) * _AES_CTR_COUNTER_LEN
+            part_size = int(excepted_part_size / _AES_CTR_BLOCK_LEN + 1) * _AES_CTR_BLOCK_LEN
             return part_size
 
     # if excepted_part_size is None or is too small, calculate a correct part_size
@@ -682,61 +675,10 @@ def determine_crypto_part_size(data_size, excepted_part_size=None):
         part_size = part_size * 2
 
     if not is_encrypt_block_aligned(part_size):
-        part_size = int(part_size / _AES_CTR_COUNTER_LEN + 1) * _AES_CTR_COUNTER_LEN
+        part_size = int(part_size / _AES_CTR_BLOCK_LEN + 1) * _AES_CTR_BLOCK_LEN
 
     return part_size
 
-
-'''
-class AESCipher:
-    """AES256 加密实现。
-        :param str key: 对称加密数据密钥
-        :param str start: 对称加密初始随机值
-    .. note::
-        用户可自行实现对称加密算法，需服务如下规则：
-        1、提供对称加密算法名，ALGORITHM
-        2、提供静态方法，返回加密密钥和初始随机值（若算法不需要初始随机值，也需要提供）
-        3、提供加密解密方法
-    """
-    ALGORITHM = _AES_GCM
-
-    @staticmethod
-    def get_key():
-        return random_aes256_key()
-
-    @staticmethod
-    def get_start():
-        return random_counter()
-
-    def __init__(self, key=None, counter_start=None, counter_offset=0):
-        self.key = key
-        self.counter_offset = int(counter_offset)
-        if not self.key:
-            self.key = random_aes256_key()
-        if not counter_start:
-            self.counter_start = random_counter()
-        else:
-            self.counter_start = int(counter_start)
-        ctr = Counter.new(_AES_CTR_COUNTER_BITS_LEN, initial_value=(self.counter_start + self.counter_offset))
-        self.__cipher = AES.new(self.key, AES.MODE_CTR, counter=ctr)
-
-    def encrypt(self, raw):
-        return self.__cipher.encrypt(raw)
-
-    def decrypt(self, enc):
-        return self.__cipher.decrypt(enc)
-
-    @staticmethod
-    def adjust_range(start, end):
-        try:
-            if start > end:
-                return None, None
-            start = (start / _AES_CTR_COUNTER_LEN) * _AES_CTR_COUNTER_LEN
-        except Exception as e:
-            logger.debug("adjust_range: exception {0}, should be ignore".format(e))
-        finally:
-            return start, end
-'''
 
 _STRPTIME_LOCK = threading.Lock()
 

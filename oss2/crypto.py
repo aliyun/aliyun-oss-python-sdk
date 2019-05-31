@@ -33,10 +33,22 @@ class BaseCryptoProvider(object):
 
     """
 
-    def __init__(self, cipher):
+    def __init__(self, cipher=None, wrap_alg=None):
+        self.cipher = cipher
+        self.wrap_alg = wrap_alg
         self.plain_key = None
         self.plain_start = None
+        self.wrap_alg = None
+        self.mat_desc = None
         self.cipher = cipher
+
+    def get_key(self):
+        self.plain_key = self.cipher.get_key()
+        return self.plain_key
+
+    def get_start(self):
+        self.plain_start = self.cipher.get_start()
+        return self.plain_start
 
     def make_encrypt_adapter(self, stream, key, counter_start, counter_offset=0):
         return utils.make_cipher_adapter(stream,
@@ -47,22 +59,25 @@ class BaseCryptoProvider(object):
                                          partial(self.cipher.decrypt, self.cipher(key, counter_start, counter_offset)),
                                          discard)
 
-    def check_magic_number_hmac(self, plain_key_hmac):
+    def add_encryption_meta(self):
         pass
 
     def decrypt_encryption_meta(self, headers, key):
-        if key in headers:
-            return headers[key]
-        else:
-            return None
+        pass
 
-    @staticmethod
     def adjust_range(self, start, end):
-        return start, end
+        return self.cipher.adjust_range(start, end)
+
+    def __encrypt_data(self, data):
+        pass
+
+    def __decrypt_data(self, data):
+        pass
 
 
 _LOCAL_RSA_TMP_DIR = '.oss-local-rsa'
 RSA_ALGORITHM = 'rsa'
+KMS_WRAP_ALGORITHM = 'kms'
 
 
 class LocalRsaProvider(BaseCryptoProvider):
@@ -84,12 +99,10 @@ class LocalRsaProvider(BaseCryptoProvider):
         super(LocalRsaProvider, self).__init__(cipher=cipher)
 
         self.wrap_alg = self.RSA_ALGORITHM
-        self.dir = dir or os.path.join(os.path.expanduser('~'), _LOCAL_RSA_TMP_DIR)
+        keys_dir = dir or os.path.join(os.path.expanduser('~'), _LOCAL_RSA_TMP_DIR)
 
-        utils.makedir_p(self.dir)
-
-        priv_key_path = os.path.join(self.dir, key + private_key_suffix)
-        pub_key_path = os.path.join(self.dir, key + pub_key_suffix)
+        priv_key_path = os.path.join(keys_dir, key + private_key_suffix)
+        pub_key_path = os.path.join(keys_dir, key + pub_key_suffix)
         try:
             if os.path.exists(priv_key_path) and os.path.exists(pub_key_path):
                 with open(priv_key_path, 'rb') as f:
@@ -108,18 +121,20 @@ class LocalRsaProvider(BaseCryptoProvider):
             else:
                 if not generate:
                     raise ClientError('The file path of private key or public key is not exist')
+
                 private_key = RSA.generate(2048)
                 public_key = private_key.publickey()
 
                 self.__encrypt_obj = PKCS1_OAEP.new(public_key)
                 self.__decrypt_obj = PKCS1_OAEP.new(private_key)
 
+                utils.makedir_p(self.dir)
                 with open(priv_key_path, 'wb') as f:
                     f.write(private_key.exportKey(passphrase=passphrase))
 
                 with open(pub_key_path, 'wb') as f:
                     f.write(public_key.exportKey(passphrase=passphrase))
-                encryption_magic_number = self.__encrypt_obj.encrypt(self.MAGIC_NUMBER)
+                encryption_magic_number = self.__encrypt_data(self.MAGIC_NUMBER)
 
             sha256 = hashlib.sha256()
             sha256.update(encryption_magic_number)
@@ -139,9 +154,9 @@ class LocalRsaProvider(BaseCryptoProvider):
             headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_LENGTH] = headers['content-length']
             del headers['content-length']
 
-        headers[OSS_CLIENT_SIDE_ENCRYPTION_KEY] = b64encode_as_string(self.__encrypt_obj.encrypt(self.plain_key))
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_KEY] = b64encode_as_string(self.encrypt_data(self.plain_key))
         headers[OSS_CLIENT_SIDE_ENCRYPTION_START] = b64encode_as_string(
-            self.__encrypt_obj.encrypt(to_bytes(str(self.plain_start))))
+            self.encrypt_data(to_bytes(str(self.plain_start))))
         headers[OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG] = self.cipher.ALGORITHM
         headers[OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG] = self.wrap_alg
         headers[OSS_CLIENT_SIDE_ENCRYPTION_MAGIC_NUMBER_HMAC] = self.encryption_magic_number_hmac
@@ -156,38 +171,14 @@ class LocalRsaProvider(BaseCryptoProvider):
 
         return headers
 
-    # def build_header_for_upload_part(self, headers=None):
-    #    if not isinstance(headers, CaseInsensitiveDict):
-    #        headers = CaseInsensitiveDict(headers)
-
-    #    if 'content-md5' in headers:
-    #        headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_MD5] = headers['content-md5']
-    #        del headers['content-md5']
-
-    #    if 'content-length' in headers:
-    #        headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_LENGTH] = headers['content-length']
-    #        del headers['content-length']
-
-    #    self.plain_key = None
-    #    self.plain_start = None
-
-    #   return headers
-
-    def get_key(self):
-        self.plain_key = self.cipher.get_key()
-        return self.plain_key
-
-    def get_start(self):
-        self.plain_start = self.cipher.get_start()
-        return self.plain_start
-
-    def decrypt_encryption_meta(self, headers, key, conv=lambda x: x):
+    def decrypt_encryption_meta(self, headers, key):
         try:
-            if key.lower() == OSS_CLIENT_SIDE_ENCRYPTION_KEY.lower() or key.lower == \
-                    OSS_CLIENT_SIDE_ENCRYPTION_START.lower():
-                return conv(self.__decrypt_obj.decrypt(utils.b64decode_from_string(headers[key])))
+            if key.lower() in [OSS_CLIENT_SIDE_ENCRYPTION_KEY.lower(), DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY.lower(),
+                               OSS_CLIENT_SIDE_ENCRYPTION_START.lower(),
+                               DEPRECATED_CLIENT_SIDE_ENCRYPTION_START.lower()]:
+                return self.decrypt_data(utils.b64decode_from_string(headers[key]))
             else:
-                raise ClientError("RSA provider do not support decrypt this type of meta")
+                return headers[key]
         except:
             return None
 
@@ -195,8 +186,11 @@ class LocalRsaProvider(BaseCryptoProvider):
         if magic_number_hmac != self.encryption_magic_number_hmac:
             raise ClientError("The hmac of magic number is inconsistent, please check the RSA keys pair")
 
-    def adjust_range(self, start, end):
-        return self.cipher.adjust_range(start, end)
+    def __encrypt_data(self, data):
+        return self.__encrypt_obj.encrypt(data)
+
+    def __decrypt_data(self, data):
+        return self.__decrypt_obj.decrypt(data)
 
 
 class AliKMSProvider(BaseCryptoProvider):
@@ -214,21 +208,21 @@ class AliKMSProvider(BaseCryptoProvider):
         :param class cipher: 数据加密，默认aes256，当前仅支持默认实现
     """
 
-    def __init__(self, access_key_id, access_key_secret, region, cmkey, sts_token=None, passphrase=None,
+    def __init__(self, access_key_id, access_key_secret, region, cmk_id, sts_token=None, passphrase=None,
                  cipher=utils.AESCipher):
 
         if not issubclass(cipher, utils.AESCipher):
             raise ClientError('AliKMSProvider only support AES256 cipher')
 
-        super(AliKMSProvider, self).__init__(cipher=cipher)
-        self.cmkey = cmkey
+        super(AliKMSProvider, self).__init__(cipher=cipher, wrap_alg=KMS_WRAP_ALGORITHM)
+        self.custom_master_key_id = cmk_id
         self.sts_token = sts_token
         self.context = '{"x-passphrase":"' + passphrase + '"}' if passphrase else ''
-        self.clt = client.AcsClient(access_key_id, access_key_secret, region)
+        self.kms_client = client.AcsClient(access_key_id, access_key_secret, region)
 
         self.encrypted_key = None
 
-    def build_header(self, headers=None, multipart_context=None):
+    def add_encryption_meta(self, headers=None, multipart_context=None):
         if not isinstance(headers, CaseInsensitiveDict):
             headers = CaseInsensitiveDict(headers)
 
@@ -255,30 +249,23 @@ class AliKMSProvider(BaseCryptoProvider):
 
         return headers
 
-    def build_header_for_upload_part(self, headers=None):
-        if not isinstance(headers, CaseInsensitiveDict):
-            headers = CaseInsensitiveDict(headers)
-
-        if 'content-md5' in headers:
-            headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_MD5] = headers['content-md5']
-            del headers['content-md5']
-
-        if 'content-length' in headers:
-            headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_LENGTH] = headers['content-length']
-            del headers['content-length']
-
-        self.plain_key = None
-        self.plain_start = None
-
-        return headers
-
     def get_key(self):
         plain_key, self.encrypted_key = self.__generate_data_key()
         return plain_key
 
-    def get_start(self):
-        self.plain_start = utils.random_counter()
-        return self.plain_start
+    def decrypt_encryption_meta(self, headers, key):
+        try:
+            if key.lower() in [OSS_CLIENT_SIDE_ENCRYPTION_KEY.lower(), DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY.lower()]:
+                return b64decode_from_string(self.__decrypt_data(headers[key]))
+            elif key.lower() in [OSS_CLIENT_SIDE_ENCRYPTION_START.lower(),
+                                 DEPRECATED_CLIENT_SIDE_ENCRYPTION_START.lower()]:
+                return self.__decrypt_data(headers[key])
+            else:
+                return headers[key]
+        except OssError as e:
+            raise e
+        except:
+            return None
 
     def __generate_data_key(self):
         req = GenerateDataKeyRequest.GenerateDataKeyRequest()
@@ -302,7 +289,7 @@ class AliKMSProvider(BaseCryptoProvider):
 
         req.set_accept_format(format_type.JSON)
         req.set_method(method_type.POST)
-        req.set_KeyId(self.cmkey)
+        req.set_KeyId(self.custom_master_key_id)
         req.set_Plaintext(data)
         req.set_EncryptionContext(self.context)
         if self.sts_token:
@@ -328,8 +315,7 @@ class AliKMSProvider(BaseCryptoProvider):
     def __do(self, req):
 
         try:
-            body = self.clt.do_action_with_exception(req)
-
+            body = self.kms_client.do_action_with_exception(req)
             return json.loads(to_unicode(body))
         except ServerException as e:
             raise OpenApiServerError(e.http_status, e.request_id, e.message, e.error_code)
@@ -337,25 +323,3 @@ class AliKMSProvider(BaseCryptoProvider):
             raise ClientError(e.message)
         except (ValueError, TypeError) as e:
             raise OpenApiFormatError('Json Error: ' + str(e))
-
-    def decrypt_oss_meta_data(self, headers, key, conv=lambda x: x):
-        try:
-            if key.lower() == OSS_CLIENT_SIDE_ENCRYPTION_KEY.lower():
-                return conv(b64decode_from_string(self.__decrypt_data(headers[key])))
-            else:
-                return conv(self.__decrypt_data(headers[key]))
-        except OssError as e:
-            raise e
-        except:
-            return None
-
-    def decrypt_from_str(self, key, value, conv=lambda x: x):
-        try:
-            if key.lower() == OSS_CLIENT_SIDE_ENCRYPTION_KEY.lower():
-                return conv(b64decode_from_string(self.__decrypt_data(value)))
-            else:
-                return conv(self.__decrypt_data(value))
-        except OssError as e:
-            raise e
-        except:
-            return None
