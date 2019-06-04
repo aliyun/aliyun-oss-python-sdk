@@ -253,12 +253,12 @@ class CryptoBucket(Bucket):
 
         logger.info("Start to init multipart upload by crypto bucket, data_size: {0}, part_size: {1}".format(data_size,
                                                                                                              part_size))
-        crypto_key = self.crypto_provider.get_key()
-        crypto_start = self.crypto_provider.get_start()
+        content_crypto_material = self.crypto_provider.create_content_material(data_size, part_size)
 
-        context = MultipartUploadCryptoContext(self.crypto_provider, crypto_key, crypto_start, data_size, part_size)
+        context = MultipartUploadCryptoContext(self.crypto_provider, content_crypto_material.encrypted_key,
+                                               content_crypto_material.encrypted_start, data_size, part_size)
 
-        headers = self.crypto_provider.add_encryption_meta(headers, context)
+        headers = content_crypto_material.to_object_meta(headers)
 
         resp = super(self, CryptoBucket).init_multipart_upload(key, headers)
 
@@ -290,14 +290,16 @@ class CryptoBucket(Bucket):
         else:
             raise ClientError("Could not find upload context, please check the upload_id!")
 
-        headers = context.add_encryption_meta(headers)
+        headers = context.to_object_meta(headers)
 
-        crypto_key = context.crypto_key
-        start = context.crypto_start
+        plain_key = self.crypto_provider.decrypt_encrypted_key(context.encrypted_key)
+        plain_start = self.crypto_provider.decrypt_encrypted_start(context.encrypted_start)
+
         offset = context.part_size * (part_number - 1)
-        counter_offset = utils.calc_counter_offset(offset)
+        counter = self.crypto_provider.cipher.calc_counter(offset)
 
-        data = self.crypto_provider.make_encrypt_adapter(data, crypto_key, start, count_offset=counter_offset)
+        cipher = self.crypto_provider.cipher.__class(plain_key, plain_start+counter)
+        data = self.crypto_provider.make_encrypt_adapter(data, cipher)
         resp = super(self, CryptoBucket).upload_part(key, upload_id, part_number, data, progress_callback, headers)
 
         logger.info("Upload part {0} by Crypto bucket done.".format(part_number))
@@ -369,8 +371,7 @@ class CryptoBucket(Bucket):
         """
         raise ClientError("The operation is not supported for Crypto Bucket")
 
-    def list_parts(self, key, upload_id,
-                   marker='', max_parts=1000, headers=None):
+    def list_parts(self, key, upload_id, marker='', max_parts=1000, headers=None):
         """列举已经上传的分片。支持分页。
 
         :param str key: 文件名
@@ -386,7 +387,6 @@ class CryptoBucket(Bucket):
             resp = super(self, CryptoBucket).list_parts(key, upload_id, marker=marker, max_parts=max_parts,
                                                         headers=headers)
             if resp.upload_id == upload_id:
-                # if resp.client_encryption_magic_number == self.crypto_provider.encryption_magic_number_hmac:
                 context = MultipartUploadCryptoContext(self.crypto_provider, resp.client_encryption_key,
                                                        resp.client_encryption_start, resp.client_encryption_data_size,
                                                        resp.client_encryption_part_size)

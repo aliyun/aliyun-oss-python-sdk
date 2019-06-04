@@ -41,19 +41,20 @@ class MultipartUploadCryptoContext(object):
     """表示客户端加密文件通过Multipart接口上传的meta信息
     """
 
-    def __init__(self, crypto_provider, key, start, data_size, part_size):
+    def __init__(self, crypto_provider, encrypted_key, encrypted_start, data_size=None, part_size=None):
         self.crypto_provider = crypto_provider
         self.wrap_alg = crypto_provider.wrap_alg
         self.cek_alg = crypto_provider.cihper.alg
-        # self.crypto_key = key
-        # self.crypto_start = start
-        self.crypto_key = b64encode_as_string(self.crypto_provider.__encrypt_obj.encrypt(self.key))
-        self.crypto_start = b64encode_as_string(self.crypro_provider.__encrypt_obj.encrypt(self.start))
+        self.encrypted_key = encrypted_key
+        self.encrypted_start = encrypted_start
         self.data_size = data_size
         self.part_size = part_size
-        self.crypto_magic_number_hmac = self.crypto_provider.encryption_magic_number_hmac
+        try:
+            self.encrypted_magic_number_hmac = crypto_provider.encryption_magic_number_hmac
+        except AttributeError:
+            self.encrypted_magic_number_hmac = None
 
-    def add_encryption_meta(self, headers=None):
+    def to_object_meta(self, headers=None):
         if not isinstance(headers, CaseInsensitiveDict):
             headers = CaseInsensitiveDict(headers)
 
@@ -65,18 +66,16 @@ class MultipartUploadCryptoContext(object):
             headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_LENGTH] = headers['content-length']
             del headers['content-length']
 
-        # headers[OSS_CLIENT_SIDE_ENCRYPTION_KEY] = b64encode_as_string(
-        # self.crypto_provider.__encrypt_obj.encrypt(self.plain_key))
-        # headers[OSS_CLIENT_SIDE_ENCRYPTION_START] = b64encode_as_string(
-        # self.crypto_provider.__encrypt_obj.encrypt(to_bytes(str(self.plain_start))))
-        headers[OSS_CLIENT_SIDE_ENCRYPTION_KEY] = self.crypto_key
-        headers[OSS_CLIENT_SIDE_ENCRYPTION_START] = self.crypto_start
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_KEY] = self.encrypted_key
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_START] = self.encrypted_start
         headers[OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG] = self.cek_alg
         headers[OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG] = self.wrap_alg
-        headers[OSS_CLIENT_SIDE_ENCRYPTION_MAGIC_NUMBER_HMAC] = self.crypto_magic_number_hmac
+        if self.encrypted_magic_number_hmac:
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_MAGIC_NUMBER_HMAC] = self.crypto_magic_number_hmac
 
-        headers[OSS_CLIENT_SIDE_ENCRYPTION_DATA_SIZE] = str(self.data_size)
-        headers[OSS_CLIENT_SIDE_ENCRYPTION_PART_SIZE] = str(self.part_size)
+        if self.data_size and self.part_size:
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_DATA_SIZE] = str(self.data_size)
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_PART_SIZE] = str(self.part_size)
 
         return headers
 
