@@ -92,10 +92,9 @@ class CryptoBucket(Bucket):
 
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
-        random_key = self.crypto_provider.get_key()
-        start = self.crypto_provider.get_start()
-        data = self.crypto_provider.make_encrypt_adapter(data, random_key, start)
-        headers = self.crypto_provider.add_encryption_meta(headers)
+        content_crypto_material = self.crypto_provider.create_content_material()
+        data = self.crypto_provider.make_encrypt_adapter(data, content_crypto_material.cipher)
+        headers = content_crypto_material.to_object_meta(headers)
 
         return super(CryptoBucket, self).put_object(key, data, headers, progress_callback=None)
 
@@ -109,10 +108,9 @@ class CryptoBucket(Bucket):
         :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
         :return:
         """
-        random_key = self.crypto_provider.get_key()
-        start = self.crypto_provider.get_start()
-        data = self.crypto_provider.make_encrypt_adapter(data, random_key, start)
-        headers = self.crypto_provider.add_encryption_meta(headers)
+        content_crypto_material = self.crypto_provider.create_content_material()
+        data = self.crypto_provider.make_encrypt_adapter(data, content_crypto_material.cipher)
+        headers = content_crypto_material.to_object_meta(headers)
 
         return super(CryptoBucket, self).put_object_with_url(self, sign_url, data, headers, progress_callback)
 
@@ -247,11 +245,11 @@ class CryptoBucket(Bucket):
         返回值中的 `crypto_multipart_context` 记录了加密Meta信息，在upload_part时需要一并传入
         """
         if part_size:
-            res = is_valid_crypto_part_size(part_size, data_size)
+            res = self.crypto_provider.cipher.is_valid_part_size(part_size, data_size)
             if not res:
                 raise ClientError("The part_size you input invalid for multipart upload for Crypto Bucket")
         else:
-            part_size = determine_crypto_part_size(data_size)
+            part_size = self.crypto_provider.cipher.determine_part_size(data_size)
 
         logger.info("Start to init multipart upload by crypto bucket, data_size: {0}, part_size: {1}".format(data_size,
                                                                                                              part_size))

@@ -26,6 +26,8 @@ import crcmod
 import re
 import sys
 import random
+import abc
+import defaults
 
 from Crypto.Cipher import AES
 from Crypto import Random
@@ -541,28 +543,17 @@ class Crc32(object):
         return self.crc32.crcValue
 
 
-def random_aes256_key():
-    return Random.new().read(_AES_256_KEY_SIZE)
-
-
-def random_counter(begin=1, end=10):
-    return random.randint(begin, end)
-
-
-_MAX_PART_COUNT = 10000
-_MIN_PART_SIZE = 100 * 1024
-_DEFAULT_PART_SIZE = 4 * 1024 * 1024
 
 _AES_256_KEY_SIZE = 32
 
-_AES_CTR_BLOCK_LEN = 16
-_AES_CTR_BLOCK_BITS_LEN = 8 * 16
+_AES_BLOCK_LEN = 16
+_AES_BLOCK_BITS_LEN = 8 * 16
 
 _AES_GCM = 'AES/GCM/NoPadding'
 _AES_CTR = 'AES/CTR/NoPadding'
 
 
-class AESCiper:
+class AESCipher(metaclass=abc.ABCMeta):
     """AES256 加密实现。
             :param str key: 对称加密数据密钥
             :param str start: 对称加密初始随机值
@@ -573,27 +564,45 @@ class AESCiper:
             3、提供加密解密方法
     """
     # aes 256, key always is 32 bytes
-    def __init__(self, key=None):
-        self.key = key
-        if not self.key:
-            self.key = self.get_key()
+    def __init__(self):
+        self.alg = None
+        self.key_len = _AES_256_KEY_SIZE
+        self.block_size_len = _AES_BLOCK_LEN
+        self.block_size_len_in_bits = _AES_BLOCK_BITS_LEN
 
-    @staticmethod
-    def get_key():
-        return random_aes256_key()
+    @abc.abstractmethod
+    def get_key(self):
+        pass
 
+    @abc.abstractmethod
+    def get_start(self):
+        pass
+
+    @abc.abstractmethod
     def encrypt(self, raw):
-        return self.__cipher.encrypt(raw)
+        pass
 
+    @abc.abstractmethod
     def decrypt(self, enc):
-        return self.__cipher.decrypt(enc)
+        pass
 
-    @staticmethod
-    def adjust_range(start, end):
+    @abc.abstractmethod
+    def determine_part_size(self, data_size, excepted_part_size=None):
+        pass
+
+    def adjust_range(self, start, end):
         return start, end
 
+    def is_block_aligned(self, offset):
+        if offset is None:
+            offset = 0
+        return 0 == offset % self.block_size_len
 
-class AESCTRCipher(AESCiper):
+    def is_valid_part_size(self, part_size, data_size=None):
+        return True
+
+
+class AESCTRCipher(AESCipher):
     """AES256 加密实现。
         :param str key: 对称加密数据密钥
         :param str start: 对称加密初始随机值
@@ -604,80 +613,71 @@ class AESCTRCipher(AESCiper):
         3、提供加密解密方法
     """
 
-    @staticmethod
-    def get_start():
+    def __init__(self, key=None, start=None):
+        super(AESCTRCipher, self).__init__()
+        self.alg = _AES_CTR
+        if not start:
+            start = 1
+        ctr = Counter.new(self.block_size_len_in_bits, initial_value=start)
+        self.__cipher = AES.new(key, AES.MODE_CTR, counter=ctr)
+
+    def get_key(self):
+        return random_key(self.key_len)
+
+    def get_start(self):
         return random_counter()
 
-    def __init__(self, key=None, start=None):
-        super(AESCTRCipher, self).__init__(key)
-        if not start:
-            self.start = self.get_start()
-        else:
-            self.start = int(start)
-        self.alg = _AES_CTR
-        ctr = Counter.new(_AES_CTR_BLOCK_BITS_LEN, initial_value=self.start)
-        self.__cipher = AES.new(self.key, AES.MODE_CTR, counter=ctr)
+    def encrypt(self, raw):
+        return self.__cipher.encrypt(raw)
 
-    @staticmethod
-    def adjust_range(start, end):
-        try:
-            if start > end:
-                return None, None
-            start = (start / _AES_CTR_BLOCK_LEN) * _AES_CTR_BLOCK_LEN
-        except Exception as e:
-            logger.debug("adjust_range: exception {0}, should be ignore".format(e))
-        finally:
-            return start, end
+    def decrypt(self, enc):
+        return self.__cipher.encrypt(enc)
+
+    def adjust_range(self, start, end):
+        if start > end:
+            return None, None
+        start = (start / self.block_size_len) * self.block_size_len
+        return start, end
+
+    def is_valid_part_size(self, part_size, data_size):
+        if not self.is_block_aligned(part_size) or part_size < defaults.min_part_size:
+            return False
+
+        if part_size * defaults.max_part_count < data_size:
+            return
+        return True
+
+    def calc_counter(self, offset):
+        if not self.is_block_aligned(offset):
+            raise ClientError('offset is not align to encrypt block')
+        return offset/self.block_size_len
+
+    def determine_part_size(self, data_size, excepted_part_size=None):
+        if excepted_part_size:
+            if self.is_valid_part_size(excepted_part_size, data_size):
+                return excepted_part_size
+            # excepted_part_size is not aligned
+            elif excepted_part_size * defaults.max_part_count >= data_size:
+                part_size = int(excepted_part_size / self.block_size_len + 1) * self.block_size_len
+                return part_size
+
+        # if excepted_part_size is None or is too small, calculate a correct part_size
+        part_size = defaults.part_size
+        while part_size * defaults.max_part_count < data_size:
+            part_size = part_size * 2
+
+        if not self.is_block_aligned(part_size):
+            part_size = int(part_size / self.block_size_len + 1) * self.block_size_len
+
+        return part_size
 
 
-def random_aes256_key():
-    return Random.new().read(_AES_256_KEY_SIZE)
+def random_key(key_len):
+    return Random.new().read(key_len)
 
 
 def random_counter(begin=1, end=10):
     return random.randint(begin, end)
-
-
-def is_encrypt_block_aligned(data_offset):
-    if data_offset is None:
-        data_offset = 0
-    return 0 == data_offset % _AES_CTR_BLOCK_LEN
-
-
-def calc_counter_offset(data_offset):
-    if not is_encrypt_block_aligned(data_offset):
-        raise ClientError('data_offset is not align to encrypt block')
-    return data_offset / _AES_CTR_BLOCK_LEN
-
-
-def is_valid_crypto_part_size(part_size, data_size):
-    if not is_encrypt_block_aligned(part_size) or part_size < _MIN_PART_SIZE:
-        return False
-
-    if part_size * _MAX_PART_COUNT < data_size:
-        return
-    return True
-
-
-def determine_crypto_part_size(data_size, excepted_part_size=None):
-    if excepted_part_size:
-        # excepted_part_size is valid
-        if is_valid_crypto_part_size(excepted_part_size, data_size):
-            return excepted_part_size
-        # excepted_part_size is enough big but not algin
-        elif excepted_part_size * _MAX_PART_COUNT >= data_size:
-            part_size = int(excepted_part_size / _AES_CTR_BLOCK_LEN + 1) * _AES_CTR_BLOCK_LEN
-            return part_size
-
-    # if excepted_part_size is None or is too small, calculate a correct part_size
-    part_size = _DEFAULT_PART_SIZE
-    while part_size * _MAX_PART_COUNT < data_size:
-        part_size = part_size * 2
-
-    if not is_encrypt_block_aligned(part_size):
-        part_size = int(part_size / _AES_CTR_BLOCK_LEN + 1) * _AES_CTR_BLOCK_LEN
-
-    return part_size
 
 
 _STRPTIME_LOCK = threading.Lock()

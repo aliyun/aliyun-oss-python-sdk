@@ -14,6 +14,7 @@ from . import utils
 from .compat import to_string, to_bytes, to_unicode
 from .exceptions import OssError, ClientError, OpenApiFormatError, OpenApiServerError
 from .headers import *
+from .models import _hget
 
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.PublicKey import RSA
@@ -26,57 +27,118 @@ from aliyunsdkkms.request.v20160120 import ListKeysRequest, GenerateDataKeyReque
 
 import os
 import hashlib
+import abc
 
 
-class BaseCryptoProvider(object):
+class ContentCryptoMaterial(object):
+    def __init__(self, cipher, wrap_alg, encrypted_key=None, encrypted_start=None, mat_desc=None):
+        self.cipher = cipher
+        self.wrap_alg = wrap_alg
+        self.encrypted_key = encrypted_key
+        self.encrypted_start = encrypted_start
+        self.mat_desc = mat_desc
+        self.encrypted_magic_number_hmac = None
+
+    def to_object_meta(self, headers=None, multipart_context=None):
+        if not isinstance(headers, CaseInsensitiveDict):
+            headers = CaseInsensitiveDict(headers)
+
+        if 'content-md5' in headers:
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_MD5] = headers['content-md5']
+            del headers['content-md5']
+
+        if 'content-length' in headers:
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_LENGTH] = headers['content-length']
+            del headers['content-length']
+
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_KEY] = b64encode_as_string(self.encrypted_key)
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_START] = b64encode_as_string(self.encrypted_start)
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG] = self.cipher.ALGORITHM
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG] = self.wrap_alg
+        if self.encrypted_magic_number_hmac:
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_MAGIC_NUMBER_HMAC] = b64encode_as_string(
+                self.encrypted_magic_number_hmac)
+
+        # multipart file build header
+        if multipart_context and multipart_context.data_size and multipart_context.part_size:
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_DATA_SIZE] = str(multipart_context.data_size)
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_PART_SIZE] = str(multipart_context.part_size)
+
+        return headers
+
+    def from_object_meta(self, headers):
+        if DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY in headers:
+            deprecated = True
+
+        if deprecated:
+            self.encrypted_key = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY)
+            self.encrypted_start = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_START)
+            self.wrap_alg = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_WRAP_ALG)
+            self.mat_desc = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYTPION_MATDESC)
+        else:
+            self.encrypted_key = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_KEY)
+            self.encrypted_start = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_START)
+            self.wrap_alg = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG)
+            self.mat_desc = _hget(headers, OSS_CLIENT_SIDE_ENCRYTPION_MATDESC)
+            if self.wrap_alg == RSA_WRAP_ALGORITHM:
+                self.encrypted_magic_number_hmac = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_MAGIC_NUMBER_HMAC)
+
+
+class BaseCryptoProvider(metaclass=abc.ABCMeta):
     """CryptoProvider 基类，提供基础的数据加密解密adapter
 
     """
 
-    def __init__(self, cipher=None, wrap_alg=None):
+    def __init__(self, cipher=None):
         self.cipher = cipher
-        self.wrap_alg = wrap_alg
-        self.plain_key = None
-        self.plain_start = None
         self.wrap_alg = None
         self.mat_desc = None
-        self.cipher = cipher
 
     def get_key(self):
-        self.plain_key = self.cipher.get_key()
-        return self.plain_key
+        return self.cipher.get_key()
 
     def get_start(self):
-        self.plain_start = self.cipher.get_start()
-        return self.plain_start
+        return self.cipher.get_start()
 
-    def make_encrypt_adapter(self, stream, key, counter_start, counter_offset=0):
-        return utils.make_cipher_adapter(stream,
-                                         partial(self.cipher.encrypt, self.cipher(key, counter_start, counter_offset)))
+    def make_encrypt_adapter(self, stream, cipher):
+        return utils.make_cipher_adapter(stream, partial(self.cipher.encrypt, cipher))
 
-    def make_decrypt_adapter(self, stream, key, counter_start, counter_offset=0, discard=0):
-        return utils.make_cipher_adapter(stream,
-                                         partial(self.cipher.decrypt, self.cipher(key, counter_start, counter_offset)),
-                                         discard)
+    def make_decrypt_adapter(self, stream, cipher, discard=0):
+        return utils.make_cipher_adapter(stream, partial(self.cipher.decrypt, cipher), discard)
 
-    def add_encryption_meta(self):
+    @abc.abstractmethod
+    def decrypt_encrypted_key(self, encrypted_key):
         pass
 
-    def decrypt_encryption_meta(self, headers, key):
+    @abc.abstractmethod
+    def decrypt_encrypted_start(self, encrypted_start):
         pass
 
     def adjust_range(self, start, end):
         return self.cipher.adjust_range(start, end)
 
+    def create_content_material(self):
+        plain_key = self.get_key()
+        encrypted_key = self.__encrypt_data(plain_key)
+        plain_start = self.get_start()
+        encrypted_start = self.__encrypt_data(to_bytes(str(plain_start)))
+        wrap_alg = self.wrap_alg
+        mat_desc = self.mat_desc
+        cipher = self.cipher.__class__(plain_key, plain_start)
+
+        return ContentCryptoMaterial(cipher, encrypted_key, encrypted_start, wrap_alg, mat_desc)
+
+    @abc.abstractmethod
     def __encrypt_data(self, data):
         pass
 
+    @abc.abstractmethod
     def __decrypt_data(self, data):
         pass
 
 
 _LOCAL_RSA_TMP_DIR = '.oss-local-rsa'
-RSA_ALGORITHM = 'rsa'
+RSA_WRAP_ALGORITHM = 'rsa'
 KMS_WRAP_ALGORITHM = 'kms'
 
 
@@ -98,7 +160,7 @@ class LocalRsaProvider(BaseCryptoProvider):
                  pub_key_suffix=DEFAULT_PUB_KEY_SUFFIX, private_key_suffix=DEFAULT_PRIV_KEY_SUFFIX, generate=False):
         super(LocalRsaProvider, self).__init__(cipher=cipher)
 
-        self.wrap_alg = self.RSA_ALGORITHM
+        self.wrap_alg = self.RSA_WRAP_ALGORITHM
         keys_dir = dir or os.path.join(os.path.expanduser('~'), _LOCAL_RSA_TMP_DIR)
 
         priv_key_path = os.path.join(keys_dir, key + private_key_suffix)
@@ -138,53 +200,37 @@ class LocalRsaProvider(BaseCryptoProvider):
 
             sha256 = hashlib.sha256()
             sha256.update(encryption_magic_number)
-            self.encryption_magic_number_hmac = b64encode_as_string(sha256.hexdigest())
+            self.encryption_magic_number_hmac = sha256.hexdigest()
         except (ValueError, TypeError, IndexError) as e:
             raise ClientError(str(e))
 
-    def add_encryption_meta(self, headers=None, multipart_context=None):
-        if not isinstance(headers, CaseInsensitiveDict):
-            headers = CaseInsensitiveDict(headers)
-
-        if 'content-md5' in headers:
-            headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_MD5] = headers['content-md5']
-            del headers['content-md5']
-
-        if 'content-length' in headers:
-            headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_LENGTH] = headers['content-length']
-            del headers['content-length']
-
-        headers[OSS_CLIENT_SIDE_ENCRYPTION_KEY] = b64encode_as_string(self.encrypt_data(self.plain_key))
-        headers[OSS_CLIENT_SIDE_ENCRYPTION_START] = b64encode_as_string(
-            self.encrypt_data(to_bytes(str(self.plain_start))))
-        headers[OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG] = self.cipher.ALGORITHM
-        headers[OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG] = self.wrap_alg
-        headers[OSS_CLIENT_SIDE_ENCRYPTION_MAGIC_NUMBER_HMAC] = self.encryption_magic_number_hmac
-
-        # multipart file build header
-        if multipart_context:
-            headers[OSS_CLIENT_SIDE_ENCRYPTION_DATA_SIZE] = str(multipart_context.data_size)
-            headers[OSS_CLIENT_SIDE_ENCRYPTION_PART_SIZE] = str(multipart_context.part_size)
-
-        self.plain_key = None
-        self.plain_start = None
-
-        return headers
-
+    '''
     def decrypt_encryption_meta(self, headers, key):
         try:
             if key.lower() in [OSS_CLIENT_SIDE_ENCRYPTION_KEY.lower(), DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY.lower(),
                                OSS_CLIENT_SIDE_ENCRYPTION_START.lower(),
                                DEPRECATED_CLIENT_SIDE_ENCRYPTION_START.lower()]:
-                return self.decrypt_data(utils.b64decode_from_string(headers[key]))
+                return self.__decrypt_data(utils.b64decode_from_string(headers[key]))
             else:
                 return headers[key]
         except:
             return None
+    '''
+
+    def decrypt_encrypted_key(self, encrypted_key):
+        return self.__decrypt_data(utils.b64decode_from_string(encrypted_key))
+
+    def decrypt_encrypted_start(self, encrypted_start):
+        return self.__decrypt_data(encrypted_start)
 
     def check_magic_number_hmac(self, magic_number_hmac):
-        if magic_number_hmac != self.encryption_magic_number_hmac:
+        if magic_number_hmac != b64encode_as_string(self.encryption_magic_number_hmac):
             raise ClientError("The hmac of magic number is inconsistent, please check the RSA keys pair")
+
+    def create_content_material(self):
+        content_crypto_material = super(LocalRsaProvider, self).create_content_material()
+        content_crypto_material.encrypted_magic_number_hmac = self.encryption_magic_number_hmac
+        return content_crypto_material
 
     def __encrypt_data(self, data):
         return self.__encrypt_obj.encrypt(data)
@@ -209,7 +255,7 @@ class AliKMSProvider(BaseCryptoProvider):
     """
 
     def __init__(self, access_key_id, access_key_secret, region, cmk_id, sts_token=None, passphrase=None,
-                 cipher=utils.AESCipher):
+                 cipher=utils.AESCTRCipher):
 
         if not issubclass(cipher, utils.AESCipher):
             raise ClientError('AliKMSProvider only support AES256 cipher')
@@ -253,19 +299,11 @@ class AliKMSProvider(BaseCryptoProvider):
         plain_key, self.encrypted_key = self.__generate_data_key()
         return plain_key
 
-    def decrypt_encryption_meta(self, headers, key):
-        try:
-            if key.lower() in [OSS_CLIENT_SIDE_ENCRYPTION_KEY.lower(), DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY.lower()]:
-                return b64decode_from_string(self.__decrypt_data(headers[key]))
-            elif key.lower() in [OSS_CLIENT_SIDE_ENCRYPTION_START.lower(),
-                                 DEPRECATED_CLIENT_SIDE_ENCRYPTION_START.lower()]:
-                return self.__decrypt_data(headers[key])
-            else:
-                return headers[key]
-        except OssError as e:
-            raise e
-        except:
-            return None
+    def decrypt_encrypted_key(self, encrypted_key):
+        return self.__decrypt_data(encrypted_key)
+
+    def decrypt_encrypted_start(self, encrypted_start):
+        return self.__decrypt_data(encrypted_start)
 
     def __generate_data_key(self):
         req = GenerateDataKeyRequest.GenerateDataKeyRequest()

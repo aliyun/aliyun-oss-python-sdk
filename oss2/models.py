@@ -6,15 +6,14 @@ oss2.models
 
 该模块包含Python SDK API接口所需要的输入参数以及返回值类型。
 """
-
-from .utils import http_to_unixtime, make_progress_adapter, make_crc_adapter, calc_counter_offset, \
-    is_encrypt_block_aligned, b64encode_as_string
+from .utils import http_to_unixtime, make_progress_adapter, make_crc_adapter, b64encode_as_string
 from .exceptions import ClientError, InconsistentError
 from .compat import urlunquote, to_string, to_bytes
 from .select_response import SelectResponseAdapter
 from .headers import *
 import json
 from requests.structures import CaseInsensitiveDict
+from .crypto import ContentCryptoMaterial
 
 
 class PartInfo(object):
@@ -173,7 +172,7 @@ class GetSymlinkResult(RequestResult):
 
 
 class GetObjectResult(HeadObjectResult):
-    def __init__(self, resp, progress_callback=None, crc_enabled=False, crypto_provider=None, decrypt_discard=0):
+    def __init__(self, resp, progress_callback=None, crc_enabled=False, crypto_provider=None, discard=0):
         super(GetObjectResult, self).__init__(resp)
         self.__crc_enabled = crc_enabled
         self.__crypto_provider = crypto_provider
@@ -191,43 +190,28 @@ class GetObjectResult(HeadObjectResult):
             self.stream = make_crc_adapter(self.stream)
 
         if self.__crypto_provider:
-            if DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY in resp.headers:
-                deprecated = True
+            content_crypto_material = ContentCryptoMaterial(None, self.__crypto_provider.wrap_alg)
+            content_crypto_material.from_object_meta(resp.headers)
 
-            if deprecated:
-                self.client_encryption_key = self.__crypto_provider.decrypt_encryption_meta(resp.headers,
-                                                                                            DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY)
-                self.client_encryption_start = self.__crypto_provider.decrypt_encryption_meta(resp.headers,
-                                                                                              DEPRECATED_CLIENT_SIDE_ENCRYPTION_START)
-                self.wrap_alg = _hget(resp.headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_WRAP_ALG)
-            else:
-                self.client_encryption_key = self.__crypto_provider.decrypt_encryption_meta(resp.headers,
-                                                                                            OSS_CLIENT_SIDE_ENCRYPTION_KEY)
-                self.client_encryption_start = self.__crypto_provider.decrypt_encryption_meta(resp.headers,
-                                                                                              OSS_CLIENT_SIDE_ENCRYPTION_START)
-                self.client_encryption_wrap_alg = _hget(resp.headers, OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG)
-
-            # if content range , adjust the decrypt adapter
-            counter_offset = 0
-            if self.content_range:
-                counter_offset = calc_counter_offset(byte_range[0])
-
-            # check the key wrap algorithm is correct if rsa
-            if self.client_encryption_wrap_alg == "rsa":
-                self.magic_number_hmac = resp.headers[OSS_CLIENT_SIDE_ENCRYPTION_MAGIC_NUMBER_HMAC]
-                self.__crypto_provider.check_magic_number_hmac(self.magic_number_hmac)
-
-            if self.client_encryption_key and self.client_encryption_start and self.client_encryption_wrap_alg:
-                self.stream = self.__crypto_provider.make_decrypt_adapter(self.stream, self.client_encryption_key,
-                                                                          self.client_encryption_start,
-                                                                          counter_offset, decrypt_discard)
-            else:
-                err_msg = 'all metadata keys are required for decryption (' \
-                          + OSS_CLIENT_SIDE_ENCRYPTION_KEY + ', ' \
-                          + OSS_CLIENT_SIDE_ENCRYPTION_START + ', ' \
-                          + OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG + ')'
+            if self.__crypto_provider.wrap_alg != content_crypto_material.wrap_alg:
+                err_msg = 'Invalid wrap algorithm, please check the crypto provider'
                 raise InconsistentError(err_msg, self.request_id)
 
+            # check whether the rsa key pairs is correct
+            if content_crypto_material.encrypted_magic_number_hmac:
+                self.__crypto_provider.check_magic_number_hmac(content_crypto_material.encrypted_magic_number_hmac)
+
+            plain_key = self.__crypto_provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
+            plain_start = int(self.__crypto_provider.decrypte_encrypted_start(content_crypto_material.encrypted_start))
+
+            counter = 0
+            if self.content_range: # and content_crypto_material.cipher.alg == _AES_CTR:
+                counter = content_crypto_material.cipher.calc_counter(byte_range[0])
+
+            content_crypto_material.cipher = self.__crypto_provider.cipher.__class(plain_key, plain_start + counter)
+
+            self.stream = self.__crypto_provider.make_decrypt_adapter(self.stream, content_crypto_material.cipher,
+                                                                      discard)
 
 @staticmethod
 def _parse_range_str(content_range):
