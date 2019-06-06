@@ -72,7 +72,7 @@ if oss2.compat.is_py2:
             self.token = fetch_sts_token(OSS_STS_ID, OSS_STS_KEY, OSS_STS_ARN)
 
             auth = oss2.StsAuth(self.token.access_key_id, self.token.access_key_secret, self.token.security_token)
-            self.bucket = oss2.Bucket(auth, OSS_ENDPOINT, OSS_BUCKET)
+            self.bucket = oss2.Bucket(auth, OSS_ENDPOINT, OSS_TEST_BUCKET)
 
         def test_object(self):
             self.init_bucket()

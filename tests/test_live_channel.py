@@ -11,7 +11,6 @@ from oss2.exceptions import *
 class TestLiveChannel(OssTestCase):
     def tearDown(self):
         OssTestCase.tearDown(self)
-        self._delete_channels() 
             
     def _get_play_url(self, bucket_name, channel_name, playlist_name):
         return 'http://%s.%s/%s/%s' % (bucket_name, 
