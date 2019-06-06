@@ -579,6 +579,10 @@ class AESCipher(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
+    def initialize(self, key, start):
+        pass
+
+    @abc.abstractmethod
     def encrypt(self, raw):
         pass
 
@@ -613,19 +617,20 @@ class AESCTRCipher(AESCipher):
         3、提供加密解密方法
     """
 
-    def __init__(self, key=None, start=None):
+    def __init__(self):
         super(AESCTRCipher, self).__init__()
         self.alg = _AES_CTR
-        if not start:
-            start = 1
-        ctr = Counter.new(self.block_size_len_in_bits, initial_value=start)
-        self.__cipher = AES.new(key, AES.MODE_CTR, counter=ctr)
+        self.__cipher = None
 
     def get_key(self):
         return random_key(self.key_len)
 
     def get_start(self):
         return random_counter()
+
+    def initialize(self, key, start):
+        ctr = Counter.new(self.block_size_len_in_bits, initial_value=start)
+        self.__cipher = AES.new(key, AES.MODE_CTR, counter=ctr)
 
     def encrypt(self, raw):
         return self.__cipher.encrypt(raw)

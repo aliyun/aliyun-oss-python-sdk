@@ -2,7 +2,6 @@
 import logging
 
 from . import http
-from . import utils
 from . import exceptions
 from . import models
 from . import Bucket
@@ -13,8 +12,6 @@ from .compat import urlparse, to_string
 from .crypto import BaseCryptoProvider
 from .headers import *
 from .exceptions import ClientError
-
-from .utils import is_valid_crypto_part_size, determine_crypto_part_size
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +90,7 @@ class CryptoBucket(Bucket):
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         content_crypto_material = self.crypto_provider.create_content_material()
+
         data = self.crypto_provider.make_encrypt_adapter(data, content_crypto_material.cipher)
         headers = content_crypto_material.to_object_meta(headers)
 

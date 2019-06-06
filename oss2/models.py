@@ -38,6 +38,14 @@ class PartInfo(object):
 
 
 class MultipartUploadCryptoContext(object):
+    def __init__(self, content_crypto_material, data_size=None, part_size=None):
+        self.content_crypto_material = content_crypto_material
+        self.data_size = data_size
+        self.part_size = part_size
+
+
+'''
+class MultipartUploadCryptoContext(object):
     """表示客户端加密文件通过Multipart接口上传的meta信息
     """
 
@@ -78,6 +86,7 @@ class MultipartUploadCryptoContext(object):
             headers[OSS_CLIENT_SIDE_ENCRYPTION_PART_SIZE] = str(self.part_size)
 
         return headers
+'''
 
 
 def _hget(headers, key, converter=lambda x: x):
@@ -189,12 +198,9 @@ class GetObjectResult(HeadObjectResult):
             self.stream = make_crc_adapter(self.stream)
 
         if self.__crypto_provider:
-            content_crypto_material = ContentCryptoMaterial(None, self.__crypto_provider.wrap_alg)
+            content_crypto_material = ContentCryptoMaterial(self.__crypto_provider.cipher,
+                                                            self.__crypto_provider.wrap_alg)
             content_crypto_material.from_object_meta(resp.headers)
-
-            if self.__crypto_provider.wrap_alg != content_crypto_material.wrap_alg:
-                err_msg = 'Invalid wrap algorithm, please check the crypto provider'
-                raise InconsistentError(err_msg, self.request_id)
 
             # check whether the rsa key pairs is correct
             if content_crypto_material.encrypted_magic_number_hmac:
@@ -204,13 +210,13 @@ class GetObjectResult(HeadObjectResult):
             plain_start = int(self.__crypto_provider.decrypte_encrypted_start(content_crypto_material.encrypted_start))
 
             counter = 0
-            if self.content_range: # and content_crypto_material.cipher.alg == _AES_CTR:
+            if self.content_range:
                 counter = content_crypto_material.cipher.calc_counter(byte_range[0])
 
-            content_crypto_material.cipher = self.__crypto_provider.cipher.__class(plain_key, plain_start + counter)
-
+            content_crypto_material.cipher.initialize(plain_key, plain_start + counter)
             self.stream = self.__crypto_provider.make_decrypt_adapter(self.stream, content_crypto_material.cipher,
                                                                       discard)
+
 
 @staticmethod
 def _parse_range_str(content_range):
