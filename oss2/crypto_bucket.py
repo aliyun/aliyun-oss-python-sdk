@@ -251,12 +251,11 @@ class CryptoBucket(Bucket):
 
         logger.info("Start to init multipart upload by crypto bucket, data_size: {0}, part_size: {1}".format(data_size,
                                                                                                              part_size))
-        content_crypto_material = self.crypto_provider.create_content_material(data_size, part_size)
+        content_crypto_material = self.crypto_provider.create_content_material()
 
-        context = MultipartUploadCryptoContext(self.crypto_provider, content_crypto_material.encrypted_key,
-                                               content_crypto_material.encrypted_start, data_size, part_size)
+        context = MultipartUploadCryptoContext(content_crypto_material, data_size, part_size)
 
-        headers = content_crypto_material.to_object_meta(headers)
+        headers = content_crypto_material.to_object_meta(headers, context)
 
         resp = super(self, CryptoBucket).init_multipart_upload(key, headers)
 
@@ -288,7 +287,10 @@ class CryptoBucket(Bucket):
         else:
             raise ClientError("Could not find upload context, please check the upload_id!")
 
-        headers = context.to_object_meta(headers)
+        content_crypto_material = context.content_crypto_material
+        if content_crypto_material.encrypted_magic_number_hmac:
+            self.crypto_provider.check_magic_number_hmac(content_crypto_material.encrypted_magic_number_hmac)
+        headers = content_crypto_material.to_object_meta(headers, context)
 
         plain_key = self.crypto_provider.decrypt_encrypted_key(context.encrypted_key)
         plain_start = self.crypto_provider.decrypt_encrypted_start(context.encrypted_start)
@@ -296,7 +298,7 @@ class CryptoBucket(Bucket):
         offset = context.part_size * (part_number - 1)
         counter = self.crypto_provider.cipher.calc_counter(offset)
 
-        cipher = self.crypto_provider.cipher.__class(plain_key, plain_start+counter)
+        cipher = self.crypto_provider.cipher.initialize(plain_key, plain_start+counter)
         data = self.crypto_provider.make_encrypt_adapter(data, cipher)
         resp = super(self, CryptoBucket).upload_part(key, upload_id, part_number, data, progress_callback, headers)
 

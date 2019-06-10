@@ -44,51 +44,6 @@ class MultipartUploadCryptoContext(object):
         self.part_size = part_size
 
 
-'''
-class MultipartUploadCryptoContext(object):
-    """表示客户端加密文件通过Multipart接口上传的meta信息
-    """
-
-    def __init__(self, crypto_provider, encrypted_key, encrypted_start, data_size=None, part_size=None):
-        self.crypto_provider = crypto_provider
-        self.wrap_alg = crypto_provider.wrap_alg
-        self.cek_alg = crypto_provider.cihper.alg
-        self.encrypted_key = encrypted_key
-        self.encrypted_start = encrypted_start
-        self.data_size = data_size
-        self.part_size = part_size
-        try:
-            self.encrypted_magic_number_hmac = crypto_provider.encryption_magic_number_hmac
-        except AttributeError:
-            self.encrypted_magic_number_hmac = None
-
-    def to_object_meta(self, headers=None):
-        if not isinstance(headers, CaseInsensitiveDict):
-            headers = CaseInsensitiveDict(headers)
-
-        if 'content-md5' in headers:
-            headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_MD5] = headers['content-md5']
-            del headers['content-md5']
-
-        if 'content-length' in headers:
-            headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_LENGTH] = headers['content-length']
-            del headers['content-length']
-
-        headers[OSS_CLIENT_SIDE_ENCRYPTION_KEY] = self.encrypted_key
-        headers[OSS_CLIENT_SIDE_ENCRYPTION_START] = self.encrypted_start
-        headers[OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG] = self.cek_alg
-        headers[OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG] = self.wrap_alg
-        if self.encrypted_magic_number_hmac:
-            headers[OSS_CLIENT_SIDE_ENCRYPTION_MAGIC_NUMBER_HMAC] = self.crypto_magic_number_hmac
-
-        if self.data_size and self.part_size:
-            headers[OSS_CLIENT_SIDE_ENCRYPTION_DATA_SIZE] = str(self.data_size)
-            headers[OSS_CLIENT_SIDE_ENCRYPTION_PART_SIZE] = str(self.part_size)
-
-        return headers
-'''
-
-
 def _hget(headers, key, converter=lambda x: x):
     if key in headers:
         return converter(headers[key])

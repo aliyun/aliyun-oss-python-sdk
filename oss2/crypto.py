@@ -31,18 +31,15 @@ import abc
 
 
 class ContentCryptoMaterial(object):
-    def __init__(self, cipher, wrap_alg, encrypted_key=None, encrypted_start=None, mat_desc=None, data_size=None,
-                 part_size=None):
+    def __init__(self, cipher, wrap_alg, encrypted_key=None, encrypted_start=None, mat_desc=None):
         self.cek_alg = cipher.alg
         self.wrap_alg = wrap_alg
         self.encrypted_key = encrypted_key
         self.encrypted_start = encrypted_start
         self.mat_desc = mat_desc
         self.encrypted_magic_number_hmac = None
-        self.data_size = data_size
-        self.part_size = part_size
 
-    def to_object_meta(self, headers=None):
+    def to_object_meta(self, headers=None, multipart_upload_context=None):
         if not isinstance(headers, CaseInsensitiveDict):
             headers = CaseInsensitiveDict(headers)
 
@@ -66,7 +63,7 @@ class ContentCryptoMaterial(object):
             headers[OSS_CLIENT_SIDE_ENCRYPTION_MAGIC_NUMBER_HMAC] = b64encode_as_string(
                 self.encrypted_magic_number_hmac)
 
-        if self.data_size and self.part_size:
+        if multipart_upload_context and multipart_upload_context.data_size and multipart_upload_context.part_size:
             headers[OSS_CLIENT_SIDE_ENCRYPTION_DATA_SIZE] = str(self.data_size)
             headers[OSS_CLIENT_SIDE_ENCRYPTION_PART_SIZE] = str(self.part_size)
 
@@ -94,10 +91,16 @@ class ContentCryptoMaterial(object):
             wrap_alg = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG)
             self.mat_desc = _hget(headers, OSS_CLIENT_SIDE_ENCRYTPION_MATDESC)
             self.encrypted_magic_number_hmac = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_MAGIC_NUMBER_HMAC)
+            if self.encrypted_magic_number_hmac:
+                self.encrypted_magic_number_hmac = b64decode_from_string(self.encrypted_magic_number_hmac)
 
         if cek_alg != self.cek_alg or wrap_alg != self.wrap_alg:
             err_msg = 'Envelope or data encryption/decryption algorithm is inconsistent'
             raise InconsistentError(err_msg, self)
+
+        if self.wrap_alg == RSA_WRAP_ALGORITHM:
+            self.encrypted_key = b64decode_from_string(self.encrypted_key)
+            self.encrypted_start = b64decode_from_string(self.encrypted_start)
 
 
 class BaseCryptoProvider(metaclass=abc.ABCMeta):
@@ -135,17 +138,9 @@ class BaseCryptoProvider(metaclass=abc.ABCMeta):
     def adjust_range(self, start, end):
         return self.cipher.adjust_range(start, end)
 
-    def create_content_material(self, part_size=None, data_size=None):
-        plain_key = self.get_key()
-        encrypted_key = self.__encrypt_data(plain_key)
-        plain_start = self.get_start()
-        encrypted_start = self.__encrypt_data(to_bytes(str(plain_start)))
-        cipher = self.cipher
-        wrap_alg = self.wrap_alg
-        mat_desc = self.mat_desc
-        cipher.initialize(plain_start, plain_key)
-
-        return ContentCryptoMaterial(cipher, encrypted_key, encrypted_start, wrap_alg, mat_desc, part_size, data_size)
+    @abc.abstractmethod
+    def create_content_material(self):
+        pass
 
     @abc.abstractmethod
     def __encrypt_data(self, data):
@@ -229,13 +224,22 @@ class LocalRsaProvider(BaseCryptoProvider):
     def decrypt_encrypted_start(self, encrypted_start):
         return self.__decrypt_data(utils.b64decode_from_string(encrypted_start))
 
-    def create_content_material(self, part_size=None, data_size=None):
-        content_crypto_material = super(LocalRsaProvider, self).create_content_material(part_size, data_size)
+    def create_content_material(self):
+        plain_key = self.get_key()
+        encrypted_key = self.__encrypt_data(plain_key)
+        plain_start = self.get_start()
+        encrypted_start = self.__encrypt_data(to_bytes(str(plain_start)))
+        cipher = self.cipher
+        wrap_alg = self.wrap_alg
+        mat_desc = self.mat_desc
+        cipher.initialize(plain_key, plain_start)
+
+        content_crypto_material = ContentCryptoMaterial(cipher, encrypted_key, encrypted_start, wrap_alg, mat_desc)
         content_crypto_material.encrypted_magic_number_hmac = self.encryption_magic_number_hmac
         return content_crypto_material
 
     def check_magic_number_hmac(self, magic_number_hmac):
-        if magic_number_hmac != b64encode_as_string(self.encryption_magic_number_hmac):
+        if magic_number_hmac != self.encryption_magic_number_hmac:
             raise ClientError("The hmac of magic number is inconsistent, please check the RSA keys pair")
 
     def __encrypt_data(self, data):
@@ -266,17 +270,16 @@ class AliKMSProvider(BaseCryptoProvider):
         if not issubclass(cipher, utils.AESCipher):
             raise ClientError('AliKMSProvider only support AES256 cipher')
 
-        super(AliKMSProvider, self).__init__(cipher=cipher, wrap_alg=KMS_WRAP_ALGORITHM)
+        super(AliKMSProvider, self).__init__(cipher=cipher)
+        self.wrap_alg = KMS_WRAP_ALGORITHM
         self.custom_master_key_id = cmk_id
         self.sts_token = sts_token
         self.context = '{"x-passphrase":"' + passphrase + '"}' if passphrase else ''
         self.kms_client = client.AcsClient(access_key_id, access_key_secret, region)
 
-        self.encrypted_key = None
-
     def get_key(self):
-        plain_key, self.encrypted_key = self.__generate_data_key()
-        return plain_key
+        plain_key, encrypted_key = self.__generate_data_key()
+        return plain_key, encrypted_key
 
     def get_start(self):
         return self.cipher.get_start()
@@ -287,16 +290,18 @@ class AliKMSProvider(BaseCryptoProvider):
     def decrypt_encrypted_start(self, encrypted_start):
         return self.__decrypt_data(encrypted_start)
 
-    def create_content_material(self, data_size=None, part_size=None):
-        plain_key = self.get_key()
-        encrypted_key = self.__encrypt_data(plain_key)
+    def create_content_material(self):
+        plain_key, encrypted_key = self.get_key()
         plain_start = self.get_start()
         encrypted_start = self.__encrypt_data(to_bytes(str(plain_start)))
+        cipher = self.cipher
         wrap_alg = self.wrap_alg
         mat_desc = self.mat_desc
-        cipher = self.cipher.__class__(plain_key, plain_start)
+        cipher.initialize(plain_key, plain_start)
 
-        return ContentCryptoMaterial(cipher, encrypted_key, encrypted_start, wrap_alg, mat_desc, part_size, data_size)
+        content_crypto_material = ContentCryptoMaterial(cipher, encrypted_key, encrypted_start, wrap_alg, mat_desc)
+        content_crypto_material.encrypted_magic_number_hmac = self.encryption_magic_number_hmac
+        return content_crypto_material
 
     def __generate_data_key(self):
         req = GenerateDataKeyRequest.GenerateDataKeyRequest()
