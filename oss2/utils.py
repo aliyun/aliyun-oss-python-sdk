@@ -26,7 +26,7 @@ import crcmod
 import re
 import sys
 import random
-import abc
+import abc, six
 import defaults
 
 from Crypto.Cipher import AES
@@ -324,7 +324,7 @@ def _invoke_cipher_callback(cipher_callback, content):
 
 
 class _IterableAdapter(object):
-    def __init__(self, data, progress_callback=None, crc_callback=None, cipher_callback=None, decrypt_discard=0):
+    def __init__(self, data, progress_callback=None, crc_callback=None, cipher_callback=None):
         self.iter = iter(data)
         self.progress_callback = progress_callback
         self.offset = 0
@@ -367,14 +367,14 @@ class _FileLikeAdapter(object):
     :param progress_callback: 进度回调函数
     """
 
-    def __init__(self, fileobj, progress_callback=None, crc_callback=None, cipher_callback=None, decrypt_discard=0):
+    def __init__(self, fileobj, progress_callback=None, crc_callback=None, cipher_callback=None, discard=0):
         self.fileobj = fileobj
         self.progress_callback = progress_callback
         self.offset = 0
 
         self.crc_callback = crc_callback
         self.cipher_callback = cipher_callback
-        self.decrypt_discard = decrypt_discard
+        self.discard = discard
         self.read_all = False
 
     def __iter__(self):
@@ -391,13 +391,14 @@ class _FileLikeAdapter(object):
 
     def read(self, amt=None):
         offset_start = self.offset
-        if offset_start < self.decrypt_discard:
+        if offset_start < self.discard:
             if amt:
-                amt += self.decrypt_discard
+                amt += self.discard
         content = self.fileobj.read(amt)
         if not content:
             self.read_all = True
             _invoke_progress_callback(self.progress_callback, self.offset, None)
+            return ''
         else:
             _invoke_progress_callback(self.progress_callback, self.offset, None)
 
@@ -407,12 +408,12 @@ class _FileLikeAdapter(object):
 
             content = _invoke_cipher_callback(self.cipher_callback, content)
 
-            if offset_start < self.decrypt_discard:
-                if len(content) <= self.decrypt_discard:
-                    self.decrypt_discard -= len(content)
+            if offset_start < self.discard:
+                if len(content) <= self.discard:
+                    self.discard -= len(content)
                     return ''
                 else:
-                    return content[self.decrypt_discard:]
+                    return content[self.discard:]
             return content
 
     @property
@@ -543,17 +544,16 @@ class Crc32(object):
         return self.crc32.crcValue
 
 
-
 _AES_256_KEY_SIZE = 32
-
 _AES_BLOCK_LEN = 16
 _AES_BLOCK_BITS_LEN = 8 * 16
 
-_AES_GCM = 'AES/GCM/NoPadding'
-_AES_CTR = 'AES/CTR/NoPadding'
+AES_GCM = 'AES/GCM/NoPadding'
+AES_CTR = 'AES/CTR/NoPadding'
 
 
-class AESCipher(metaclass=abc.ABCMeta):
+@six.add_metaclass(abc.ABCMeta)
+class AESCipher(object):
     """AES256 加密实现。
             :param str key: 对称加密数据密钥
             :param str start: 对称加密初始随机值
@@ -619,7 +619,7 @@ class AESCTRCipher(AESCipher):
 
     def __init__(self):
         super(AESCTRCipher, self).__init__()
-        self.alg = _AES_CTR
+        self.alg = AES_CTR
         self.__cipher = None
 
     def get_key(self):

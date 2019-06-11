@@ -19,7 +19,6 @@ from .models import PartInfo
 from .compat import json, stringify, to_unicode, to_string
 from .task_queue import TaskQueue
 from .headers import *
-from .utils import _MAX_PART_COUNT, _MIN_PART_SIZE
 
 import functools
 import threading
@@ -29,6 +28,7 @@ import string
 import logging
 
 logger = logging.getLogger(__name__)
+
 
 def resumable_upload(bucket, key, filename,
                      store=None,
@@ -60,9 +60,10 @@ def resumable_upload(bucket, key, filename,
     :param num_threads: 并发上传的线程数，如不指定则使用 `oss2.defaults.multipart_num_threads` 。
     """
     logger.debug("Start to resumable upload, bucket: {0}, key: {1}, filename: {2}, headers: {3}, "
-                "multipart_threshold: {4}, part_size: {5}, num_threads: {6}".format(bucket.bucket_name, to_string(key),
-                                                                                    filename, headers, multipart_threshold,
-                                                                                    part_size, num_threads))
+                 "multipart_threshold: {4}, part_size: {5}, num_threads: {6}".format(bucket.bucket_name, to_string(key),
+                                                                                     filename, headers,
+                                                                                     multipart_threshold,
+                                                                                     part_size, num_threads))
     size = os.path.getsize(filename)
     multipart_threshold = defaults.get(multipart_threshold, defaults.multipart_threshold)
 
@@ -121,14 +122,14 @@ def resumable_download(bucket, key, filename,
     """
 
     logger.debug("Start to resumable download, bucket: {0}, key: {1}, filename: {2}, multiget_threshold: {3}, "
-                "part_size: {4}, num_threads: {5}".format(bucket.bucket_name, to_string(key), filename,
-                                                          multiget_threshold, part_size, num_threads))
+                 "part_size: {4}, num_threads: {5}".format(bucket.bucket_name, to_string(key), filename,
+                                                           multiget_threshold, part_size, num_threads))
     multiget_threshold = defaults.get(multiget_threshold, defaults.multiget_threshold)
 
     if isinstance(bucket, Bucket):
         result = bucket.head_object(key)
         logger.debug("The size of object to download is: {0}, multiget_threshold: {1}".format(result.content_length,
-                     multiget_threshold))
+                                                                                              multiget_threshold))
         if result.content_length >= multiget_threshold:
             downloader = _ResumableDownloader(bucket, key, filename, _ObjectInfo.make(result),
                                               part_size=part_size,
@@ -157,7 +158,7 @@ def determine_part_size(total_size,
     if not preferred_size:
         preferred_size = defaults.part_size
 
-    return _determine_part_size_internal(total_size, preferred_size, _MAX_PART_COUNT)
+    return _determine_part_size_internal(total_size, preferred_size, defaults.max_part_count)
 
 
 def _determine_part_size_internal(total_size, preferred_size, max_count):
@@ -265,7 +266,7 @@ class _ResumableDownloader(_ResumableOperation):
         logger.debug("Init _ResumableDownloader, bucket: {0}, key: {1}, part_size: {2}, num_thread: {3}".format(
             bucket.bucket_name, to_string(key), self.__part_size, self.__num_threads))
 
-    def download(self, server_crc = None):
+    def download(self, server_crc=None):
         self.__load_record()
 
         parts_to_download = self.__get_parts_to_download()
@@ -306,8 +307,8 @@ class _ResumableDownloader(_ResumableOperation):
         with open(self.__tmp_file, 'rb+') as f:
             f.seek(part.start, os.SEEK_SET)
 
-            headers = {IF_MATCH : self.objectInfo.etag,
-                       IF_UNMODIFIED_SINCE : utils.http_date(self.objectInfo.mtime)}
+            headers = {IF_MATCH: self.objectInfo.etag,
+                       IF_UNMODIFIED_SINCE: utils.http_date(self.objectInfo.mtime)}
             result = self.bucket.get_object(self.key, byte_range=(part.start, part.end - 1), headers=headers)
             utils.copyfileobj_and_verify(result, f, part.end - part.start, request_id=result.request_id)
 
@@ -349,7 +350,8 @@ class _ResumableDownloader(_ResumableOperation):
 
         self.__tmp_file = self.filename + record['tmp_suffix']
         self.__part_size = record['part_size']
-        self.__finished_parts = list(_PartToProcess(p['part_number'], p['start'], p['end'], p['part_crc']) for p in record['parts'])
+        self.__finished_parts = list(
+            _PartToProcess(p['part_number'], p['start'], p['end'], p['part_crc']) for p in record['parts'])
         self.__finished_size = sum(p.size for p in self.__finished_parts)
         self.__record = record
 
@@ -385,8 +387,8 @@ class _ResumableDownloader(_ResumableOperation):
 
     def __is_remote_changed(self, record):
         return (record['mtime'] != self.objectInfo.mtime or
-            record['size'] != self.objectInfo.size or
-            record['etag'] != self.objectInfo.etag)
+                record['size'] != self.objectInfo.size or
+                record['etag'] != self.objectInfo.etag)
 
     def __finish_part(self, part):
         with self.__lock:
@@ -416,6 +418,7 @@ class _ResumableUploader(_ResumableOperation):
         分片的大小。
     :param progress_callback: 上传进度回调函数。参见 :ref:`progress_callback` 。
     """
+
     def __init__(self, bucket, key, filename, size,
                  store=None,
                  headers=None,
@@ -490,7 +493,8 @@ class _ResumableUploader(_ResumableOperation):
             self.__finished_parts.append(part_info)
             self.__finished_size += part_info.size
 
-            self.__record['parts'].append({'part_number': part_info.part_number, 'etag': part_info.etag, 'part_crc':part_info.part_crc})
+            self.__record['parts'].append(
+                {'part_number': part_info.part_number, 'etag': part_info.etag, 'part_crc': part_info.part_crc})
             self._put_record(self.__record)
 
     def __load_record(self):
@@ -637,6 +641,7 @@ class ResumableStore(_ResumableStoreBase):
     :param str root: 父目录，缺省为HOME
     :param str dir: 子目录，缺省为 `_UPLOAD_TEMP_DIR`
     """
+
     def __init__(self, root=None, dir=None):
         super(ResumableStore, self).__init__(root or os.path.expanduser('~'), dir or _UPLOAD_TEMP_DIR)
 
@@ -656,6 +661,7 @@ class ResumableDownloadStore(_ResumableStoreBase):
     :param str root: 父目录，缺省为HOME
     :param str dir: 子目录，缺省为 `_DOWNLOAD_TEMP_DIR`
     """
+
     def __init__(self, root=None, dir=None):
         super(ResumableDownloadStore, self).__init__(root or os.path.expanduser('~'), dir or _DOWNLOAD_TEMP_DIR)
 
@@ -723,7 +729,7 @@ def _is_record_sane(record):
 
 
 class _PartToProcess(object):
-    def __init__(self, part_number, start, end, part_crc = None):
+    def __init__(self, part_number, start, end, part_crc=None):
         self.part_number = part_number
         self.start = start
         self.end = end

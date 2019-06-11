@@ -37,8 +37,11 @@ OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG = "x-oss-client-side-encryption-wrap-alg"
 OSS_CLIENT_SIDE_ENCRYTPION_MATDESC = "x-oss-client-side-encryption-matdesc"
 OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_LENGTH = "x-oss-client-side-encryption-unencrypted-content-length"
 OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_MD5 = "x-oss-client-side-encryption-unencrypted-content-md5"
-OSS_CLIENT_SIDE_ENCRYPTION_DATA_SIZE = "x-oss-client-side-encryption-data-size"
-OSS_CLIENT_SIDE_ENCRYPTION_PART_SIZE = "x-oss-client-side-encryption-part-size"
+# for debug
+# OSS_CLIENT_SIDE_ENCRYPTION_DATA_SIZE = "x-oss-client-side-encryption-data-size"
+# OSS_CLIENT_SIDE_ENCRYPTION_PART_SIZE = "x-oss-client-side-encryption-part-size"
+OSS_CLIENT_SIDE_ENCRYPTION_DATA_SIZE = "x-oss-client-side-encryption-mp-data-size"
+OSS_CLIENT_SIDE_ENCRYPTION_PART_SIZE = "x-oss-client-side-encryption-mp-part-size"
 OSS_CLIENT_SIDE_ENCRYPTION_MAGIC_NUMBER_HMAC = "x-oss-client-side-encryption-magic-number-hmac"
 
 DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY = "x-oss-meta-oss-crypto-key"

@@ -153,28 +153,31 @@ class CryptoBucket(Bucket):
 
         headers = http.CaseInsensitiveDict(headers)
 
+        discard = 0
+        range_string = ''
+
         if byte_range:
             start, end = self.crypto_provider.adjust_range(byte_range[0], byte_range[1])
+            adjust_byte_range = (start, end)
 
-        adjust_byte_range = (start, end)
-        range_string = _make_range_string(adjust_byte_range)
-        if range_string:
-            headers['range'] = range_string
+            range_string = _make_range_string(adjust_byte_range)
+            if range_string:
+                headers['range'] = range_string
 
-        if byte_range[0] and adjust_byte_range[0] < byte_range[0]:
-            discard = adjust_byte_range[0] - byte_range[0]
+            if byte_range[0] and adjust_byte_range[0] < byte_range[0]:
+                discard = byte_range[0] - adjust_byte_range[0]
 
         params = {} if params is None else params
 
         logger.debug("Start to get object, bucket: {0}， key: {1}, range: {2}, headers: {3}, params: {4}".format(
             self.bucket_name, to_string(key), range_string, headers, params))
-        resp = self.__do_object('GET', key, headers=headers, params=params)
+        resp = self._do('GET', self.bucket_name, key, headers=headers, params=params)
         logger.debug("Get object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         if models._hget(resp.headers, OSS_CLIENT_SIDE_ENCRYPTION_KEY) is None:
             raise ClientError('Could not use crypto bucket to decrypt an unencrypted object')
         return GetObjectResult(resp, progress_callback, self.enable_crc,
-                               crypto_provider=self.crypto_provider, decrypt_discard=discard)
+                               crypto_provider=self.crypto_provider, discard=discard)
 
     def get_object_with_url(self, sign_url,
                             byte_range=None,
@@ -215,7 +218,7 @@ class CryptoBucket(Bucket):
             self.bucket_name, sign_url, range_string, headers))
         resp = self._do_url('GET', sign_url, headers=headers)
         return GetObjectResult(resp, progress_callback, self.enable_crc,
-                               crypto_provider=self.crypto_provider, decrypt_discard=discard)
+                               crypto_provider=self.crypto_provider, discard=discard)
 
     def create_select_object_meta(self, key, select_meta_params=None):
         raise ClientError("The operation is not support for Crypto Bucket")
@@ -257,7 +260,7 @@ class CryptoBucket(Bucket):
 
         headers = content_crypto_material.to_object_meta(headers, context)
 
-        resp = super(self, CryptoBucket).init_multipart_upload(key, headers)
+        resp = super(CryptoBucket, self).init_multipart_upload(key, headers)
 
         if resp.upload_id:
             self.upload_contexts[resp.upload_id] = context
@@ -292,15 +295,15 @@ class CryptoBucket(Bucket):
             self.crypto_provider.check_magic_number_hmac(content_crypto_material.encrypted_magic_number_hmac)
         headers = content_crypto_material.to_object_meta(headers, context)
 
-        plain_key = self.crypto_provider.decrypt_encrypted_key(context.encrypted_key)
-        plain_start = self.crypto_provider.decrypt_encrypted_start(context.encrypted_start)
+        plain_key = self.crypto_provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
+        plain_start = self.crypto_provider.decrypt_encrypted_start(content_crypto_material.encrypted_start)
 
         offset = context.part_size * (part_number - 1)
         counter = self.crypto_provider.cipher.calc_counter(offset)
 
-        cipher = self.crypto_provider.cipher.initialize(plain_key, plain_start+counter)
-        data = self.crypto_provider.make_encrypt_adapter(data, cipher)
-        resp = super(self, CryptoBucket).upload_part(key, upload_id, part_number, data, progress_callback, headers)
+        content_crypto_material.cipher.initialize(plain_key, int(plain_start)+counter)
+        data = self.crypto_provider.make_encrypt_adapter(data, content_crypto_material.cipher)
+        resp = super(CryptoBucket, self).upload_part(key, upload_id, part_number, data, progress_callback, headers)
 
         logger.info("Upload part {0} by Crypto bucket done.".format(part_number))
 
@@ -327,7 +330,7 @@ class CryptoBucket(Bucket):
             raise ClientError("Could not find upload context, please check the upload_id!")
 
         try:
-            resp = super(self, CryptoBucket).complete_multipart_upload(key, upload_id, headers)
+            resp = super(CryptoBucket, self).complete_multipart_upload(key, upload_id, parts, headers)
             if upload_id in self.upload_contexts:
                 self.upload_contexts.pop(upload_id)
         except exceptions as e:
@@ -349,7 +352,7 @@ class CryptoBucket(Bucket):
             raise ClientError("Could not find upload context, please check the upload_id!")
 
         try:
-            resp = super(self, CryptoBucket).abort_multipart_upload(key, upload_id)
+            resp = super(CryptoBucket, self).abort_multipart_upload(key, upload_id)
             if upload_id in self.upload_contexts:
                 self.upload_contexts.pop(upload_id)
         except exceptions as e:
@@ -362,6 +365,11 @@ class CryptoBucket(Bucket):
                          headers=None):
         """分片拷贝。把一个已有文件的一部分或整体拷贝成目标文件的一个分片。
 
+        :param target_part_number:
+        :param target_upload_id:
+        :param target_key:
+        :param source_key:
+        :param source_bucket_name:
         :param byte_range: 指定待拷贝内容在源文件里的范围。参见 :ref:`byte_range`
 
         :param headers: HTTP头部
@@ -374,6 +382,7 @@ class CryptoBucket(Bucket):
     def list_parts(self, key, upload_id, marker='', max_parts=1000, headers=None):
         """列举已经上传的分片。支持分页。
 
+        :param headers:
         :param str key: 文件名
         :param str upload_id: 分片上传ID
         :param str marker: 分页符
@@ -384,7 +393,7 @@ class CryptoBucket(Bucket):
         logger.info("Start list parts by crypto bucket, upload_id = {0}".format(upload_id))
 
         try:
-            resp = super(self, CryptoBucket).list_parts(key, upload_id, marker=marker, max_parts=max_parts,
+            resp = super(CryptoBucket, self).list_parts(key, upload_id, marker=marker, max_parts=max_parts,
                                                         headers=headers)
             if resp.upload_id == upload_id:
                 context = MultipartUploadCryptoContext(self.crypto_provider, resp.client_encryption_key,

@@ -6,14 +6,14 @@ oss2.models
 
 该模块包含Python SDK API接口所需要的输入参数以及返回值类型。
 """
-from .utils import http_to_unixtime, make_progress_adapter, make_crc_adapter, b64encode_as_string
+from . import utils
+from .utils import http_to_unixtime, make_progress_adapter, make_crc_adapter, b64encode_as_string, b64decode_from_string
 from .exceptions import ClientError, InconsistentError
-from .compat import urlunquote, to_string, to_bytes
+from .compat import urlunquote, to_string
 from .select_response import SelectResponseAdapter
 from .headers import *
 import json
 from requests.structures import CaseInsensitiveDict
-from .crypto import ContentCryptoMaterial
 
 
 class PartInfo(object):
@@ -35,6 +35,83 @@ class PartInfo(object):
         self.size = size
         self.last_modified = last_modified
         self.part_crc = part_crc
+
+
+class ContentCryptoMaterial(object):
+    def __init__(self, cipher, wrap_alg, encrypted_key=None, encrypted_start=None, mat_desc=None):
+        self.cipher = cipher
+        self.cek_alg = cipher.alg
+        self.wrap_alg = wrap_alg
+        self.encrypted_key = encrypted_key
+        self.encrypted_start = encrypted_start
+        self.mat_desc = mat_desc
+        self.encrypted_magic_number_hmac = None
+
+    def to_object_meta(self, headers=None, multipart_upload_context=None):
+        if not isinstance(headers, CaseInsensitiveDict):
+            headers = CaseInsensitiveDict(headers)
+
+        if 'content-md5' in headers:
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_MD5] = headers['content-md5']
+            del headers['content-md5']
+
+        if 'content-length' in headers:
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_LENGTH] = headers['content-length']
+            del headers['content-length']
+
+        #if self.wrap_alg == crypto.KMS_WRAP_ALGORITHM:
+        if self.wrap_alg == "kms":
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_KEY] = self.encrypted_key
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_START] = self.encrypted_start
+        else:
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_KEY] = b64encode_as_string(self.encrypted_key)
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_START] = b64encode_as_string(self.encrypted_start)
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG] = self.cek_alg
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG] = self.wrap_alg
+        if self.encrypted_magic_number_hmac:
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_MAGIC_NUMBER_HMAC] = b64encode_as_string(
+                self.encrypted_magic_number_hmac)
+
+        if multipart_upload_context and multipart_upload_context.data_size and multipart_upload_context.part_size:
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_DATA_SIZE] = str(multipart_upload_context.data_size)
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_PART_SIZE] = str(multipart_upload_context.part_size)
+
+        return headers
+
+    def from_object_meta(self, headers):
+        if not isinstance(headers, CaseInsensitiveDict):
+            headers = CaseInsensitiveDict(headers)
+
+        deprecated = False
+        if DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY in headers:
+            deprecated = True
+
+        if deprecated:
+            self.encrypted_key = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY)
+            self.encrypted_start = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_START)
+            cek_alg = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_CEK_ALG)
+            wrap_alg = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_WRAP_ALG)
+            if wrap_alg == utils.AES_GCM:
+                wrap_alg = utils.AES_CTR
+            self.mat_desc = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYTPION_MATDESC)
+        else:
+            self.encrypted_key = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_KEY)
+            self.encrypted_start = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_START)
+            cek_alg = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG)
+            wrap_alg = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG)
+            self.mat_desc = _hget(headers, OSS_CLIENT_SIDE_ENCRYTPION_MATDESC)
+            self.encrypted_magic_number_hmac = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_MAGIC_NUMBER_HMAC)
+            if self.encrypted_magic_number_hmac:
+                self.encrypted_magic_number_hmac = b64decode_from_string(self.encrypted_magic_number_hmac)
+
+        if cek_alg != self.cek_alg or wrap_alg != self.wrap_alg:
+            err_msg = 'Envelope or data encryption/decryption algorithm is inconsistent'
+            raise InconsistentError(err_msg, self)
+
+        #if self.wrap_alg == crypto.RSA_WRAP_ALGORITHM:
+        if self.wrap_alg == "rsa":
+            self.encrypted_key = b64decode_from_string(self.encrypted_key)
+            self.encrypted_start = b64decode_from_string(self.encrypted_start)
 
 
 class MultipartUploadCryptoContext(object):
@@ -162,7 +239,7 @@ class GetObjectResult(HeadObjectResult):
                 self.__crypto_provider.check_magic_number_hmac(content_crypto_material.encrypted_magic_number_hmac)
 
             plain_key = self.__crypto_provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
-            plain_start = int(self.__crypto_provider.decrypte_encrypted_start(content_crypto_material.encrypted_start))
+            plain_start = int(self.__crypto_provider.decrypt_encrypted_start(content_crypto_material.encrypted_start))
 
             counter = 0
             if self.content_range:
@@ -173,28 +250,25 @@ class GetObjectResult(HeadObjectResult):
                                                                       discard)
 
 
-@staticmethod
-def _parse_range_str(content_range):
-    # :param str content_range: sample 'bytes 0-128/1024'
-    range_data = (content_range.split(' ', 2)[1]).split('/', 2)[0]
-    range_start, range_end = range_data.split('-', 2)
-    return int(range_start), int(range_end)
+    @staticmethod
+    def _parse_range_str(content_range):
+        # :param str content_range: sample 'bytes 0-128/1024'
+        range_data = (content_range.split(' ', 2)[1]).split('/', 2)[0]
+        range_start, range_end = range_data.split('-', 2)
+        return int(range_start), int(range_end)
 
+    def read(self, amt=None):
+        return self.stream.read(amt)
 
-def read(self, amt=None):
-    return self.stream.read(amt)
+    def __iter__(self):
+        return iter(self.stream)
 
-
-def __iter__(self):
-    return iter(self.stream)
-
-
-@property
-def client_crc(self):
-    if self.__crc_enabled:
-        return self.stream.crc
-    else:
-        return None
+    @property
+    def client_crc(self):
+        if self.__crc_enabled:
+            return self.stream.crc
+        else:
+            return None
 
 
 class SelectObjectResult(HeadObjectResult):

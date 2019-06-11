@@ -249,7 +249,7 @@ class _Base(object):
         return resp
 
     @staticmethod
-    def _parse_result(self, resp, parse_func, klass):
+    def _parse_result(resp, parse_func, klass):
         result = klass(resp)
         parse_func(result, resp.read())
         return result

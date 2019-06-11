@@ -15,12 +15,12 @@ from oss2.crypto import LocalRsaProvider, AliKMSProvider
 #   http://oss-cn-hangzhou.aliyuncs.com
 #   https://oss-cn-hangzhou.aliyuncs.com
 # 分别以HTTP、HTTPS协议访问。
-access_key_id = os.getenv('OSS_TEST_ACCESS_KEY_ID', '<你的AccessKeyId>')
-access_key_secret = os.getenv('OSS_TEST_ACCESS_KEY_SECRET', '<你的AccessKeySecret>')
-bucket_name = os.getenv('OSS_TEST_BUCKET', '<你的Bucket>')
-endpoint = os.getenv('OSS_TEST_ENDPOINT', '<你的访问域名>')
-cmk = os.getenv('OSS_TEST_CMK', '<你的CMK>')
-region = os.getenv('OSS_TEST_REGION', '<你的区域>')
+access_key_id = os.getenv('OSS_TEST_ACCESS_KEY_ID', '')
+access_key_secret = os.getenv('OSS_TEST_ACCESS_KEY_SECRET', '')
+bucket_name = os.getenv('OSS_TEST_BUCKET', '')
+endpoint = os.getenv('OSS_TEST_ENDPOINT', '')
+cmk = os.getenv('OSS_TEST_CMK', '')
+region = os.getenv('OSS_TEST_REGION', '')
 
 # 确认上面的参数都填写正确了
 for param in (access_key_id, access_key_secret, bucket_name, endpoint, cmk, region):
@@ -31,8 +31,8 @@ content = b'a' * 1024 * 1024
 filename = 'download.txt'
 
 # 创建Bucket对象，可以进行客户端数据加密(用户端RSA)
-bucket = oss2.CryptoBucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name, crypto_provider=LocalRsaProvider())
-
+bucket = oss2.CryptoBucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name,
+                           crypto_provider=LocalRsaProvider(gen_keys=True))
 
 # 上传文件
 bucket.put_object(key, content, headers={'content-length': str(1024 * 1024)})
@@ -61,19 +61,15 @@ with open(filename, 'rb') as fileobj:
 os.remove(filename)
 
 # 下载部分文件
-result = bucket.get_object(key, byte_range=(32,1024))
+result = bucket.get_object(key, byte_range=(0, 1024))
 
-#验证一下
+# 验证一下
 content_got = b''
 for chunk in result:
-    content_got +=chunk
-assert content_got == content[32:1025]
+    content_got += chunk
+assert content_got == content[0:1025]
 
-
-"""
-分片上传
-"""
-# 初始化上传分片
+# 分片上传
 part_a = b'a' * 1024 * 100
 part_b = b'b' * 1024 * 100
 part_c = b'c' * 1024 * 100
@@ -86,29 +82,29 @@ multi_key = "test_crypto_multipart"
 
 res = bucket.init_multipart_upload(multi_key, data_size, part_size)
 upload_id = res.upload_id
-crypto_multipart_context = res.crypto_multipart_context;
+# crypto_multipart_context = res.crypto_multipart_context
 
 # 分片上传
 for i in range(3):
-    result = bucket.upload_part(multi_key, upload_id, i+1, multi_content[i], crypto_multipart_context)
-    parts.append(oss2.models.PartInfo(i+1, result.etag, size = part_size, part_crc = result.crc))
+    result = bucket.upload_part(multi_key, upload_id, i + 1, multi_content[i])
+    parts.append(oss2.models.PartInfo(i + 1, result.etag, size=part_size, part_crc=result.crc))
 
 ## 分片上传时，若意外中断丢失crypto_multipart_context, 利用list_parts找回。
-#for i in range(2):
+# for i in range(2):
 #    result = bucket.upload_part(multi_key, upload_id, i+1, multi_content[i], crypto_multipart_context)
 #    parts.append(oss2.models.PartInfo(i+1, result.etag, size = part_size, part_crc = result.crc))
 #
-#res = bucket.list_parts(multi_key, upload_id)
-#crypto_multipart_context_new = res.crypto_multipart_context
+# res = bucket.list_parts(multi_key, upload_id)
+# crypto_multipart_context_new = res.crypto_multipart_context
 #
-#result = bucket.upload_part(multi_key, upload_id, 3, multi_content[2], crypto_multipart_context_new)
-#parts.append(oss2.models.PartInfo(3, result.etag, size = part_size, part_crc = result.crc))
+# result = bucket.upload_part(multi_key, upload_id, 3, multi_content[2], crypto_multipart_context_new)
+# parts.append(oss2.models.PartInfo(3, result.etag, size = part_size, part_crc = result.crc))
 
 # 完成上传
 result = bucket.complete_multipart_upload(multi_key, upload_id, parts)
 
 # 下载全部文件
-result =  bucket.get_object(multi_key)
+result = bucket.get_object(multi_key)
 
 # 验证一下
 content_got = b''
@@ -120,7 +116,7 @@ assert content_got[204800:307200] == part_c
 
 # 创建Bucket对象，可以进行客户端数据加密(使用阿里云KMS)
 bucket = oss2.CryptoBucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name,
-                           crypto_provider=AliKMSProvider(access_key_id, access_key_secret, region, cmk))
+                           crypto_provider=AliKMSProvider(kms_access_key_id, kms_access_key_secret, region, cmk))
 
 # 上传文件
 bucket.put_object(key, content, headers={'content-length': str(1024 * 1024)})
@@ -149,13 +145,13 @@ with open(filename, 'rb') as fileobj:
 os.remove(filename)
 
 # 下载部分文件
-result = bucket.get_object(key, byte_range=(32,1024))
+result = bucket.get_object(key, byte_range=(0, 1024))
 
-#验证一下
+# 验证一下
 content_got = b''
 for chunk in result:
-    content_got +=chunk
-assert content_got == content[32:1025]
+    content_got += chunk
+assert content_got == content[0:1025]
 
 """
 分片上传
@@ -173,29 +169,28 @@ multi_key = "test_crypto_multipart"
 
 res = bucket.init_multipart_upload(multi_key, data_size, part_size)
 upload_id = res.upload_id
-crypto_multipart_context = res.crypto_multipart_context;
 
 # 分片上传
 for i in range(3):
-    result = bucket.upload_part(multi_key, upload_id, i+1, multi_content[i], crypto_multipart_context)
-    parts.append(oss2.models.PartInfo(i+1, result.etag, size = part_size, part_crc = result.crc))
+    result = bucket.upload_part(multi_key, upload_id, i + 1, multi_content[i])
+    parts.append(oss2.models.PartInfo(i + 1, result.etag, size=part_size, part_crc=result.crc))
 
 ## 分片上传时，若意外中断丢失crypto_multipart_context, 利用list_parts找回。
-#for i in range(2):
+# for i in range(2):
 #    result = bucket.upload_part(multi_key, upload_id, i+1, multi_content[i], crypto_multipart_context)
 #    parts.append(oss2.models.PartInfo(i+1, result.etag, size = part_size, part_crc = result.crc))
 #
-#res = bucket.list_parts(multi_key, upload_id)
-#crypto_multipart_context_new = res.crypto_multipart_context
+# res = bucket.list_parts(multi_key, upload_id)
+# crypto_multipart_context_new = res.crypto_multipart_context
 #
-#result = bucket.upload_part(multi_key, upload_id, 3, multi_content[2], crypto_multipart_context_new)
-#parts.append(oss2.models.PartInfo(3, result.etag, size = part_size, part_crc = result.crc))
+# result = bucket.upload_part(multi_key, upload_id, 3, multi_content[2], crypto_multipart_context_new)
+# parts.append(oss2.models.PartInfo(3, result.etag, size = part_size, part_crc = result.crc))
 
 # 完成上传
 result = bucket.complete_multipart_upload(multi_key, upload_id, parts)
 
 # 下载全部文件
-result =  bucket.get_object(multi_key)
+result = bucket.get_object(multi_key)
 
 # 验证一下
 content_got = b''
