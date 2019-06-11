@@ -2,6 +2,7 @@
 
 
 import datetime
+import json
 
 from common import *
 from oss2 import to_string
@@ -764,7 +765,7 @@ class TestBucket(OssTestCase):
         wait_meta_sync()
 
         result = bucket.get_bucket_info()
-        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, None)
+        self.assertEqual(result.bucket_encryption_rule.sse_algorithm, None)
         self.assertEqual(result.versioning_status, 'Enabled')
 
         config.status = oss2.BUCKET_VERSIONING_SUSPEND 
@@ -849,7 +850,7 @@ class TestBucket(OssTestCase):
         result = bucket.get_bucket_info()
 
         self.assertEqual(int(result.status)/100, 2)
-        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, None)
+        self.assertEqual(result.bucket_encryption_rule.sse_algorithm, None)
         self.assertEqual(result.versioning_status, "Enabled")
 
         for i in range(0, 1024):
@@ -972,6 +973,45 @@ class TestBucket(OssTestCase):
 
         bucket1.delete_bucket()
         bucket2.delete_bucket()
+
+    def test_bucket_policy(self):
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+
+        self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.get_bucket_info)
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
+
+        service = oss2.Service(auth, OSS_ENDPOINT)
+        wait_meta_sync()
+        self.assertRaises(oss2.exceptions.NoSuchBucketPolicy, bucket.get_bucket_policy)
+
+        policy=dict()
+        policy["Version"] = "1"
+        policy["Statement"] = []
+        statement = dict()
+        statement["Action"] = ["oss:PutObject"]
+        statement["Effect"] = "Allow"
+        statement["Resource"] = ["acs:oss:*:*:*/*"]
+        policy["Statement"].append(statement)
+        
+        self.bucket.put_bucket_policy(json.dumps(policy))
+        wait_meta_sync()
+
+        result = self.bucket.get_bucket_policy()
+
+        policy_json = json.loads(result.policy) 
+        
+        self.assertEqual(len(policy["Statement"]), len(policy_json["Statement"]))
+        self.assertEqual(policy["Version"], policy_json["Version"])
+
+        policy_resource = policy["Statement"][0]["Resource"][0]
+        policy_json_resource = policy_json["Statement"][0]["Resource"][0]
+        self.assertEqual(policy_resource, policy_json_resource)
+        
+        result = self.bucket.delete_bucket_policy()
+        self.assertEqual(int(result.status)//100, 2)
+        bucket.delete_bucket()
 
     def test_malformed_xml(self):
         xml_input = '''<This is a bad xml></bad as I am>'''
