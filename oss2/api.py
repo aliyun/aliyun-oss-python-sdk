@@ -370,6 +370,7 @@ class Bucket(_Base):
     VERSIONID = 'versionId'
     RESTORE = 'restore'
     OBJECTMETA = 'objectMeta'
+    POLICY = 'policy'
 
     def __init__(self, auth, endpoint, bucket_name,
                  is_cname=False,
@@ -1710,7 +1711,7 @@ class Bucket(_Base):
         resp = self.__do_object('POST', key, params={Bucket.PROCESS: ''}, data=process_data)
         logger.debug("Process object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return ProcessObjectResult(resp)
-    
+
     def put_object_tagging(self, key, tagging, headers=None, params=None):
         """
 
@@ -1915,6 +1916,36 @@ class Bucket(_Base):
         resp = self.__do_bucket('GET', params={Bucket.VERSIONING: ''})
 
         return self._parse_result(resp, xml_utils.parse_get_bucket_versioning, GetBucketVersioningResult)
+
+    def put_bucket_policy(self, policy):
+        """设置bucket policy, 具体policy书写规则请参考官方文档
+        :param str policy: 
+        """
+
+        logger.debug("Start to put bucket policy, bucket: {0}, policy: {1}".format(
+            self.bucket_name, policy))
+        resp = self.__do_bucket('PUT', data=policy, params={Bucket.POLICY: ''})
+        logger.debug("Put bucket policy done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
+
+    def get_bucket_policy(self):
+        """
+        :return: :class:`GetBucketPolicyResult <oss2.models.GetBucketPolicyResult>`
+        """
+
+        logger.debug("Start to get bucket policy, bucket: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('GET', params={Bucket.POLICY:''})
+        logger.debug("Get bucket policy done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return GetBucketPolicyResult(resp)
+
+    def delete_bucket_policy(self):
+        """
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to delete bucket policy, bucket: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('DELETE', params={Bucket.POLICY: ''})
+        logger.debug("Delete bucket policy done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
 
     def _get_bucket_config(self, config):
         """获得Bucket某项配置，具体哪种配置由 `config` 指定。该接口直接返回 `RequestResult` 对象。

@@ -1067,3 +1067,8 @@ class GetBucketVersioningResult(RequestResult, BucketVersioningConfig):
     def __init__(self, resp):
         RequestResult.__init__(self,resp)
         BucketVersioningConfig.__init__(self) 
+
+class GetBucketPolicyResult(RequestResult):
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        self.policy = to_string(resp.read())
