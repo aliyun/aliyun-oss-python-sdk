@@ -33,7 +33,7 @@ class CryptoBucket(Bucket):
     :param str endpoint: 访问域名或者CNAME
     :param str bucket_name: Bucket名
     :param crypto_provider: 客户端加密类。该参数默认为空
-    :type crypto_provider: oss2.crypto.LocalRsaProvider
+    :type crypto_provider: oss2.crypto.BaseCryptoProvider
     :param bool is_cname: 如果endpoint是CNAME则设为True；反之，则为False。
 
     :param session: 会话。如果是None表示新开会话，非None则复用传入的会话
@@ -60,8 +60,7 @@ class CryptoBucket(Bucket):
         if not isinstance(crypto_provider, BaseCryptoProvider):
             raise ClientError('crypto_provider must be an instance of BaseCryptoProvider')
 
-        logger.debug("Init crypto bucket, endpoint: {0}, isCname: {1}, connect_timeout: {2}, app_name: {3}, "
-                     "enabled_crc: {4}".format(endpoint, is_cname, connect_timeout, app_name, enable_crc))
+        logger.debug("Init CryptoBucket: {0}".format(bucket_name))
         super(CryptoBucket, self).__init__(auth, endpoint, bucket_name, is_cname, session, connect_timeout, app_name,
                                            enable_crc)
 
@@ -89,8 +88,9 @@ class CryptoBucket(Bucket):
 
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
-        content_crypto_material = self.crypto_provider.create_content_material()
+        logger.debug("Start to put object to CryptoBucket")
 
+        content_crypto_material = self.crypto_provider.create_content_material()
         data = self.crypto_provider.make_encrypt_adapter(data, content_crypto_material.cipher)
         headers = content_crypto_material.to_object_meta(headers)
 
@@ -106,6 +106,8 @@ class CryptoBucket(Bucket):
         :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
         :return:
         """
+        logger.debug("Start to put object with url to CryptoBucket")
+
         content_crypto_material = self.crypto_provider.create_content_material()
         data = self.crypto_provider.make_encrypt_adapter(data, content_crypto_material.cipher)
         headers = content_crypto_material.to_object_meta(headers)
@@ -116,7 +118,7 @@ class CryptoBucket(Bucket):
                       headers=None,
                       progress_callback=None,
                       init_crc=None):
-        raise ClientError("The operation is not supported for Crypto Bucket")
+        raise ClientError("The operation is not supported for CryptoBucket")
 
     def get_object(self, key,
                    byte_range=None,
@@ -149,7 +151,7 @@ class CryptoBucket(Bucket):
         :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
         if process:
-            raise ClientError("Process object is not support for Crypto Bucket")
+            raise ClientError("Process object operation is not support for Crypto Bucket")
 
         headers = http.CaseInsensitiveDict(headers)
 
@@ -166,18 +168,17 @@ class CryptoBucket(Bucket):
 
             if byte_range[0] and adjust_byte_range[0] < byte_range[0]:
                 discard = byte_range[0] - adjust_byte_range[0]
+            logger.debug("adjust range of get object, byte_range: {0}, adjust_byte_range: {1}, discard: {2}".format(
+                byte_range, adjust_byte_range, discard))
 
-        params = {} if params is None else params
-
-        logger.debug("Start to get object, bucket: {0}， key: {1}, range: {2}, headers: {3}, params: {4}".format(
-            self.bucket_name, to_string(key), range_string, headers, params))
+        logger.debug(
+            "Start to get object from CryptoBucket: {0}, key: {1}, range: {2}, headers: {3}, params: {4}".format(
+                self.bucket_name, to_string(key), range_string, headers, params))
         resp = self._do('GET', self.bucket_name, key, headers=headers, params=params)
         logger.debug("Get object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
-        if models._hget(resp.headers, OSS_CLIENT_SIDE_ENCRYPTION_KEY) is None:
-            raise ClientError('Could not use crypto bucket to decrypt an unencrypted object')
-        return GetObjectResult(resp, progress_callback, self.enable_crc,
-                               crypto_provider=self.crypto_provider, discard=discard)
+        return GetObjectResult(resp, progress_callback, self.enable_crc, crypto_provider=self.crypto_provider,
+                               discard=discard)
 
     def get_object_with_url(self, sign_url,
                             byte_range=None,
@@ -198,24 +199,30 @@ class CryptoBucket(Bucket):
         :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
         query = dict(urlparse.parse_qsl(urlparse.urlsplit(sign_url).query))
-        if query and query.has_key(Bucket.PROCESS):
-            raise ClientError("Process object is not support for Crypto Bucket")
+        if query and (Bucket.PROCESS in query):
+            raise ClientError("Process object operation is not support for Crypto Bucket")
 
         headers = http.CaseInsensitiveDict(headers)
 
+        discard = 0
+        range_string = ''
+
         if byte_range:
             start, end = self.crypto_provider.adjust_range(byte_range[0], byte_range[1])
+            adjust_byte_range = (start, end)
 
-        adjust_byte_range = (start, end)
-        range_string = _make_range_string(adjust_byte_range)
-        if range_string:
-            headers['range'] = range_string
+            range_string = _make_range_string(adjust_byte_range)
+            if range_string:
+                headers['range'] = range_string
 
-        if byte_range[0] and adjust_byte_range[0] < byte_range[0]:
-            discard = adjust_byte_range[0] - byte_range[0]
+            if byte_range[0] and adjust_byte_range[0] < byte_range[0]:
+                discard = byte_range[0] - adjust_byte_range[0]
+            logger.debug("adjust range of get object, byte_range: {0}, adjust_byte_range: {1}, discard: {2}".format(
+                byte_range, adjust_byte_range, discard))
 
-        logger.debug("Start to get object with url, bucket: {0}, sign_url: {1}, range: {2}, headers: {3}".format(
-            self.bucket_name, sign_url, range_string, headers))
+        logger.debug(
+            "Start to get object with url from CryptoBucket: {0}, sign_url: {1}, range: {2}, headers: {3}".format(
+                self.bucket_name, sign_url, range_string, headers))
         resp = self._do_url('GET', sign_url, headers=headers)
         return GetObjectResult(resp, progress_callback, self.enable_crc,
                                crypto_provider=self.crypto_provider, discard=discard)
@@ -227,7 +234,7 @@ class CryptoBucket(Bucket):
                       progress_callback=None,
                       select_params=None
                       ):
-        raise ClientError("The operation is not supported for Crypto Bucket")
+        raise ClientError("The operation is not supported for CryptoBucket")
 
     def init_multipart_upload(self, key, headers=None):
         raise ClientError("Missing data_size in init_multipart_upload for CryptoBucket")
@@ -245,15 +252,15 @@ class CryptoBucket(Bucket):
         :return: :class:`InitMultipartUploadResult <oss2.models.InitMultipartUploadResult>`
         返回值中的 `crypto_multipart_context` 记录了加密Meta信息，在upload_part时需要一并传入
         """
+        logger.info("Start to init multipart upload by CryptoBucket, data_size: {0}, part_size: {1}".format(data_size,
+                                                                                                            part_size))
         if part_size:
             res = self.crypto_provider.cipher.is_valid_part_size(part_size, data_size)
             if not res:
-                raise ClientError("The part_size you input invalid for multipart upload for Crypto Bucket")
+                raise ClientError("part_size is invalid for multipart upload for CryptoBucket")
         else:
             part_size = self.crypto_provider.cipher.determine_part_size(data_size)
 
-        logger.info("Start to init multipart upload by crypto bucket, data_size: {0}, part_size: {1}".format(data_size,
-                                                                                                             part_size))
         content_crypto_material = self.crypto_provider.create_content_material()
 
         context = MultipartUploadCryptoContext(content_crypto_material, data_size, part_size)
@@ -264,7 +271,6 @@ class CryptoBucket(Bucket):
 
         if resp.upload_id:
             self.upload_contexts[resp.upload_id] = context
-            logger.info("Init multipart upload by crypto bucket done, upload_id = {0}.".format(resp.upload_id))
 
         return resp
 
@@ -283,7 +289,8 @@ class CryptoBucket(Bucket):
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         logger.info(
-            "Start upload part by crypto bucket, upload_id = {0}, part_number = {1}".format(upload_id, part_number))
+            "Start to upload multipart of CryptoBucket, upload_id = {0}, part_number = {1}".format(upload_id,
+                                                                                                   part_number))
 
         if upload_id in self.upload_contexts:
             context = self.upload_contexts[upload_id]
@@ -301,11 +308,9 @@ class CryptoBucket(Bucket):
         offset = context.part_size * (part_number - 1)
         counter = self.crypto_provider.cipher.calc_counter(offset)
 
-        content_crypto_material.cipher.initialize(plain_key, int(plain_start)+counter)
+        content_crypto_material.cipher.initialize(plain_key, int(plain_start) + counter)
         data = self.crypto_provider.make_encrypt_adapter(data, content_crypto_material.cipher)
         resp = super(CryptoBucket, self).upload_part(key, upload_id, part_number, data, progress_callback, headers)
-
-        logger.info("Upload part {0} by Crypto bucket done.".format(part_number))
 
         return resp
 
@@ -324,10 +329,10 @@ class CryptoBucket(Bucket):
 
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
-        logger.info("Start complete multipart upload by Crypto bucket, upload_id = {0}".format(upload_id))
+        logger.info("Start to complete multipart upload of CryptoBucket, upload_id = {0}".format(upload_id))
 
         if upload_id not in self.upload_contexts:
-            raise ClientError("Could not find upload context, please check the upload_id!")
+            logger.warn("Could not find upload_id in upload contexts")
 
         try:
             resp = super(CryptoBucket, self).complete_multipart_upload(key, upload_id, parts, headers)
@@ -346,10 +351,10 @@ class CryptoBucket(Bucket):
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
-        logger.info("Start abort multipart upload by crypto bucket, upload_id = {0}".format(upload_id))
+        logger.info("Start to abort multipart upload of CryptoBucket, upload_id = {0}".format(upload_id))
 
         if upload_id not in self.upload_contexts:
-            raise ClientError("Could not find upload context, please check the upload_id!")
+            logger.warn("Could not find upload_id in upload contexts")
 
         try:
             resp = super(CryptoBucket, self).abort_multipart_upload(key, upload_id)
@@ -377,7 +382,7 @@ class CryptoBucket(Bucket):
 
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
-        raise ClientError("The operation is not supported for Crypto Bucket")
+        raise ClientError("The operation is not supported for CryptoBucket")
 
     def list_parts(self, key, upload_id, marker='', max_parts=1000, headers=None):
         """列举已经上传的分片。支持分页。
@@ -390,21 +395,31 @@ class CryptoBucket(Bucket):
 
         :return: :class:`ListPartsResult <oss2.models.ListPartsResult>`
         """
-        logger.info("Start list parts by crypto bucket, upload_id = {0}".format(upload_id))
+        logger.info("Start to list parts of CryptoBucket, upload_id = {0}".format(upload_id))
 
         try:
             resp = super(CryptoBucket, self).list_parts(key, upload_id, marker=marker, max_parts=max_parts,
                                                         headers=headers)
+            if not resp.is_encrypted():
+                raise ClientError('Could not use CryptoBucket to list an unencrypted upload parts')
+
+            if resp.client_encryption_cek_alg != self.crypto_provider.cipher.alg or resp.client_encryption_wrap_alg != \
+                    self.crypto_provider.wrap_alg:
+                err_msg = 'Envelope or data encryption/decryption algorithm is inconsistent'
+                raise InconsistentError(err_msg, self)
             if resp.upload_id == upload_id:
-                context = MultipartUploadCryptoContext(self.crypto_provider, resp.client_encryption_key,
-                                                       resp.client_encryption_start, resp.client_encryption_data_size,
+                content_crypto_material = ContentCryptoMaterial(self.crypto_provider.cipher,
+                                                                resp.client_encryption_wrap_alg,
+                                                                resp.client_encryption_key,
+                                                                resp.client_encryption_start)
+                context = MultipartUploadCryptoContext(content_crypto_material,
+                                                       resp.client_encryption_data_size,
                                                        resp.client_encryption_part_size)
                 self.upload_contexts[upload_id] = context
         except exceptions as e:
             raise e
 
-        logger.info("List parts by crypto bucket done, upload_id = {0}".format(upload_id))
         return resp
 
     def process_object(self, key, process):
-        raise ClientError("The operation is not supported for Crypto Bucket")
+        raise ClientError("The operation is not supported for CryptoBucket")

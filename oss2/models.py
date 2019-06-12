@@ -59,7 +59,7 @@ class ContentCryptoMaterial(object):
             headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_LENGTH] = headers['content-length']
             del headers['content-length']
 
-        #if self.wrap_alg == crypto.KMS_WRAP_ALGORITHM:
+        # if self.wrap_alg == crypto.KMS_WRAP_ALGORITHM:
         if self.wrap_alg == "kms":
             headers[OSS_CLIENT_SIDE_ENCRYPTION_KEY] = self.encrypted_key
             headers[OSS_CLIENT_SIDE_ENCRYPTION_START] = self.encrypted_start
@@ -104,14 +104,22 @@ class ContentCryptoMaterial(object):
             if self.encrypted_magic_number_hmac:
                 self.encrypted_magic_number_hmac = b64decode_from_string(self.encrypted_magic_number_hmac)
 
+        if self.is_invalid():
+            raise ClientError('Missing some meta to initialize content crypto material')
+
         if cek_alg != self.cek_alg or wrap_alg != self.wrap_alg:
             err_msg = 'Envelope or data encryption/decryption algorithm is inconsistent'
             raise InconsistentError(err_msg, self)
 
-        #if self.wrap_alg == crypto.RSA_WRAP_ALGORITHM:
+        # if self.wrap_alg == crypto.RSA_WRAP_ALGORITHM:
         if self.wrap_alg == "rsa":
             self.encrypted_key = b64decode_from_string(self.encrypted_key)
             self.encrypted_start = b64decode_from_string(self.encrypted_start)
+
+    def is_invalid(self):
+        if self.encrypted_key and self.encrypted_start and self.cek_alg and self.wrap_alg:
+            return True
+        return False
 
 
 class MultipartUploadCryptoContext(object):
@@ -234,12 +242,12 @@ class GetObjectResult(HeadObjectResult):
                                                             self.__crypto_provider.wrap_alg)
             content_crypto_material.from_object_meta(resp.headers)
 
+            plain_key = self.__crypto_provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
+            plain_start = int(self.__crypto_provider.decrypt_encrypted_start(content_crypto_material.encrypted_start))
+
             # check whether the rsa key pairs is correct
             if content_crypto_material.encrypted_magic_number_hmac:
                 self.__crypto_provider.check_magic_number_hmac(content_crypto_material.encrypted_magic_number_hmac)
-
-            plain_key = self.__crypto_provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
-            plain_start = int(self.__crypto_provider.decrypt_encrypted_start(content_crypto_material.encrypted_start))
 
             counter = 0
             if self.content_range:
@@ -248,7 +256,9 @@ class GetObjectResult(HeadObjectResult):
             content_crypto_material.cipher.initialize(plain_key, plain_start + counter)
             self.stream = self.__crypto_provider.make_decrypt_adapter(self.stream, content_crypto_material.cipher,
                                                                       discard)
-
+        else:
+            if OSS_CLIENT_SIDE_ENCRYPTION_KEY in resp.headers or DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY in resp.headers:
+                raise ClientError('Could not use bucket to decrypt an encrypted object')
 
     @staticmethod
     def _parse_range_str(content_range):
@@ -502,6 +512,12 @@ class ListPartsResult(RequestResult):
 
         # 加密幻数的哈希值
         self.client_encryption_magic_number_hmac = None
+
+    def is_encrypted(self):
+        if self.client_encryption_key and self.client_encryption_start and self.client_encryption_cek_alg and \
+                self.client_encryption_wrap_alg:
+            return True
+        return False
 
 
 BUCKET_ACL_PRIVATE = 'private'

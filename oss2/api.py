@@ -356,10 +356,9 @@ class Bucket(_Base):
                  connect_timeout=None,
                  app_name='',
                  enable_crc=True):
-        logger.debug("Init oss bucket, endpoint: {0}, isCname: {1}, connect_timeout: {2}, app_name: {3}, enabled_crc: "
-                     "{4}".format(endpoint, is_cname, connect_timeout, app_name, enable_crc))
-        super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout,
-                                     app_name, enable_crc)
+        logger.debug("Init Bucket: {0}, endpoint: {1}, isCname: {2}, connect_timeout: {3}, app_name: {4}, enabled_crc: "
+                     "{5}".format(bucket_name, endpoint, is_cname, connect_timeout, app_name, enable_crc))
+        super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout, app_name, enable_crc)
 
         self.bucket_name = bucket_name.strip()
 
@@ -635,8 +634,6 @@ class Bucket(_Base):
         resp = self.__do_object('GET', key, headers=headers, params=params)
         logger.debug("Get object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
-        if models._hget(resp.headers, OSS_CLIENT_SIDE_ENCRYPTION_KEY):
-            raise ClientError('Could not use normal bucket to decrypt an encrypted object')
         return GetObjectResult(resp, progress_callback, self.enable_crc)
 
     def select_object(self, key, sql,

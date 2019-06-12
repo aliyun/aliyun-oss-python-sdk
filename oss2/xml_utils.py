@@ -195,7 +195,9 @@ def parse_list_parts(result, body):
             result.client_encryption_cek_alg = _find_tag(root, 'ClientEncryptionCekAlg')
             if result.client_encryption_wrap_alg == 'rsa':
                 result.client_encryption_magic_number_hmac = _find_tag(root, 'ClientEncryptionMagicNumberHMAC')
-            if result.client_encryption_cek_alg == 'AES/GCM/NoPadding':
+                result.client_encryption_key = utils.b64decode_from_string(result.client_encryption_key)
+                result.client_encryption_start = utils.b64decode_from_string(result.client_encryption_start)
+            if result.client_encryption_cek_alg == 'AES/CTR/NoPadding':
                 result.client_encryption_data_size = _find_int(root, 'ClientEncryptionDataSize')
                 result.client_encryption_part_size = _find_int(root, 'ClientEncryptionPartSize')
 
