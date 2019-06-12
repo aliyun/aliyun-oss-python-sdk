@@ -696,6 +696,7 @@ class TestBucket(OssTestCase):
         wait_meta_sync()
 
         result = self.bucket.get_bucket_info()
+        self.assertTrue(result.bucket_encryption_rule is not None)
         self.assertEqual(result.bucket_encryption_rule.sse_algorithm, 'AES256')
         self.assertTrue(result.bucket_encryption_rule.kms_master_keyid is None)
 
@@ -720,6 +721,7 @@ class TestBucket(OssTestCase):
         wait_meta_sync()
 
         result = self.bucket.get_bucket_info()
+        self.assertTrue(result.bucket_encryption_rule is not None)
         self.assertEqual(result.bucket_encryption_rule.sse_algorithm, 'KMS')
         self.assertTrue(result.bucket_encryption_rule.kms_master_keyid is None)
 

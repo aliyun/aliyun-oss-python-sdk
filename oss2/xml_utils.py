@@ -299,6 +299,9 @@ def parse_get_bucket_info(result, body):
 
 def _parse_bucket_encryption_info(node):
 
+    if node is None:
+        return None
+
     rule = ServerSideEncryptionRule()
 
     rule.sse_algorithm = _find_tag(node,"SSEAlgorithm")
