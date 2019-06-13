@@ -32,12 +32,30 @@ def random_string(n):
 
 OSS_BUCKET = ''
 if OSS_TEST_BUCKET is None:
-    OSS_BUCKET = 'aliyun-oss-python-sdk-'+random_string(10)
+    OSS_BUCKET = 'aliyun-oss-python-sdk-' + random_string(10)
 else:
-    OSS_BUCKET = OSS_TEST_BUCKET + random_string(10)
+    OSS_BUCKET = OSS_TEST_BUCKET + '-' + random_string(10)
 
 def random_bytes(n):
     return oss2.to_bytes(random_string(n))
+
+def clean_and_delete_bucket(bucket):
+    # list all upload_parts to delete
+    up_iter = oss2.MultipartUploadIterator(bucket)
+    for up in up_iter:
+        bucket.abort_multipart_upload(up.key, up.upload_id)
+
+     # list all objects to delete
+    obj_iter = oss2.ObjectIterator(bucket)
+    for obj in obj_iter:
+        bucket.delete_object(obj.key)
+    
+    # list all live channels to delete
+    for ch_iter in oss2.LiveChannelIterator(bucket):
+        bucket.delete_live_channel(ch_iter.name)
+
+     # delete_bucket
+    bucket.delete_bucket()
 
 
 def delete_keys(bucket, key_list):
@@ -100,18 +118,18 @@ class OssTestCase(unittest.TestCase):
         self.kms_crypto_bucket = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET,
                                              crypto_provider=oss2.AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK))
 
-        self.key_list = []
         self.temp_files = []
+
+        wait_meta_sync()
 
     def tearDown(self):
         for temp_file in self.temp_files:
             oss2.utils.silently_remove(temp_file)
 
-        delete_keys(self.bucket, self.key_list)
+        clean_and_delete_bucket(self.bucket)
 
     def random_key(self, suffix=''):
         key = self.prefix + random_string(12) + suffix
-        self.key_list.append(key)
 
         return key
 

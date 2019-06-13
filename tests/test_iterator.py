@@ -45,6 +45,10 @@ class TestIterator(OssTestCase):
         self.assertEqual(sorted(dir_list), dirs_got)
 
         delete_keys(self.bucket, object_list)
+        
+        for dir in dir_list:
+            for info in oss2.ObjectIterator(self.bucket, prefix=dir):
+                self.bucket.delete_object(info.key)
 
     def test_object_iterator_chinese(self):
         for prefix in [self.random_key('中+文'), self.random_key(u'中+文')]:

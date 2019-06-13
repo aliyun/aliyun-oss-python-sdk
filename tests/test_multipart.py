@@ -231,7 +231,7 @@ class TestMultipart(OssTestCase):
         result = bucket.get_bucket_info()
 
         self.assertEqual(int(result.status)/100, 2)
-        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, None)
+        self.assertEqual(result.bucket_encryption_rule.sse_algorithm, None)
         self.assertEqual(result.versioning_status, "Enabled")
         
 
@@ -285,7 +285,7 @@ class TestMultipart(OssTestCase):
         result = bucket.get_bucket_info()
 
         self.assertEqual(int(result.status)/100, 2)
-        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, None)
+        self.assertEqual(result.bucket_encryption_rule.sse_algorithm, None)
         self.assertEqual(result.versioning_status, "Enabled")
 
         src_object = self.random_key()
