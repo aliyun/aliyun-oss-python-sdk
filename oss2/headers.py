@@ -52,6 +52,8 @@ DEPRECATED_CLIENT_SIDE_ENCRYTPION_MATDESC = "x-oss-meta-oss-crypto-matdesc"
 DEPRECATED_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_LENGTH = "x-oss-meta-oss-crypto-unencrypted-content-length"
 DEPRECATED_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_MD5 = "x-oss-meta-oss-crypto-unencrypted-content-md5"
 
+OSS_OBJECT_TAGGING = "x-oss-tagging"
+OSS_OBJECT_TAGGING_COPY_DIRECTIVE = "x-oss-tagging-directive"
 
 class RequestHeader(dict):
     def __init__(self, *arg, **kw):

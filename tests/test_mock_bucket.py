@@ -420,6 +420,8 @@ x-oss-request-id: 566B6BDA010B7A4314D1614A
         self.assertEqual(rule.expiration.date, date)
         self.assertEqual(rule.expiration.days, None)
 
+        self.assertTrue(rule.tagging is None)
+
     @patch('oss2.Session.do_request')
     def test_get_lifecycle_days(self, do_request):
         from oss2.models import LifecycleRule
@@ -469,6 +471,8 @@ x-oss-request-id: 566B6BDB1BA604C27DD419B0
         self.assertEqual(rule.status, status)
         self.assertEqual(rule.expiration.date, None)
         self.assertEqual(rule.expiration.days, days)
+
+        self.assertTrue(rule.tagging is None)
 
     @patch('oss2.Session.do_request')
     def test_get_lifecycle_storage_transition(self, do_request):
@@ -534,6 +538,8 @@ x-oss-request-id: 566B6BDA010B7A4314D1614A
         self.assertEqual(rule.storage_transitions[1].storage_class, oss2.BUCKET_STORAGE_CLASS_IA)
         self.assertEqual(rule.storage_transitions[2].created_before_date, date1)
         self.assertEqual(rule.storage_transitions[2].storage_class, oss2.BUCKET_STORAGE_CLASS_ARCHIVE)
+
+        self.assertTrue(rule.tagging is None)
 
     @patch('oss2.Session.do_request')
     def test_get_lifecycle_abort_multipart_days(self, do_request):
@@ -633,6 +639,65 @@ x-oss-request-id: 566B6BDA010B7A4314D1614A
         self.assertEqual(rule.prefix, prefix)
         self.assertEqual(rule.status, status)
         self.assertEqual(rule.abort_multipart_upload.created_before_date, date1)
+
+    @patch('oss2.Session.do_request')
+    def test_get_lifecycle_tagging(self, do_request):
+        from oss2.models import LifecycleRule
+
+        request_text = '''GET /?lifecycle= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:38 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:mr0QeREuAcoeK0rSWBnobrzu6uU='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:38 GMT
+Content-Type: application/xml
+Content-Length: 277
+Connection: keep-alive
+x-oss-request-id: 566B6BDA010B7A4314D1614A
+
+<?xml version="1.0" encoding="UTF-8"?>
+<LifecycleConfiguration>
+  <Rule>
+    <ID>{0}</ID>
+    <Prefix>{1}</Prefix>
+    <Status>{2}</Status>
+    <Tag><Key>k1</Key><Value>v1</Value></Tag>
+    <Tag><Key>k2</Key><Value>v2</Value></Tag>
+    <Tag><Key>k3</Key><Value>v3</Value></Tag>
+    <Expiration>
+      <Date>{3}</Date>
+    </Expiration>
+  </Rule>
+</LifecycleConfiguration>'''
+
+        id = 'whatever'
+        prefix = 'lifecycle rule 1'
+        status = LifecycleRule.DISABLED
+        date = datetime.date(2015, 12, 25)
+
+        req_info = unittests.common.mock_response(do_request, response_text.format(id, prefix, status, '2015-12-25T00:00:00.000Z'))
+        result = unittests.common.bucket().get_bucket_lifecycle()
+
+        self.assertRequest(req_info, request_text)
+
+        rule = result.rules[0]
+        self.assertEqual(rule.id, id)
+        self.assertEqual(rule.prefix, prefix)
+        self.assertEqual(rule.status, status)
+        self.assertEqual(rule.expiration.date, date)
+        self.assertEqual(rule.expiration.days, None)
+
+        tagging_rule = rule.tagging.tag_set.tagging_rule
+        self.assertEqual(3, rule.tagging.tag_set.len())
+        self.assertEqual('v1', tagging_rule['k1'])
+        self.assertEqual('v2', tagging_rule['k2'])
+        self.assertEqual('v3', tagging_rule['k3'])
 
     @patch('oss2.Session.do_request')
     def test_get_stat(self, do_request):

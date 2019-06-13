@@ -258,6 +258,58 @@ class TestUpload(OssTestCase):
         check_not_sane('key', None)
         check_not_sane('parts', None)
 
+    def test_upload_large_with_tagging(self):
+        
+        from oss2.compat import urlquote
+
+        key = random_string(16)
+        content = random_bytes(5 * 100 * 1024)
+
+        pathname = self._prepare_temp_file(content)
+
+        headers = dict()
+        tagging_header = oss2.headers.OSS_OBJECT_TAGGING
+
+        key1 = 128*'a'
+        value1 = 256*'b'
+
+        key2 = '+-:/'
+        value2 = ':+:'
+
+        key3 = '中文'
+        value3 = '++中文++'
+
+        tag_str = key1 + '=' + value1
+        tag_str += '&' + urlquote(key2) + '=' + urlquote(value2)
+        tag_str += '&' + urlquote(key3) + '=' + urlquote(value3)
+
+        headers[tagging_header] = tag_str
+
+        result = oss2.resumable_upload(self.bucket, key, pathname, multipart_threshold=200 * 1024, num_threads=3, headers=headers)
+
+        self.assertTrue(result is not None)
+        self.assertTrue(result.etag is not None)
+        self.assertTrue(result.request_id is not None)
+
+        result = self.bucket.get_object(key)
+        self.assertEqual(content, result.read())
+        self.assertEqual(result.headers['x-oss-object-type'], 'Multipart')
+
+        result = self.bucket.get_object_tagging(key)
+        
+        self.assertEqual(3, result.tag_set.len())
+        tagging_rule = result.tag_set.tagging_rule
+        self.assertEqual(256*'b', tagging_rule[128*'a'])
+        self.assertEqual(':+:', tagging_rule['+-:/'])
+        self.assertEqual('++中文++', tagging_rule['中文'])
+
+        self.bucket.delete_object_tagging(key)
+        
+        result = self.bucket.get_object_tagging(key)
+        
+        self.assertEqual(0, result.tag_set.len())
+        self.bucket.delete_object(key)
+
 
 if __name__ == '__main__':
     unittest.main()

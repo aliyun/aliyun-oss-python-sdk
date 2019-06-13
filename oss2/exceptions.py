@@ -193,6 +193,11 @@ class NoSuchLiveChannel(NotFound):
     code = 'NoSuchLiveChannel'
 
 
+class NoSuchBucketPolicy(NotFound):
+    status = 404
+    code = 'NoSuchBucketPolicy'
+
+
 class Conflict(ServerError):
     status = 409
     code = ''
@@ -240,6 +245,14 @@ class NotModified(ServerError):
 class AccessDenied(ServerError):
     status = 403
     code = 'AccessDenied'
+
+class NoSuchServerSideEncryptionRule(NotFound):
+    status = 404
+    code = 'NoSuchServerSideEncryptionRule'
+
+class InvalidEncryptionAlgorithmError(ServerError):
+    status = 400
+    code = 'InvalidEncryptionAlgorithmError' 
 
 class SelectOperationFailed(ServerError):
     code = 'SelectOperationFailed'

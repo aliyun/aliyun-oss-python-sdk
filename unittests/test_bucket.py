@@ -737,7 +737,88 @@ x-oss-request-id: 566B6BDD68248CE14F729DC0
         self.assertEqual(result.multi_part_upload_count, 992)
 
 
+    @patch('oss2.Session.do_request')
+    def test_get_bucket_policy(self, do_request):
+        request_text = '''GET /?policy= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:41 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:Pt0DtPQ/FODOGs5y0yTIVctRcok='''
 
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:42 GMT
+Content-Type: application/json
+Content-Length: 96
+Connection: keep-alive
+x-oss-request-id: 566B6BDD68248CE14F729DC0
+
+{"Version":"1","Statement":[]}
+'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().get_bucket_policy()
+
+        self.assertRequest(req_info, request_text)
+
+    @patch('oss2.Session.do_request')
+    def test_put_bucket_policy(self, do_request):
+        request_text = '''PUT /?policy= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:41 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:Pt0DtPQ/FODOGs5y0yTIVctRcok=
+
+{"Version":"1","Statement":[]}'''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:42 GMT
+Content-Type: application/xml
+Content-Length: 96
+Connection: keep-alive
+x-oss-request-id: 566B6BDD68248CE14F729DC0
+'''
+
+        req_info = mock_response(do_request, response_text)
+
+        policy = '{"Version":"1","Statement":[]}'
+        result = bucket().put_bucket_policy(policy)
+
+        self.assertRequest(req_info, request_text)
+
+    @patch('oss2.Session.do_request')
+    def test_delete_bucket_policy(self, do_request):
+        request_text = '''DELETE /?policy= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:41 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:Pt0DtPQ/FODOGs5y0yTIVctRcok='''
+
+        response_text = '''HTTP/1.1 204 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:42 GMT
+Content-Type: application/xml
+Content-Length: 96
+Connection: keep-alive
+x-oss-request-id: 566B6BDD68248CE14F729DC0
+'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().delete_bucket_policy()
+
+        self.assertRequest(req_info, request_text)
 
 
 if __name__ == '__main__':

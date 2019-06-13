@@ -29,7 +29,16 @@ from .models import (SimplifiedObjectInfo,
                      Owner,
                      AccessControlList,
                      AbortMultipartUpload,
-                     StorageTransition)
+                     StorageTransition,
+                     Tagging,
+                     TaggingRule,
+                     ServerSideEncryptionRule,
+                     ListObjectVersionsResult,
+                     ObjectVersionInfo,
+                     DeleteMarkerInfo,
+                     BatchDeleteObjectVersionResult)
+					 
+from .select_params import (SelectJsonTypes, SelectParameters)
 
 from .compat import urlunquote, to_unicode, to_string
 from .utils import iso8601_to_unixtime, date_to_iso8601, iso8601_to_date
@@ -223,7 +232,25 @@ def parse_batch_delete_objects(result, body):
     url_encoded = _is_url_encoding(root)
 
     for deleted_node in root.findall('Deleted'):
-        result.deleted_keys.append(_find_object(deleted_node, 'Key', url_encoded))
+        key = _find_object(deleted_node, 'Key', url_encoded)
+
+        result.deleted_keys.append(key)
+
+        versionid_node = deleted_node.find('VersionId')
+        versionid = None
+        if versionid_node is not None:
+            versionid = _find_tag(deleted_node, 'VersionId')
+
+        delete_marker_node = deleted_node.find('DeleteMarker')
+        delete_marker = False
+        if delete_marker_node is not None:
+            delete_marker = _find_bool(deleted_node, 'DeleteMarker')
+
+        marker_versionid_node = deleted_node.find('DeleteMarkerVersionId')
+        delete_marker_versionid = ''
+        if marker_versionid_node is not None:
+            delete_marker_versionid = _find_tag(deleted_node, 'DeleteMarkerVersionId')
+        result.delete_versions.append(BatchDeleteObjectVersionResult(key, versionid, delete_marker, delete_marker_versionid))
 
     return result
 
@@ -281,8 +308,37 @@ def parse_get_bucket_info(result, body):
     result.owner = Owner(_find_tag(root, 'Bucket/Owner/DisplayName'), _find_tag(root, 'Bucket/Owner/ID'))
     result.acl = AccessControlList(_find_tag(root, 'Bucket/AccessControlList/Grant'))
 
+    server_side_encryption = root.find("Bucket/ServerSideEncryptionRule")
+
+    result.bucket_encryption_rule = _parse_bucket_encryption_info(server_side_encryption)
+
+    bucket_versioning = root.find('Bucket/Versioning')
+    
+    if bucket_versioning is None or bucket_versioning.text is None:
+        result.versioning_status = None
+    else:
+        result.versioning_status = to_string(bucket_versioning.text)
+
     return result
 
+def _parse_bucket_encryption_info(node):
+
+    rule = ServerSideEncryptionRule()
+
+    rule.sse_algorithm = _find_tag(node,"SSEAlgorithm")
+    
+    if rule.sse_algorithm == "None":
+        rule.kms_master_keyid = None
+        rule.sse_algorithm = None
+        return rule
+
+    kmsnode = node.find("KMSMasterKeyID")
+    if kmsnode is None or kmsnode.text is None:
+        rule.kms_master_keyid = None 
+    else:
+        rule.kms_master_keyid = to_string(kmsnode.text)
+
+    return rule
 
 def parse_get_bucket_referer(result, body):
     root = ElementTree.fromstring(body)
@@ -446,21 +502,38 @@ def parse_lifecycle_storage_transitions(storage_transition_nodes):
 
     return storage_transitions
 
+def parse_lifecycle_object_taggings(lifecycle_tagging_nodes):
+    
+    if lifecycle_tagging_nodes is None or \
+        len(lifecycle_tagging_nodes) == 0: 
+        return None 
+    
+    tagging_rule = TaggingRule()
+    for tag_node in lifecycle_tagging_nodes:
+        key = _find_tag(tag_node, 'Key')
+        value = _find_tag(tag_node, 'Value')
+        tagging_rule.add(key, value)
+
+    return Tagging(tagging_rule)
 
 def parse_get_bucket_lifecycle(result, body):
+
     root = ElementTree.fromstring(body)
+    url_encoded = _is_url_encoding(root)
 
     for rule_node in root.findall('Rule'):
         expiration = parse_lifecycle_expiration(rule_node.find('Expiration'))
         abort_multipart_upload = parse_lifecycle_abort_multipart_upload(rule_node.find('AbortMultipartUpload'))
         storage_transitions = parse_lifecycle_storage_transitions(rule_node.findall('Transition'))
+        tagging = parse_lifecycle_object_taggings(rule_node.findall('Tag'))
         rule = LifecycleRule(
             _find_tag(rule_node, 'ID'),
             _find_tag(rule_node, 'Prefix'),
             status=_find_tag(rule_node, 'Status'),
             expiration=expiration,
             abort_multipart_upload=abort_multipart_upload,
-            storage_transitions=storage_transitions
+            storage_transitions=storage_transitions,
+            tagging=tagging 
             )
         result.rules.append(rule)
 
@@ -504,6 +577,22 @@ def to_batch_delete_objects_request(keys, quiet):
     for key in keys:
         object_node = ElementTree.SubElement(root_node, 'Object')
         _add_text_child(object_node, 'Key', key)
+
+    return _node_to_string(root_node)
+
+def to_batch_delete_objects_version_request(objectVersions, quiet):
+
+    root_node = ElementTree.Element('Delete')
+
+    _add_text_child(root_node, 'Quiet', str(quiet).lower())
+
+    objectVersionList = objectVersions.object_version_list
+
+    for ver in objectVersionList:
+        object_node = ElementTree.SubElement(root_node, 'Object')
+        _add_text_child(object_node, 'Key', ver.key)
+        if ver.versionid != '':
+            _add_text_child(object_node, 'VersionId', ver.versionid)
 
     return _node_to_string(root_node)
 
@@ -591,6 +680,13 @@ def to_put_bucket_lifecycle(bucket_lifecycle):
                     _add_text_child(storage_transition_node, 'CreatedBeforeDate',
                                     date_to_iso8601(storage_transition.created_before_date))
 
+        tagging = rule.tagging
+        if tagging:
+            tagging_rule = tagging.tag_set.tagging_rule
+            for key in tagging.tag_set.tagging_rule:
+                tag_node = ElementTree.SubElement(rule_node, 'Tag')
+                _add_text_child(tag_node, 'Key', key)
+                _add_text_child(tag_node, 'Value', tagging_rule[key])
     return _node_to_string(root)
 
 
@@ -642,38 +738,40 @@ def to_select_csv_object(sql, select_params):
         return _node_to_string(root)
     
     for key, value in select_params.items():
-        if 'CsvHeaderInfo' == key:
+        if SelectParameters.CsvHeaderInfo == key:
             _add_text_child(csv, 'FileHeaderInfo', value)
-        elif 'CommentCharacter' == key:
-            _add_text_child(csv, 'CommentCharacter', base64.b64encode(str.encode(value)))
-        elif 'RecordDelimiter' == key:
-            _add_text_child(csv, 'RecordDelimiter', base64.b64encode(str.encode(value)))
-        elif 'OutputRecordDelimiter' == key:
-            _add_text_child(out_csv, 'RecordDelimiter', base64.b64encode(str.encode(value)))
-        elif 'FieldDelimiter' == key:
-            _add_text_child(csv, 'FieldDelimiter', base64.b64encode(str.encode(value)))
-        elif 'OutputFieldDelimiter' == key:
-            _add_text_child(out_csv, 'FieldDelimiter', base64.b64encode(str.encode(value)))
-        elif 'QuoteCharacter' == key:
-            _add_text_child(csv, 'QuoteCharacter', base64.b64encode(str.encode(value)))
-        elif 'SplitRange' == key:
+        elif SelectParameters.CommentCharacter == key:
+            _add_text_child(csv, SelectParameters.CommentCharacter, base64.b64encode(str.encode(value)))
+        elif SelectParameters.RecordDelimiter == key:
+            _add_text_child(csv, SelectParameters.RecordDelimiter, base64.b64encode(str.encode(value)))
+        elif SelectParameters.OutputRecordDelimiter == key:
+            _add_text_child(out_csv, SelectParameters.RecordDelimiter, base64.b64encode(str.encode(value)))
+        elif SelectParameters.FieldDelimiter == key:
+            _add_text_child(csv, SelectParameters.FieldDelimiter, base64.b64encode(str.encode(value)))
+        elif SelectParameters.OutputFieldDelimiter == key:
+            _add_text_child(out_csv, SelectParameters.FieldDelimiter, base64.b64encode(str.encode(value)))
+        elif SelectParameters.QuoteCharacter == key:
+            _add_text_child(csv, SelectParameters.QuoteCharacter, base64.b64encode(str.encode(value)))
+        elif SelectParameters.SplitRange == key:
             _add_text_child(csv, 'Range', utils._make_split_range_string(value))
-        elif 'LineRange' == key:
+        elif SelectParameters.LineRange == key:
             _add_text_child(csv, 'Range', utils._make_line_range_string(value))
-        elif 'CompressionType' == key:
-            _add_text_child(input_ser, 'CompressionType', str(value))
-        elif 'KeepAllColumns' == key:
-            _add_text_child(output_ser, 'KeepAllColumns', str(value))
-        elif 'OutputRawData' == key:
-            _add_text_child(output_ser, 'OutputRawData', str(value))
-        elif 'EnablePayloadCrc' == key:
-            _add_text_child(output_ser, 'EnablePayloadCrc', str(value))
-        elif 'OutputHeader' == key:
-            _add_text_child(output_ser, 'OutputHeader', str(value))
-        elif 'SkipPartialDataRecord' == key:
-            _add_text_child(options, 'SkipPartialDataRecord', str(value))
-        elif 'MaxSkippedRecordsAllowed' == key:
-            _add_text_child(options, 'MaxSkippedRecordsAllowed', str(value))
+        elif SelectParameters.CompressionType == key:
+            _add_text_child(input_ser, SelectParameters.CompressionType, str(value))
+        elif SelectParameters.KeepAllColumns == key:
+            _add_text_child(output_ser, SelectParameters.KeepAllColumns, str(value))
+        elif SelectParameters.OutputRawData == key:
+            _add_text_child(output_ser, SelectParameters.OutputRawData, str(value))
+        elif SelectParameters.EnablePayloadCrc == key:
+            _add_text_child(output_ser, SelectParameters.EnablePayloadCrc, str(value))
+        elif SelectParameters.OutputHeader == key:
+            _add_text_child(output_ser, SelectParameters.OutputHeader, str(value))
+        elif SelectParameters.SkipPartialDataRecord == key:
+            _add_text_child(options, SelectParameters.SkipPartialDataRecord, str(value))
+        elif SelectParameters.MaxSkippedRecordsAllowed == key:
+            _add_text_child(options, SelectParameters.MaxSkippedRecordsAllowed, str(value))
+        elif SelectParameters.AllowQuotedRecordDelimiter == key:
+            _add_text_child(csv, SelectParameters.AllowQuotedRecordDelimiter, str(value))
         else:
             raise SelectOperationClientError("The select_params contains unsupported key " + key, "")
 
@@ -687,39 +785,39 @@ def to_select_json_object(sql, select_params):
     json = ElementTree.SubElement(input_ser, 'JSON')
     out_json = ElementTree.SubElement(output_ser, 'JSON')
     options = ElementTree.SubElement(root, 'Options')
-    is_doc = select_params['Json_Type'] == 'DOCUMENT'
-    _add_text_child(json, 'Type', select_params['Json_Type'])
+    is_doc = select_params[SelectParameters.Json_Type] == SelectJsonTypes.DOCUMENT
+    _add_text_child(json, 'Type', select_params[SelectParameters.Json_Type])
     if select_params is None:
         return _node_to_string(root)
     
     for key, value in select_params.items(): 
-        if 'SplitRange' == key and is_doc == False:
+        if SelectParameters.SplitRange == key and is_doc == False:
             _add_text_child(json, 'Range', utils._make_split_range_string(value))
-        elif 'LineRange' == key and is_doc == False:
+        elif SelectParameters.LineRange == key and is_doc == False:
             _add_text_child(json, 'Range', utils._make_line_range_string(value))
-        elif 'CompressionType' == key:
-            _add_text_child(input_ser, 'CompressionType', value)
-        elif 'OutputRawData' == key:
-            _add_text_child(output_ser, 'OutputRawData', str(value))
-        elif 'EnablePayloadCrc' == key:
-            _add_text_child(output_ser, 'EnablePayloadCrc', str(value))
-        elif 'OutputRecordDelimiter' == key:
-            _add_text_child(out_json, 'RecordDelimiter', base64.b64encode(str.encode(value)))
-        elif 'SkipPartialDataRecord' == key:
-            _add_text_child(options, 'SkipPartialDataRecord', str(value))
-        elif 'MaxSkippedRecordsAllowed' == key:
-            _add_text_child(options, 'MaxSkippedRecordsAllowed', str(value))
-        elif 'ParseJsonNumberAsString' == key:
-            _add_text_child(json, 'ParseJsonNumberAsString', str(value))
+        elif SelectParameters.CompressionType == key:
+            _add_text_child(input_ser, SelectParameters.CompressionType, value)
+        elif SelectParameters.OutputRawData == key:
+            _add_text_child(output_ser, SelectParameters.OutputRawData, str(value))
+        elif SelectParameters.EnablePayloadCrc == key:
+            _add_text_child(output_ser, SelectParameters.EnablePayloadCrc, str(value))
+        elif SelectParameters.OutputRecordDelimiter == key:
+            _add_text_child(out_json, SelectParameters.RecordDelimiter, base64.b64encode(str.encode(value)))
+        elif SelectParameters.SkipPartialDataRecord == key:
+            _add_text_child(options, SelectParameters.SkipPartialDataRecord, str(value))
+        elif SelectParameters.MaxSkippedRecordsAllowed == key:
+            _add_text_child(options, SelectParameters.MaxSkippedRecordsAllowed, str(value))
+        elif SelectParameters.ParseJsonNumberAsString == key:
+            _add_text_child(json, SelectParameters.ParseJsonNumberAsString, str(value))
         else:
-            if key != 'Json_Type':
+            if key != SelectParameters.Json_Type:
                 raise SelectOperationClientError("The select_params contains unsupported key " + key, "")
 
     return _node_to_string(root)
 
 def to_get_select_object_meta(meta_param):
-    if meta_param is not None and 'Json_Type' in meta_param:
-        if meta_param['Json_Type'] != 'LINES':
+    if meta_param is not None and SelectParameters.Json_Type in meta_param:
+        if meta_param[SelectParameters.Json_Type] != SelectJsonTypes.LINES:
             raise SelectOperationClientError("Json_Type can only be 'LINES' for creating meta", "")
         else:
             return to_get_select_json_object_meta(meta_param)
@@ -734,16 +832,16 @@ def to_get_select_csv_object_meta(csv_meta_param):
         return _node_to_string(root)
     
     for key, value in csv_meta_param.items():
-        if 'RecordDelimiter' == key:
-            _add_text_child(csv, 'RecordDelimiter', base64.b64encode(str.encode(value)))
-        elif 'FieldDelimiter' == key:
-            _add_text_child(csv, 'FieldDelimiter', base64.b64encode(str.encode(value)))
-        elif 'QuoteCharacter' == key:
-            _add_text_child(csv, 'QuoteCharacter', base64.b64encode(str.encode(value)))
-        elif 'CompressionType' == key:
-            _add_text_child(input_ser, 'CompressionType', base64.b64encode(str.encode(value)))
-        elif 'OverwriteIfExists' == key:
-            _add_text_child(root, 'OverwriteIfExists', str(value))
+        if SelectParameters.RecordDelimiter == key:
+            _add_text_child(csv, SelectParameters.RecordDelimiter, base64.b64encode(str.encode(value)))
+        elif SelectParameters.FieldDelimiter == key:
+            _add_text_child(csv, SelectParameters.FieldDelimiter, base64.b64encode(str.encode(value)))
+        elif SelectParameters.QuoteCharacter == key:
+            _add_text_child(csv, SelectParameters.QuoteCharacter, base64.b64encode(str.encode(value)))
+        elif SelectParameters.CompressionType == key:
+            _add_text_child(input_ser, SelectParameters.CompressionType, base64.b64encode(str.encode(value)))
+        elif SelectParameters.OverwriteIfExists == key:
+            _add_text_child(root, SelectParameters.OverwriteIfExists, str(value))
         else:
            raise SelectOperationClientError("The csv_meta_param contains unsupported key " + key, "") 
 
@@ -753,15 +851,130 @@ def to_get_select_json_object_meta(json_meta_param):
     root = ElementTree.Element('JsonMetaRequest')
     input_ser = ElementTree.SubElement(root, 'InputSerialization')
     json = ElementTree.SubElement(input_ser, 'JSON')
-    _add_text_child(json, 'Type', json_meta_param['Json_Type']) # Json_Type是必须的
+    _add_text_child(json, 'Type', json_meta_param[SelectParameters.Json_Type]) # Json_Type是必须的
   
     for key, value in json_meta_param.items():
-        if 'OverwriteIfExists' == key:
-            _add_text_child(root, 'OverwriteIfExists', str(value))
-        elif 'CompressionType' == key:
-             _add_text_child(input_ser, 'CompressionType', base64.b64encode(str.encode(value)))
+        if SelectParameters.OverwriteIfExists == key:
+            _add_text_child(root, SelectParameters.OverwriteIfExists, str(value))
+        elif SelectParameters.CompressionType == key:
+             _add_text_child(input_ser, SelectParameters.CompressionType, base64.b64encode(str.encode(value)))
         else:
-            if 'Json_Type' != key:
+            if SelectParameters.Json_Type != key:
                 raise SelectOperationClientError("The json_meta_param contains unsupported key " + key, "")
             
     return _node_to_string(root)
+
+def to_put_tagging(object_tagging):
+    root = ElementTree.Element("Tagging")
+    tag_set = ElementTree.SubElement(root, "TagSet")
+
+    for item in object_tagging.tag_set.tagging_rule:
+        tag_xml = ElementTree.SubElement(tag_set, "Tag")
+        _add_text_child(tag_xml, 'Key', item)
+        _add_text_child(tag_xml, 'Value', object_tagging.tag_set.tagging_rule[item])
+
+    return _node_to_string(root)
+
+def parse_get_tagging(result, body):
+    root = ElementTree.fromstring(body)
+    url_encoded = _is_url_encoding(root)
+    tagset_node = root.find('TagSet')
+
+    if tagset_node is None:
+        return result
+
+    tagging_rules = TaggingRule()
+    for tag_node in tagset_node.findall('Tag'):
+        key = _find_object(tag_node, 'Key', url_encoded)
+        value = _find_object(tag_node, 'Value', url_encoded)
+        tagging_rules.add(key, value)
+    
+    result.tag_set = tagging_rules
+    return result
+
+def to_put_bucket_encryption(rule):
+    root = ElementTree.Element("ServerSideEncryptionRule")
+    apply_node = ElementTree.SubElement(root, "ApplyServerSideEncryptionByDefault")
+
+    _add_text_child(apply_node, "SSEAlgorithm", rule.sse_algorithm)
+
+    if rule.kms_master_keyid:
+        _add_text_child(apply_node, "KMSMasterKeyID", rule.kms_master_keyid)
+
+    return _node_to_string(root)
+
+def parse_get_bucket_encryption(result, body):
+    root = ElementTree.fromstring(body)
+    apply_node = root.find('ApplyServerSideEncryptionByDefault')
+
+    result.sse_algorithm = _find_tag(apply_node, "SSEAlgorithm")
+
+    kmsnode = apply_node.find('KMSMasterKeyID')
+    if kmsnode is None or kmsnode.text is None:
+        result.kms_master_keyid = None 
+    else:
+        result.kms_master_keyid = to_string(kmsnode.text)
+
+    return result
+def parse_list_object_versions(result, body):
+    root = ElementTree.fromstring(body)
+    url_encoded = _is_url_encoding(root)
+    result.is_truncated = _find_bool(root, 'IsTruncated')
+    if result.is_truncated:
+        result.next_key_marker = _find_object(root, 'NextKeyMarker', url_encoded)
+        result.next_versionid_marker = _find_object(root, "NextVersionIdMarker", url_encoded)
+
+    result.name = _find_tag(root, "Name")
+    result.prefix = _find_object(root, "Prefix", url_encoded)
+    result.key_marker = _find_object(root, "KeyMarker", url_encoded)
+    result.versionid_marker = _find_object(root, "VersionIdMarker", url_encoded)
+    result.max_keys = _find_int(root, "MaxKeys")
+    result.delimiter = _find_object(root, "Delimiter", url_encoded)
+
+    for delete_marker in root.findall("DeleteMarker"):
+        deleteInfo = DeleteMarkerInfo()
+        deleteInfo.key = _find_object(delete_marker, "Key", url_encoded)
+        deleteInfo.versionid = _find_tag(delete_marker, "VersionId")
+        deleteInfo.is_latest = _find_bool(delete_marker, "IsLatest")
+        deleteInfo.last_modified = iso8601_to_unixtime(_find_tag(delete_marker, "LastModified"))
+        deleteInfo.owner.id = _find_tag(delete_marker, "Owner/ID")
+        deleteInfo.owner.display_name = _find_tag(delete_marker, "Owner/DisplayName")
+        result.delete_marker.append(deleteInfo)
+
+    for version in root.findall("Version"):
+        versionInfo = ObjectVersionInfo()
+        versionInfo.key = _find_object(version, "Key", url_encoded)
+        versionInfo.versionid = _find_tag(version, "VersionId")
+        versionInfo.is_latest = _find_bool(version, "IsLatest")
+        versionInfo.last_modified = iso8601_to_unixtime(_find_tag(version, "LastModified"))
+        versionInfo.owner.id = _find_tag(version, "Owner/ID")
+        versionInfo.owner.display_name = _find_tag(version, "Owner/DisplayName")
+        versionInfo.type = _find_tag(version, "Type")
+        versionInfo.storage_class = _find_tag(version, "StorageClass")
+        versionInfo.size = _find_int(version, "Size")
+        versionInfo.etag = _find_tag(version, "ETag").strip('"')
+
+        result.versions.append(versionInfo)
+
+    for common_prefix in root.findall("CommonPrefixes"):
+        result.common_prefix.append(_find_object(common_prefix, "Prefix", url_encoded))
+
+    return result
+
+def to_put_bucket_versioning(bucket_version_config):
+    root = ElementTree.Element('VersioningConfiguration')
+
+    _add_text_child(root, 'Status', str(bucket_version_config.status))
+
+    return _node_to_string(root)
+
+def parse_get_bucket_versioning(result, body):
+    root = ElementTree.fromstring(body)
+
+    status_node = root.find("Status")
+    if status_node is None:
+        result.status = None
+    else:
+        result.status = _find_tag(root, "Status")
+
+    return result
