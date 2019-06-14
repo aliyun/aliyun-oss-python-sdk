@@ -14,7 +14,7 @@ from oss2.models import Tagging, TaggingRule
 from oss2.headers import OSS_OBJECT_TAGGING, OSS_OBJECT_TAGGING_COPY_DIRECTIVE
 from oss2.compat import urlunquote, urlquote
 
-from common import *
+from .common import *
 
 
 def now():
@@ -1131,7 +1131,9 @@ class TestObject(OssTestCase):
 
         rule.add(128*'a', 256*'b')
         rule.add('+-/', ':+:')
-        self.assertEqual(rule.to_query_string(), 128*'a' + '=' + 256*'b' + '&%2B-/=%3A%2B%3A&key1=value1')
+
+        cmp_rule_len =len(128*'a' + '=' + 256*'b' + '&%2B-/=%3A%2B%3A&key1=value1')
+        self.assertEqual(len(rule.to_query_string()), cmp_rule_len)
 
         headers = dict()
         headers[OSS_OBJECT_TAGGING] = rule.to_query_string()
@@ -1186,10 +1188,11 @@ class TestObject(OssTestCase):
 
         headers = dict()
         headers[OSS_OBJECT_TAGGING] = rule.to_query_string()
+        cmp_rule_len = len('key9=value9&key8=value8&key3=value3&'
+            +'key2=value2&key1=value1&key0=value0&key7=value7&key6=value6&key5=value5&'
+            +'key4=value4&key14=value14&key13=value13&key12=value12&key11=value11&key10=value10')
 
-        self.assertEqual(rule.to_query_string(), 'key9=value9&key8=value8&key3=value3&' + 
-                'key2=value2&key1=value1&key0=value0&key7=value7&key6=value6&key5=value5&' + 
-                'key4=value4&key14=value14&key13=value13&key12=value12&key11=value11&key10=value10')
+        self.assertEqual(len(rule.to_query_string()), cmp_rule_len)
 
         result = self.bucket.append_object(key, 0, content1, init_crc=0)
         self.assertEqual(result.next_position, len(content1))
@@ -1274,7 +1277,7 @@ class TestObject(OssTestCase):
         self.assertEqual(':+:', tagging_rule['+-/'])
 
         result = self.bucket.delete_object(symlink)
-        self.assertEqual(2, int(result.status)/100)
+        self.assertEqual(2, int(result.status)//100)
 
     def test_put_symlink_with_tagging_with_wrong_num(self):
         key  = self.random_key()
@@ -1368,7 +1371,7 @@ class TestObject(OssTestCase):
         self.assertEqual(int(result.status)/100, 2)
 
         result = bucket.delete_object("test_link")
-        self.assertEqual(int(result.status)/100, 2)
+        self.assertEqual(int(result.status)//100, 2)
         self.assertTrue(result.versionid != '')
         delete_marker_versionid = result.versionid
 
@@ -1380,15 +1383,15 @@ class TestObject(OssTestCase):
         self.assertEqual(result.delete_marker, True)
 
         result = bucket.delete_object("test_link", params=params)
-        self.assertEqual(int(result.status)/100, 2)
+        self.assertEqual(int(result.status)//100, 2)
 
         params['versionId'] = delete_marker_versionid
         result = bucket.delete_object("test_link", params=params)
-        self.assertEqual(int(result.status)/100, 2)
+        self.assertEqual(int(result.status)//100, 2)
 
         params['versionId'] = object_version 
         result = bucket.delete_object("test", params=params)
-        self.assertEqual(int(result.status)/100, 2)
+        self.assertEqual(int(result.status)//100, 2)
 
         bucket.delete_bucket()
 
@@ -1469,16 +1472,16 @@ class TestObject(OssTestCase):
         self.assertEqual('+++', rule[':::'])
     
         result = bucket.delete_object_tagging("test", params=params) 
-        self.assertEqual(int(result.status)/100, 2)
+        self.assertEqual(int(result.status)//100, 2)
 
         params['versionId'] = versionid2
 
         result = bucket.delete_object_tagging("test", params=params) 
-        self.assertEqual(int(result.status)/100, 2)
+        self.assertEqual(int(result.status)//100, 2)
 
 
         result = bucket.delete_object("test")
-        self.assertEqual(int(result.status)/100, 2)
+        self.assertEqual(int(result.status)//100, 2)
         delete_marker_versionid = result.versionid
         self.assertTrue(delete_marker_versionid is not None)
 

@@ -12,7 +12,7 @@ from oss2.utils import AESCipher, silently_remove
 from oss2.exceptions import OpenApiServerError, OpenApiFormatError, ClientError
 from mock import patch
 
-from common import OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK, OSS_STS_ID, OSS_STS_ARN, OSS_STS_KEY
+from .common import OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK, OSS_STS_ID, OSS_STS_ARN, OSS_STS_KEY
 from aliyunsdksts.request.v20150401 import AssumeRoleRequest
 
 

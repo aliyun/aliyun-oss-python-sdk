@@ -4,7 +4,7 @@ import unittest
 import oss2
 from oss2.utils import calc_obj_crc_from_parts
 
-from common import *
+from .common import *
 from oss2.headers import OSS_OBJECT_TAGGING, OSS_OBJECT_TAGGING_COPY_DIRECTIVE
 from oss2.compat import urlunquote, urlquote
 

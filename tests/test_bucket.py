@@ -4,7 +4,7 @@
 import datetime
 import json
 
-from common import *
+from .common import *
 from oss2 import to_string
 
 
@@ -705,10 +705,10 @@ class TestBucket(OssTestCase):
         result = self.bucket.get_object("test")
         self.assertEqual(int(result.status)/100, 2)
 
-        self.assertEqual("test", result.read())
+        self.assertEqual("test", to_string(result.read()))
 
         result = self.bucket.delete_bucket_encryption()
-        self.assertEqual(int(result.status)/100, 2)
+        self.assertEqual(int(result.status)//100, 2)
 
         # KMS
         rule.sse_algorithm = oss2.SERVER_SIDE_ENCRYPTION_KMS
@@ -724,7 +724,7 @@ class TestBucket(OssTestCase):
         self.assertTrue(result.bucket_encryption_rule.kms_master_keyid is None)
 
         result = self.bucket.delete_bucket_encryption()
-        self.assertEqual(int(result.status)/100, 2)
+        self.assertEqual(int(result.status)//100, 2)
 
     def test_bucket_versioning_wrong(self):
 
@@ -917,7 +917,7 @@ class TestBucket(OssTestCase):
         self.assertEqual('++123%', tag_rule['123++'])
 
         result = self.bucket.delete_bucket_tagging()
-        self.assertEqual(int(result.status)/100, 2)
+        self.assertEqual(int(result.status)//100, 2)
 
     def test_list_bucket_with_tagging(self):
 

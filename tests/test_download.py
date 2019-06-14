@@ -11,7 +11,7 @@ import tempfile
 from mock import patch
 from functools import partial
 
-from common import *
+from .common import *
 
 
 class SizedFileAdapterForMock(object):
