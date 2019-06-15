@@ -27,14 +27,17 @@ OSS_STS_ARN = os.getenv("OSS_TEST_STS_ARN")
 
 OSS_AUTH_VERSION = None
 
+
 def random_string(n):
     return ''.join(random.choice(string.ascii_lowercase) for i in range(n))
 
+
 OSS_BUCKET = ''
 if OSS_TEST_BUCKET is None:
-    OSS_BUCKET = 'aliyun-oss-python-sdk-'+random_string(10)
+    OSS_BUCKET = 'aliyun-oss-python-sdk-' + random_string(10)
 else:
     OSS_BUCKET = OSS_TEST_BUCKET + random_string(10)
+
 
 def random_bytes(n):
     return oss2.to_bytes(random_string(n))
@@ -45,7 +48,7 @@ def delete_keys(bucket, key_list):
         return
 
     n = 100
-    grouped = [key_list[i:i+n] for i in range(0, len(key_list), n)]
+    grouped = [key_list[i:i + n] for i in range(0, len(key_list), n)]
     for g in grouped:
         bucket.batch_delete_objects(g)
 
@@ -86,7 +89,7 @@ class OssTestCase(unittest.TestCase):
 
         global OSS_AUTH_VERSION
         OSS_AUTH_VERSION = os.getenv('OSS_TEST_AUTH_VERSION')
-        
+
         self.bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET)
 
         try:
@@ -94,11 +97,14 @@ class OssTestCase(unittest.TestCase):
         except:
             pass
 
-        self.rsa_crypto_bucket = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET,
-                                             crypto_provider=oss2.LocalRsaProvider())
+        self.rsa_crypto_bucket = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT,
+                                                   OSS_BUCKET,
+                                                   crypto_provider=oss2.LocalRsaProvider())
 
-        self.kms_crypto_bucket = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET,
-                                             crypto_provider=oss2.AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK))
+        self.kms_crypto_bucket = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT,
+                                                   OSS_BUCKET,
+                                                   crypto_provider=oss2.AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION,
+                                                                                       OSS_CMK))
 
         self.key_list = []
         self.temp_files = []
@@ -153,7 +159,7 @@ class OssTestCase(unittest.TestCase):
             if func():
                 return
             else:
-                time.sleep(i+2)
+                time.sleep(i + 2)
 
         self.assertTrue(False)
 
@@ -168,4 +174,3 @@ class OssTestCase(unittest.TestCase):
             read = f.read()
             self.assertNotEqual(len(read), len(content))
             self.assertNotEqual(read, content)
-

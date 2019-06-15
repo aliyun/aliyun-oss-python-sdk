@@ -515,7 +515,3 @@ class OssTestCase(unittest.TestCase):
             self.assertEqual(len(req_info.data), len(expected.body))
             self.assertEqual(req_info.data, expected.body)
 
-
-fixed_aes_key = b'1' * 32
-fixed_aes_start = 1
-

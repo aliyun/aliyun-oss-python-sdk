@@ -37,7 +37,7 @@ from .models import (SimplifiedObjectInfo,
                      ObjectVersionInfo,
                      DeleteMarkerInfo,
                      BatchDeleteObjectVersionResult)
-					 
+
 from .select_params import (SelectJsonTypes, SelectParameters)
 
 from .compat import urlunquote, to_unicode, to_string
@@ -47,6 +47,7 @@ import base64
 from .exceptions import SelectOperationClientError, ClientError
 
 logger = logging.getLogger(__name__)
+
 
 def _find_tag(parent, path):
     child = parent.find(path)
@@ -105,8 +106,10 @@ def _add_node_list(parent, tag, entries):
 def _add_text_child(parent, tag, text):
     ElementTree.SubElement(parent, tag).text = to_unicode(text)
 
+
 def _add_node_child(parent, tag):
     return ElementTree.SubElement(parent, tag)
+
 
 def parse_list_objects(result, body):
     root = ElementTree.fromstring(body)
@@ -250,7 +253,8 @@ def parse_batch_delete_objects(result, body):
         delete_marker_versionid = ''
         if marker_versionid_node is not None:
             delete_marker_versionid = _find_tag(deleted_node, 'DeleteMarkerVersionId')
-        result.delete_versions.append(BatchDeleteObjectVersionResult(key, versionid, delete_marker, delete_marker_versionid))
+        result.delete_versions.append(
+            BatchDeleteObjectVersionResult(key, versionid, delete_marker, delete_marker_versionid))
 
     return result
 
@@ -313,7 +317,7 @@ def parse_get_bucket_info(result, body):
     result.bucket_encryption_rule = _parse_bucket_encryption_info(server_side_encryption)
 
     bucket_versioning = root.find('Bucket/Versioning')
-    
+
     if bucket_versioning is None or bucket_versioning.text is None:
         result.versioning_status = None
     else:
@@ -321,12 +325,12 @@ def parse_get_bucket_info(result, body):
 
     return result
 
-def _parse_bucket_encryption_info(node):
 
+def _parse_bucket_encryption_info(node):
     rule = ServerSideEncryptionRule()
 
-    rule.sse_algorithm = _find_tag(node,"SSEAlgorithm")
-    
+    rule.sse_algorithm = _find_tag(node, "SSEAlgorithm")
+
     if rule.sse_algorithm == "None":
         rule.kms_master_keyid = None
         rule.sse_algorithm = None
@@ -334,11 +338,12 @@ def _parse_bucket_encryption_info(node):
 
     kmsnode = node.find("KMSMasterKeyID")
     if kmsnode is None or kmsnode.text is None:
-        rule.kms_master_keyid = None 
+        rule.kms_master_keyid = None
     else:
         rule.kms_master_keyid = to_string(kmsnode.text)
 
     return rule
+
 
 def parse_get_bucket_referer(result, body):
     root = ElementTree.fromstring(body)
@@ -391,7 +396,7 @@ def parse_list_live_channel(result, body):
     result.marker = _find_tag(root, 'Marker')
     result.max_keys = _find_int(root, 'MaxKeys')
     result.is_truncated = _find_bool(root, 'IsTruncated')
-    
+
     if result.is_truncated:
         result.next_marker = _find_tag(root, 'NextMarker')
 
@@ -502,12 +507,12 @@ def parse_lifecycle_storage_transitions(storage_transition_nodes):
 
     return storage_transitions
 
+
 def parse_lifecycle_object_taggings(lifecycle_tagging_nodes):
-    
     if lifecycle_tagging_nodes is None or \
-        len(lifecycle_tagging_nodes) == 0: 
-        return None 
-    
+            len(lifecycle_tagging_nodes) == 0:
+        return None
+
     tagging_rule = TaggingRule()
     for tag_node in lifecycle_tagging_nodes:
         key = _find_tag(tag_node, 'Key')
@@ -516,8 +521,8 @@ def parse_lifecycle_object_taggings(lifecycle_tagging_nodes):
 
     return Tagging(tagging_rule)
 
-def parse_get_bucket_lifecycle(result, body):
 
+def parse_get_bucket_lifecycle(result, body):
     root = ElementTree.fromstring(body)
     url_encoded = _is_url_encoding(root)
 
@@ -533,8 +538,8 @@ def parse_get_bucket_lifecycle(result, body):
             expiration=expiration,
             abort_multipart_upload=abort_multipart_upload,
             storage_transitions=storage_transitions,
-            tagging=tagging 
-            )
+            tagging=tagging
+        )
         result.rules.append(rule)
 
     return result
@@ -580,8 +585,8 @@ def to_batch_delete_objects_request(keys, quiet):
 
     return _node_to_string(root_node)
 
-def to_batch_delete_objects_version_request(objectVersions, quiet):
 
+def to_batch_delete_objects_version_request(objectVersions, quiet):
     root_node = ElementTree.Element('Delete')
 
     _add_text_child(root_node, 'Quiet', str(quiet).lower())
@@ -705,6 +710,7 @@ def to_put_bucket_cors(bucket_cors):
 
     return _node_to_string(root)
 
+
 def to_create_live_channel(live_channel):
     root = ElementTree.Element('LiveChannelConfiguration')
 
@@ -719,11 +725,13 @@ def to_create_live_channel(live_channel):
 
     return _node_to_string(root)
 
+
 def to_select_object(sql, select_params):
     if (select_params is not None and 'Json_Type' in select_params):
         return to_select_json_object(sql, select_params)
     else:
         return to_select_csv_object(sql, select_params)
+
 
 def to_select_csv_object(sql, select_params):
     root = ElementTree.Element('SelectRequest')
@@ -733,10 +741,10 @@ def to_select_csv_object(sql, select_params):
     csv = ElementTree.SubElement(input_ser, 'CSV')
     out_csv = ElementTree.SubElement(output_ser, 'CSV')
     options = ElementTree.SubElement(root, 'Options')
-   
+
     if (select_params is None):
         return _node_to_string(root)
-    
+
     for key, value in select_params.items():
         if SelectParameters.CsvHeaderInfo == key:
             _add_text_child(csv, 'FileHeaderInfo', value)
@@ -777,6 +785,7 @@ def to_select_csv_object(sql, select_params):
 
     return _node_to_string(root)
 
+
 def to_select_json_object(sql, select_params):
     root = ElementTree.Element('SelectRequest')
     _add_text_child(root, 'Expression', base64.b64encode(str.encode(sql)))
@@ -789,8 +798,8 @@ def to_select_json_object(sql, select_params):
     _add_text_child(json, 'Type', select_params[SelectParameters.Json_Type])
     if select_params is None:
         return _node_to_string(root)
-    
-    for key, value in select_params.items(): 
+
+    for key, value in select_params.items():
         if SelectParameters.SplitRange == key and is_doc == False:
             _add_text_child(json, 'Range', utils._make_split_range_string(value))
         elif SelectParameters.LineRange == key and is_doc == False:
@@ -815,6 +824,7 @@ def to_select_json_object(sql, select_params):
 
     return _node_to_string(root)
 
+
 def to_get_select_object_meta(meta_param):
     if meta_param is not None and SelectParameters.Json_Type in meta_param:
         if meta_param[SelectParameters.Json_Type] != SelectJsonTypes.LINES:
@@ -824,13 +834,14 @@ def to_get_select_object_meta(meta_param):
     else:
         return to_get_select_csv_object_meta(meta_param)
 
+
 def to_get_select_csv_object_meta(csv_meta_param):
     root = ElementTree.Element('CsvMetaRequest')
     input_ser = ElementTree.SubElement(root, 'InputSerialization')
     csv = ElementTree.SubElement(input_ser, 'CSV')
     if (csv_meta_param is None):
         return _node_to_string(root)
-    
+
     for key, value in csv_meta_param.items():
         if SelectParameters.RecordDelimiter == key:
             _add_text_child(csv, SelectParameters.RecordDelimiter, base64.b64encode(str.encode(value)))
@@ -843,26 +854,28 @@ def to_get_select_csv_object_meta(csv_meta_param):
         elif SelectParameters.OverwriteIfExists == key:
             _add_text_child(root, SelectParameters.OverwriteIfExists, str(value))
         else:
-           raise SelectOperationClientError("The csv_meta_param contains unsupported key " + key, "") 
+            raise SelectOperationClientError("The csv_meta_param contains unsupported key " + key, "")
 
     return _node_to_string(root)
+
 
 def to_get_select_json_object_meta(json_meta_param):
     root = ElementTree.Element('JsonMetaRequest')
     input_ser = ElementTree.SubElement(root, 'InputSerialization')
     json = ElementTree.SubElement(input_ser, 'JSON')
-    _add_text_child(json, 'Type', json_meta_param[SelectParameters.Json_Type]) # Json_Type是必须的
-  
+    _add_text_child(json, 'Type', json_meta_param[SelectParameters.Json_Type])  # Json_Type是必须的
+
     for key, value in json_meta_param.items():
         if SelectParameters.OverwriteIfExists == key:
             _add_text_child(root, SelectParameters.OverwriteIfExists, str(value))
         elif SelectParameters.CompressionType == key:
-             _add_text_child(input_ser, SelectParameters.CompressionType, base64.b64encode(str.encode(value)))
+            _add_text_child(input_ser, SelectParameters.CompressionType, base64.b64encode(str.encode(value)))
         else:
             if SelectParameters.Json_Type != key:
                 raise SelectOperationClientError("The json_meta_param contains unsupported key " + key, "")
-            
+
     return _node_to_string(root)
+
 
 def to_put_tagging(object_tagging):
     root = ElementTree.Element("Tagging")
@@ -874,6 +887,7 @@ def to_put_tagging(object_tagging):
         _add_text_child(tag_xml, 'Value', object_tagging.tag_set.tagging_rule[item])
 
     return _node_to_string(root)
+
 
 def parse_get_tagging(result, body):
     root = ElementTree.fromstring(body)
@@ -888,9 +902,10 @@ def parse_get_tagging(result, body):
         key = _find_object(tag_node, 'Key', url_encoded)
         value = _find_object(tag_node, 'Value', url_encoded)
         tagging_rules.add(key, value)
-    
+
     result.tag_set = tagging_rules
     return result
+
 
 def to_put_bucket_encryption(rule):
     root = ElementTree.Element("ServerSideEncryptionRule")
@@ -903,6 +918,7 @@ def to_put_bucket_encryption(rule):
 
     return _node_to_string(root)
 
+
 def parse_get_bucket_encryption(result, body):
     root = ElementTree.fromstring(body)
     apply_node = root.find('ApplyServerSideEncryptionByDefault')
@@ -911,11 +927,13 @@ def parse_get_bucket_encryption(result, body):
 
     kmsnode = apply_node.find('KMSMasterKeyID')
     if kmsnode is None or kmsnode.text is None:
-        result.kms_master_keyid = None 
+        result.kms_master_keyid = None
     else:
         result.kms_master_keyid = to_string(kmsnode.text)
 
     return result
+
+
 def parse_list_object_versions(result, body):
     root = ElementTree.fromstring(body)
     url_encoded = _is_url_encoding(root)
@@ -961,12 +979,14 @@ def parse_list_object_versions(result, body):
 
     return result
 
+
 def to_put_bucket_versioning(bucket_version_config):
     root = ElementTree.Element('VersioningConfiguration')
 
     _add_text_child(root, 'Status', str(bucket_version_config.status))
 
     return _node_to_string(root)
+
 
 def parse_get_bucket_versioning(result, body):
     root = ElementTree.fromstring(body)

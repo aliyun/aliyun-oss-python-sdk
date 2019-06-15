@@ -55,6 +55,7 @@ DEPRECATED_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_MD5 = "x-oss-meta-oss-cryp
 OSS_OBJECT_TAGGING = "x-oss-tagging"
 OSS_OBJECT_TAGGING_COPY_DIRECTIVE = "x-oss-tagging-directive"
 
+
 class RequestHeader(dict):
     def __init__(self, *arg, **kw):
         super(RequestHeader, self).__init__(*arg, **kw)

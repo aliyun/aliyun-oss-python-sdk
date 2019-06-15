@@ -33,7 +33,9 @@ class BaseCryptoProvider(object):
 
     """
 
-    def __init__(self, cipher=None):
+    def __init__(self, cipher):
+        if not cipher:
+            raise ClientError('Please initialize the value of cipher!')
         self.cipher = cipher
         self.wrap_alg = None
         self.mat_desc = None
@@ -45,10 +47,12 @@ class BaseCryptoProvider(object):
     def get_start(self):
         return self.cipher.get_start()
 
-    def make_encrypt_adapter(self, stream, cipher):
+    @staticmethod
+    def make_encrypt_adapter(stream, cipher):
         return utils.make_cipher_adapter(stream, partial(cipher.encrypt))
 
-    def make_decrypt_adapter(self, stream, cipher, discard=0):
+    @staticmethod
+    def make_decrypt_adapter(stream, cipher, discard=0):
         return utils.make_cipher_adapter(stream, partial(cipher.decrypt), discard)
 
     @abc.abstractmethod
@@ -89,6 +93,7 @@ class LocalRsaProvider(BaseCryptoProvider):
 
     def __init__(self, dir=None, key='', passphrase=None, cipher=utils.AESCTRCipher(),
                  pub_key_suffix=DEFAULT_PUB_KEY_SUFFIX, private_key_suffix=DEFAULT_PRIV_KEY_SUFFIX, gen_keys=False):
+
         super(LocalRsaProvider, self).__init__(cipher=cipher)
 
         self.wrap_alg = RSA_WRAP_ALGORITHM
@@ -188,10 +193,9 @@ class AliKMSProvider(BaseCryptoProvider):
     def __init__(self, access_key_id, access_key_secret, region, cmk_id, sts_token=None, passphrase=None,
                  cipher=utils.AESCTRCipher()):
 
-        if not isinstance(cipher, utils.AESCTRCipher):
-            raise ClientError('AliKMSProvider only support AES256 cipher')
-
         super(AliKMSProvider, self).__init__(cipher=cipher)
+        if not isinstance(cipher, utils.AESCTRCipher):
+            raise ClientError('AliKMSProvider only support AES256 cipher now')
         self.wrap_alg = KMS_WRAP_ALGORITHM
         self.custom_master_key_id = cmk_id
         self.sts_token = sts_token

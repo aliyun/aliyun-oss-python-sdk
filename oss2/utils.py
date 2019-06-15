@@ -563,6 +563,7 @@ class AESCipher(object):
             2、提供静态方法，返回加密密钥和初始随机值（若算法不需要初始随机值，也需要提供）
             3、提供加密解密方法
     """
+
     # aes 256, key always is 32 bytes
     def __init__(self):
         self.alg = None
@@ -639,9 +640,12 @@ class AESCTRCipher(AESCipher):
         return self.__cipher.encrypt(enc)
 
     def adjust_range(self, start, end):
-        if start > end:
-            return None, None
-        start = (start / self.block_size_len) * self.block_size_len
+        if start:
+            if end:
+                if start <= end:
+                    start = (start / self.block_size_len) * self.block_size_len
+            else:
+                start = (start / self.block_size_len) * self.block_size_len
         return start, end
 
     def is_valid_part_size(self, part_size, data_size):
@@ -655,7 +659,7 @@ class AESCTRCipher(AESCipher):
     def calc_counter(self, offset):
         if not self.is_block_aligned(offset):
             raise ClientError('offset is not align to encrypt block')
-        return offset/self.block_size_len
+        return offset / self.block_size_len
 
     def determine_part_size(self, data_size, excepted_part_size=None):
         if excepted_part_size:

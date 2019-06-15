@@ -59,7 +59,6 @@ class ContentCryptoMaterial(object):
             headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_LENGTH] = headers['content-length']
             del headers['content-length']
 
-        # if self.wrap_alg == crypto.KMS_WRAP_ALGORITHM:
         if self.wrap_alg == "kms":
             headers[OSS_CLIENT_SIDE_ENCRYPTION_KEY] = self.encrypted_key
             headers[OSS_CLIENT_SIDE_ENCRYPTION_START] = self.encrypted_start
@@ -111,7 +110,6 @@ class ContentCryptoMaterial(object):
             err_msg = 'Envelope or data encryption/decryption algorithm is inconsistent'
             raise InconsistentError(err_msg, self)
 
-        # if self.wrap_alg == crypto.RSA_WRAP_ALGORITHM:
         if self.wrap_alg == "rsa":
             self.encrypted_key = b64decode_from_string(self.encrypted_key)
             self.encrypted_start = b64decode_from_string(self.encrypted_start)
@@ -157,6 +155,7 @@ class RequestResult(object):
         self.versionid = _hget(self.headers, 'x-oss-version-id')
 
         self.delete_marker = _hget(self.headers, 'x-oss-delete-marker', bool)
+
 
 class HeadObjectResult(RequestResult):
     def __init__(self, resp):
@@ -324,10 +323,12 @@ class AppendObjectResult(RequestResult):
         #: 下次追加写的偏移
         self.next_position = _hget(resp.headers, OSS_NEXT_APPEND_POSITION, int)
 
+
 class BatchDeleteObjectVersion(object):
     def __init__(self, key=None, versionid=None):
         self.key = key or ''
         self.versionid = versionid or ''
+
 
 class BatchDeleteObjectVersionList(object):
     def __init__(self, object_version_list=None):
@@ -339,12 +340,14 @@ class BatchDeleteObjectVersionList(object):
     def len(self):
         return len(self.object_version_list)
 
+
 class BatchDeleteObjectVersionResult(object):
     def __init__(self, key, versionid=None, delete_marker=None, delete_marker_versionid=None):
         self.key = key
         self.versionid = versionid or ''
         self.delete_marker = delete_marker or False
         self.delete_marker_versionid = delete_marker_versionid or ''
+
 
 class BatchDeleteObjectsResult(RequestResult):
     def __init__(self, resp):
@@ -353,7 +356,7 @@ class BatchDeleteObjectsResult(RequestResult):
         #: 已经删除的文件名列表
         self.deleted_keys = []
 
-        #：已经删除的带版本信息的文件信息列表
+        # ：已经删除的带版本信息的文件信息列表
         self.delete_versions = []
 
 
@@ -1082,19 +1085,19 @@ class ProcessObjectResult(RequestResult):
         if 'status' in result:
             self.process_status = result['status']
 
-_MAX_OBJECT_TAGGING_KEY_LENGTH=128
-_MAX_OBJECT_TAGGING_VALUE_LENGTH=256
+
+_MAX_OBJECT_TAGGING_KEY_LENGTH = 128
+_MAX_OBJECT_TAGGING_VALUE_LENGTH = 256
+
 
 class Tagging(object):
 
     def __init__(self, tagging_rules=None):
-        
-        self.tag_set = tagging_rules or TaggingRule() 
+        self.tag_set = tagging_rules or TaggingRule()
 
     def __str__(self):
-
         tag_str = ""
-        
+
         tagging_rule = self.tag_set.tagging_rule
 
         for key in tagging_rule:
@@ -1102,6 +1105,7 @@ class Tagging(object):
             tag_str += "#" + tagging_rule[key] + " "
 
         return tag_str
+
 
 class TaggingRule(object):
 
@@ -1143,27 +1147,31 @@ class TaggingRule(object):
 
         return query_string
 
+
 class GetTaggingResult(RequestResult, Tagging):
-    
+
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         Tagging.__init__(self)
 
+
 SERVER_SIDE_ENCRYPTION_AES256 = 'AES256'
 SERVER_SIDE_ENCRYPTION_KMS = 'KMS'
+
 
 class ServerSideEncryptionRule(object):
 
     def __init__(self, sse_algorithm=None, kms_master_keyid=None):
-
         self.sse_algorithm = sse_algorithm
         self.kms_master_keyid = kms_master_keyid
 
+
 class GetServerSideEncryptionResult(RequestResult, ServerSideEncryptionRule):
-    
+
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         ServerSideEncryptionRule.__init__(self)
+
 
 class ListObjectVersionsResult(RequestResult):
     def __init__(self, resp):
@@ -1185,7 +1193,7 @@ class ListObjectVersionsResult(RequestResult):
         self.next_versionid_marker = ''
 
         self.name = ''
-        
+
         self.owner = ''
 
         self.prefix = ''
@@ -1202,6 +1210,7 @@ class ListObjectVersionsResult(RequestResult):
 
         self.common_prefix = []
 
+
 class DeleteMarkerInfo(object):
     def __init__(self):
         self.key = ''
@@ -1209,6 +1218,7 @@ class DeleteMarkerInfo(object):
         self.is_latest = False
         self.last_modified = ''
         self.owner = Owner('', '')
+
 
 class ObjectVersionInfo(object):
     def __init__(self):
@@ -1222,17 +1232,21 @@ class ObjectVersionInfo(object):
         self.size = ''
         self.etag = ''
 
+
 BUCKET_VERSIONING_ENABLE = 'Enabled'
 BUCKET_VERSIONING_SUSPEND = 'Suspended'
+
 
 class BucketVersioningConfig(object):
     def __init__(self, status=None):
         self.status = status
 
+
 class GetBucketVersioningResult(RequestResult, BucketVersioningConfig):
     def __init__(self, resp):
-        RequestResult.__init__(self,resp)
-        BucketVersioningConfig.__init__(self) 
+        RequestResult.__init__(self, resp)
+        BucketVersioningConfig.__init__(self)
+
 
 class GetBucketPolicyResult(RequestResult):
     def __init__(self, resp):
