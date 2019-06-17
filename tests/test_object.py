@@ -2151,8 +2151,8 @@ class TestObject(OssTestCase):
 
         self.assertRaises(ClientError, self.rsa_crypto_bucket.get_object, key)
 
-    # 测试使用Bucket类的实例Copy使用CryptoBucket类的实例上传的对象
-    def test_copy_rsa_crypto_object_by_normal_bucket(self):
+    # 测试使用CrytoBucket/Bucket类的实例的copy加密对象
+    def test_copy_rsa_crypto_object(self):
         key = self.random_key('.js')
         content = random_bytes(1024)
 
@@ -2163,8 +2163,8 @@ class TestObject(OssTestCase):
         result = self.rsa_crypto_bucket.put_object(key, content, headers=headers)
         self.assertTrue(result.status == 200)
 
-        target_key = key + "_target";
-        result = self.bucket.copy_object(self.bucket.bucket_name, key, target_key)
+        target_key = key + "_target"
+        result = self.rsa_crypto_bucket.copy_object(self.bucket.rsa_bucket_name, key, target_key)
         self.assertTrue(result.status == 200)
 
         def assert_result(result):
@@ -2180,8 +2180,20 @@ class TestObject(OssTestCase):
         self.assertTrue(get_result.server_crc is not None)
         self.assertTrue(get_result.client_crc == get_result.server_crc)
 
-    # 测试使用Bucket类的实例Copy使用CryptoBucket类的实例上传的对象，
-    def test_copy_rsa_crypto_object_by_normal_bucket_with_replace_meta(self):
+        # 使用普通的bucket实例执行copy操作
+        target_key_normal = key + "normal_target"
+        result = self.bucket.copy_object(self.bucket.rsa_bucket_name, key, target_key_normal)
+        self.assertTrue(result.status == 200)
+
+        get_result = self.rsa_crypto_bucket.get_object(target_key_normal)
+        self.assertEqual(get_result.read(), content)
+        assert_result(get_result)
+        self.assertTrue(get_result.client_crc is not None)
+        self.assertTrue(get_result.server_crc is not None)
+        self.assertTrue(get_result.client_crc == get_result.server_crc)
+
+    # 测试使用CrytoBucket/Bucket类的实例的copy加密对象, 并使用"REPLACE"模式修改meta
+    def test_copy_rsa_crypto_object_with_replace_meta(self):
         key = self.random_key('.js')
         content = random_bytes(1024)
 
@@ -2192,12 +2204,13 @@ class TestObject(OssTestCase):
 
         meta_key = self.random_key(8)
         meta_value = self.random_value(16)
-        target_key = key + "_target";
+
+        target_key = key + "_target"
         headers = {'content-md5': oss2.utils.md5_string(content),
                    'content-length': str(len(content)),
                    'x-oss-metadata-directive': 'REPLACE',
                    'x-oss-meta-' + meta_key: meta_value}
-        result = self.bucket.copy_object(self.bucket.bucket_name, key, target_key, headers=headers)
+        result = self.rsa_crypto_bucket.copy_object(self.rsa_crypto_bucket.bucket_name, key, target_key, headers=headers)
         self.assertTrue(result.status == 200)
 
         def assert_result(result):
@@ -2214,8 +2227,24 @@ class TestObject(OssTestCase):
         self.assertTrue(get_result.server_crc is not None)
         self.assertTrue(get_result.client_crc == get_result.server_crc)
 
-    # 这个测试用例的写法要再考虑一下
-    def test_copy_rsa_crypto_object_by_normal_bucket_with_encryption_meta(self):
+        # 使用普通的Bucket执行copy操作
+        target_key_normal = key + "normal_target"
+        headers = {'content-md5': oss2.utils.md5_string(content),
+                   'content-length': str(len(content)),
+                   'x-oss-metadata-directive': 'REPLACE',
+                   'x-oss-meta-' + meta_key: meta_value}
+        result = self.bucket.copy_object(self.rsa_crypto_bucket.bucket_name, key, target_key_normal, headers=headers)
+        self.assertTrue(result.status == 200)
+
+        get_result = self.rsa_crypto_bucket.get_object(target_key_normal)
+        self.assertEqual(get_result.read(), content)
+        assert_result(get_result)
+        self.assertTrue(get_result.client_crc is not None)
+        self.assertTrue(get_result.server_crc is not None)
+        self.assertTrue(get_result.client_crc == get_result.server_crc)
+
+    # 测试使用CrytoBucket/Bucket类的实例的copy加密对象
+    def test_copy_rsa_crypto_object_with_replace_encryption_meta(self):
         key = self.random_key('.js')
         content = random_bytes(1024)
 
@@ -2226,8 +2255,9 @@ class TestObject(OssTestCase):
 
         headers = {'content-md5': oss2.utils.md5_string(content),
                    'content-length': str(len(content)),
+                   'x-oss-metadata-directive': 'REPLACE',
                    'x-oss-client-side-encryption-key': random_string(16)}
-        self.assertRaises(oss2.exceptions.DuplicateClientEncryptionMetaSettings, self.bucket.copy_object,
+        self.assertRaises(oss2.exceptions.InvalidEncryptionRequest, self.rsa_crypto_bucket.copy_object,
                           self.bucket.bucket_name, key, key, headers=headers)
 
     # 测试CryptoBucket普通put、get、delete、head等功能

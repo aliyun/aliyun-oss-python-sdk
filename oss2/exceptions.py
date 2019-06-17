@@ -155,9 +155,9 @@ class UnexpectedClientEncryptionPartsList(ServerError):
     code = 'UnexpectedClientEncryptionPartsList'
 
 
-class DuplicateClientEncryptionMetaSettings(ServerError):
+class InvalidEncryptionRequest(ServerError):
     status = 400
-    code = 'DuplicateClientEncryptionMetaSettings'
+    code = 'InvalidEncryptionRequest'
 
 
 class NoSuchBucket(NotFound):
