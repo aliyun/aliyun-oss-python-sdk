@@ -118,7 +118,7 @@ class CryptoBucket(Bucket):
                       headers=None,
                       progress_callback=None,
                       init_crc=None):
-        raise ClientError("The operation is not supported for CryptoBucket")
+        raise ClientError("The operation is not support for CryptoBucket")
 
     def get_object(self, key,
                    byte_range=None,
@@ -234,7 +234,7 @@ class CryptoBucket(Bucket):
                       progress_callback=None,
                       select_params=None
                       ):
-        raise ClientError("The operation is not supported for CryptoBucket")
+        raise ClientError("The operation is not support for CryptoBucket")
 
     def init_multipart_upload(self, key, headers=None):
         raise ClientError("Missing data_size in init_multipart_upload for CryptoBucket")
@@ -382,7 +382,7 @@ class CryptoBucket(Bucket):
 
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
-        raise ClientError("The operation is not supported for CryptoBucket")
+        raise ClientError("The operation is not support for CryptoBucket now")
 
     def list_parts(self, key, upload_id, marker='', max_parts=1000, headers=None):
         """列举已经上传的分片。支持分页。
@@ -422,4 +422,4 @@ class CryptoBucket(Bucket):
         return resp
 
     def process_object(self, key, process):
-        raise ClientError("The operation is not supported for CryptoBucket")
+        raise ClientError("The operation is not support for CryptoBucket")
