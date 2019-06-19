@@ -9,7 +9,7 @@ Alibaba Cloud OSS SDK for Python
     :target: https://coveralls.io/github/aliyun/aliyun-oss-python-sdk?branch=master
 
 `README of Chinese <https://github.com/aliyun/aliyun-oss-python-sdk/blob/master/README-CN.rst>`_    
-------------------
+------------------------------------------------------------------------------------------------
 
 Overview
 --------
