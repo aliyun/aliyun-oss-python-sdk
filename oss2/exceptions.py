@@ -150,11 +150,6 @@ class NotImplemented(ServerError):
     code = 'NotImplemented'
 
 
-class UnexpectedClientEncryptionPartsList(ServerError):
-    status = 400
-    code = 'UnexpectedClientEncryptionPartsList'
-
-
 class InvalidEncryptionRequest(ServerError):
     status = 400
     code = 'InvalidEncryptionRequest'
