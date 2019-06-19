@@ -638,45 +638,6 @@ class TestObject(OssTestCase):
 
         os.remove(filename)
 
-    def test_crypto_progress(self):
-        stats = {'previous': -1}
-
-        def progress_callback(bytes_consumed, total_bytes):
-            self.assertTrue(bytes_consumed <= total_bytes)
-            self.assertTrue(bytes_consumed > stats['previous'])
-
-            stats['previous'] = bytes_consumed
-
-        key = self.random_key()
-        content = random_bytes(2 * 1024 * 1024)
-
-        # 上传内存中的内容
-        stats = {'previous': -1}
-        self.rsa_crypto_bucket.put_object(key, content, progress_callback=progress_callback)
-        self.assertEqual(stats['previous'], len(content))
-
-        # 下载到文件
-        stats = {'previous': -1}
-        filename = random_string(12) + '.txt'
-        self.rsa_crypto_bucket.get_object_to_file(key, filename, progress_callback=progress_callback)
-        self.assertEqual(stats['previous'], len(content))
-
-        # 上传本地文件
-        stats = {'previous': -1}
-        self.rsa_crypto_bucket.put_object_from_file(key, filename, progress_callback=progress_callback)
-        self.assertEqual(stats['previous'], len(content))
-
-        # 下载到本地，采用iterator语法
-        stats = {'previous': -1}
-        result = self.rsa_crypto_bucket.get_object(key, progress_callback=progress_callback)
-        content_got = b''
-        for chunk in result:
-            content_got += chunk
-        self.assertEqual(stats['previous'], len(content))
-        self.assertEqual(content, content_got)
-
-        os.remove(filename)
-
     def test_exceptions(self):
         key = self.random_key()
         content = random_bytes(16)
@@ -2066,496 +2027,295 @@ class TestObject(OssTestCase):
 
     # test cases for CryptoBucket
     # 测试CryptoBucket普通put、get、delete、head等功能
-    def test_rsa_crypto_object(self):
-        key = self.random_key('.js')
-        content = random_bytes(1024)
+    def test_crypto_object(self):
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
+            key = self.random_key('.js')
+            content = random_bytes(1024)
 
-        self.assertRaises(NotFound, self.bucket.head_object, key)
+            self.assertRaises(NotFound, self.bucket.head_object, key)
 
-        lower_bound = now() - 60 * 16
-        upper_bound = now() + 60 * 16
+            lower_bound = now() - 60 * 16
+            upper_bound = now() + 60 * 16
 
-        def assert_result(result):
-            self.assertEqual(result.content_length, len(content))
-            self.assertEqual(result.content_type, 'application/javascript')
-            self.assertEqual(result.object_type, 'Normal')
+            def assert_result(result):
+                self.assertEqual(result.content_length, len(content))
+                self.assertEqual(result.content_type, 'application/javascript')
+                self.assertEqual(result.object_type, 'Normal')
 
-            self.assertTrue(result.last_modified > lower_bound)
-            self.assertTrue(result.last_modified < upper_bound)
+                self.assertTrue(result.last_modified > lower_bound)
+                self.assertTrue(result.last_modified < upper_bound)
 
-            self.assertTrue(result.etag)
+                self.assertTrue(result.etag)
 
-        self.rsa_crypto_bucket.put_object(key, content)
+            crypto_bucket.put_object(key, content)
 
-        get_result = self.rsa_crypto_bucket.get_object(key)
-        self.assertEqual(get_result.read(), content)
-        assert_result(get_result)
-        self.assertTrue(get_result.client_crc is not None)
-        self.assertTrue(get_result.server_crc is not None)
-        self.assertTrue(get_result.client_crc == get_result.server_crc)
+            get_result = crypto_bucket.get_object(key)
+            self.assertEqual(get_result.read(), content)
+            assert_result(get_result)
+            self.assertTrue(get_result.client_crc is not None)
+            self.assertTrue(get_result.server_crc is not None)
+            self.assertTrue(get_result.client_crc == get_result.server_crc)
 
-        head_result = self.rsa_crypto_bucket.head_object(key)
-        assert_result(head_result)
+            head_result = crypto_bucket.head_object(key)
+            assert_result(head_result)
 
-        self.assertEqual(get_result.last_modified, head_result.last_modified)
-        self.assertEqual(get_result.etag, head_result.etag)
+            self.assertEqual(get_result.last_modified, head_result.last_modified)
+            self.assertEqual(get_result.etag, head_result.etag)
 
-        self.rsa_crypto_bucket.delete_object(key)
+            crypto_bucket.delete_object(key)
 
-        self.assertRaises(NoSuchKey, self.bucket.get_object, key)
+            self.assertRaises(NoSuchKey, crypto_bucket.get_object, key)
+
+    def test_crypto_progress(self):
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
+            stats = {'previous': -1}
+
+            def progress_callback(bytes_consumed, total_bytes):
+                self.assertTrue(bytes_consumed <= total_bytes)
+                self.assertTrue(bytes_consumed > stats['previous'])
+                stats['previous'] = bytes_consumed
+
+            key = self.random_key()
+            content = random_bytes(2 * 1024 * 1024)
+
+            # 上传内存中的内容
+            stats = {'previous': -1}
+            crypto_bucket.put_object(key, content, progress_callback=progress_callback)
+            self.assertEqual(stats['previous'], len(content))
+
+            # 下载到文件
+            stats = {'previous': -1}
+            filename = random_string(12) + '.txt'
+            crypto_bucket.get_object_to_file(key, filename, progress_callback=progress_callback)
+            self.assertEqual(stats['previous'], len(content))
+
+            # 上传本地文件
+            stats = {'previous': -1}
+            crypto_bucket.put_object_from_file(key, filename, progress_callback=progress_callback)
+            self.assertEqual(stats['previous'], len(content))
+
+            # 下载到本地，采用iterator语法
+            stats = {'previous': -1}
+            result = crypto_bucket.get_object(key, progress_callback=progress_callback)
+            content_got = b''
+            for chunk in result:
+                content_got += chunk
+            self.assertEqual(stats['previous'], len(content))
+            self.assertEqual(content, content_got)
+
+            os.remove(filename)
 
     # 测试CryptoBucket range get功能
-    def test_rsa_crypto_range_get(self):
-        key = self.random_key()
-        content = random_bytes(1024)
+    def test_crypto_range_get(self):
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
+            key = self.random_key()
+            content = random_bytes(1024)
 
-        self.rsa_crypto_bucket.put_object(key, content)
+            crypto_bucket.put_object(key, content)
 
-        get_result = self.rsa_crypto_bucket.get_object(key, byte_range=(None, None))
-        self.assertEqual(get_result.read(), content)
+            get_result = crypto_bucket.get_object(key, byte_range=(None, None))
+            self.assertEqual(get_result.read(), content)
 
-        range_start = random.randint(0, 1024)
-        get_result = self.rsa_crypto_bucket.get_object(key, byte_range=(range_start, None))
-        self.assertEqual(get_result.read(), content[range_start:])
+            range_start = random.randint(0, 1024)
+            get_result = crypto_bucket.get_object(key, byte_range=(range_start, None))
+            self.assertEqual(get_result.read(), content[range_start:])
 
-        range_end = random.randint(0, 1024)
-        get_result = self.rsa_crypto_bucket.get_object(key, byte_range=(None, range_end))
-        self.assertEqual(get_result.read(), content[-range_end:])
+            range_end = random.randint(0, 1024)
+            get_result = crypto_bucket.get_object(key, byte_range=(None, range_end))
+            self.assertEqual(get_result.read(), content[-range_end:])
 
-        range_start = random.randint(0, 512)
-        range_end = range_start + random.randint(0.512)
-        get_result = self.rsa_crypto_bucket.get_object(key, byte_range=(range_start, range_end))
-        self.assertEqual(get_result.read(), content[range_start:range_end + 1])
+            range_start = random.randint(0, 512)
+            range_end = range_start + random.randint(0.512)
+            get_result = crypto_bucket.get_object(key, byte_range=(range_start, range_end))
+            self.assertEqual(get_result.read(), content[range_start:range_end + 1])
 
     # 测试使用Bucket类的实例读取CryptoBucket类实例上传的对象
-    def test_get_rsa_crypto_object_by_nomal_bucket(self):
-        key = self.random_key('.js')
-        content = random_bytes(1024)
+    def test_get_crypto_object_by_nomal_bucket(self):
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
+            key = self.random_key('.js')
+            content = random_bytes(1024)
 
-        self.assertRaises(NotFound, self.rsa_crypto_bucket.head_object, key)
+            self.assertRaises(NotFound, crypto_bucket.head_object, key)
 
-        result = self.rsa_crypto_bucket.put_object(key, content)
-        self.assertTrue(result.status == 200)
+            result = crypto_bucket.put_object(key, content)
+            self.assertTrue(result.status == 200)
 
-        self.assertRaises(ClientError, self.bucket.get_object, key)
+            self.assertRaises(ClientError, self.bucket.get_object, key)
 
     # 测试使用CryptoBucket类读取Bucket类实例上传的对象
-    def test_get_normal_object_by_rsa_crypto_bucket(self):
-        key = self.random_key('.js')
-        content = random_bytes(1024)
+    def test_get_normal_object_by_crypto_bucket(self):
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
+            key = self.random_key('.js')
+            content = random_bytes(1024)
 
-        self.assertRaises(NotFound, self.bucket.head_object, key)
+            self.assertRaises(NotFound, self.bucket.head_object, key)
 
-        result = self.bucket.put_object(key, content)
-        self.assertTrue(result.status == 200)
+            result = self.bucket.put_object(key, content)
+            self.assertTrue(result.status == 200)
 
-        self.assertRaises(ClientError, self.rsa_crypto_bucket.get_object, key)
+            self.assertRaises(ClientError, crypto_bucket.get_object, key)
 
-    def test_rsa_crypto_get_object_with_url(self):
-        key = self.random_key('.js')
-        content = random_bytes(1024)
+    def test_crypto_get_object_with_url(self):
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
+            key = self.random_key('.js')
+            content = random_bytes(1024)
 
-        result = self.rsa_crypto_bucket.put_object(key, content)
-        self.assertTrue(result.status == 200)
+            result = crypto_bucket.put_object(key, content)
+            self.assertTrue(result.status == 200)
 
-        url = self.rsa_crypto_bucket.sign_url('GET', key)
-        get_result = self.rsa_crypto_bucket.get_object_with_url(sign_url=url)
-        self.assertEqual(get_result.read(), content)
+            url = crypto_bucket.sign_url('GET', key)
+            get_result = crypto_bucket.get_object_with_url(sign_url=url)
+            self.assertEqual(get_result.read(), content)
 
-    def test_rsa_crypto_put_object_with_url(self):
-        key = self.random_key('.js')
-        content = random_bytes(1024)
+    def test_crypto_put_object_with_url(self):
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
+            key = self.random_key('.js')
+            content = random_bytes(1024)
 
-        url = self.rsa_crypto_bucket.sign_url('PUT', key, 3600)
-        result = self.rsa_crypto_bucket.put_object_with_url(url, content)
-        self.assertTrue(result.status == 200)
+            url = crypto_bucket.sign_url('PUT', key, 3600)
+            result = crypto_bucket.put_object_with_url(url, content)
+            self.assertTrue(result.status == 200)
 
-    def test_rsa_crypto_get_object_and_process(self):
-        key = self.random_key('.jpg')
-        result = self.rsa_crypto_bucket.put_object_from_file(key, "tests/example.jpg")
-        self.assertTrue(result.status == 200)
+    def test_crypto_get_object_and_process(self):
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
+            key = self.random_key('.jpg')
+            result = crypto_bucket.put_object_from_file(key, "tests/example.jpg")
+            self.assertTrue(result.status == 200)
 
-        process = "image/resize,w_100"
-        self.assertRaises(ClientError, self.rsa_crypto_bucket.get_object(key, process=process))
+            process = "image/resize,w_100"
+            self.assertRaises(ClientError, crypto_bucket.get_object(key, process=process))
 
-    def test_rsa_crypto_get_object_with_url_and_process(self):
-        key = self.random_key('.jpg')
-        result = self.rsa_crypto_bucket.put_object_from_file(key, "tests/example.jpg")
-        self.assertTrue(result.status == 200)
+    def test_crypto_get_object_with_url_and_process(self):
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
+            key = self.random_key('.jpg')
+            result = crypto_bucket.put_object_from_file(key, "tests/example.jpg")
+            self.assertTrue(result.status == 200)
 
-        params = {oss2.Bucket.PROCESS: "image/resize,w_100"}
-        url = self.rsa_crypto_bucket.sign_url('GET', key, 3600, params=params)
-        self.assertRaises(ClientError, self.rsa_crypto_bucket.get_object_with_url(url))
+            params = {oss2.Bucket.PROCESS: "image/resize,w_100"}
+            url = crypto_bucket.sign_url('GET', key, 3600, params=params)
+            self.assertRaises(ClientError, crypto_bucket.get_object_with_url(url))
 
     # 测试使用CryptoBucket类的append接口, 此时应该抛出异常
-    def test_rsa_crypto_append_object(self):
-        key = self.random_key('.log')
+    def test_crypto_append_object(self):
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
+            key = self.random_key('.log')
 
-        self.assertRaises(NotFound, self.rsa_crypto_bucket.head_object, key)
-        self.assertRaises(ClientError, self.rsa_crypto_bucket.append_object(self, key))
+            self.assertRaises(NotFound, crypto_bucket.head_object, key)
+            self.assertRaises(ClientError, crypto_bucket.append_object(self, key))
 
-    def test_rsa_crypto_create_select_object_meta(self):
-        key = self.random_key(".csv")
-        result = self.rsa_crypto_bucket.put_object_from_file(key, 'tests/sample_data.csv')
-        self.assertTrue(result.status == 200)
+    def test_crypto_create_select_object_meta(self):
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
+            key = self.random_key(".csv")
+            result = crypto_bucket.put_object_from_file(key, 'tests/sample_data.csv')
+            self.assertTrue(result.status == 200)
 
-        self.assertRaises(ClientError, self.rsa_crypto_bucket.create_select_object_meta(key))
+            self.assertRaises(ClientError, crypto_bucket.create_select_object_meta(key))
 
-    def test_rsa_crypto_select_object(self):
-        key = self.random_key(".csv")
-        result = self.rsa_crypto_bucket.put_object_from_file(key, 'tests/sample_data.csv')
-        self.assertTrue(result.status == 200)
+    def test_crypto_select_object(self):
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
+            key = self.random_key(".csv")
+            result = crypto_bucket.put_object_from_file(key, 'tests/sample_data.csv')
+            self.assertTrue(result.status == 200)
 
-        sql = "select Year, StateAbbr, CityName, PopulationCount from ossobject where CityName != ''"
-        self.assertRaises(ClientError, self.rsa_crypto_bucket.select_object(key, sql))
+            sql = "select Year, StateAbbr, CityName, PopulationCount from ossobject where CityName != ''"
+            self.assertRaises(ClientError, crypto_bucket.select_object(key, sql))
 
-    def test_rsa_crypto_process_object(self):
-        key = self.random_key('.jpg')
-        result = self.rsa_crypto_bucket.put_object_from_file(key, "tests/example.jpg")
-        self.assertTrue(result.status == 200)
+    def test_crypto_process_object(self):
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
+            key = self.random_key('.jpg')
+            result = crypto_bucket.put_object_from_file(key, "tests/example.jpg")
+            self.assertTrue(result.status == 200)
 
-        dest_key = key[0:len(key)-4]+'_dest.jpg'
-        process = "image/resize,w_100|sys/saveas,o_{0},b_{1}".format(
-            oss2.compat.to_string(base64.urlsafe_b64encode(oss2.compat.to_bytes(dest_key))),
-            oss2.compat.to_string(base64.urlsafe_b64encode(oss2.compat.to_bytes(self.rsa_crypto_bucket.bucket_name))))
-        self.assertRaise(ClientError, self.rsa_crypto_bucket.process_object(key, process))
+            dest_key = key[0:len(key)-4]+'_dest.jpg'
+            process = "image/resize,w_100|sys/saveas,o_{0},b_{1}".format(
+                oss2.compat.to_string(base64.urlsafe_b64encode(oss2.compat.to_bytes(dest_key))),
+                oss2.compat.to_string(base64.urlsafe_b64encode(oss2.compat.to_bytes(crypto_bucket.bucket_name))))
+            self.assertRaise(ClientError, crypto_bucket.process_object(key, process))
 
     # 测试CryptoBucket类的Copy方法
-    def test_copy_rsa_crypto_object(self):
-        key = self.random_key('.js')
-        content = random_bytes(1024)
+    def test_copy_crypto_object(self):
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
+            key = self.random_key('.js')
+            content = random_bytes(1024)
 
-        self.assertRaises(NotFound, self.rsa_crypto_bucket.head_object, key)
+            self.assertRaises(NotFound, crypto_bucket.head_object, key)
 
-        headers = {'content-md5': oss2.utils.md5_string(content),
-                   'content-length': str(len(content))}
-        result = self.rsa_crypto_bucket.put_object(key, content, headers=headers)
-        self.assertTrue(result.status == 200)
+            headers = {'content-md5': oss2.utils.md5_string(content),
+                       'content-length': str(len(content))}
+            result = crypto_bucket.put_object(key, content, headers=headers)
+            self.assertTrue(result.status == 200)
 
-        target_key = key + "_target"
-        result = self.rsa_crypto_bucket.copy_object(self.bucket.rsa_bucket_name, key, target_key)
-        self.assertTrue(result.status == 200)
+            target_key = key + "_target"
+            result = crypto_bucket.copy_object(self.bucket.rsa_bucket_name, key, target_key)
+            self.assertTrue(result.status == 200)
 
-        def assert_result(result):
-            self.assertEqual(result.content_length, len(content))
-            self.assertEqual(result.content_type, 'application/javascript')
-            self.assertEqual(result.object_type, 'Normal')
-            self.assertTrue(result.etag)
+            def assert_result(result):
+                self.assertEqual(result.content_length, len(content))
+                self.assertEqual(result.content_type, 'application/javascript')
+                self.assertEqual(result.object_type, 'Normal')
+                self.assertTrue(result.etag)
 
-        get_result = self.rsa_crypto_bucket.get_object(target_key)
-        self.assertEqual(get_result.read(), content)
-        assert_result(get_result)
-        self.assertTrue(get_result.client_crc is not None)
-        self.assertTrue(get_result.server_crc is not None)
-        self.assertTrue(get_result.client_crc == get_result.server_crc)
+            get_result = crypto_bucket.get_object(target_key)
+            self.assertEqual(get_result.read(), content)
+            assert_result(get_result)
+            self.assertTrue(get_result.client_crc is not None)
+            self.assertTrue(get_result.server_crc is not None)
+            self.assertTrue(get_result.client_crc == get_result.server_crc)
 
     # 测试CryptoBucket类的Copy方法, 并使用"REPLACE"模式修改meta
-    def test_copy_rsa_crypto_object_with_replace_meta(self):
-        key = self.random_key('.js')
-        content = random_bytes(1024)
+    def test_copy_crypto_object_with_replace_meta(self):
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
+            key = self.random_key('.js')
+            content = random_bytes(1024)
 
-        self.assertRaises(NotFound, self.rsa_crypto_bucket.head_object, key)
+            self.assertRaises(NotFound, crypto_bucket.head_object, key)
 
-        result = self.rsa_crypto_bucket.put_object(key, content)
-        self.assertTrue(result.status == 200)
+            result = crypto_bucket.put_object(key, content)
+            self.assertTrue(result.status == 200)
 
-        meta_key = self.random_key(8)
-        meta_value = self.random_value(16)
+            meta_key = self.random_key(8)
+            meta_value = self.random_value(16)
 
-        target_key = key + "_target"
-        headers = {'content-md5': oss2.utils.md5_string(content),
-                   'content-length': str(len(content)),
-                   'x-oss-metadata-directive': 'REPLACE',
-                   'x-oss-meta-' + meta_key: meta_value}
-        result = self.rsa_crypto_bucket.copy_object(self.rsa_crypto_bucket.bucket_name, key, target_key,
+            target_key = key + "_target"
+            headers = {'content-md5': oss2.utils.md5_string(content),
+                       'content-length': str(len(content)),
+                       'x-oss-metadata-directive': 'REPLACE',
+                       'x-oss-meta-' + meta_key: meta_value}
+            result = crypto_bucket.copy_object(crypto_bucket.bucket_name, key, target_key,
                                                     headers=headers)
-        self.assertTrue(result.status == 200)
+            self.assertTrue(result.status == 200)
 
-        def assert_result(result):
-            self.assertEqual(result.headers['x-oss-meta-' + meta_key], meta_value)
-            self.assertEqual(result.content_length, len(content))
-            self.assertEqual(result.content_type, 'application/javascript')
-            self.assertEqual(result.object_type, 'Normal')
-            self.assertTrue(result.etag)
+            def assert_result(result):
+                self.assertEqual(result.headers['x-oss-meta-' + meta_key], meta_value)
+                self.assertEqual(result.content_length, len(content))
+                self.assertEqual(result.content_type, 'application/javascript')
+                self.assertEqual(result.object_type, 'Normal')
+                self.assertTrue(result.etag)
 
-        get_result = self.rsa_crypto_bucket.get_object(target_key)
-        self.assertEqual(get_result.read(), content)
-        assert_result(get_result)
-        self.assertTrue(get_result.client_crc is not None)
-        self.assertTrue(get_result.server_crc is not None)
-        self.assertTrue(get_result.client_crc == get_result.server_crc)
+            get_result = crypto_bucket.get_object(target_key)
+            self.assertEqual(get_result.read(), content)
+            assert_result(get_result)
+            self.assertTrue(get_result.client_crc is not None)
+            self.assertTrue(get_result.server_crc is not None)
+            self.assertTrue(get_result.client_crc == get_result.server_crc)
 
     # 测试CryptoBucket类的Copy方法，修改加密元数据抛出异常
-    def test_copy_rsa_crypto_object_with_replace_encryption_meta(self):
-        key = self.random_key('.js')
-        content = random_bytes(1024)
-
-        self.assertRaises(NotFound, self.rsa_crypto_bucket.head_object, key)
-
-        result = self.rsa_crypto_bucket.put_object(key, content)
-        self.assertTrue(result.status == 200)
-
-        headers = {'content-md5': oss2.utils.md5_string(content),
-                   'content-length': str(len(content)),
-                   'x-oss-metadata-directive': 'REPLACE',
-                   'x-oss-client-side-encryption-key': random_string(16)}
-        self.assertRaises(oss2.exceptions.InvalidEncryptionRequest, self.rsa_crypto_bucket.copy_object,
-                          self.bucket.bucket_name, key, key, headers=headers)
-
-    # 测试CryptoBucket普通put、get、delete、head等功能
-    def test_kms_crypto_object(self):
-        if is_py33:
-            return
-
-        key = self.random_key('.js')
-        content = random_bytes(1024)
-
-        self.assertRaises(NotFound, self.bucket.head_object, key)
-
-        lower_bound = now() - 60 * 16
-        upper_bound = now() + 60 * 16
-
-        def assert_result(result):
-            self.assertEqual(result.content_length, len(content))
-            self.assertEqual(result.content_type, 'application/javascript')
-            self.assertEqual(result.object_type, 'Normal')
-            self.assertTrue(result.last_modified > lower_bound)
-            self.assertTrue(result.last_modified < upper_bound)
-            self.assertTrue(result.etag)
-
-        self.kms_crypto_bucket.put_object(key, content, headers={'content-md5': oss2.utils.md5_string(content),
-                                                                 'content-length': str(len(content))})
-
-        get_result = self.kms_crypto_bucket.get_object(key)
-        self.assertEqual(get_result.read(), content)
-        assert_result(get_result)
-        self.assertTrue(get_result.client_crc is not None)
-        self.assertTrue(get_result.server_crc is not None)
-        self.assertTrue(get_result.client_crc == get_result.server_crc)
-
-        head_result = self.rsa_crypto_bucket.head_object(key)
-        assert_result(head_result)
-        self.assertEqual(get_result.last_modified, head_result.last_modified)
-        self.assertEqual(get_result.etag, head_result.etag)
-
-        self.rsa_crypto_bucket.delete_object(key)
-
-        self.assertRaises(NoSuchKey, self.bucket.get_object, key)
-
-    # 测试CryptoBucket range get功能
-    def test_kms_crypto_range_get(self):
-        if is_py33:
-            return
-
-        key = self.random_key()
-        content = random_bytes(1024)
-
-        self.kms_crypto_bucket.put_object(key, content, headers={'content-md5': oss2.utils.md5_string(content),
-                                                                 'content-length': str(len(content))})
-
-        get_result = self.rsa_crypto_bucket.get_object(key, byte_range=(None, None))
-        self.assertEqual(get_result.read(), content)
-
-        range_start = random.randint(0, 1024)
-        get_result = self.rsa_crypto_bucket.get_object(key, byte_range=(range_start, None))
-        self.assertEqual(get_result.read(), content[range_start:])
-
-        range_end = random.randint(0, 1024)
-        get_result = self.rsa_crypto_bucket.get_object(key, byte_range=(None, range_end))
-        self.assertEqual(get_result.read(), content[-range_end:])
-
-        range_start = random.randint(0, 512)
-        range_end = range_start + random.randint(0.512)
-        get_result = self.rsa_crypto_bucket.get_object(key, byte_range=(range_start, range_end))
-        self.assertEqual(get_result.read(), content[range_start:range_end + 1])
-
-    # 测试使用Bucket类的实例读取CryptoBucket类实例上传的对象
-    def test_get_kms_crypto_object_by_normal_bucket(self):
-        if is_py33:
-            return
-
-        key = self.random_key('.js')
-        content = random_bytes(1024)
-
-        self.assertRaises(NotFound, self.kms_crypto_bucket.head_object, key)
-
-        result = self.kms_crypto_bucket.put_object(key, content,
-                                                   headers={'content-md5': oss2.utils.md5_string(content),
-                                                            'content-length': str(len(content))})
-        self.assertTrue(result.status == 200)
-
-        self.assertRaises(ClientError, self.bucket.get_object, key)
-
-    # 测试使用CryptoBucket类的实例读取使用Bucket类的实例上传的对象
-    def test_get_normal_object_by_kms_crypto_bucket(self):
-        if is_py33:
-            return
-
-        key = self.random_key('.js')
-        content = random_bytes(1024)
-
-        self.assertRaises(NotFound, self.bucket.head_object, key)
-
-        result = self.bucket.put_object(key, content)
-        self.assertTrue(result.status == 200)
-
-        self.assertRaises(ClientError, self.kms_crypto_bucket.get_object, key)
-
-    def test_kms_crypto_get_object_with_url(self):
-        key = self.random_key('.js')
-        content = random_bytes(1024)
-
-        result = self.kms_crypto_bucket.put_object(key, content)
-        self.assertTrue(result.status == 200)
-
-        url = self.kms_crypto_bucket.sign_url('GET', key)
-        get_result = self.kms_crypto_bucket.get_object_with_url(sign_url=url)
-        self.assertEqual(get_result.read(), content)
-
-    def test_kms_crypto_put_object_with_url(self):
-        key = self.random_key('.js')
-        content = random_bytes(1024)
-
-        url = self.kms_crypto_bucket.sign_url('PUT', key, 3600)
-        result = self.kms_crypto_bucket.put_object_with_url(url, content)
-        self.assertTrue(result.status == 200)
-
-    def test_kms_crypto_get_object_and_process(self):
-        key = self.random_key('.jpg')
-        result = self.kms_crypto_bucket.put_object_from_file(key, "tests/example.jpg")
-        self.assertTrue(result.status == 200)
-
-        process = "image/resize,w_100"
-        self.assertRaises(ClientError, self.kms_crypto_bucket.get_object(key, process=process))
-
-    def test_kms_crypto_get_object_with_url_and_process(self):
-        key = self.random_key('.jpg')
-        result = self.kms_crypto_bucket.put_object_from_file(key, "tests/example.jpg")
-        self.assertTrue(result.status == 200)
-
-        params = {oss2.Bucket.PROCESS: "image/resize,w_100"}
-        url = self.kms_crypto_bucket.sign_url('GET', key, 3600, params=params)
-        self.assertRaises(ClientError, self.kms_crypto_bucket.get_object_with_url(url))
-
-    def test_kms_crypto_append_object(self):
-        key = self.random_key('.log')
-
-        self.assertRaises(NotFound, self.kms_crypto_bucket.head_object, key)
-        self.assertRaises(ClientError, self.kms_crypto_bucket.append_object(self, key))
-
-    def test_kms_crypto_create_select_object_meta(self):
-        key = self.random_key(".csv")
-        result = self.kms_crypto_bucket.put_object_from_file(key, 'tests/sample_data.csv')
-        self.assertTrue(result.status == 200)
-
-        self.assertRaises(ClientError, self.kms_crypto_bucket.create_select_object_meta(key))
-
-    def test_kms_crypto_select_object(self):
-        key = self.random_key(".csv")
-        result = self.kms_crypto_bucket.put_object_from_file(key, 'tests/sample_data.csv')
-        self.assertTrue(result.status == 200)
-
-        sql = "select Year, StateAbbr, CityName, PopulationCount from ossobject where CityName != ''"
-        self.assertRaises(ClientError, self.kms_crypto_bucket.select_object(key, sql))
-
-    def test_kms_crypto_process_object(self):
-        key = self.random_key('.jpg')
-        result = self.kms_crypto_bucket.put_object_from_file(key, "tests/example.jpg")
-        self.assertTrue(result.status == 200)
-
-        dest_key = key[0:len(key) - 4] + '_dest.jpg'
-        process = "image/resize,w_100|sys/saveas,o_{0},b_{1}".format(
-            oss2.compat.to_string(base64.urlsafe_b64encode(oss2.compat.to_bytes(dest_key))),
-            oss2.compat.to_string(base64.urlsafe_b64encode(oss2.compat.to_bytes(self.kms_crypto_bucket.bucket_name))))
-        self.assertRaise(ClientError, self.kms_crypto_bucket.process_object(key, process))
-
-    # 测试CryptoBucket类的Copy方法
-    def test_copy_kms_crypto_object_by(self):
-        if is_py33:
-            return
-
-        key = self.random_key('.js')
-        content = random_bytes(1024)
-
-        self.assertRaises(NotFound, self.kms_crypto_bucket.head_object, key)
-
-        headers = {'content-md5': oss2.utils.md5_string(content),
-                   'content-length': str(len(content))}
-        result = self.kms_crypto_bucket.put_object(key, content, headers=headers)
-        self.assertTrue(result.status == 200)
-
-        target_key = key + "_target"
-        result = self.kms_crypto_bucket.copy_object(self.bucket.bucket_name, key, target_key)
-        self.assertTrue(result.status == 200)
-
-        def assert_result(result):
-            self.assertEqual(result.content_length, len(content))
-            self.assertEqual(result.content_type, 'application/javascript')
-            self.assertEqual(result.object_type, 'Normal')
-            self.assertTrue(result.etag)
-
-        get_result = self.kms_crypto_bucket.get_object(target_key)
-        self.assertEqual(get_result.read(), content)
-        assert_result(get_result)
-        self.assertTrue(get_result.client_crc is not None)
-        self.assertTrue(get_result.server_crc is not None)
-        self.assertTrue(get_result.client_crc == get_result.server_crc)
-
-    # 测试CryptoBucket类的Copy方法, 并使用"REPLACE"模式修改meta
-    def test_copy_kms_crypto_object_by_with_replace_meta(self):
-        if is_py33:
-            return
-
-        key = self.random_key('.js')
-        content = random_bytes(1024)
-
-        self.assertRaises(NotFound, self.kms_crypto_bucket.head_object, key)
-
-        result = self.kms_crypto_bucket.put_object(key, content)
-        self.assertTrue(result.status == 200)
-
-        meta_key = self.random_key(8)
-        meta_value = self.random_key(16)
-        target_key = key + "_target"
-        headers = {'content-md5': oss2.utils.md5_string(content),
-                   'content-length': str(len(content)),
-                   'x-oss-metadata-directive': 'REPLACE',
-                   'x-oss-meta-' + meta_key: meta_value}
-        result = self.kms_crypto_bucket.copy_object(self.bucket.bucket_name, key, target_key, headers=headers)
-        self.assertTrue(result.status == 200)
-
-        def assert_result(result):
-            self.assertEqual(result.headers['x-oss-meta-' + meta_key], meta_value)
-            self.assertEqual(result.content_length, len(content))
-            self.assertEqual(result.content_type, 'application/javascript')
-            self.assertEqual(result.object_type, 'Normal')
-            self.assertTrue(result.etag)
-
-        get_result = self.kms_crypto_bucket.get_object(target_key)
-        self.assertEqual(get_result.read(), content)
-        assert_result(get_result)
-        self.assertTrue(get_result.client_crc is not None)
-        self.assertTrue(get_result.server_crc is not None)
-        self.assertTrue(get_result.client_crc == get_result.server_crc)
-
-    # 测试CryptoBucket类的Copy方法，修改加密元数据抛出异常
-    def test_copy_kms_crypto_object_by_with_encryption_meta(self):
-        if is_py33:
-            return
-
-        key = self.random_key('.js')
-        content = random_bytes(1024)
-
-        self.assertRaises(NotFound, self.kms_crypto_bucket.head_object, key)
-
-        result = self.kms_crypto_bucket.put_object(key, content)
-        self.assertTrue(result.status == 200)
-
-        headers = {'content-md5': oss2.utils.md5_string(content),
-                   'content-length': str(len(content)),
-                   'x-oss-client-side-encryption-key': random_string(16)}
-        self.assertRaises(oss2.exceptions.InvalidEncryptionRequest, self.kms_crypto_bucket.copy_object,
-                          self.bucket.bucket_name, key, key, headers=headers)
+    def test_copy_crypto_object_with_replace_encryption_meta(self):
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
+            key = self.random_key('.js')
+            content = random_bytes(1024)
+
+            self.assertRaises(NotFound, crypto_bucket.head_object, key)
+
+            result = crypto_bucket.put_object(key, content)
+            self.assertTrue(result.status == 200)
+
+            headers = {'content-md5': oss2.utils.md5_string(content),
+                       'content-length': str(len(content)),
+                       'x-oss-metadata-directive': 'REPLACE',
+                       'x-oss-client-side-encryption-key': random_string(16)}
+            self.assertRaises(oss2.exceptions.InvalidEncryptionRequest, crypto_bucket.copy_object,
+                              self.bucket.bucket_name, key, key, headers=headers)
 
 
 class TestSign(TestObject):
