@@ -21,7 +21,7 @@ import random
 class TestCrypto(unittests.common.OssTestCase):
     # 测试初始化LocalRsaProvider时未初始化cipher，此时应该抛出异常
     def test_local_rsa_provider_init_cipher_is_none(self):
-        self.assertRaises(ClientError, LocalRsaProvider, dir='./', key='rsa-test', cipher=None)
+        self.assertRaises(ClientError, LocalRsaProvider, dir='./', key='rsa-test', cipher=None, gen_keys=True)
 
     # 测试当keys不存在时，未设置gen_keys时，初始化LocalRsaProvider时抛出异常
     def test_local_rsa_provider_init_keys_not_exist(self):
