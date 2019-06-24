@@ -10,8 +10,8 @@ from oss2.exceptions import *
 
 class TestLiveChannel(OssTestCase):
     def tearDown(self):
+        self._delete_channels()
         OssTestCase.tearDown(self)
-        self._delete_channels() 
             
     def _get_play_url(self, bucket_name, channel_name, playlist_name):
         return 'http://%s.%s/%s/%s' % (bucket_name, 
@@ -87,7 +87,8 @@ class TestLiveChannel(OssTestCase):
 
     def test_list_live_channel(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+        bucket_name = OSS_BUCKET + "-test-list-live-channel"
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
 
         channel_name = 'test-list-channel'

@@ -32,13 +32,48 @@ def random_string(n):
 
 OSS_BUCKET = ''
 if OSS_TEST_BUCKET is None:
-    OSS_BUCKET = 'aliyun-oss-python-sdk-'+random_string(10)
+    OSS_BUCKET = 'oss-python-sdk-'+random_string(10)
 else:
     OSS_BUCKET = OSS_TEST_BUCKET + random_string(10)
 
 def random_bytes(n):
     return oss2.to_bytes(random_string(n))
 
+def clean_and_delete_bucket(bucket):
+    # check if bucket is in versioning status
+    try:
+        result = bucket.get_bucket_info()
+        if result.versioning_status is 'Enabled' or result.versioning_status is 'Suspended':
+            all_objects = bucket.list_object_versions()
+            for obj in all_objects.versions:
+                bucket.delete_object(obj.key, params={'versionId': obj.versionid})
+    except:
+        pass
+    
+    # list all upload_parts to delete
+    up_iter = oss2.MultipartUploadIterator(bucket)
+    for up in up_iter:
+        bucket.abort_multipart_upload(up.key, up.upload_id)
+
+    # list all objects to delete
+    obj_iter = oss2.ObjectIterator(bucket)
+    for obj in obj_iter:
+        bucket.delete_object(obj.key)
+    
+    # list all live channels to delete
+    for ch_iter in oss2.LiveChannelIterator(bucket):
+        bucket.delete_live_channel(ch_iter.name)
+
+    # delete_bucket
+    bucket.delete_bucket()
+
+def clean_and_delete_bucket_by_prefix(bucket_prefix):
+    service = oss2.Service(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT)
+    buckets = service.list_buckets(prefix=bucket_prefix).buckets
+    for b in buckets:
+        bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, b.name)
+        clean_and_delete_bucket(bucket)
+        
 
 def delete_keys(bucket, key_list):
     if not key_list:
@@ -107,7 +142,8 @@ class OssTestCase(unittest.TestCase):
         for temp_file in self.temp_files:
             oss2.utils.silently_remove(temp_file)
 
-        delete_keys(self.bucket, self.key_list)
+        clean_and_delete_bucket(self.bucket)
+        clean_and_delete_bucket_by_prefix(OSS_BUCKET + "-test-")
 
     def random_key(self, suffix=''):
         key = self.prefix + random_string(12) + suffix

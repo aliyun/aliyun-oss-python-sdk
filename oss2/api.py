@@ -225,7 +225,7 @@ class _Base(object):
         resp = self.session.do_request(req, timeout=self.timeout)
         if resp.status // 100 != 2:
             e = exceptions.make_exception(resp)
-            logger.error("Exception: {0}".format(e))
+            logger.info("Exception: {0}".format(e))
             raise e
 
         # Note that connections are only released back to the pool for reuse once all body data has been read;
@@ -242,7 +242,7 @@ class _Base(object):
         resp = self.session.do_request(req, timeout=self.timeout)
         if resp.status // 100 != 2:
             e = exceptions.make_exception(resp)
-            logger.error("Exception: {0}".format(e))
+            logger.info("Exception: {0}".format(e))
             raise e
 
         # Note that connections are only released back to the pool for reuse once all body data has been read;
@@ -1000,7 +1000,7 @@ class Bucket(_Base):
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
-        logger.warn("Start to delete object, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
+        logger.info("Start to delete object, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
         resp = self.__do_object('DELETE', key, params=params)
         logger.debug("Delete object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
@@ -1389,7 +1389,7 @@ class Bucket(_Base):
 
         ":raises: 如果试图删除一个非空Bucket，则抛出 :class:`BucketNotEmpty <oss2.exceptions.BucketNotEmpty>`
         """
-        logger.warn("Start to delete bucket, bucket: {0}".format(self.bucket_name))
+        logger.info("Start to delete bucket, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('DELETE')
         logger.debug("Delete bucket done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)

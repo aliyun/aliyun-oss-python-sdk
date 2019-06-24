@@ -214,7 +214,7 @@ class TestMultipart(OssTestCase):
         from oss2.models import BatchDeleteObjectVersionList
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = random_string(63).lower()
+        bucket_name = OSS_BUCKET + "-test-multipart-with-versionging"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -231,7 +231,7 @@ class TestMultipart(OssTestCase):
         result = bucket.get_bucket_info()
 
         self.assertEqual(int(result.status)/100, 2)
-        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, None)
+        self.assertEqual(result.bucket_encryption_rule.sse_algorithm, None)
         self.assertEqual(result.versioning_status, "Enabled")
         
 
@@ -268,7 +268,7 @@ class TestMultipart(OssTestCase):
         from oss2.models import BatchDeleteObjectVersionList
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = random_string(63).lower()
+        bucket_name = OSS_BUCKET + "-test-upload-part-copy-with-versioning"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -285,7 +285,7 @@ class TestMultipart(OssTestCase):
         result = bucket.get_bucket_info()
 
         self.assertEqual(int(result.status)/100, 2)
-        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, None)
+        self.assertEqual(result.bucket_encryption_rule.sse_algorithm, None)
         self.assertEqual(result.versioning_status, "Enabled")
 
         src_object = self.random_key()
