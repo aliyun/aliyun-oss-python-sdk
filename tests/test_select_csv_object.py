@@ -4,12 +4,22 @@ import filecmp
 import calendar
 import csv
 import re
+import sys
 
 from oss2.exceptions import (ClientError, RequestError, NoSuchBucket,
                              NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable, SelectOperationFailed, SelectOperationClientError)
 from common import *
 
 from oss2.select_response import SelectResponseAdapter
+
+if sys.version_info[0] > 2:
+    # py3k
+    def _open(file):
+        return open(file, 'r', encoding='utf-8')
+else:
+    # py2
+    def _open(file):
+        return open(file, 'r')
 
 def now():
     return int(calendar.timegm(time.gmtime()))
@@ -69,7 +79,7 @@ class TestSelectCsvObject(OssTestCase):
         helper = SelectCsvObjectTestHelper(self.bucket)
         content = helper.test_select_csv_object(self, "select Year, StateAbbr, CityName, PopulationCount from ossobject where CityName != ''")
        
-        with open('tests/sample_data.csv') as csvfile:
+        with _open('tests/sample_data.csv') as csvfile:
             spamreader = csv.DictReader(csvfile, delimiter=',', quotechar='"')
             select_data = b''
             for row in spamreader:
@@ -91,7 +101,7 @@ class TestSelectCsvObject(OssTestCase):
         helper = SelectCsvObjectTestHelper(self.bucket) 
         content = helper.test_select_csv_object(self, "select Year, StateAbbr, CityName, Short_Question_Text from ossobject where Measure like '%blood pressure%Years'")
 
-        with open('tests/sample_data.csv') as csvfile:
+        with _open('tests/sample_data.csv') as csvfile:
             spamreader = csv.DictReader(csvfile, delimiter=',', quotechar='"')
             select_data = b''
             matcher = re.compile('^.*blood pressure.*Years$')
@@ -115,7 +125,7 @@ class TestSelectCsvObject(OssTestCase):
         helper = SelectCsvObjectTestHelper(self.bucket) 
         content = helper.test_select_csv_object(self, "select Year,StateAbbr, CityName, Short_Question_Text from ossobject'", (0, 50))
 
-        with open('tests/sample_data.csv') as csvfile:
+        with _open('tests/sample_data.csv') as csvfile:
             spamreader = csv.DictReader(csvfile, delimiter=',', quotechar='"')
             select_data = b''
             count = 0
@@ -147,7 +157,7 @@ class TestSelectCsvObject(OssTestCase):
         content = helper.test_select_csv_object(self, "select avg(cast(data_value as double)), max(cast(data_value as double)), sum(cast(data_value as double)) from ossobject")
         # select_data = b''
 
-        with open('tests/sample_data.csv') as csvfile:
+        with _open('tests/sample_data.csv') as csvfile:
             spamreader = csv.DictReader(csvfile, delimiter=',', quotechar='"')
             sum = 0.0
             avg = 0.0
@@ -177,7 +187,7 @@ class TestSelectCsvObject(OssTestCase):
         content = helper.test_select_csv_object(self, "select Year,StateAbbr, CityName, Short_Question_Text from ossobject where (data_value || data_value_unit) = '14.8%'")
         select_data = b''
 
-        with open('tests/sample_data.csv') as csvfile:
+        with _open('tests/sample_data.csv') as csvfile:
             spamreader = csv.DictReader(csvfile, delimiter=',', quotechar='"')
             for row in spamreader:
                 line = b''
@@ -200,7 +210,7 @@ class TestSelectCsvObject(OssTestCase):
         select_data = b''
 
         matcher = re.compile('^.*18 Years$')
-        with open('tests/sample_data.csv') as csvfile:
+        with _open('tests/sample_data.csv') as csvfile:
             spamreader = csv.DictReader(csvfile, delimiter=',', quotechar='"')
             for row in spamreader:
                 line = b''
@@ -269,11 +279,11 @@ class TestSelectCsvObject(OssTestCase):
         self.bucket.create_select_object_meta(key, head_csv_params)
 
         self.bucket.select_object_to_file(key, output_file, "select * from ossobject", None, input_format)
-        f1 = open('tests/sample_data.csv')
+        f1 = _open('tests/sample_data.csv')
         content1 = f1.read()
         f1.close()
 
-        f2 = open(output_file)
+        f2 = _open(output_file)
         content2 = f2.read()
         f2.close()
 
@@ -293,11 +303,11 @@ class TestSelectCsvObject(OssTestCase):
         output_file = 'tests/sample_data_out.csv'
 
         self.bucket.select_object_to_file(key, output_file, "select * from ossobject", None, input_format)
-        f1 = open('tests/sample_data.csv')
+        f1 = _open('tests/sample_data.csv')
         content1 = f1.read()
         f1.close()
 
-        f2 = open(output_file)
+        f2 = _open(output_file)
         content2 = f2.read()
         f2.close()
 

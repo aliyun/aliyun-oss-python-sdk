@@ -17,6 +17,10 @@ class TestImage(OssTestCase):
         
         return original_image, new_image
     
+    def __clear(self, original_image, new_image):
+        self.bucket.delete_object(original_image)
+        self.bucket.delete_object(new_image)
+
     def __test(self, original_image, new_image, image_style):
         original_image_content = self.bucket.get_object(original_image, process=image_style)
         self.bucket.put_object(new_image, original_image_content)
@@ -42,6 +46,7 @@ class TestImage(OssTestCase):
         original_image, new_image = self.__prepare()
         self.__test(original_image, new_image, style)
         self.__check(new_image, 100, 100, 3267, 'jpg')
+        self.__clear(original_image, new_image)
             
     def test_crop(self):
         style = "image/crop,w_100,h_100,x_100,y_100,r_1"  # 裁剪
@@ -49,6 +54,7 @@ class TestImage(OssTestCase):
         original_image, new_image = self.__prepare()
         self.__test(original_image, new_image, style)
         self.__check(new_image, 100, 100, 1969, 'jpg')
+        self.__clear(original_image, new_image)
         
     def test_rotate(self):
         style = "image/rotate,90"  # 旋转
@@ -56,6 +62,7 @@ class TestImage(OssTestCase):
         original_image, new_image = self.__prepare()
         self.__test(original_image, new_image, style)
         self.__check(new_image, 400, 267, 20998, 'jpg')
+        self.__clear(original_image, new_image)
         
     def test_sharpen(self):
         style = "image/sharpen,100"  # 锐化
@@ -63,6 +70,7 @@ class TestImage(OssTestCase):
         original_image, new_image = self.__prepare()
         self.__test(original_image, new_image, style)
         self.__check(new_image, 267, 400, 23015, 'jpg')
+        self.__clear(original_image, new_image)
         
     def test_watermark(self):
         style = "image/watermark,text_SGVsbG8g5Zu-54mH5pyN5YqhIQ"  # 文字水印
@@ -70,6 +78,7 @@ class TestImage(OssTestCase):
         original_image, new_image = self.__prepare()
         self.__test(original_image, new_image, style)
         self.__check(new_image, 267, 400, 26378, 'jpg')
+        self.__clear(original_image, new_image)
         
     def test_format(self):
         style = "image/format,png"  # 图像格式转换
@@ -77,6 +86,7 @@ class TestImage(OssTestCase):
         original_image, new_image = self.__prepare()
         self.__test(original_image, new_image, style)
         self.__check(new_image, 267, 400, 160733, 'png')
+        self.__clear(original_image, new_image)
         
     def test_resize_to_file(self):
         style = "image/resize,m_fixed,w_100,h_100"  # 缩放
@@ -84,6 +94,7 @@ class TestImage(OssTestCase):
         original_image, new_image = self.__prepare()
         self.__test_to_file(original_image, new_image, style)
         self.__check(new_image, 100, 100, 3267, 'jpg')
+        self.__clear(original_image, new_image)
          
 
 if __name__ == '__main__':

@@ -122,7 +122,8 @@ class TestObject(OssTestCase):
 
     def test_restore_object(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+        bucket_name = OSS_BUCKET + "-test-restore-object"
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE, oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_ARCHIVE))
 
@@ -304,7 +305,7 @@ class TestObject(OssTestCase):
         self.assertEqual(len(content), len(content_got))
         self.assertEqual(content, content_got)
 
-        result = self.bucket.get_object(key, params={'versionId': 'null'})
+        result = self.bucket.get_object(key)
         content_got = b''
 
         for chunk in result:
@@ -612,7 +613,8 @@ class TestObject(OssTestCase):
         key = self.random_key()
         
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+        bucket_name = OSS_BUCKET + "-test-object_exists"
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
         self.assertRaises(NoSuchBucket, bucket.object_exists, key)
 
         self.assertTrue(not self.bucket.object_exists(key))
@@ -636,7 +638,8 @@ class TestObject(OssTestCase):
         
         # bucket no exist
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+        bucket_name = OSS_BUCKET + "-test-get-object-meta"
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
         
         self.assertRaises(NoSuchBucket, bucket.get_object_meta, key)
         
@@ -748,8 +751,8 @@ class TestObject(OssTestCase):
         self.assertRaises(ObjectNotAppendable, self.bucket.append_object, key, len(content), b'more content')
 
     def test_gzip_get(self):
-        """OSS supports HTTP Compression, see https://en.wikipedia.org/wiki/HTTP_compression for details.
-        """
+        #"""OSS supports HTTP Compression, see https://en.wikipedia.org/wiki/HTTP_compression for details.
+        #"""
         key = self.random_key('.txt')       # ensure our content-type is text/plain, which could be compressed
         content = random_bytes(1024 * 1024) # ensure our content-length is larger than 1024 to trigger compression
 
@@ -868,7 +871,8 @@ class TestObject(OssTestCase):
         
         # bucket no exist
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+        bucket_name = OSS_BUCKET + "-test-get-symlink"
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
         
         self.assertRaises(NoSuchBucket, bucket.get_symlink, symlink)
         
@@ -1131,7 +1135,9 @@ class TestObject(OssTestCase):
 
         rule.add(128*'a', 256*'b')
         rule.add('+-/', ':+:')
-        self.assertEqual(rule.to_query_string(), 128*'a' + '=' + 256*'b' + '&%2B-/=%3A%2B%3A&key1=value1')
+        self.assertEqual('key1=value1' in rule.to_query_string(), True)
+        self.assertEqual((128*'a' + '=' + 256*'b') in rule.to_query_string(), True)
+        self.assertEqual('%2B-/=%3A%2B%3A' in rule.to_query_string(), True)
 
         headers = dict()
         headers[OSS_OBJECT_TAGGING] = rule.to_query_string()
@@ -1187,9 +1193,6 @@ class TestObject(OssTestCase):
         headers = dict()
         headers[OSS_OBJECT_TAGGING] = rule.to_query_string()
 
-        self.assertEqual(rule.to_query_string(), 'key9=value9&key8=value8&key3=value3&' + 
-                'key2=value2&key1=value1&key0=value0&key7=value7&key6=value6&key5=value5&' + 
-                'key4=value4&key14=value14&key13=value13&key12=value12&key11=value11&key10=value10')
 
         result = self.bucket.append_object(key, 0, content1, init_crc=0)
         self.assertEqual(result.next_position, len(content1))
@@ -1274,7 +1277,7 @@ class TestObject(OssTestCase):
         self.assertEqual(':+:', tagging_rule['+-/'])
 
         result = self.bucket.delete_object(symlink)
-        self.assertEqual(2, int(result.status)/100)
+        self.assertEqual(204, int(result.status))
 
     def test_put_symlink_with_tagging_with_wrong_num(self):
         key  = self.random_key()
@@ -1332,7 +1335,8 @@ class TestObject(OssTestCase):
         from oss2.models import BucketVersioningConfig
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+        bucket_name = OSS_BUCKET + "-test-put-symlink-with-version"
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
 
@@ -1348,7 +1352,7 @@ class TestObject(OssTestCase):
         result = bucket.get_bucket_info()
 
         self.assertEqual(int(result.status)/100, 2)
-        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, None)
+        self.assertEqual(result.bucket_encryption_rule.sse_algorithm, None)
         self.assertEqual(result.versioning_status, "Enabled")
 
         result = bucket.put_object("test", "test")
@@ -1368,7 +1372,7 @@ class TestObject(OssTestCase):
         self.assertEqual(int(result.status)/100, 2)
 
         result = bucket.delete_object("test_link")
-        self.assertEqual(int(result.status)/100, 2)
+        self.assertEqual(int(result.status), 204)
         self.assertTrue(result.versionid != '')
         delete_marker_versionid = result.versionid
 
@@ -1380,15 +1384,15 @@ class TestObject(OssTestCase):
         self.assertEqual(result.delete_marker, True)
 
         result = bucket.delete_object("test_link", params=params)
-        self.assertEqual(int(result.status)/100, 2)
+        self.assertEqual(int(result.status), 204)
 
         params['versionId'] = delete_marker_versionid
         result = bucket.delete_object("test_link", params=params)
-        self.assertEqual(int(result.status)/100, 2)
+        self.assertEqual(int(result.status), 204)
 
         params['versionId'] = object_version 
         result = bucket.delete_object("test", params=params)
-        self.assertEqual(int(result.status)/100, 2)
+        self.assertEqual(int(result.status), 204)
 
         bucket.delete_bucket()
 
@@ -1398,7 +1402,8 @@ class TestObject(OssTestCase):
         from oss2.models import Tagging
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+        bucket_name = OSS_BUCKET + "-test-put-object-tagging-version"
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
 
@@ -1414,7 +1419,7 @@ class TestObject(OssTestCase):
         result = bucket.get_bucket_info()
 
         self.assertEqual(int(result.status)/100, 2)
-        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, None)
+        self.assertEqual(result.bucket_encryption_rule.sse_algorithm, None)
         self.assertEqual(result.versioning_status, "Enabled")
 
         result = bucket.put_object("test", "test1")
@@ -1469,16 +1474,16 @@ class TestObject(OssTestCase):
         self.assertEqual('+++', rule[':::'])
     
         result = bucket.delete_object_tagging("test", params=params) 
-        self.assertEqual(int(result.status)/100, 2)
+        self.assertEqual(int(result.status), 204)
 
         params['versionId'] = versionid2
 
         result = bucket.delete_object_tagging("test", params=params) 
-        self.assertEqual(int(result.status)/100, 2)
+        self.assertEqual(int(result.status), 204)
 
 
         result = bucket.delete_object("test")
-        self.assertEqual(int(result.status)/100, 2)
+        self.assertEqual(int(result.status), 204)
         delete_marker_versionid = result.versionid
         self.assertTrue(delete_marker_versionid is not None)
 
@@ -1505,7 +1510,8 @@ class TestObject(OssTestCase):
         from oss2.models import BatchDeleteObjectVersionList
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+        bucket_name = OSS_BUCKET + "-test-batch-delete-version"
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
 
@@ -1521,7 +1527,7 @@ class TestObject(OssTestCase):
         result = bucket.get_bucket_info()
 
         self.assertEqual(int(result.status)/100, 2)
-        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, None)
+        self.assertEqual(result.bucket_encryption_rule.sse_algorithm, None)
         self.assertEqual(result.versioning_status, "Enabled")
         
         # put version 1
@@ -1564,7 +1570,7 @@ class TestObject(OssTestCase):
         from oss2.models import BatchDeleteObjectVersionList
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = random_string(63).lower()
+        bucket_name = OSS_BUCKET + "-test-batch-delete-objects-version"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -1581,7 +1587,7 @@ class TestObject(OssTestCase):
         result = bucket.get_bucket_info()
 
         self.assertEqual(int(result.status)/100, 2)
-        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, None)
+        self.assertEqual(result.bucket_encryption_rule.sse_algorithm, None)
         self.assertEqual(result.versioning_status, "Enabled")
         
         # put "test" version 1
@@ -1665,7 +1671,7 @@ class TestObject(OssTestCase):
         from oss2.models import BatchDeleteObjectVersionList
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = random_string(63).lower()
+        bucket_name = OSS_BUCKET + "-test-get-object-meta-version"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -1682,7 +1688,7 @@ class TestObject(OssTestCase):
         result = bucket.get_bucket_info()
 
         self.assertEqual(int(result.status)/100, 2)
-        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, None)
+        self.assertEqual(result.bucket_encryption_rule.sse_algorithm, None)
         self.assertEqual(result.versioning_status, "Enabled")
         
         # put "test" version 1
@@ -1737,7 +1743,7 @@ class TestObject(OssTestCase):
         from oss2.models import BatchDeleteObjectVersionList
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = random_string(63).lower()
+        bucket_name = OSS_BUCKET + "-test-object-acl-version"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -1763,7 +1769,7 @@ class TestObject(OssTestCase):
         result = bucket.get_bucket_info()
 
         self.assertEqual(int(result.status)/100, 2)
-        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, None)
+        self.assertEqual(result.bucket_encryption_rule.sse_algorithm, None)
         self.assertEqual(result.versioning_status, "Enabled")
         
         # put "test" version 1
@@ -1834,7 +1840,7 @@ class TestObject(OssTestCase):
         from oss2.models import BatchDeleteObjectVersionList
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = random_string(63).lower()
+        bucket_name = OSS_BUCKET + "-test-head-object-version"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -1864,7 +1870,7 @@ class TestObject(OssTestCase):
         result = bucket.get_bucket_info()
 
         self.assertEqual(int(result.status)/100, 2)
-        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, None)
+        self.assertEqual(result.bucket_encryption_rule.sse_algorithm, None)
         self.assertEqual(result.versioning_status, "Enabled")
         
         # put "test" version 1
@@ -1949,7 +1955,7 @@ class TestObject(OssTestCase):
         from oss2.models import BatchDeleteObjectVersionList
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = random_string(63).lower()
+        bucket_name = OSS_BUCKET + "-test-copy-object-version"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -1966,7 +1972,7 @@ class TestObject(OssTestCase):
         result = bucket.get_bucket_info()
 
         self.assertEqual(int(result.status)/100, 2)
-        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, None)
+        self.assertEqual(result.bucket_encryption_rule.sse_algorithm, None)
         self.assertEqual(result.versioning_status, "Enabled")
         
         # put "test" version 1
@@ -2029,7 +2035,7 @@ class TestObject(OssTestCase):
         from oss2.models import BatchDeleteObjectVersionList
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = random_string(63).lower()
+        bucket_name = OSS_BUCKET + "-test-delete-object-version"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -2071,7 +2077,7 @@ class TestObject(OssTestCase):
         result = bucket.get_bucket_info()
 
         self.assertEqual(int(result.status)/100, 2)
-        self.assertEqual(result.bucket_encryption_rule.ssealgorithm, None)
+        self.assertEqual(result.bucket_encryption_rule.sse_algorithm, None)
         self.assertEqual(result.versioning_status, "Enabled")
         
         # put "test" version 1
@@ -2097,7 +2103,8 @@ class TestObject(OssTestCase):
         from oss2.models import BucketVersioningConfig
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+        bucket_name = OSS_BUCKET + "-test-restore-object-version"
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE, oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_ARCHIVE))
 

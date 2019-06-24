@@ -60,7 +60,7 @@ if oss2.compat.is_py2:
 
         def tearDown(self):
             if self.bucket is not None:
-                delete_keys(self.bucket, self.key_list)
+                clean_and_delete_bucket(self.bucket)
 
         def random_key(self, suffix=''):
             key = self.prefix + random_string(12) + suffix
@@ -73,6 +73,7 @@ if oss2.compat.is_py2:
 
             auth = oss2.StsAuth(self.token.access_key_id, self.token.access_key_secret, self.token.security_token)
             self.bucket = oss2.Bucket(auth, OSS_ENDPOINT, OSS_BUCKET)
+            self.bucket.create_bucket()
 
         def test_object(self):
             self.init_bucket()

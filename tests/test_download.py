@@ -93,7 +93,7 @@ class TestDownload(OssTestCase):
         self.__test_crypto_normal(2 * 1024 * 1024 + 1)
 
     def test_large_multi_threaded(self):
-        """多线程，线程数少于分片数"""
+        #"""多线程，线程数少于分片数"""
 
         oss2.defaults.multiget_threshold = 1024 * 1024
         oss2.defaults.multiget_part_size = 100 * 1024
@@ -102,7 +102,7 @@ class TestDownload(OssTestCase):
         self.__test_normal(2 * 1024 * 1024)
 
     def test_large_many_threads(self):
-        """线程数多余分片数"""
+        #"""线程数多余分片数"""
 
         oss2.defaults.multiget_threshold = 1024 * 1024
         oss2.defaults.multiget_part_size = 100 * 1024
@@ -147,7 +147,7 @@ class TestDownload(OssTestCase):
         self.assertFileContent(filename, content)
 
     def test_resume_hole_start(self):
-        """第一个part失败"""
+        #"""第一个part失败"""
 
         oss2.defaults.multiget_threshold = 1
         oss2.defaults.multiget_part_size = 500
@@ -156,7 +156,7 @@ class TestDownload(OssTestCase):
         self.__test_resume(500 * 10 + 16, [1])
 
     def test_resume_hole_end(self):
-        """最后一个part失败"""
+        #"""最后一个part失败"""
 
         oss2.defaults.multiget_threshold = 1
         oss2.defaults.multiget_part_size = 500
@@ -165,7 +165,7 @@ class TestDownload(OssTestCase):
         self.__test_resume(500 * 10 + 16, [11])
 
     def test_resume_hole_mid(self):
-        """中间part失败"""
+        #"""中间part失败"""
 
         oss2.defaults.multiget_threshold = 1
         oss2.defaults.multiget_part_size = 500
@@ -313,7 +313,7 @@ class TestDownload(OssTestCase):
         self.__test_insane_record(400, corrupt_record)
 
     def test_remote_changed_before_start(self):
-        """在开始下载之前，OSS上的文件就已经被修改了"""
+        #"""在开始下载之前，OSS上的文件就已经被修改了"""
         oss2.defaults.multiget_threshold = 1
 
         # reuse __test_insane_record to simulate
@@ -367,7 +367,7 @@ class TestDownload(OssTestCase):
         self.assertTrue(new_context['etag'] != old_context['etag'])
 
     def test_two_downloaders(self):
-        """两个downloader同时跑，但是store的目录不一样。"""
+        #"""两个downloader同时跑，但是store的目录不一样。"""
 
         oss2.defaults.multiget_threshold = 1
         oss2.defaults.multiget_part_size = 100
@@ -468,13 +468,15 @@ class TestDownload(OssTestCase):
         self.assertEqual(context['num_threads'], 3)
 
     def test_relpath_and_abspath(self):
-        """测试绝对、相对路径"""
+        #"""测试绝对、相对路径"""
         # testing steps:
         #    1. first use abspath, and fail one part
         #    2. then use relpath to continue
 
+        cwd = os.getcwd()
         if os.name == 'nt':
             os.chdir('C:\\')
+
 
         oss2.defaults.multiget_threshold = 1
         oss2.defaults.multiget_part_size = 100
@@ -530,6 +532,9 @@ class TestDownload(OssTestCase):
         self.assertEqual(context1['tmp_suffix'], context2['tmp_suffix'])
 
         oss2.utils.silently_remove(abspath)
+
+        if os.name == 'nt':
+            os.chdir(cwd)
 
     def test_tmp_file_removed(self):
         oss2.defaults.multiget_threshold = 1
@@ -589,7 +594,7 @@ class TestDownload(OssTestCase):
             self.assertFileContentNotEqual(filename, content)
 
     def test_resumable_incomplete_download(self):
-        """One of the part is incomplete, while there's no exception raised."""
+        #"""One of the part is incomplete, while there's no exception raised."""
 
         oss2.defaults.multiget_threshold = 1
         oss2.defaults.multiget_part_size = 100
@@ -616,7 +621,8 @@ class TestDownload(OssTestCase):
         from oss2.models import BatchDeleteObjectVersionList
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+        bucket_name = OSS_BUCKET + "-test-resumable-download-with-version"
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
 
@@ -640,7 +646,7 @@ class TestDownload(OssTestCase):
 
         self.assertFileContent(filename_small, content_small)
 
-        content_big = random_bytes(30*1024*1024)
+        content_big = random_bytes(5*1024*1024)
         result = bucket.put_object("object_big", content_big)
 
         version_big = result.versionid

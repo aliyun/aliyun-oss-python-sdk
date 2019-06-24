@@ -19,6 +19,9 @@ class TestInit(OssTestCase):
         with open(log_file_path,'rb') as f:
             self.assertTrue("hello, oss2" in oss2.to_string(f.read()))
 
+        oss2.set_stream_logger('oss2', logging.CRITICAL)
+        oss2.set_file_logger(log_file_path, 'oss2', logging.CRITICAL)
+
 
 if __name__ == '__main__':
     unittest.main()

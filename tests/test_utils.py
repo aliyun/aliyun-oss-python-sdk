@@ -172,12 +172,17 @@ class TestUtils(OssTestCase):
 
         self.assertEqual(b'abc', resp.read())
 
+        custom_logger.setLevel(logging.CRITICAL)
+
     def test_http_to_unixtime_in_zh_CN_locale(self):
         time_string = 'Sat, 06 Jan 2018 00:00:00 GMT'
         time_val = 1515196800
 
         saved_locale = locale.setlocale(locale.LC_TIME)
-        locale.setlocale(locale.LC_TIME, 'zh_CN.UTF-8')
+        if os.name == 'nt':
+            locale.setlocale(locale.LC_TIME, '')
+        else:
+            locale.setlocale(locale.LC_TIME, 'zh_CN.UTF-8')
 
         self.assertEqual(time_val, oss2.utils.http_to_unixtime(time_string))
 
@@ -272,7 +277,11 @@ class TestUtils(OssTestCase):
         time_val = 1518138061
 
         saved_locale = locale.setlocale(locale.LC_TIME)
-        locale.setlocale(locale.LC_TIME, 'zh_CN.UTF-8')
+        
+        if os.name == 'nt':
+            locale.setlocale(locale.LC_TIME, '')
+        else:
+            locale.setlocale(locale.LC_TIME, 'zh_CN.UTF-8')
 
         # iso8601 contains no locale related info, so it is OK to use to_unixtime()
         self.assertEqual(time_val, oss2.utils.iso8601_to_unixtime(time_string))

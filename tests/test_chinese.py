@@ -52,6 +52,8 @@ class TestChinese(OssTestCase):
         self.assertEqual(self.bucket.get_object(key2).read(), content)
 
         os.remove(u'中文本地文件名.txt')
+        self.bucket.delete_object(key)
+        self.bucket.delete_object(key2)
 
     def test_get_symlink(self):
         key = '中文!@#$%^&*()-=文件\x0C-1.txt'
@@ -63,6 +65,9 @@ class TestChinese(OssTestCase):
         
         result = self.bucket.get_symlink(symlink)
         self.assertEqual(result.target_key, key)
+        
+        self.bucket.delete_object(symlink)
+        self.bucket.delete_object(key)
         
 
 if __name__ == '__main__':
