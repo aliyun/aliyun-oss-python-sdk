@@ -7,7 +7,7 @@ from aliyunsdkcore import client
 
 import oss2
 import unittests
-from oss2 import LocalRsaProvider, AliKMSProvider
+from oss2 import LocalRsaProvider, AliKMSProvider, compat
 from oss2.utils import AESCipher, silently_remove
 from oss2.exceptions import OpenApiServerError, OpenApiFormatError, ClientError
 from mock import patch
@@ -59,12 +59,15 @@ class TestCrypto(unittests.common.OssTestCase):
         with open('./rsa-test.public_key.pem', 'wb') as f:
             f.write(public_key.exportKey(passphrase=passphrase))
 
-        self.assertRaise(ClientError, LocalRsaProvider, dir='./', key='rsa-test', passphrase=invalid_passphrase)
+        self.assertRaises(ClientError, LocalRsaProvider, dir='./', key='rsa-test', passphrase=invalid_passphrase)
         silently_remove('./rsa-test.public_key.pem')
         silently_remove('./rsa-test.private_key.pem')
 
     # 测试基本key, start加/解密
     def test_local_rsa_provider_basic(self):
+        silently_remove('./rsa-test.public_key.pem')
+        silently_remove('./rsa-test.private_key.pem')
+
         provider = LocalRsaProvider(dir='./', key='rsa-test', gen_keys=True, passphrase=random_string(8))
         self.assertEqual(provider.wrap_alg, "rsa")
         self.assertEqual(provider.cipher.alg, "AES/CTR/NoPadding")
@@ -73,20 +76,25 @@ class TestCrypto(unittests.common.OssTestCase):
         plain_start = provider.get_start()
         self.assertTrue(1 <= plain_start <= 10)
 
-        with patch.object(oss2.utils, 'random_aes_256_key', return_value=plain_key, autospect=True):
+        with patch.object(oss2.utils, 'random_key', return_value=plain_key, autospect=True):
             with patch.object(oss2.utils, 'random_counter', return_value=plain_start, autospect=True):
                 content_crypto_material = provider.create_content_material()
                 self.assertFalse(content_crypto_material.is_invalid())
-                decrypted_key = provider.decrypt_encrypted_key(content_crypto_material.encrypted_start)
-                decrypted_start = provider.decrypt_encrypted_start(content_crypto_material.encrypted_key)
+                decrypted_key = provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
+                decrypted_start = provider.decrypt_encrypted_start(content_crypto_material.encrypted_start)
                 self.assertEqual(plain_key, decrypted_key)
-                self.assertEqual(plain_start, decrypted_start)
+                self.assertEqual(plain_start, int(decrypted_start))
 
         silently_remove('./rsa-test.public_key.pem')
         silently_remove('./rsa-test.private_key.pem')
 
     # 测试使用不同的rsa keys的provider
     def test_local_rsa_provider_diff_keys(self):
+        silently_remove('./rsa-test.public_key.pem')
+        silently_remove('./rsa-test.private_key.pem')
+        silently_remove('./rsa-test-diff.public_key.pem')
+        silently_remove('./rsa-test-diff.private_key.pem')
+
         provider = LocalRsaProvider(dir='./', key='rsa-test', gen_keys=True)
         provider_diff = LocalRsaProvider(dir='./', key='rsa-test-diff', gen_keys=True)
         self.assertRaises(ClientError, provider.check_magic_number_hmac, provider_diff.encryption_magic_number_hmac)
@@ -94,14 +102,14 @@ class TestCrypto(unittests.common.OssTestCase):
         plain_key = provider.get_key()
         plain_start = provider.get_start()
 
-        with patch.object(oss2.utils, 'random_aes_256_key', return_value=plain_key, autospect=True):
+        with patch.object(oss2.utils, 'random_key', return_value=plain_key, autospect=True):
             with patch.object(oss2.utils, 'random_counter', return_value=plain_start, autospect=True):
                 content_crypto_material = provider.create_content_material()
                 self.assertFalse(content_crypto_material.is_invalid())
-                decrypted_key_diff = provider_diff.decrypt_encrypted_key(content_crypto_material.encrypted_start)
-                decrypted_start_diff = provider_diff.decrypt_encrypted_start(content_crypto_material.encrypted_key)
-                self.assertNotEqual(plain_key, decrypted_key_diff)
-                self.assertNotEqual(plain_start, decrypted_start_diff)
+                self.assertRaises(ClientError, provider_diff.decrypt_encrypted_key,
+                                  content_crypto_material.encrypted_key)
+                self.assertRaises(ClientError, provider_diff.decrypt_encrypted_start,
+                                  content_crypto_material.encrypted_start)
 
         silently_remove('./rsa-test.public_key.pem')
         silently_remove('./rsa-test.private_key.pem')
@@ -109,30 +117,36 @@ class TestCrypto(unittests.common.OssTestCase):
         silently_remove('./rsa-test-diff.private_key.pem')
 
     def test_local_rsa_provider_adapter(self):
+        silently_remove('./rsa-test.public_key.pem')
+        silently_remove('./rsa-test.private_key.pem')
+
         provider = LocalRsaProvider(dir='./', key='rsa-test', gen_keys=True)
         content = b'a' * random.randint(1, 100) * 1024
         content_crypto_material = provider.create_content_material()
+        plain_key = provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
+        plain_start = provider.decrypt_encrypted_start(content_crypto_material.encrypted_start)
+        cipher = content_crypto_material.cipher
 
-        stream_encrypted = provider.make_encrypt_adapter(content, content_crypto_material.cipher)
-        stream_decrypted = provider.make_decrypt_adapter(stream_encrypted, content_crypto_material.cipher)
+        stream_encrypted = provider.make_encrypt_adapter(content, cipher)
+        encrypted_content = stream_encrypted.read()
+        # reset cipher
+        cipher.initialize(plain_key, int(plain_start))
+        stream_decrypted = provider.make_decrypt_adapter(encrypted_content, cipher)
         self.assertEqual(content, stream_decrypted.read())
-
-        discard = random.randint(1, 15)
-        stream_decrypted = provider.make_decrypt_adapter(stream_encrypted, content_crypto_material.cipher,
-                                                         discard=discard)
-        self.assertEqual(content[discard:], stream_decrypted)
 
         # 使用不同的content crypto material
         content_crypto_material_diff = provider.create_content_material()
-        stream_encrypted_diff = provider.make_encrypt_adapter(content, content_crypto_material_diff.cipher)
-        self.assertNotEqual(stream_encrypted_diff, stream_encrypted)
-        stream_decrypted_diff = provider.make_decrypt_adapter(stream_encrypted, content_crypto_material_diff.cipher)
-        self.assertEqual(content, stream_decrypted_diff.read())
+        plain_key = provider.decrypt_encrypted_key(content_crypto_material_diff.encrypted_key)
+        plain_start = provider.decrypt_encrypted_start(content_crypto_material_diff.encrypted_start)
+        cipher = content_crypto_material_diff.cipher
 
-        discard = random.randint(1, 15)
-        stream_decrypted = provider.make_decrypt_adapter(stream_encrypted_diff, content_crypto_material_diff.cipher,
-                                                         discard=discard)
-        self.assertEqual(content[discard:], stream_decrypted)
+        stream_encrypted_diff = provider.make_encrypt_adapter(content, cipher)
+        encrypted_content_diff = stream_encrypted_diff.read()
+        self.assertNotEqual(encrypted_content_diff, encrypted_content)
+        # reset cipher
+        cipher.initialize(plain_key, int(plain_start))
+        stream_decrypted_diff = provider.make_decrypt_adapter(encrypted_content_diff, cipher)
+        self.assertEqual(content, stream_decrypted_diff.read())
 
         silently_remove('./rsa-test.public_key.pem')
         silently_remove('./rsa-test.private_key.pem')
@@ -146,19 +160,19 @@ class TestCrypto(unittests.common.OssTestCase):
     # 测试基本key, start加/解密
     def test_ali_kms_provider_basic(self):
         provider = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK, passphrase=random_string(8))
-        self.assertEqual(provider.wrap_alg, "rsa")
+        self.assertEqual(provider.wrap_alg, "kms")
         self.assertEqual(provider.cipher.alg, "AES/CTR/NoPadding")
         plain_key, encrypted_key = provider.get_key()
         plain_start = provider.get_start()
 
-        with patch('oss2.AliKMSProvider.get_key', return_value=(plain_key, encrypted_key)):
+        with patch('oss2.AliKMSProvider.get_key', return_value=[plain_key, encrypted_key]):
             with patch.object(oss2.utils, 'random_counter', return_value=plain_start, autospect=True):
                 content_crypto_material = provider.create_content_material()
-            self.assertFalse(content_crypto_material.is_invalid())
-            decrypted_key = provider.decrypt_encrypted_key(content_crypto_material.encrypted_start)
-            decrypted_start = provider.decrypt_encrypted_start(content_crypto_material.encrypted_key)
-            self.assertEqual(plain_key, decrypted_key)
-            self.assertEqual(plain_start, decrypted_start)
+                self.assertFalse(content_crypto_material.is_invalid())
+                decrypted_key = provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
+                decrypted_start = provider.decrypt_encrypted_start(content_crypto_material.encrypted_start)
+                self.assertEqual(plain_key, decrypted_key)
+                self.assertEqual(plain_start, int(decrypted_start))
 
     # 测试使用不同的passphrase解析加密key和start抛出异常
     def test_ali_kms_provider_diff_passphrase(self):
@@ -167,8 +181,8 @@ class TestCrypto(unittests.common.OssTestCase):
         encrypted_start = provider.get_start()
 
         provider_diff = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK, passphrase=random_string(8))
-        self.assertRaises(OpenApiServerError, provider_diff.decrypt_encrypted_key(encrypted_key))
-        self.assertRaises(OpenApiServerError, provider_diff.decrypt_encrypted_key(encrypted_start))
+        self.assertRaises(OpenApiServerError, provider_diff.decrypt_encrypted_key, encrypted_key)
+        self.assertRaises(OpenApiServerError, provider_diff.decrypt_encrypted_key, encrypted_start)
 
     # 测试使用不同的region解析加密key和start时抛出异常
     def test_ali_kms_provider_invalid_region(self):
@@ -176,10 +190,10 @@ class TestCrypto(unittests.common.OssTestCase):
         plain_key, encrypted_key = provider.get_key()
         encrypted_start = provider.get_start()
 
-        region_list = ['oss-cn-hangzhou', 'oss-cn-shanghai', 'oss-cn-qingdao', 'oss-cn-beijing', 'oss-cn-zhangjiakou',
-                       'oss-cn-huhehaote', 'oss-cn-shenzhen', 'oss-cn-hongkong', 'oss-us-west-1', 'oss-us-east-1',
-                       'oss-ap-southeast-1', 'oss-ap-southeast-2', 'oss-ap-southeast-3', 'oss-ap-southeast-5',
-                       'oss-ap-northeast-1', 'oss-ap-south-1', 'oss-eu-central-1', 'oss-eu-west-1', 'oss-me-east-1']
+        region_list = ['cn-hangzhou', 'cn-shanghai', 'cn-qingdao', 'cn-beijing', 'cn-zhangjiakou',
+                       'cn-huhehaote', 'cn-shenzhen', 'cn-hongkong', 'us-west-1', 'us-east-1',
+                       'ap-southeast-1', 'ap-southeast-2', 'ap-southeast-3', 'ap-southeast-5',
+                       'ap-northeast-1', 'ap-south-1', 'eu-central-1', 'eu-west-1', 'me-east-1']
 
         if OSS_REGION in region_list:
             region_list.remove(OSS_REGION)
@@ -188,8 +202,8 @@ class TestCrypto(unittests.common.OssTestCase):
         invalid_region = region_list[random.randint(0, region_num - 1)]
 
         provider_invalid = AliKMSProvider(OSS_ID, OSS_SECRET, invalid_region, OSS_CMK)
-        self.assertRaises(OpenApiServerError, provider_invalid.decrypt_encrypted_key(encrypted_key))
-        self.assertRaises(OpenApiServerError, provider_invalid.decrypt_encrypted_key(encrypted_start))
+        self.assertRaises(OpenApiServerError, provider_invalid.decrypt_encrypted_key, encrypted_key)
+        self.assertRaises(OpenApiServerError, provider_invalid.decrypt_encrypted_key, encrypted_start)
 
     # 测试使用不同的ak解析加密key和start的值时抛出异常
     def test_ali_kms_provider_invalid_ak(self):
@@ -199,16 +213,16 @@ class TestCrypto(unittests.common.OssTestCase):
 
         invalid_secret = random_string(len(OSS_SECRET))
         provider_invalid = AliKMSProvider(OSS_ID, invalid_secret, OSS_REGION, OSS_CMK)
-        self.assertRaises(OpenApiServerError, provider_invalid.decrypt_encrypted_key(encrypted_key))
-        self.assertRaises(OpenApiServerError, provider_invalid.decrypt_encrypted_key(encrypted_start))
+        self.assertRaises(OpenApiServerError, provider_invalid.decrypt_encrypted_key, encrypted_key)
+        self.assertRaises(OpenApiServerError, provider_invalid.decrypt_encrypted_key, encrypted_start)
 
         invald_id = random_string(len(OSS_ID))
         provider_invalid = AliKMSProvider(invald_id, OSS_SECRET, OSS_REGION, OSS_CMK)
-        self.assertRaises(OpenApiServerError, provider_invalid.decrypt_encrypted_key(encrypted_key))
-        self.assertRaises(OpenApiServerError, provider_invalid.decrypt_encrypted_key(encrypted_start))
+        self.assertRaises(OpenApiServerError, provider_invalid.decrypt_encrypted_key, encrypted_key)
+        self.assertRaises(OpenApiServerError, provider_invalid.decrypt_encrypted_key, encrypted_start)
 
     # 测试kms服务返回错误的情况
-    def test_kms_with_error_response(self):
+    def test_ali_kms_with_error_response(self):
         if oss2.compat.is_py33:
             return
 
@@ -216,37 +230,40 @@ class TestCrypto(unittests.common.OssTestCase):
 
         # 模拟返回的数据格式不对，不是正确的json格式字符串
         plain_key = random_string(32)
-        ecrypted_key = random_string(32)
-        with patch.object(client.AcsClient, 'do_action_with_exception',
-                          return_value="{'Plaintext': {0}, 'CiphertextBlob': {1}}".format(plain_key, ecrypted_key),
-                          autospect=True):
+        encrypted_key = random_string(32)
+        return_value = "{'Plaintext': %s, 'CiphertextBlob': %s}" % (plain_key, encrypted_key)
+        with patch.object(client.AcsClient, 'do_action_with_exception', return_value=return_value, autospect=True):
             self.assertRaises(OpenApiFormatError, kms.get_key)
 
-    def test_local_rsa_provider_adapter(self):
+    def test_ali_kms_provider_adapter(self):
         provider = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK)
         content = b'a' * random.randint(1, 100) * 1024
         content_crypto_material = provider.create_content_material()
 
-        stream_encrypted = provider.make_encrypt_adapter(content, content_crypto_material.cipher)
-        stream_decrypted = provider.make_decrypt_adapter(stream_encrypted, content_crypto_material.cipher)
-        self.assertEqual(content, stream_decrypted.read())
+        plain_key = provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
+        plain_start = provider.decrypt_encrypted_start(content_crypto_material.encrypted_start)
+        cipher = content_crypto_material.cipher
 
-        discard = random.randint(1, 15)
-        stream_decrypted = provider.make_decrypt_adapter(stream_encrypted, content_crypto_material.cipher,
-                                                         discard=discard)
-        self.assertEqual(content[discard:], stream_decrypted)
+        stream_encrypted = provider.make_encrypt_adapter(content, cipher)
+        encrypted_content = stream_encrypted.read()
+        # reset cipher
+        cipher.initialize(plain_key, int(plain_start))
+        stream_decrypted = provider.make_decrypt_adapter(encrypted_content, cipher)
+        self.assertEqual(content, stream_decrypted.read())
 
         # 使用不同的content crypto material
         content_crypto_material_diff = provider.create_content_material()
-        stream_encrypted_diff = provider.make_encrypt_adapter(content, content_crypto_material_diff.cipher)
-        self.assertNotEqual(stream_encrypted_diff, stream_encrypted)
-        stream_decrypted_diff = provider.make_decrypt_adapter(stream_encrypted, content_crypto_material_diff.cipher)
-        self.assertEqual(content, stream_decrypted_diff.read())
+        plain_key = provider.decrypt_encrypted_key(content_crypto_material_diff.encrypted_key)
+        plain_start = provider.decrypt_encrypted_start(content_crypto_material_diff.encrypted_start)
+        cipher = content_crypto_material_diff.cipher
 
-        discard = random.randint(1, 15)
-        stream_decrypted = provider.make_decrypt_adapter(stream_encrypted_diff, content_crypto_material_diff.cipher,
-                                                         discard=discard)
-        self.assertEqual(content[discard:], stream_decrypted)
+        stream_encrypted_diff = provider.make_encrypt_adapter(content, cipher)
+        encrypted_content_diff = stream_encrypted_diff.read()
+        self.assertNotEqual(encrypted_content_diff, encrypted_content)
+        # reset cipher
+        cipher.initialize(plain_key, int(plain_start))
+        stream_decrypted_diff = provider.make_decrypt_adapter(encrypted_content_diff, cipher)
+        self.assertEqual(content, stream_decrypted_diff.read())
 
     def get_sts(self):
         clt = client.AcsClient(OSS_STS_ID, OSS_STS_KEY, OSS_REGION)
@@ -258,6 +275,6 @@ class TestCrypto(unittests.common.OssTestCase):
 
         body = clt.do_action_with_exception(req)
 
-        j = json.loads(oss2.to_unicode(body))
+        j = json.loads(compat.to_unicode(body))
 
         return j['Credentials']['AccessKeyId'], j['Credentials']['AccessKeySecret'], j['Credentials']['SecurityToken']

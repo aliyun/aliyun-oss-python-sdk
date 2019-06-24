@@ -1,16 +1,13 @@
 # -*- coding: utf-8 -*-
-import logging
 
 from . import http
 from . import exceptions
-from . import models
 from . import Bucket
 
 from .api import _make_range_string
 from .models import *
-from .compat import urlparse, to_string
+from .compat import to_string, urlsplit, parse_qs
 from .crypto import BaseCryptoProvider
-from .headers import *
 from .exceptions import ClientError
 
 logger = logging.getLogger(__name__)
@@ -94,7 +91,7 @@ class CryptoBucket(Bucket):
         data = self.crypto_provider.make_encrypt_adapter(data, content_crypto_material.cipher)
         headers = content_crypto_material.to_object_meta(headers)
 
-        return super(CryptoBucket, self).put_object(key, data, headers, progress_callback=None)
+        return super(CryptoBucket, self).put_object(key, data, headers, progress_callback)
 
     def put_object_with_url(self, sign_url, data, headers=None, progress_callback=None):
 
@@ -106,13 +103,8 @@ class CryptoBucket(Bucket):
         :param progress_callback: 用户指定的进度回调函数。参考 :ref:`progress_callback`
         :return:
         """
-        logger.debug("Start to put object with url to CryptoBucket")
+        raise ClientError("The operation is not support for CryptoBucket now")
 
-        content_crypto_material = self.crypto_provider.create_content_material()
-        data = self.crypto_provider.make_encrypt_adapter(data, content_crypto_material.cipher)
-        headers = content_crypto_material.to_object_meta(headers)
-
-        return super(CryptoBucket, self).put_object_with_url(self, sign_url, data, headers, progress_callback)
 
     def append_object(self, key, position, data,
                       headers=None,
@@ -159,6 +151,8 @@ class CryptoBucket(Bucket):
         range_string = ''
 
         if byte_range:
+            if not byte_range[0] and byte_range[1]:
+                raise ClientError("Don't support range get while start is none and end is not")
             start, end = self.crypto_provider.adjust_range(byte_range[0], byte_range[1])
             adjust_byte_range = (start, end)
 
@@ -198,7 +192,7 @@ class CryptoBucket(Bucket):
 
         :raises: 如果文件不存在，则抛出 :class:`NoSuchKey <oss2.exceptions.NoSuchKey>` ；还可能抛出其他异常
         """
-        query = dict(urlparse.parse_qsl(urlparse.urlsplit(sign_url).query))
+        query = parse_qs(urlsplit(sign_url).query)
         if query and (Bucket.PROCESS in query):
             raise ClientError("Process object operation is not support for Crypto Bucket")
 
@@ -208,6 +202,8 @@ class CryptoBucket(Bucket):
         range_string = ''
 
         if byte_range:
+            if not byte_range[0] and byte_range[1]:
+                raise ClientError("Don't support range get while start is none and end is not")
             start, end = self.crypto_provider.adjust_range(byte_range[0], byte_range[1])
             adjust_byte_range = (start, end)
 

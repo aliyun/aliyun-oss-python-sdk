@@ -144,10 +144,16 @@ class LocalRsaProvider(BaseCryptoProvider):
         return self.cipher.get_key()
 
     def decrypt_encrypted_key(self, encrypted_key):
-        return self.__decrypt_data(encrypted_key)
+        try:
+            return self.__decrypt_data(encrypted_key)
+        except ValueError as e:
+            raise ClientError(str(e))
 
     def decrypt_encrypted_start(self, encrypted_start):
-        return self.__decrypt_data(encrypted_start)
+        try:
+            return self.__decrypt_data(encrypted_start)
+        except ValueError as e:
+            raise ClientError(str(e))
 
     def create_content_material(self):
         plain_key = self.get_key()
@@ -279,5 +285,5 @@ class AliKMSProvider(BaseCryptoProvider):
             raise OpenApiServerError(e.http_status, e.request_id, e.message, e.error_code)
         except ClientException as e:
             raise ClientError(e.message)
-        except (ValueError, TypeError) as e:
+        except (KeyError, ValueError, TypeError) as e:
             raise OpenApiFormatError('Json Error: ' + str(e))

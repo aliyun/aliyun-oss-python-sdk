@@ -2,6 +2,7 @@ __version__ = '2.6.2'
 
 from . import models, exceptions
 
+from .compat import to_bytes
 from .api import Service, Bucket
 from .crypto_bucket import CryptoBucket
 from .auth import Auth, AuthV2, AnonymousAuth, StsAuth, AUTH_VERSION_1, AUTH_VERSION_2, make_auth

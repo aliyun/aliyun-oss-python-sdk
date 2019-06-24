@@ -13,8 +13,10 @@ from .compat import urlunquote, to_string, urlquote
 from .select_response import SelectResponseAdapter
 from .headers import *
 import json
+import logging
 from requests.structures import CaseInsensitiveDict
 
+logger = logging.getLogger(__name__)
 
 class PartInfo(object):
     """表示分片信息的文件。
@@ -106,18 +108,20 @@ class ContentCryptoMaterial(object):
         if self.is_invalid():
             raise ClientError('Missing some meta to initialize content crypto material')
 
-        if cek_alg != self.cek_alg or wrap_alg != self.wrap_alg:
-            err_msg = 'Envelope or data encryption/decryption algorithm is inconsistent'
-            raise InconsistentError(err_msg, self)
-
         if self.wrap_alg == "rsa":
             self.encrypted_key = b64decode_from_string(self.encrypted_key)
             self.encrypted_start = b64decode_from_string(self.encrypted_start)
 
+        if cek_alg != self.cek_alg or wrap_alg != self.wrap_alg:
+            logger.error("The cek algorithm or the wrap alg is inconsistent, object meta: cek_alg:{0}, wrap_alg:{1}, "
+                         "material: cek_alg:{2}, wrap_alg:{3}".format(cek_alg, wrap_alg, self.cek_alg, self.wrap_alg))
+            err_msg = 'Envelope or data encryption/decryption algorithm is inconsistent'
+            raise InconsistentError(err_msg, self)
+
     def is_invalid(self):
         if self.encrypted_key and self.encrypted_start and self.cek_alg and self.wrap_alg:
-            return True
-        return False
+            return False
+        return True
 
 
 class MultipartUploadCryptoContext(object):
@@ -253,7 +257,8 @@ class GetObjectResult(HeadObjectResult):
 
             counter = 0
             if self.content_range:
-                counter = content_crypto_material.cipher.calc_counter(byte_range[0])
+                start, end = self.__crypto_provider.adjust_range(byte_range[0], byte_range[1])
+                counter = content_crypto_material.cipher.calc_counter(start)
 
             content_crypto_material.cipher.initialize(plain_key, plain_start + counter)
             self.stream = self.__crypto_provider.make_decrypt_adapter(self.stream, content_crypto_material.cipher,
