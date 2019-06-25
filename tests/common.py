@@ -102,9 +102,8 @@ class OssTestCase(unittest.TestCase):
                                                    crypto_provider=oss2.LocalRsaProvider())
 
         self.kms_crypto_bucket = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT,
-                                                   OSS_BUCKET,
-                                                   crypto_provider=oss2.AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION,
-                                                                                       OSS_CMK))
+                                                   OSS_BUCKET, crypto_provider=oss2.AliKMSProvider(OSS_ID, OSS_SECRET,
+                                                                                                   OSS_REGION, OSS_CMK))
 
         self.key_list = []
         self.temp_files = []

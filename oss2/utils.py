@@ -344,9 +344,9 @@ class _IterableAdapter(object):
         content = next(self.iter)
         self.offset += len(content)
 
-        _invoke_crc_callback(self.crc_callback, content)
-
         content = _invoke_cipher_callback(self.cipher_callback, content)
+
+        _invoke_crc_callback(self.crc_callback, content)
 
         return content
 
@@ -404,9 +404,9 @@ class _FileLikeAdapter(object):
 
             self.offset += len(content)
 
-            _invoke_crc_callback(self.crc_callback, content)
-
             content = _invoke_cipher_callback(self.cipher_callback, content)
+
+            _invoke_crc_callback(self.crc_callback, content)
 
             if offset_start < self.discard:
                 if len(content) <= self.discard:
@@ -487,9 +487,9 @@ class _BytesAndFileAdapter(object):
 
         _invoke_progress_callback(self.progress_callback, min(self.offset, self.size), self.size)
 
-        _invoke_crc_callback(self.crc_callback, content)
-
         content = _invoke_cipher_callback(self.cipher_callback, content)
+
+        _invoke_crc_callback(self.crc_callback, content)
 
         return content
 

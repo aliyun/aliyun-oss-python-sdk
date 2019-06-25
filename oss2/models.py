@@ -18,6 +18,7 @@ from requests.structures import CaseInsensitiveDict
 
 logger = logging.getLogger(__name__)
 
+
 class PartInfo(object):
     """表示分片信息的文件。
 
@@ -122,6 +123,8 @@ class ContentCryptoMaterial(object):
         if self.encrypted_key and self.encrypted_start and self.cek_alg and self.wrap_alg:
             return False
         return True
+
+
 
 
 class MultipartUploadCryptoContext(object):

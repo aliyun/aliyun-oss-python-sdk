@@ -198,8 +198,8 @@ def parse_list_parts(result, body):
     result.is_truncated = _find_bool(root, 'IsTruncated')
     result.next_marker = _find_tag(root, 'NextPartNumberMarker')
 
-    client_encryption_key = root.find(root, 'ClientEncryptionKey')
-    if client_encryption_key:
+    client_encryption_key = root.find('ClientEncryptionKey')
+    if client_encryption_key is not None:
         try:
             result.client_encryption_key = to_string(client_encryption_key.text)
             result.client_encryption_start = _find_tag(root, 'ClientEncryptionStart')

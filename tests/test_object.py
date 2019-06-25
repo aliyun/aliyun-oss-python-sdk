@@ -2028,8 +2028,7 @@ class TestObject(OssTestCase):
     # test cases for CryptoBucket
     # 测试CryptoBucket普通put、get、delete、head等功能
     def test_crypto_object(self):
-        # for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
-        for crypto_bucket in [self.rsa_crypto_bucket]:
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
             key = self.random_key('.js')
             content = random_bytes(1024)
 
@@ -2068,8 +2067,7 @@ class TestObject(OssTestCase):
             self.assertRaises(NoSuchKey, crypto_bucket.get_object, key)
 
     def test_crypto_progress(self):
-        # for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
-        for crypto_bucket in [self.rsa_crypto_bucket]:
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
             stats = {'previous': -1}
 
             def progress_callback(bytes_consumed, total_bytes):
@@ -2109,8 +2107,7 @@ class TestObject(OssTestCase):
 
     # 测试CryptoBucket range get功能
     def test_crypto_range_get(self):
-        # for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
-        for crypto_bucket in [self.rsa_crypto_bucket]:
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
             key = self.random_key()
             content = random_bytes(1024)
 
@@ -2135,8 +2132,7 @@ class TestObject(OssTestCase):
 
     # 测试使用Bucket类的实例读取CryptoBucket类实例上传的对象
     def test_get_crypto_object_by_nomal_bucket(self):
-        # for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
-        for crypto_bucket in [self.rsa_crypto_bucket]:
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
             key = self.random_key('.js')
             content = random_bytes(1024)
 
@@ -2149,8 +2145,7 @@ class TestObject(OssTestCase):
 
     # 测试使用CryptoBucket类读取Bucket类实例上传的对象
     def test_get_normal_object_by_crypto_bucket(self):
-        # for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
-        for crypto_bucket in [self.rsa_crypto_bucket]:
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
             key = self.random_key('.js')
             content = random_bytes(1024)
 
@@ -2162,8 +2157,7 @@ class TestObject(OssTestCase):
             self.assertRaises(ClientError, crypto_bucket.get_object, key)
 
     def test_crypto_get_object_with_url(self):
-        # for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
-        for crypto_bucket in [self.rsa_crypto_bucket]:
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
             key = self.random_key('.js')
             content = random_bytes(1024)
 
@@ -2175,8 +2169,7 @@ class TestObject(OssTestCase):
             self.assertEqual(get_result.read(), content)
 
     def test_crypto_put_object_with_url(self):
-        # for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
-        for crypto_bucket in [self.rsa_crypto_bucket]:
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
             key = self.random_key('.js')
             content = random_bytes(1024)
 
@@ -2184,8 +2177,7 @@ class TestObject(OssTestCase):
             self.assertRaises(ClientError, crypto_bucket.put_object_with_url, url, content)
 
     def test_crypto_get_object_and_process(self):
-        # for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
-        for crypto_bucket in [self.rsa_crypto_bucket]:
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
             key = self.random_key('.jpg')
             result = crypto_bucket.put_object_from_file(key, "tests/example.jpg")
             self.assertTrue(result.status == 200)
@@ -2194,8 +2186,7 @@ class TestObject(OssTestCase):
             self.assertRaises(ClientError, crypto_bucket.get_object, key, process=process)
 
     def test_crypto_get_object_with_url_and_process(self):
-        # for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
-        for crypto_bucket in [self.rsa_crypto_bucket]:
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
             key = self.random_key('.jpg')
             result = crypto_bucket.put_object_from_file(key, "tests/example.jpg")
             self.assertTrue(result.status == 200)
@@ -2206,16 +2197,14 @@ class TestObject(OssTestCase):
 
     # 测试使用CryptoBucket类的append接口, 此时应该抛出异常
     def test_crypto_append_object(self):
-        for crypto_bucket in [self.rsa_crypto_bucket]:
-            # for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
             key = self.random_key('.log')
 
             self.assertRaises(NotFound, crypto_bucket.head_object, key)
             self.assertRaises(ClientError, crypto_bucket.append_object, key, 0, random_string(1024))
 
     def test_crypto_create_select_object_meta(self):
-        # for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
-        for crypto_bucket in [self.rsa_crypto_bucket]:
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
             key = self.random_key(".csv")
             result = crypto_bucket.put_object_from_file(key, 'tests/sample_data.csv')
             self.assertTrue(result.status == 200)
@@ -2223,8 +2212,7 @@ class TestObject(OssTestCase):
             self.assertRaises(ClientError, crypto_bucket.create_select_object_meta, key)
 
     def test_crypto_select_object(self):
-        for crypto_bucket in [self.rsa_crypto_bucket]:
-            # for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
             key = self.random_key(".csv")
             result = crypto_bucket.put_object_from_file(key, 'tests/sample_data.csv')
             self.assertTrue(result.status == 200)
@@ -2233,8 +2221,7 @@ class TestObject(OssTestCase):
             self.assertRaises(ClientError, crypto_bucket.select_object, key, sql)
 
     def test_crypto_process_object(self):
-        for crypto_bucket in [self.rsa_crypto_bucket]:
-            # for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
             key = self.random_key('.jpg')
             result = crypto_bucket.put_object_from_file(key, "tests/example.jpg")
             self.assertTrue(result.status == 200)
@@ -2247,8 +2234,7 @@ class TestObject(OssTestCase):
 
     # 测试CryptoBucket类的Copy方法
     def test_copy_crypto_object(self):
-        for crypto_bucket in [self.rsa_crypto_bucket]:
-            # for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
             key = self.random_key('.js')
             content = random_bytes(1024)
 
@@ -2278,8 +2264,7 @@ class TestObject(OssTestCase):
 
     # 测试CryptoBucket类的Copy方法, 并使用"REPLACE"模式修改meta
     def test_copy_crypto_object_with_replace_meta(self):
-        for crypto_bucket in [self.rsa_crypto_bucket]:
-            # for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
             key = self.random_key('.js')
             content = random_bytes(1024)
 
@@ -2315,8 +2300,7 @@ class TestObject(OssTestCase):
 
     # 测试CryptoBucket类的Copy方法，修改加密元数据抛出异常
     def test_copy_crypto_object_with_replace_encryption_meta(self):
-        for crypto_bucket in [self.rsa_crypto_bucket]:
-            # for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
+        for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
             key = self.random_key('.js')
             content = random_bytes(1024)
 
