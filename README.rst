@@ -26,10 +26,11 @@ Note:
 Running environment
 -------------------
 
-Python 2.6，2.7，3.3，3.4，3.5
+Python 2.6(not recommended)，2.7，3.3(not recommended)，3.4，3.5，3.6
+
 
 Note:
-
+    Python 2.6 is not recommended because it is no longer supported by the Python core team. 
     Do not use Python 3.3.0 or 3.3.1. Refer to `Python Issue 16658 <https://bugs.python.org/issue16658>`_.
 
 Installing

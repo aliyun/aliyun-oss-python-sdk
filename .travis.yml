@@ -9,7 +9,7 @@ install:
   aliyun-python-sdk-kms
 - pip install --upgrade mock
 script:
-- export PYTHONPATH="test:$PYTHONPATH"
+- export PYTHONPATH="tests:$PYTHONPATH"
 - nosetests unittests/ --with-cov
 - export OSS_TEST_AUTH_VERSION=v1
 - if [ -n "$OSS_TEST_ACCESS_KEY_ID" ]; then travis_wait 50 nosetests -s tests/ --with-cov;

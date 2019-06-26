@@ -26,10 +26,11 @@ Aliyun OSS SDK for Python
 运行环境
 --------
 
-Python 2.6，2.7，3.3，3.4，3.5
+Python 2.6(不推荐)，2.7，3.3（不推荐），3.4，3.5，3.6
 
 .. note::
 
+    不推荐在Python 2.6版本运行oss2，因为现在官方已经不维护这个版本了
     请不要使用Python 3.3.0、3.3.1，参考 `Python Issue 16658 <https://bugs.python.org/issue16658>`_
 
 安装方法
