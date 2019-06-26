@@ -8,8 +8,7 @@ Aliyun OSS SDK for Python
 .. image:: https://coveralls.io/repos/github/aliyun/aliyun-oss-python-sdk/badge.svg?branch=master
     :target: https://coveralls.io/github/aliyun/aliyun-oss-python-sdk?branch=master
 
-`README of English <https://github.com/aliyun/aliyun-oss-python-sdk/blob/master/README.rst>`_    
-------------------
+`README of English <https://github.com/aliyun/aliyun-oss-python-sdk/blob/master/README.rst>`
 
 概述
 ----
