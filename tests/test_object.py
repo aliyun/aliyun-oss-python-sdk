@@ -290,6 +290,7 @@ class TestObject(OssTestCase):
         oss2.defaults.connect_timeout = 0.001
         bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
         self.assertRaises(RequestError, bucket.get_bucket_acl)
+        oss2.defaults.connect_timeout = 60
 
     def test_get_object_iterator(self):
         key = self.random_key()
