@@ -1575,7 +1575,7 @@ class Bucket(_Base):
         resp = self.__do_bucket('GET', params={Bucket.WEBSITE: ''})
         logger.debug("Get bucket website done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
-        return self._parse_result(resp, xml_utils.parse_get_bucket_websiste, GetBucketWebsiteResult)
+        return self._parse_result(resp, xml_utils.parse_get_bucket_website, GetBucketWebsiteResult)
 
     def delete_bucket_website(self):
         """关闭Bucket的静态网站托管功能。"""

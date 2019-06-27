@@ -398,6 +398,11 @@ BUCKET_STORAGE_CLASS_STANDARD = 'Standard'
 BUCKET_STORAGE_CLASS_IA = 'IA'
 BUCKET_STORAGE_CLASS_ARCHIVE = 'Archive'
 
+REDIRECT_TYPE_MIRROR = 'Mirror'
+REDIRECT_TYPE_EXTERNAL = 'External'
+REDIRECT_TYPE_INTERNAL = 'Internal'
+REDIRECT_TYPE_ALICDN = 'AliCDN'
+
 
 class GetBucketAclResult(RequestResult):
     def __init__(self, resp):
@@ -500,22 +505,263 @@ class GetBucketRefererResult(RequestResult, BucketReferer):
         RequestResult.__init__(self, resp)
         BucketReferer.__init__(self, False, [])
 
+class Condition(object):
+    """ 匹配规则
+
+    :父节点: class `RoutingRule <oss2.models.RoutingRule>`
+    :param key_prefix_equals: 匹配object的前缀，
+    :type key_prefix_equals:  string str
+
+    :param http_err_code_return_equals: 匹配访问object时返回的status。
+    :type http_err_code_return_equals: int
+
+    :param include_header_list: 匹配指定的header
+    :type include_header_list: list of :class:`ConditionInlcudeHeader`
+    """
+    def __init__(self, key_prefix_equals=None, http_err_code_return_equals=None, include_header_list=None):
+        if (include_header_list is not None): 
+            if not isinstance(include_header_list, list):
+                raise ClientError('class of include_header should be list')
+            
+            if len(include_header_list) > 5:
+                raise ClientError('capacity of include_header_list should not > 5, please check!')
+
+        self.key_prefix_equals = key_prefix_equals
+        self.http_err_code_return_equals = http_err_code_return_equals
+        self.include_header_list = include_header_list or []
+
+
+class ConditionInlcudeHeader(object):
+    """ 指定匹配的header
+
+    :父节点: class `Condition <oss2.models.Condition>`
+    :param key: header key
+    :type key: str
+    :param key: header value
+    :type key: str
+    """
+    def __init__(self, key=None, equals= None):
+        self.key = key
+        self.equals = equals
+
+
+class Redirect(object):
+    """匹配规则之后执行的动作
+    
+    :父节点: class `RoutingRule <oss2.models.RoutingRule>`
+
+    :param redirect_type: 跳转类型, 取值为Mirror, External, Internal, AliCDN其中一个。
+    :type redirect_type: class: str
+
+    :param pass_query_string: 执行跳转或者镜像回源时，是否要携带发起请求的请求参数，默认false。
+    :type pass_query_string: bool
+
+    :param replace_key_with: Redirect的时候object name将替换成这个值，可以支持变量（目前支持的变量是${key}
+        当RedirectType为Internal, External或者AliCDN时有效。
+    :type replace_key_with: str
+
+    :param replace_key_prefix_with: Redirect的时候object name的前缀将替换成这个值。如果前缀为空则将这个字符串插入在object namde的最前面。
+        当RedirectType为Internal, External或者AliCDN时有效。
+    :type replace_key_prefix_with: str
+
+    :param proto: 跳转时的协议，只能取值为http或者https。
+        当RedirectType为External或者AliCDN时有效。
+    :type proto: class: str
+
+    :param host_name: 跳转时的域名
+        当RedirectType为External或者AliCDN时有效。
+    :type host_name: str
+
+    :param http_redirect_code: 跳转时返回的状态码，取值为301、302或307。
+        当RedirectType为External或者AliCDN时有效。
+    :type http_redirect_code: int （HTTP状态码）
+    
+    :mirror相关当参数只有当RedirectType为Mirror时有效。
+    
+    :param mirror_url: 镜像回源的源站地址，
+    :type mirror_url: str
+
+    :param mirror_url_slave: 镜像回源的备站地址
+    :type mirror_url_slave: str
+
+    :param mirror_url_probe: 主备切换模式的探测url，这个url需要代表主源站的健康程度，mirror_url_slave指定时，此项必须指定。
+    :type mirror_url_probe: str
+
+    :param mirror_pass_query_string: 作用同pass_query_string，默认false。
+    :type mirror_pass_query_string: bool
+
+    :param mirror_follow_redirect: 如果镜像回源获取的结果是3xx，是否要继续跳转到指定的Location获取数据。默认true。
+    :type mirror_follow_redirect: bool
+
+    :param mirror_check_md5: 是否要检查回源body的md5, 默认false。
+    :type mirror_check_md5: bool
+
+    :param mirror_headers: 指定匹配此规则后执行的动作。
+    :type mirror_headers: class:`RedirectMirrorHeaders <oss2.models.RedirectMirrorHeaders>`
+
+    """
+    def __init__(self, redirect_type=None, pass_query_string= None, replace_key_with=None, replace_key_prefix_with=None, 
+                    proto=None, host_name=None, http_redirect_code=None,  mirror_url=None, mirror_url_slave=None, 
+                    mirror_url_probe=None, mirror_pass_query_string=None, mirror_follow_redirect=None, 
+                    mirror_check_md5=None, mirror_headers=None):
+
+        if redirect_type not in [REDIRECT_TYPE_MIRROR, REDIRECT_TYPE_EXTERNAL, REDIRECT_TYPE_INTERNAL, REDIRECT_TYPE_ALICDN]:
+            raise ClientError('redirect_type must be Internal, External, Mirror or AliCDN.')
+
+        if redirect_type == REDIRECT_TYPE_INTERNAL:
+            if any((host_name, proto, http_redirect_code)):
+                 raise ClientError('host_name, proto, http_redirect_code must be empty when redirect_type is Internal.')
+
+        if redirect_type in [REDIRECT_TYPE_EXTERNAL, REDIRECT_TYPE_ALICDN]:
+            if http_redirect_code is not None:
+                if http_redirect_code < 300 or http_redirect_code > 399:
+                    raise ClientError("http_redirect_code must be a valid HTTP 3xx status code.")
+
+        if redirect_type in [REDIRECT_TYPE_EXTERNAL, REDIRECT_TYPE_ALICDN, REDIRECT_TYPE_INTERNAL]:
+            if all((replace_key_with, replace_key_prefix_with)):
+                raise ClientError("replace_key_with or replace_key_prefix_with only choose one.")
+
+        elif redirect_type == REDIRECT_TYPE_MIRROR: 
+            if any((proto, host_name, replace_key_with, replace_key_prefix_with, http_redirect_code)):
+                    raise ClientError('host_name, replace_key_with, replace_key_prefix_with, http_redirect_code and proto must be empty when redirect_type is Mirror.') 
+
+            if mirror_url is None:
+                raise ClientError('mirror_url should not be None when redirect_type is Mirror.')
+
+            if (not mirror_url.startswith('http://') and not mirror_url.startswith('https://')) or not mirror_url.endswith('/'):
+                raise ClientError(r'mirror_url is invalid, should startwith "http://" or "https://", and endwith "/"')
+
+            if mirror_url_slave is not None:
+                if mirror_url_probe is None:
+                    raise ClientError('mirror_url_probe should not be none when mirror_url_slave is indicated')
+
+                if (not mirror_url_slave.startswith('http://') and not mirror_url_slave.startswith('https://')) or not mirror_url_slave.endswith('/'):
+                    raise ClientError(r'mirror_url_salve is invalid, should startwith "http://" or "https://", and endwith "/"')
+
+        self.redirect_type = redirect_type
+        self.pass_query_string = pass_query_string
+        self.replace_key_with = replace_key_with
+        self.replace_key_prefix_with = replace_key_prefix_with
+        self.proto = proto
+        self.host_name = host_name
+        self.http_redirect_code = http_redirect_code
+        self.mirror_url = mirror_url
+        self.mirror_url_slave = mirror_url_slave
+        self.mirror_url_probe = mirror_url_probe
+        self.mirror_pass_query_string = mirror_pass_query_string
+        self.mirror_check_md5 = mirror_check_md5
+        self.mirror_follow_redirect = mirror_follow_redirect
+        self.mirror_headers = mirror_headers
+
+
+class RedirectMirrorHeaders(object):
+    """指定镜像回源时携带的header
+    
+    :父节点: class `Redirect <oss2.models.Redirect>`
+    :param pass_all: 是否透传请求中所有的header（除了保留的几个header以及以oss-/x-oss-/x-drs-开头的header）到源站。默认false
+    :type pass_all: bool
+
+    :param pass_list: 透传指定的header到源站，最多10个，只有在RedirectType为Mirror时生效
+    :type pass_list: list of str
+
+    :param remove_list: 禁止透传指定的header到源站，这个字段可以重复，最多10个
+    :type remove_list: list of str
+
+    :param set_list: 设置一个header传到源站，不管请求中是否携带这些指定的header，回源时都会设置这些header。
+        该容器可以重复，最多10组。只有在RedirectType为Mirror时生效。
+    :type set_list: list of :class:`MirrorHeadersSet <oss2.models.MirrorHeadersSet>`
+
+    """
+    def __init__(self,pass_all=None, pass_list=None, remove_list=None, set_list=None):
+        if pass_list is not None:
+            if not isinstance(pass_list, list):
+                raise ClientError('The class of pass_list should be list.')
+            
+            if len(pass_list) > 10:
+                raise ClientError('The capacity of pass_list should not > 10!')
+        
+        if remove_list is not None:
+            if not isinstance(remove_list, list):
+                raise ClientError('The class of remove_list should be list.')
+            
+            if len(remove_list) > 10:
+                raise ClientError('The capacity of remove_list should not > 10!')
+        
+        if set_list is not None:
+            if not isinstance(set_list, list):
+                raise ClientError('The class of set_list should be list.')
+            
+            if len(set_list) > 10:
+                raise ClientError('The capacity of set_list should not > 10!')
+
+        self.pass_all = pass_all
+        self.pass_list = pass_list or []
+        self.remove_list = remove_list or []
+        self.set_list = set_list or []
+  
+
+class MirrorHeadersSet(object):
+    """父节点: class `RedirectMirrorHeaders <oss2.models.RedirectMirrorHeaders>`
+    :param key:设置header的key，最多1024个字节，字符集与Pass相同。只有在RedirectType为Mirror时生效。
+    :type key: str
+
+    :param value:设置header的value，最多1024个字节，不能出现”\r\n” 。只有在RedirectType为Mirror时生效。
+    :type value: str
+    """
+    def __init__(self, key=None, value=None):
+        self.key = key
+        self.value = value
+
+
+class RoutingRule(object):
+    """设置静态网站托管模式中的跳转规则
+    :param rule_num: RoutingRule的序号, 必须为正整数
+    :type rule_num: int
+
+    :param condition: 匹配条件
+    :type condition: class:`Condition <oss2.models.Condition>`
+
+    :param redirect: 指定匹配此规则后执行的动作
+    :type redirect: class:`Redirect <oss2.models.Redirect>`
+    """
+    def __init__(self, rule_num=None, condition=None, redirect=None):
+        if (rule_num is None) or (not isinstance(rule_num, int)) or (rule_num <= 0):
+            raise ClientError('rule_num should be positive integer.')
+        
+        if(condition is None) or (redirect is None):
+            raise ClientError('condition and redirect should be effective.')
+        
+        if(redirect.redirect_type == REDIRECT_TYPE_MIRROR) and condition.http_err_code_return_equals != 404:
+            raise ClientError('http_err_code not match redirect_type, it should be 404!')
+
+        self.rule_num = rule_num
+        self.condition = condition
+        self.redirect = redirect
 
 class BucketWebsite(object):
     """静态网站托管配置。
 
     :param str index_file: 索引页面文件
     :param str error_file: 404页面文件
+    :param rules : list of class:`RoutingRule <oss2.models.RoutingRule>`
+    
     """
-    def __init__(self, index_file, error_file):
+    def __init__(self, index_file, error_file, rules=None):
+        if rules is not None:
+            if not isinstance(rules, list):
+                raise ClientError('rules class should be list.')
+            if len(rules) > 5:
+                raise ClientError('capacity of rules should not be > 5.')
+
         self.index_file = index_file
         self.error_file = error_file
+        self.rules = rules or []
 
 
 class GetBucketWebsiteResult(RequestResult, BucketWebsite):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
-        BucketWebsite.__init__(self, '', '')
+        BucketWebsite.__init__(self, '', '', [])
 
 
 class LifecycleExpiration(object):
