@@ -36,8 +36,19 @@ from .models import (SimplifiedObjectInfo,
                      ListObjectVersionsResult,
                      ObjectVersionInfo,
                      DeleteMarkerInfo,
-                     BatchDeleteObjectVersionResult)
-					 
+                     BatchDeleteObjectVersionResult,
+                     BucketWebsite,
+                     RoutingRule,
+                     Condition,
+                     ConditionInlcudeHeader,
+                     Redirect,
+                     RedirectMirrorHeaders,
+                     MirrorHeadersSet,
+                     REDIRECT_TYPE_MIRROR,
+                     REDIRECT_TYPE_EXTERNAL,
+                     REDIRECT_TYPE_INTERNAL,
+                     REDIRECT_TYPE_ALICDN)
+
 from .select_params import (SelectJsonTypes, SelectParameters)
 
 from .compat import urlunquote, to_unicode, to_string
@@ -324,12 +335,137 @@ def parse_get_bucket_referer(result, body):
 
     return result
 
+def parse_condition_include_header(include_header_node):
+    key = _find_tag(include_header_node, 'Key')
+    equals = _find_tag(include_header_node, 'Equals')
+    include_header = ConditionInlcudeHeader(key, equals)
 
-def parse_get_bucket_websiste(result, body):
+    return include_header
+
+def parse_routing_rule_condition(condition_node):
+    if condition_node.find('KeyPrefixEquals') is not None:
+        key_prefix_equals = _find_tag(condition_node, 'KeyPrefixEquals')
+    if condition_node.find('HttpErrorCodeReturnedEquals') is not None:
+        http_err_code_return_equals = _find_int(condition_node, 'HttpErrorCodeReturnedEquals');
+        
+    include_header_list = []
+    if condition_node.find('IncludeHeader') is not None:
+        for include_header_node in condition_node.findall('IncludeHeader'):
+            include_header = parse_condition_include_header(include_header_node)
+            include_header_list.append(include_header)
+
+    condition = Condition(key_prefix_equals, http_err_code_return_equals, include_header_list)
+
+    return condition
+
+def parse_mirror_headers(mirror_headers_node):
+    if mirror_headers_node is None:
+        return None
+    
+    pass_all = None
+    if mirror_headers_node.find('PassAll') is not None:
+        pass_all = _find_bool(mirror_headers_node, 'PassAll')
+    
+    pass_list = _find_all_tags(mirror_headers_node, 'Pass')
+    remove_list = _find_all_tags(mirror_headers_node, 'Remove')
+    set_list = []
+    for set_node in mirror_headers_node.findall('Set'):
+        key = _find_tag(set_node, 'Key')
+        value = _find_tag(set_node, 'Value')
+        mirror_headers_set = MirrorHeadersSet(key, value)
+        set_list.append(mirror_headers_set)
+
+    redirect_mirror_headers = RedirectMirrorHeaders(pass_all, pass_list, remove_list, set_list)
+
+    return redirect_mirror_headers
+
+def parse_routing_rule_redirect(redirect_node):
+    redirect_type = None
+    pass_query_string = None
+    replace_key_with = None
+    replace_key_prefix_with = None
+    proto = None
+    host_name = None
+    http_redirect_code = None
+    mirror_url = None
+    mirror_url_slave = None
+    mirror_url_probe = None
+    mirror_pass_query_string = None
+    mirror_check_md5 = None
+    mirror_follow_redirect = None
+    mirror_headers = None
+
+    # common args
+    redirect_type = _find_tag(redirect_node, 'RedirectType')
+
+    if redirect_node.find('PassQueryString') is not None:
+        pass_query_string = _find_bool(redirect_node, 'PassQueryString')
+
+    # External, AliCDN
+    if redirect_type in [REDIRECT_TYPE_EXTERNAL, REDIRECT_TYPE_ALICDN]:
+        if redirect_node.find('Protocol') is not None:
+            proto = _find_tag(redirect_node, 'Protocol')
+
+        if redirect_node.find('HostName') is not None:
+            host_name = _find_tag(redirect_node, 'HostName')
+
+        if redirect_node.find('HttpRedirectCode') is not None:
+            http_redirect_code = _find_int(redirect_node, 'HttpRedirectCode')
+
+    # External, AliCDN, Internal
+    if redirect_type in [REDIRECT_TYPE_EXTERNAL, REDIRECT_TYPE_ALICDN, REDIRECT_TYPE_INTERNAL]:
+        if redirect_node.find('ReplaceKeyWith') is not None:
+            replace_key_with = _find_tag(redirect_node, 'ReplaceKeyWith')
+        if redirect_node.find('ReplaceKeyPrefixWith') is not None:
+            replace_key_prefix_with = _find_tag(redirect_node, 'ReplaceKeyPrefixWith')
+
+    # Mirror
+    elif redirect_type == REDIRECT_TYPE_MIRROR:
+        if redirect_node.find('MirrorURL') is not None:
+            mirror_url = _find_tag(redirect_node, 'MirrorURL')
+
+        if redirect_node.find('MirrorURLSlave') is not None:
+            mirror_url_slave = _find_tag(redirect_node, 'MirrorURLSlave')
+
+        if redirect_node.find('MirrorURLProbe') is not None:
+            mirror_url_probe = _find_tag(redirect_node, 'MirrorURLProbe')
+
+        if redirect_node.find('MirrorPassQueryString') is not None:
+            mirror_pass_query_string = _find_bool(redirect_node, 'MirrorPassQueryString')
+
+        if redirect_node.find('MirrorCheckMd5') is not None:
+            mirror_check_md5 = _find_bool(redirect_node, 'MirrorCheckMd5')
+
+        if redirect_node.find('MirrorFollowRedirect') is not None:
+            mirror_follow_redirect = _find_bool(redirect_node, 'MirrorFollowRedirect')
+
+        mirror_headers = parse_mirror_headers(redirect_node.find('MirrorHeaders'))
+
+    redirect = Redirect(redirect_type=redirect_type, proto=proto, host_name=host_name, replace_key_with=replace_key_with, 
+                    replace_key_prefix_with=replace_key_prefix_with, http_redirect_code=http_redirect_code, 
+                    pass_query_string=pass_query_string, mirror_url=mirror_url,mirror_url_slave=mirror_url_slave, 
+                    mirror_url_probe=mirror_url_probe, mirror_pass_query_string=mirror_pass_query_string, 
+                    mirror_follow_redirect=mirror_follow_redirect, mirror_check_md5=mirror_check_md5, 
+                    mirror_headers=mirror_headers)
+
+    return redirect
+
+def parse_get_bucket_website(result, body):
     root = ElementTree.fromstring(body)
-
     result.index_file = _find_tag(root, 'IndexDocument/Suffix')
     result.error_file = _find_tag(root, 'ErrorDocument/Key')
+
+    if root.find('RoutingRules') is None:
+        return result
+
+    routing_rules_node = root.find('RoutingRules')
+
+    for rule_node in routing_rules_node.findall('RoutingRule'):
+        rule_num = _find_int(rule_node, 'RuleNumber')
+        condition = parse_routing_rule_condition(rule_node.find('Condition'))
+        redirect = parse_routing_rule_redirect(rule_node.find('Redirect'))
+        rule = RoutingRule(rule_num, condition, redirect);
+        result.rules.append(rule)
 
     return result
 
@@ -604,14 +740,91 @@ def to_put_bucket_referer(bucket_referer):
     return _node_to_string(root)
 
 
-def to_put_bucket_website(bucket_websiste):
+def to_put_bucket_website(bucket_website):
     root = ElementTree.Element('WebsiteConfiguration')
 
     index_node = ElementTree.SubElement(root, 'IndexDocument')
-    _add_text_child(index_node, 'Suffix', bucket_websiste.index_file)
+    _add_text_child(index_node, 'Suffix', bucket_website.index_file)
 
     error_node = ElementTree.SubElement(root, 'ErrorDocument')
-    _add_text_child(error_node, 'Key', bucket_websiste.error_file)
+    _add_text_child(error_node, 'Key', bucket_website.error_file)
+
+    if len(bucket_website.rules) == 0:
+        return _node_to_string(root)
+
+    rules_node = ElementTree.SubElement(root, "RoutingRules")
+
+    for rule in bucket_website.rules:
+        rule_node = ElementTree.SubElement(rules_node, 'RoutingRule')
+        _add_text_child(rule_node, 'RuleNumber', str(rule.rule_num))
+
+        condition_node = ElementTree.SubElement(rule_node, 'Condition')
+        
+        if rule.condition.key_prefix_equals is not None:
+            _add_text_child(condition_node, 'KeyPrefixEquals', rule.condition.key_prefix_equals)
+        if rule.condition.http_err_code_return_equals is not None:    
+            _add_text_child(condition_node, 'HttpErrorCodeReturnedEquals', 
+                str(rule.condition.http_err_code_return_equals))
+       
+        for header in rule.condition.include_header_list:
+            include_header_node = ElementTree.SubElement(condition_node, 'IncludeHeader')
+            _add_text_child(include_header_node, 'Key', header.key)
+            _add_text_child(include_header_node, 'Equals', header.equals)
+
+        if rule.redirect is not None:    
+            redirect_node = ElementTree.SubElement(rule_node, 'Redirect')
+
+            # common
+            _add_text_child(redirect_node, 'RedirectType', rule.redirect.redirect_type)
+            
+            if rule.redirect.pass_query_string is not None:
+                _add_text_child(redirect_node, 'PassQueryString', str(rule.redirect.pass_query_string))          
+
+            # External, AliCDN
+            if rule.redirect.redirect_type in [REDIRECT_TYPE_EXTERNAL, REDIRECT_TYPE_ALICDN]:
+                if rule.redirect.proto is not None:
+                    _add_text_child(redirect_node, 'Protocol', rule.redirect.proto)
+                if rule.redirect.host_name is not None:
+                    _add_text_child(redirect_node, 'HostName', rule.redirect.host_name)
+                if rule.redirect.http_redirect_code is not None:
+                    _add_text_child(redirect_node, 'HttpRedirectCode', str(rule.redirect.http_redirect_code))
+
+            # External, AliCDN, Internal
+            if rule.redirect.redirect_type in [REDIRECT_TYPE_EXTERNAL, REDIRECT_TYPE_ALICDN, REDIRECT_TYPE_INTERNAL]:
+                if rule.redirect.replace_key_with is not None:
+                    _add_text_child(redirect_node, 'ReplaceKeyWith', rule.redirect.replace_key_with)
+                if rule.redirect.replace_key_prefix_with is not None:
+                    _add_text_child(redirect_node, 'ReplaceKeyPrefixWith', rule.redirect.replace_key_prefix_with)  
+
+            # Mirror
+            elif rule.redirect.redirect_type == REDIRECT_TYPE_MIRROR: 
+                if rule.redirect.mirror_url is not None:
+                    _add_text_child(redirect_node, 'MirrorURL', rule.redirect.mirror_url)
+                if rule.redirect.mirror_url_slave is not None:
+                    _add_text_child(redirect_node, 'MirrorURLSlave', rule.redirect.mirror_url_slave)
+                if rule.redirect.mirror_url_probe is not None:
+                    _add_text_child(redirect_node, 'MirrorURLProbe', rule.redirect.mirror_url_probe)
+                if rule.redirect.mirror_pass_query_string is not None:
+                    _add_text_child(redirect_node, 'MirrorPassQueryString', str(rule.redirect.mirror_pass_query_string))
+                if rule.redirect.mirror_follow_redirect is not None:
+                    _add_text_child(redirect_node, 'MirrorFollowRedirect', str(rule.redirect.mirror_follow_redirect))
+                if rule.redirect.mirror_check_md5 is not None:
+                    _add_text_child(redirect_node, 'MirrorCheckMd5', str(rule.redirect.mirror_check_md5))
+
+                if rule.redirect.mirror_headers is not None:
+                    mirror_headers_node = ElementTree.SubElement(redirect_node, 'MirrorHeaders')
+
+                    if rule.redirect.mirror_headers.pass_all is not None:
+                        _add_text_child(mirror_headers_node, 'PassAll', str(rule.redirect.mirror_headers.pass_all))
+
+                    for pass_param in rule.redirect.mirror_headers.pass_list:
+                        _add_text_child(mirror_headers_node, 'Pass', pass_param)   
+                    for remove_param in rule.redirect.mirror_headers.remove_list:
+                        _add_text_child(mirror_headers_node, 'Remove', remove_param)
+                    for set_param in rule.redirect.mirror_headers.set_list:
+                        set_node = ElementTree.SubElement(mirror_headers_node, 'Set')
+                        _add_text_child(set_node, 'Key', set_param.key)
+                        _add_text_child(set_node, 'Value', set_param.value)
 
     return _node_to_string(root)
 

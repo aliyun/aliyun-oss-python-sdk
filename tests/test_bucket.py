@@ -103,39 +103,6 @@ class TestBucket(OssTestCase):
 
         other_bucket.delete_bucket()
 
-    def test_website(self):
-        key = self.random_key('/')
-        content = random_bytes(32)
-
-        self.bucket.put_object('index.html', content)
-
-        # 设置index页面和error页面
-        self.bucket.put_bucket_website(oss2.models.BucketWebsite('index.html', 'error.html'))
-        wait_meta_sync()
-
-        def same_website(website, index, error):
-            return website.index_file == index and website.error_file == error
-
-        # 验证index页面和error页面
-        self.retry_assert(lambda: same_website(self.bucket.get_bucket_website(), 'index.html', 'error.html'))
-
-        # 验证读取目录会重定向到index页面
-        result = self.bucket.get_object(key)
-        self.assertEqual(result.read(), content)
-
-        self.bucket.delete_object('index.html')
-
-        # 中文
-        for index, error in [('index+中文.html', 'error.中文'), (u'index+中文.html', u'error.中文')]:
-            self.bucket.put_bucket_website(oss2.models.BucketWebsite(index, error))
-            self.retry_assert(lambda: same_website(self.bucket.get_bucket_website(), to_string(index), to_string(error)))
-
-        # 关闭静态网站托管模式
-        self.bucket.delete_bucket_website()
-        self.bucket.delete_bucket_website()
-
-        self.assertRaises(oss2.exceptions.NoSuchWebsite, self.bucket.get_bucket_website)
-
     @staticmethod
     def same_lifecycle(orig_rule, bucket):
         try:
