@@ -12,7 +12,6 @@ from oss2.compat import is_py2, is_py33
 
 
 class TestMultipart(OssTestCase):
-    '''
     def do_multipart_internal(self, do_md5):
         key = self.random_key()
         content = random_bytes(128 * 1024)
@@ -335,7 +334,6 @@ class TestMultipart(OssTestCase):
             bucket.delete_bucket()
         except:
             self.assertFalse(True, "should not get a exception")
-    '''
 
     def test_crypto_multipart_upload(self):
         for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:

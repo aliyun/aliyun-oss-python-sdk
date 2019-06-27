@@ -14,6 +14,7 @@ from . import iterators
 from . import exceptions
 from . import defaults
 from .api import Bucket
+from .crypto_bucket import CryptoBucket
 
 from .models import PartInfo
 from .compat import json, stringify, to_unicode, to_string
@@ -68,7 +69,7 @@ def resumable_upload(bucket, key, filename,
     multipart_threshold = defaults.get(multipart_threshold, defaults.multipart_threshold)
 
     logger.debug("The size of file to upload is: {0}, multipart_threshold: {1}".format(size, multipart_threshold))
-    if isinstance(bucket, Bucket) and size >= multipart_threshold:
+    if size >= multipart_threshold:
         uploader = _ResumableUploader(bucket, key, filename, size, store,
                                       part_size=part_size,
                                       headers=headers,
@@ -129,20 +130,17 @@ def resumable_download(bucket, key, filename,
                                                            multiget_threshold, part_size, num_threads))
     multiget_threshold = defaults.get(multiget_threshold, defaults.multiget_threshold)
 
-    if isinstance(bucket, Bucket):
-        result = bucket.head_object(key, params=params)
-        logger.debug("The size of object to download is: {0}, multiget_threshold: {1}".format(result.content_length,
+    result = bucket.head_object(key, params=params)
+    logger.debug("The size of object to download is: {0}, multiget_threshold: {1}".format(result.content_length,
                                                                                               multiget_threshold))
-        if result.content_length >= multiget_threshold:
-            downloader = _ResumableDownloader(bucket, key, filename, _ObjectInfo.make(result),
-                                              part_size=part_size,
-                                              progress_callback=progress_callback,
-                                              num_threads=num_threads,
-                                              store=store,
-                                              params=params)
-            downloader.download(result.server_crc)
-        else:
-            bucket.get_object_to_file(key, filename, progress_callback=progress_callback, params=params)
+    if result.content_length >= multiget_threshold:
+        downloader = _ResumableDownloader(bucket, key, filename, _ObjectInfo.make(result),
+                                          part_size=part_size,
+                                          progress_callback=progress_callback,
+                                          num_threads=num_threads,
+                                          store=store,
+                                          params=params)
+        downloader.download(result.server_crc)
     else:
         bucket.get_object_to_file(key, filename, progress_callback=progress_callback, params=params)
 
@@ -169,14 +167,10 @@ def _determine_part_size_internal(total_size, preferred_size, max_count):
     if total_size < preferred_size:
         return total_size
 
-    if preferred_size * max_count < total_size:
-        if total_size % max_count:
-            # There seems to be problems in this place, the value should be byte alignment.
-            return total_size // max_count + 1
-        else:
-            return total_size // max_count
-    else:
-        return preferred_size
+    while preferred_size * max_count < total_size or preferred_size < defaults.min_part_size:
+        preferred_size = preferred_size * 2
+
+    return preferred_size
 
 
 def _split_to_parts(total_size, part_size):
@@ -313,9 +307,10 @@ class _ResumableDownloader(_ResumableOperation):
         with open(self.__tmp_file, 'rb+') as f:
             f.seek(part.start, os.SEEK_SET)
 
-            headers = {IF_MATCH : self.objectInfo.etag,
-                       IF_UNMODIFIED_SINCE : utils.http_date(self.objectInfo.mtime)}
-            result = self.bucket.get_object(self.key, byte_range=(part.start, part.end - 1), headers=headers, params=self.__params)
+            headers = {IF_MATCH: self.objectInfo.etag,
+                       IF_UNMODIFIED_SINCE: utils.http_date(self.objectInfo.mtime)}
+            result = self.bucket.get_object(self.key, byte_range=(part.start, part.end - 1), headers=headers,
+                                            params=self.__params)
             utils.copyfileobj_and_verify(result, f, part.end - part.start, request_id=result.request_id)
 
         part.part_crc = result.client_crc
@@ -526,7 +521,11 @@ class _ResumableUploader(_ResumableOperation):
             part_size = determine_part_size(self.size, self.__part_size)
             logger.debug("Upload File size: {0}, User-specify part_size: {1}, Calculated part_size: {2}".format(
                 self.size, self.__part_size, part_size))
-            upload_id = self.bucket.init_multipart_upload(self.key, headers=self.__headers).upload_id
+            if isinstance(self.bucket, CryptoBucket):
+                upload_id = self.bucket.init_multipart_upload(self.key, self.size, part_size,
+                                                              headers=self.__headers).upload_id
+            else:
+                upload_id = self.bucket.init_multipart_upload(self.key, headers=self.__headers).upload_id
             record = {'upload_id': upload_id, 'mtime': self.__mtime, 'size': self.size, 'parts': [],
                       'abspath': self._abspath, 'bucket': self.bucket.bucket_name, 'key': self.key,
                       'part_size': part_size}

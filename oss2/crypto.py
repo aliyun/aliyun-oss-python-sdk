@@ -10,6 +10,7 @@ import abc
 import hashlib
 import json
 import os
+import copy
 from functools import partial
 
 import six
@@ -160,7 +161,7 @@ class LocalRsaProvider(BaseCryptoProvider):
         encrypted_key = self.__encrypt_data(plain_key)
         plain_start = self.get_start()
         encrypted_start = self.__encrypt_data(to_bytes(str(plain_start)))
-        cipher = self.cipher
+        cipher = copy.copy(self.cipher)
         wrap_alg = self.wrap_alg
         mat_desc = self.mat_desc
         cipher.initialize(plain_key, plain_start)
@@ -222,7 +223,7 @@ class AliKMSProvider(BaseCryptoProvider):
         plain_key, encrypted_key = self.get_key()
         plain_start = self.get_start()
         encrypted_start = self.__encrypt_data(to_bytes(str(plain_start)))
-        cipher = self.cipher
+        cipher = copy.copy(self.cipher)
         wrap_alg = self.wrap_alg
         mat_desc = self.mat_desc
         cipher.initialize(plain_key, plain_start)

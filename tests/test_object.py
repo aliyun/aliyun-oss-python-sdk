@@ -2301,7 +2301,9 @@ class TestObject(OssTestCase):
     # 测试CryptoBucket类的Copy方法，修改加密元数据抛出异常
     def test_copy_crypto_object_with_replace_encryption_meta(self):
         for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
-            key = self.random_key('.js')
+            key = self.random_key()
+            dest_key = key + "-dest"
+
             content = random_bytes(1024)
 
             self.assertRaises(NotFound, crypto_bucket.head_object, key)
@@ -2313,15 +2315,15 @@ class TestObject(OssTestCase):
             headers = {'content-md5': oss2.utils.md5_string(content),
                        'content-length': str(len(content)),
                        'x-oss-metadata-directive': 'REPLACE',
-                       'x-oss-client-side-encryption-key': random_string(16)}
+                       'x-oss-meta-client-side-encryption-key': random_string(16)}
             self.assertRaises(oss2.exceptions.InvalidEncryptionRequest, crypto_bucket.copy_object,
-                              self.bucket.bucket_name, key, key, headers=headers)
+                              self.bucket.bucket_name, key, dest_key, headers=headers)
 
             # copy mode, will ignore
             headers = {'content-md5': oss2.utils.md5_string(content),
                        'content-length': str(len(content)),
-                       'x-oss-client-side-encryption-key': random_string(16)}
-            result = crypto_bucket.copy_object(crypto_bucket.bucket_name, key, key, headers=headers)
+                       'x-oss-meta-client-side-encryption-key': random_string(16)}
+            result = crypto_bucket.copy_object(crypto_bucket.bucket_name, key, dest_key, headers=headers)
             self.assertTrue(result.status == 200)
 
             result = crypto_bucket.get_object(key)

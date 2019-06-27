@@ -14,6 +14,7 @@ from .select_response import SelectResponseAdapter
 from .headers import *
 import json
 import logging
+import copy
 from requests.structures import CaseInsensitiveDict
 
 logger = logging.getLogger(__name__)
@@ -123,8 +124,6 @@ class ContentCryptoMaterial(object):
         if self.encrypted_key and self.encrypted_start and self.cek_alg and self.wrap_alg:
             return False
         return True
-
-
 
 
 class MultipartUploadCryptoContext(object):
@@ -263,9 +262,9 @@ class GetObjectResult(HeadObjectResult):
                 start, end = self.__crypto_provider.adjust_range(byte_range[0], byte_range[1])
                 counter = content_crypto_material.cipher.calc_counter(start)
 
-            content_crypto_material.cipher.initialize(plain_key, plain_start + counter)
-            self.stream = self.__crypto_provider.make_decrypt_adapter(self.stream, content_crypto_material.cipher,
-                                                                      discard)
+            cipher = copy.copy(content_crypto_material.cipher)
+            cipher.initialize(plain_key, plain_start + counter)
+            self.stream = self.__crypto_provider.make_decrypt_adapter(self.stream, cipher, discard)
         else:
             if OSS_CLIENT_SIDE_ENCRYPTION_KEY in resp.headers or DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY in resp.headers:
                 raise ClientError('Could not use bucket to decrypt an encrypted object')

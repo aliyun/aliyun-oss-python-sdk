@@ -9,6 +9,7 @@ from .models import *
 from .compat import to_string, urlsplit, parse_qs
 from .crypto import BaseCryptoProvider
 from .exceptions import ClientError
+import copy
 
 logger = logging.getLogger(__name__)
 
@@ -294,6 +295,12 @@ class CryptoBucket(Bucket):
             raise ClientError("Could not find upload context, please check the upload_id!")
 
         content_crypto_material = context.content_crypto_material
+
+        if content_crypto_material.cek_alg != self.crypto_provider.cipher.alg or content_crypto_material.wrap_alg != \
+                self.crypto_provider.wrap_alg:
+            err_msg = 'Envelope or data encryption/decryption algorithm is inconsistent'
+            raise InconsistentError(err_msg, self)
+
         if content_crypto_material.encrypted_magic_number_hmac:
             self.crypto_provider.check_magic_number_hmac(content_crypto_material.encrypted_magic_number_hmac)
         headers = content_crypto_material.to_object_meta(headers, context)
@@ -304,8 +311,9 @@ class CryptoBucket(Bucket):
         offset = context.part_size * (part_number - 1)
         counter = self.crypto_provider.cipher.calc_counter(offset)
 
-        content_crypto_material.cipher.initialize(plain_key, int(plain_start) + counter)
-        data = self.crypto_provider.make_encrypt_adapter(data, content_crypto_material.cipher)
+        cipher = copy.copy(content_crypto_material.cipher)
+        cipher.initialize(plain_key, int(plain_start) + counter)
+        data = self.crypto_provider.make_encrypt_adapter(data, cipher)
         resp = super(CryptoBucket, self).upload_part(key, upload_id, part_number, data, progress_callback, headers)
 
         return resp
