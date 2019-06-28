@@ -98,8 +98,7 @@ class OssTestCase(unittest.TestCase):
             pass
 
         self.rsa_crypto_bucket = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT,
-                                                   OSS_BUCKET,
-                                                   crypto_provider=oss2.LocalRsaProvider())
+                                                   OSS_BUCKET, crypto_provider=oss2.LocalRsaProvider())
 
         self.kms_crypto_bucket = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT,
                                                    OSS_BUCKET, crypto_provider=oss2.AliKMSProvider(OSS_ID, OSS_SECRET,

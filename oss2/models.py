@@ -71,7 +71,7 @@ class ContentCryptoMaterial(object):
             headers[OSS_CLIENT_SIDE_ENCRYPTION_START] = b64encode_as_string(self.encrypted_start)
         headers[OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG] = self.cek_alg
         headers[OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG] = self.wrap_alg
-        if self.encrypted_magic_number_hmac:
+        if self.encrypted_magic_number_hmac is not None:
             headers[OSS_CLIENT_SIDE_ENCRYPTION_MAGIC_NUMBER_HMAC] = b64encode_as_string(
                 self.encrypted_magic_number_hmac)
 

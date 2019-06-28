@@ -1,33 +1,27 @@
 __version__ = '2.6.2'
 
+import logging
+
 from . import models, exceptions
-
-from .compat import to_bytes
 from .api import Service, Bucket
-from .crypto_bucket import CryptoBucket
 from .auth import Auth, AuthV2, AnonymousAuth, StsAuth, AUTH_VERSION_1, AUTH_VERSION_2, make_auth
-
+from .compat import to_bytes, to_string
+from .crypto import LocalRsaProvider, AliKMSProvider
+from .crypto_bucket import CryptoBucket
 from .iterators import (BucketIterator, ObjectIterator,
                         MultipartUploadIterator, ObjectUploadIterator,
                         PartIterator, LiveChannelIterator)
-
-
-from .resumable import resumable_upload, resumable_download, ResumableStore, ResumableDownloadStore, determine_part_size
+from .models import BUCKET_ACL_PRIVATE, BUCKET_ACL_PUBLIC_READ, BUCKET_ACL_PUBLIC_READ_WRITE, \
+    SERVER_SIDE_ENCRYPTION_AES256, SERVER_SIDE_ENCRYPTION_KMS
+from .models import BUCKET_STORAGE_CLASS_STANDARD, BUCKET_STORAGE_CLASS_IA, BUCKET_STORAGE_CLASS_ARCHIVE
+from .models import BUCKET_VERSIONING_ENABLE, BUCKET_VERSIONING_SUSPEND
+from .models import OBJECT_ACL_DEFAULT, OBJECT_ACL_PRIVATE, OBJECT_ACL_PUBLIC_READ, OBJECT_ACL_PUBLIC_READ_WRITE
 from .resumable import make_upload_store, make_download_store
-
-
+from .resumable import resumable_upload, resumable_download, ResumableStore, ResumableDownloadStore, determine_part_size
 from .utils import SizedFileAdapter, make_progress_adapter
 from .utils import content_type_by_name, is_valid_bucket_name
 from .utils import http_date, http_to_unixtime, iso8601_to_unixtime, date_to_iso8601, iso8601_to_date
-
-
-from .models import BUCKET_ACL_PRIVATE, BUCKET_ACL_PUBLIC_READ, BUCKET_ACL_PUBLIC_READ_WRITE, SERVER_SIDE_ENCRYPTION_AES256, SERVER_SIDE_ENCRYPTION_KMS
-from .models import OBJECT_ACL_DEFAULT, OBJECT_ACL_PRIVATE, OBJECT_ACL_PUBLIC_READ, OBJECT_ACL_PUBLIC_READ_WRITE
-from .models import BUCKET_STORAGE_CLASS_STANDARD, BUCKET_STORAGE_CLASS_IA, BUCKET_STORAGE_CLASS_ARCHIVE
-from .models import BUCKET_VERSIONING_ENABLE, BUCKET_VERSIONING_SUSPEND 
-
-from .crypto import LocalRsaProvider, AliKMSProvider
-import logging
+from .http import CaseInsensitiveDict,Session
 
 logger = logging.getLogger('oss2')
 

@@ -106,7 +106,6 @@ class CryptoBucket(Bucket):
         """
         raise ClientError("The operation is not support for CryptoBucket now")
 
-
     def append_object(self, key, position, data,
                       headers=None,
                       progress_callback=None,
@@ -300,8 +299,8 @@ class CryptoBucket(Bucket):
                 self.crypto_provider.wrap_alg:
             err_msg = 'Envelope or data encryption/decryption algorithm is inconsistent'
             raise InconsistentError(err_msg, self)
-
-        if content_crypto_material.encrypted_magic_number_hmac:
+     
+        if content_crypto_material.encrypted_magic_number_hmac is not None:
             self.crypto_provider.check_magic_number_hmac(content_crypto_material.encrypted_magic_number_hmac)
         headers = content_crypto_material.to_object_meta(headers, context)
 
@@ -416,6 +415,9 @@ class CryptoBucket(Bucket):
                                                                 resp.client_encryption_wrap_alg,
                                                                 resp.client_encryption_key,
                                                                 resp.client_encryption_start)
+                if resp.client_encryption_magic_number_hmac:
+                    content_crypto_material.encrypted_magic_number_hmac = b64decode_from_string(
+                        resp.client_encryption_magic_number_hmac)
                 context = MultipartUploadCryptoContext(content_crypto_material,
                                                        resp.client_encryption_data_size,
                                                        resp.client_encryption_part_size)
