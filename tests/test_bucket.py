@@ -4,7 +4,7 @@
 import datetime
 import json
 
-from common import *
+from .common import *
 from oss2 import to_string
 
 

@@ -2,7 +2,7 @@
 
 import requests
 
-from common import *
+from .common import *
 
 if oss2.compat.is_py2:
     from aliyunsdkcore import client
