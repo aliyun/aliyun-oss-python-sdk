@@ -14,7 +14,7 @@ import locale
 import io
 from functools import partial
 
-from common import *
+from .common import *
 
 import logging
 

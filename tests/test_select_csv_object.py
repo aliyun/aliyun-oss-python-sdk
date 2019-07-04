@@ -8,7 +8,7 @@ import sys
 
 from oss2.exceptions import (ClientError, RequestError, NoSuchBucket,
                              NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable, SelectOperationFailed, SelectOperationClientError)
-from common import *
+from .common import *
 
 from oss2.select_response import SelectResponseAdapter
 

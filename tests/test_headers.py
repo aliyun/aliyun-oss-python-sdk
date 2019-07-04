@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from common import *
+from .common import *
 from oss2.headers import *
 
 

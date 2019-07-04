@@ -5,7 +5,7 @@ import oss2
 import socket
 import sys
 
-from common import *
+from .common import *
 
 
 class TestApiBase(OssTestCase):
