@@ -15,6 +15,7 @@ from . import exceptions
 from . import defaults
 from .api import Bucket
 from .crypto_bucket import CryptoBucket
+from .iterators import PartIterator
 
 from .models import PartInfo
 from .compat import json, stringify, to_unicode, to_string
@@ -132,7 +133,7 @@ def resumable_download(bucket, key, filename,
 
     result = bucket.head_object(key, params=params)
     logger.debug("The size of object to download is: {0}, multiget_threshold: {1}".format(result.content_length,
-                                                                                              multiget_threshold))
+                                                                                          multiget_threshold))
     if result.content_length >= multiget_threshold:
         downloader = _ResumableDownloader(bucket, key, filename, _ObjectInfo.make(result),
                                           part_size=part_size,
@@ -250,7 +251,7 @@ class _ResumableDownloader(_ResumableOperation):
                                                    store or ResumableDownloadStore(),
                                                    progress_callback=progress_callback)
         self.objectInfo = objectInfo
-
+        self.__op = 'ResumableDownload'
         self.__part_size = defaults.get(part_size, defaults.multiget_part_size)
         self.__part_size = _determine_part_size_internal(self.size, self.__part_size, _MAX_MULTIGET_PART_COUNT)
 
@@ -323,7 +324,7 @@ class _ResumableDownloader(_ResumableOperation):
         record = self._get_record()
         logger.debug("Load record return {0}".format(record))
 
-        if record and not self.is_record_sane(record):
+        if record and not self.__is_record_sane(record):
             logger.warn("The content of record is invalid, delete the record")
             self._del_record()
             record = None
@@ -341,9 +342,9 @@ class _ResumableDownloader(_ResumableOperation):
             record = None
 
         if not record:
-            record = {'mtime': self.objectInfo.mtime, 'etag': self.objectInfo.etag, 'size': self.objectInfo.size,
-                      'bucket': self.bucket.bucket_name, 'key': self.key, 'part_size': self.__part_size,
-                      'tmp_suffix': self.__gen_tmp_suffix(), 'abspath': self._abspath,
+            record = {'op_type': self.__op, 'bucket': self.bucket.bucket_name, 'key': self.key,
+                      'size': self.objectInfo.size, 'mtime': self.objectInfo.mtime, 'etag': self.objectInfo.etag,
+                      'part_size': self.__part_size, 'file_path': self._abspath, 'tmp_suffix': self.__gen_tmp_suffix(),
                       'parts': []}
             logger.debug('Add new record, bucket: {0}, key: {1}, part_size: {2}'.format(
                 self.bucket.bucket_name, self.key, self.__part_size))
@@ -364,10 +365,13 @@ class _ResumableDownloader(_ResumableOperation):
 
         return sorted(list(all_set - finished_set), key=lambda p: p.part_number)
 
-    @staticmethod
-    def is_record_sane(record):
+    def __is_record_sane(self, record):
         try:
-            for key in ('etag', 'tmp_suffix', 'abspath', 'bucket', 'key'):
+            if record['op_type'] != self.__op:
+                logger.error('op_type invalid, op_type in record:{0} is invalid'.format(record['op_type']))
+                return False
+
+            for key in ('etag', 'tmp_suffix', 'file_path', 'bucket', 'key'):
                 if not isinstance(record[key], str):
                     logger.error('{0} is not a string: {1}'.format(key, record[key]))
                     return False
@@ -430,6 +434,7 @@ class _ResumableUploader(_ResumableOperation):
                                                  store or ResumableStore(),
                                                  progress_callback=progress_callback)
 
+        self.__op = 'ResumableUpload'
         self.__headers = headers
         self.__part_size = defaults.get(part_size, defaults.part_size)
 
@@ -494,15 +499,11 @@ class _ResumableUploader(_ResumableOperation):
             self.__finished_parts.append(part_info)
             self.__finished_size += part_info.size
 
-            self.__record['parts'].append(
-                {'part_number': part_info.part_number, 'etag': part_info.etag, 'part_crc': part_info.part_crc})
-            self._put_record(self.__record)
-
     def __load_record(self):
         record = self._get_record()
         logger.debug("Load record return {0}".format(record))
 
-        if record and not _is_record_sane(record):
+        if record and not self.__is_record_sane(record):
             logger.warn("The content of record is invalid, delete the record")
             self._del_record()
             record = None
@@ -526,9 +527,8 @@ class _ResumableUploader(_ResumableOperation):
                                                               headers=self.__headers).upload_id
             else:
                 upload_id = self.bucket.init_multipart_upload(self.key, headers=self.__headers).upload_id
-            record = {'upload_id': upload_id, 'mtime': self.__mtime, 'size': self.size, 'parts': [],
-                      'abspath': self._abspath, 'bucket': self.bucket.bucket_name, 'key': self.key,
-                      'part_size': part_size}
+            record = {'op_type': self.__op, 'upload_id': upload_id, 'file_path': self._abspath, 'size': self.size,
+                      'mtime': self.__mtime, 'bucket': self.bucket.bucket_name, 'key': self.key, 'part_size': part_size}
 
             logger.debug('Add new record, bucket: {0}, key: {1}, upload_id: {2}, part_size: {3}'.format(
                 self.bucket.bucket_name, self.key, upload_id, part_size))
@@ -541,18 +541,9 @@ class _ResumableUploader(_ResumableOperation):
         self.__finished_size = sum(p.size for p in self.__finished_parts)
 
     def __get_finished_parts(self):
-        last_part_number = utils.how_many(self.size, self.__part_size)
-
         parts = []
-
-        for p in self.__record['parts']:
-            part_info = PartInfo(int(p['part_number']), p['etag'], part_crc=p['part_crc'])
-            if part_info.part_number == last_part_number:
-                part_info.size = self.size % self.__part_size
-            else:
-                part_info.size = self.__part_size
-
-            parts.append(part_info)
+        for part in PartIterator(self.bucket, self.key, self.__upload_id):
+            parts.append(part)
 
         return parts
 
@@ -579,6 +570,33 @@ class _ResumableUploader(_ResumableOperation):
                 del all_parts_map[uploaded.part_number]
 
         return all_parts_map.values()
+
+    def __is_record_sane(self, record):
+        try:
+            if record['op_type'] != self.__op:
+                logger.error('op_type invalid, op_type in record:{0} is invalid'.format(record['op_type']))
+                return False
+
+            for key in ('upload_id', 'file_path', 'bucket', 'key'):
+                if not isinstance(record[key], str):
+                    logger.error('Type Error, {0} in record is not a string type: {1}'.format(key, record[key]))
+                    return False
+
+            for key in ('size', 'part_size'):
+                if not isinstance(record[key], int):
+                    logger.error('Type Error, {0} in record is not an integer type: {1}'.format(key, record[key]))
+                    return False
+
+            if not isinstance(record['mtime'], int) and not isinstance(record['mtime'], float):
+                logger.error(
+                    'Type Error, mtime in record is not a float or an integer type: {0}'.format(record['mtime']))
+                return False
+
+        except KeyError as e:
+            logger.error('Key not found: {0}'.format(e.args))
+            return False
+
+        return True
 
 
 _UPLOAD_TEMP_DIR = '.py-oss-upload'
@@ -655,7 +673,7 @@ class ResumableStore(_ResumableStoreBase):
         filepath = _normalize_path(filename)
 
         oss_pathname = 'oss://{0}/{1}'.format(bucket_name, key)
-        return utils.md5_string(oss_pathname) + '-' + utils.md5_string(filepath)
+        return utils.md5_string(oss_pathname) + '--' + utils.md5_string(filepath)
 
 
 class ResumableDownloadStore(_ResumableStoreBase):
@@ -675,7 +693,7 @@ class ResumableDownloadStore(_ResumableStoreBase):
         filepath = _normalize_path(filename)
 
         oss_pathname = 'oss://{0}/{1}'.format(bucket_name, key)
-        return utils.md5_string(oss_pathname) + '-' + utils.md5_string(filepath) + '-download'
+        return utils.md5_string(oss_pathname) + '--' + utils.md5_string(filepath)
 
 
 def make_upload_store(root=None, dir=None):
@@ -684,53 +702,6 @@ def make_upload_store(root=None, dir=None):
 
 def make_download_store(root=None, dir=None):
     return ResumableDownloadStore(root=root, dir=dir)
-
-
-def _rebuild_record(filename, store, bucket, key, upload_id, part_size=None):
-    abspath = os.path.abspath(filename)
-    mtime = os.path.getmtime(filename)
-    size = os.path.getsize(filename)
-
-    store_key = store.make_store_key(bucket.bucket_name, key, abspath)
-    record = {'upload_id': upload_id, 'mtime': mtime, 'size': size, 'parts': [],
-              'abspath': abspath, 'key': key}
-
-    for p in iterators.PartIterator(bucket, key, upload_id):
-        record['parts'].append({'part_number': p.part_number,
-                                'etag': p.etag, 'part_crc': p.part_crc})
-
-        if not part_size:
-            part_size = p.size
-
-    record['part_size'] = part_size
-
-    store.put(store_key, record)
-
-
-def _is_record_sane(record):
-    try:
-        for key in ('upload_id', 'abspath', 'key'):
-            if not isinstance(record[key], str):
-                logger.error('Type Error, {0} in record is not a string type: {1}'.format(key, record[key]))
-                return False
-
-        for key in ('size', 'part_size'):
-            if not isinstance(record[key], int):
-                logger.error('Type Error, {0} in record is not an integer type: {1}'.format(key, record[key]))
-                return False
-
-        if not isinstance(record['mtime'], int) and not isinstance(record['mtime'], float):
-            logger.error('Type Error, mtime in record is not a float or an integer type: {0}'.format(record['mtime']))
-            return False
-
-        if not isinstance(record['parts'], list):
-            logger.error('Type Error, parts in record is not a list type: {0}'.format(record['parts']))
-            return False
-    except KeyError as e:
-        logger.error('Key not found: {0}'.format(e.args))
-        return False
-
-    return True
 
 
 class _PartToProcess(object):
@@ -745,10 +716,11 @@ class _PartToProcess(object):
         return self.end - self.start
 
     def __hash__(self):
-        return hash(self.__key())
+        return hash(self.__key)
 
     def __eq__(self, other):
-        return self.__key() == other.__key()
+        return self.__key == other.__key
 
+    @property
     def __key(self):
-        return (self.part_number, self.start, self.end)
+        return self.part_number, self.start, self.end

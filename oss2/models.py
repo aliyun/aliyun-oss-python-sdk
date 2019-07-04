@@ -243,7 +243,7 @@ class GetObjectResult(HeadObjectResult):
             self.stream = self.resp
 
         if self.__crc_enabled:
-            self.stream = make_crc_adapter(self.stream)
+            self.stream = make_crc_adapter(self.stream, discard=discard)
 
         if self.__crypto_provider:
             content_crypto_material = ContentCryptoMaterial(self.__crypto_provider.cipher,

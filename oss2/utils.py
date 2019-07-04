@@ -236,9 +236,11 @@ def make_progress_adapter(data, progress_callback, size=None):
         return _BytesAndFileAdapter(data, progress_callback, size)
 
 
-def make_crc_adapter(data, init_crc=0):
+def make_crc_adapter(data, init_crc=0, discard=0):
     """返回一个适配器，从而在读取 `data` ，即调用read或者对其进行迭代的时候，能够计算CRC。
 
+    :param discard:
+    :return:
     :param data: 可以是bytes、file object或iterable
     :param init_crc: 初始CRC值，可选
 
@@ -248,15 +250,16 @@ def make_crc_adapter(data, init_crc=0):
 
     # bytes or file object
     if _has_data_size_attr(data):
-        return _BytesAndFileAdapter(data,
-                                    size=_get_data_size(data),
-                                    crc_callback=Crc64(init_crc))
+        if discard:
+            raise ClientError('Bytes of file object adapter does not support discard bytes')
+        return _BytesAndFileAdapter(data, size=_get_data_size(data), crc_callback=Crc64(init_crc))
     # file-like object
     elif hasattr(data, 'read'):
-        return _FileLikeAdapter(data, crc_callback=Crc64(init_crc))
+        return _FileLikeAdapter(data, crc_callback=Crc64(init_crc), discard=discard)
     # iterator
     elif hasattr(data, '__iter__'):
-        return _IterableAdapter(data, crc_callback=Crc64(init_crc))
+        if discard:
+            raise ClientError('Iterator adapter does not support discard bytes')
     else:
         raise ClientError('{0} is not a file object, nor an iterator'.format(data.__class__.__name__))
 
@@ -275,6 +278,7 @@ def calc_obj_crc_from_parts(parts, init_crc=0):
 def make_cipher_adapter(data, cipher_callback, discard=0):
     """返回一个适配器，从而在读取 `data` ，即调用read或者对其进行迭代的时候，能够进行加解密操作。
 
+        :param encrypt:
         :param cipher_callback:
         :param discard: 读取时需要丢弃的字节
         :param data: 可以是bytes、file object或iterable
@@ -307,9 +311,9 @@ def check_crc(operation, client_crc, oss_crc, request_id):
         raise e
 
 
-def _invoke_crc_callback(crc_callback, content):
+def _invoke_crc_callback(crc_callback, content, discard=0):
     if crc_callback:
-        crc_callback(content)
+        crc_callback(content[discard:])
 
 
 def _invoke_progress_callback(progress_callback, consumed_bytes, total_bytes):
@@ -317,9 +321,10 @@ def _invoke_progress_callback(progress_callback, consumed_bytes, total_bytes):
         progress_callback(consumed_bytes, total_bytes)
 
 
-def _invoke_cipher_callback(cipher_callback, content):
+def _invoke_cipher_callback(cipher_callback, content, discard=0):
     if cipher_callback:
         content = cipher_callback(content)
+        return content[discard:]
     return content
 
 
@@ -391,9 +396,9 @@ class _FileLikeAdapter(object):
 
     def read(self, amt=None):
         offset_start = self.offset
-        if offset_start < self.discard:
-            if amt:
-                amt += self.discard
+        if offset_start < self.discard and amt and self.cipher_callback:
+            amt += self.discard
+
         content = self.fileobj.read(amt)
         if not content:
             self.read_all = True
@@ -404,16 +409,17 @@ class _FileLikeAdapter(object):
 
             self.offset += len(content)
 
-            content = _invoke_cipher_callback(self.cipher_callback, content)
-
-            _invoke_crc_callback(self.crc_callback, content)
-
+            real_discard = 0
             if offset_start < self.discard:
                 if len(content) <= self.discard:
-                    self.discard -= len(content)
-                    return ''
+                    real_discard = len(content)
                 else:
-                    return content[self.discard:]
+                    real_discard = self.discard
+
+            _invoke_crc_callback(self.crc_callback, content, real_discard)
+            content = _invoke_cipher_callback(self.cipher_callback, content, real_discard)
+
+            self.discard -= real_discard
             return content
 
     @property

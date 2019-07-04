@@ -586,7 +586,7 @@ class TestMultipart(OssTestCase):
             abort_result = crypto_bucket.abort_multipart_upload(dst_object, upload_id)
             self.assertTrue(abort_result.status == 204)
 
-    def test_crypto_multipart_concurrent(self):
+    def test_crypto_multipart_concurrency(self):
         for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
             key1 = self.random_key()
             key1_content_1 = random_bytes(100 * 1024)

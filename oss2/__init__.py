@@ -2,7 +2,7 @@ __version__ = '2.6.2'
 
 import logging
 
-from . import models, exceptions
+from . import models, exceptions,defaults
 from .api import Service, Bucket
 from .auth import Auth, AuthV2, AnonymousAuth, StsAuth, AUTH_VERSION_1, AUTH_VERSION_2, make_auth
 from .compat import to_bytes, to_string
