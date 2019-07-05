@@ -1167,3 +1167,17 @@ def parse_get_bucket_versioning(result, body):
         result.status = _find_tag(root, "Status")
 
     return result
+
+def to_put_bucket_request_payment(payer):
+    root = ElementTree.Element('RequestPaymentConfiguration')
+
+    _add_text_child(root, 'Payer', payer)
+
+    return _node_to_string(root)
+
+def parse_get_bucket_request_payment(result, body):
+    root = ElementTree.fromstring(body)
+
+    result.payer = _find_tag(root, 'Payer')
+   
+    return result

@@ -33,6 +33,7 @@ OSS_SERVER_SIDE_ENCRYPTION_KEY_ID = "x-oss-server-side-encryption-key-id"
 OSS_OBJECT_TAGGING = "x-oss-tagging"
 OSS_OBJECT_TAGGING_COPY_DIRECTIVE = "x-oss-tagging-directive"
 
+OSS_REQUEST_PAYER = 'x-oss-request-payer'
 
 class RequestHeader(dict):
     def __init__(self, *arg, **kw): 
