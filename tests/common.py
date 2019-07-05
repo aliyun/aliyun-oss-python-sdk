@@ -25,6 +25,10 @@ OSS_STS_ID = os.getenv("OSS_TEST_STS_ID")
 OSS_STS_KEY = os.getenv("OSS_TEST_STS_KEY")
 OSS_STS_ARN = os.getenv("OSS_TEST_STS_ARN")
 
+OSS_PAYER_UID = os.getenv("OSS_TEST_PAYER_UID")
+OSS_PAYER_ID = os.getenv("OSS_TEST_PAYER_ACCESS_KEY_ID")
+OSS_PAYER_SECRET = os.getenv("OSS_TEST_PAYER_ACCESS_KEY_SECRET")
+
 OSS_AUTH_VERSION = None
 
 def random_string(n):
@@ -43,7 +47,7 @@ def clean_and_delete_bucket(bucket):
     # check if bucket is in versioning status
     try:
         result = bucket.get_bucket_info()
-        if result.versioning_status is 'Enabled' or result.versioning_status is 'Suspended':
+        if result.versioning_status in [oss2.BUCKET_VERSIONING_ENABLE, oss2.BUCKET_VERSIONING_SUSPEND]:
             all_objects = bucket.list_object_versions()
             for obj in all_objects.versions:
                 bucket.delete_object(obj.key, params={'versionId': obj.versionid})
