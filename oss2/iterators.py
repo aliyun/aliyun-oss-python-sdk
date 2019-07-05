@@ -10,7 +10,7 @@ oss2.iterators
 from .models import MultipartUploadInfo, SimplifiedObjectInfo
 from .exceptions import ServerError
 
-from . import defaults
+from . import defaults, http
 
 
 class _BaseIterator(object):
@@ -92,20 +92,25 @@ class ObjectIterator(_BaseIterator):
     :param delimiter: 目录分隔符
     :param marker: 分页符
     :param max_keys: 每次调用 `list_objects` 时的max_keys参数。注意迭代器返回的数目可能会大于该值。
+
+    :param headers: HTTP头部
+    :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
     """
-    def __init__(self, bucket, prefix='', delimiter='', marker='', max_keys=100, max_retries=None):
+    def __init__(self, bucket, prefix='', delimiter='', marker='', max_keys=100, max_retries=None, headers=None):
         super(ObjectIterator, self).__init__(marker, max_retries)
 
         self.bucket = bucket
         self.prefix = prefix
         self.delimiter = delimiter
         self.max_keys = max_keys
+        self.headers = http.CaseInsensitiveDict(headers)
 
     def _fetch(self):
         result = self.bucket.list_objects(prefix=self.prefix,
                                           delimiter=self.delimiter,
                                           marker=self.next_marker,
-                                          max_keys=self.max_keys)
+                                          max_keys=self.max_keys,
+                                          headers=self.headers)
         self.entries = result.object_list + [SimplifiedObjectInfo(prefix, None, None, None, None, None)
                                              for prefix in result.prefix_list]
         self.entries.sort(key=lambda obj: obj.key)
@@ -125,10 +130,13 @@ class MultipartUploadIterator(_BaseIterator):
     :param key_marker: 文件名分页符
     :param upload_id_marker: 分片上传ID分页符
     :param max_uploads: 每次调用 `list_multipart_uploads` 时的max_uploads参数。注意迭代器返回的数目可能会大于该值。
+
+    :param headers: HTTP头部
+    :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
     """
     def __init__(self, bucket,
                  prefix='', delimiter='', key_marker='', upload_id_marker='',
-                 max_uploads=1000, max_retries=None):
+                 max_uploads=1000, max_retries=None, headers=None):
         super(MultipartUploadIterator, self).__init__(key_marker, max_retries)
 
         self.bucket = bucket
@@ -136,13 +144,15 @@ class MultipartUploadIterator(_BaseIterator):
         self.delimiter = delimiter
         self.next_upload_id_marker = upload_id_marker
         self.max_uploads = max_uploads
+        self.headers = http.CaseInsensitiveDict(headers)
 
     def _fetch(self):
         result = self.bucket.list_multipart_uploads(prefix=self.prefix,
                                                     delimiter=self.delimiter,
                                                     key_marker=self.next_marker,
                                                     upload_id_marker=self.next_upload_id_marker,
-                                                    max_uploads=self.max_uploads)
+                                                    max_uploads=self.max_uploads,
+                                                    headers=self.headers)
         self.entries = result.upload_list + [MultipartUploadInfo(prefix, None, None) for prefix in result.prefix_list]
         self.entries.sort(key=lambda u: u.key)
 
@@ -159,19 +169,24 @@ class ObjectUploadIterator(_BaseIterator):
     :param bucket: :class:`Bucket <oss2.Bucket>` 对象
     :param key: 文件名
     :param max_uploads: 每次调用 `list_multipart_uploads` 时的max_uploads参数。注意迭代器返回的数目可能会大于该值。
+
+    :param headers: HTTP头部
+    :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
     """
-    def __init__(self, bucket, key, max_uploads=1000, max_retries=None):
+    def __init__(self, bucket, key, max_uploads=1000, max_retries=None, headers=None):
         super(ObjectUploadIterator, self).__init__('', max_retries)
         self.bucket = bucket
         self.key = key
         self.next_upload_id_marker = ''
         self.max_uploads = max_uploads
+        self.headers = http.CaseInsensitiveDict(headers)
 
     def _fetch(self):
         result = self.bucket.list_multipart_uploads(prefix=self.key,
                                                     key_marker=self.next_marker,
                                                     upload_id_marker=self.next_upload_id_marker,
-                                                    max_uploads=self.max_uploads)
+                                                    max_uploads=self.max_uploads,
+                                                    headers=self.headers)
 
         self.entries = [u for u in result.upload_list if u.key == self.key]
         self.next_upload_id_marker = result.next_upload_id_marker
@@ -195,20 +210,25 @@ class PartIterator(_BaseIterator):
     :param upload_id: 分片上传ID
     :param marker: 分页符
     :param max_parts: 每次调用 `list_parts` 时的max_parts参数。注意迭代器返回的数目可能会大于该值。
+
+    :param headers: HTTP头部
+    :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
     """
     def __init__(self, bucket, key, upload_id,
-                 marker='0', max_parts=1000, max_retries=None):
+                 marker='0', max_parts=1000, max_retries=None, headers=None):
         super(PartIterator, self).__init__(marker, max_retries)
 
         self.bucket = bucket
         self.key = key
         self.upload_id = upload_id
         self.max_parts = max_parts
+        self.headers = http.CaseInsensitiveDict(headers)
 
     def _fetch(self):
         result = self.bucket.list_parts(self.key, self.upload_id,
                                         marker=self.next_marker,
-                                        max_parts=self.max_parts)
+                                        max_parts=self.max_parts,
+                                        headers=self.headers)
         self.entries = result.parts
 
         return result.is_truncated, result.next_marker
