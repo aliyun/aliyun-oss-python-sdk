@@ -2026,11 +2026,11 @@ class Bucket(_Base):
         """
         logger.debug("Start to put object versioning, bucket: {0}".format(
             self.bucket_name))
-
-        if headers is not None:
-            headers = http.CaseInsensitiveDict(headers)
-
         data = self.__convert_data(BucketVersioningConfig, xml_utils.to_put_bucket_versioning, config) 
+
+        headers = http.CaseInsensitiveDict(headers)
+        headers['Content-MD5'] = utils.content_md5(data)
+
         resp = self.__do_bucket('PUT', data=data, params={Bucket.VERSIONING: ''}, headers=headers)
 
         return RequestResult(resp)
@@ -2053,7 +2053,8 @@ class Bucket(_Base):
 
         logger.debug("Start to put bucket policy, bucket: {0}, policy: {1}".format(
             self.bucket_name, policy))
-        resp = self.__do_bucket('PUT', data=policy, params={Bucket.POLICY: ''})
+
+        resp = self.__do_bucket('PUT', data=policy, params={Bucket.POLICY: ''}, headers={'Content-MD5': utils.content_md5(policy)})
         logger.debug("Put bucket policy done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
@@ -2083,7 +2084,7 @@ class Bucket(_Base):
         """
         data = xml_utils.to_put_bucket_request_payment(payer)
         logger.debug("Start to put bucket request payment, bucket: {0}, payer: {1}".format(self.bucket_name, payer))
-        resp = self.__do_bucket('PUT', data=data, params={Bucket.REQUESTPAYMENT: ''})
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.REQUESTPAYMENT: ''}, headers={'Content-MD5': utils.content_md5(data)})
         logger.debug("Put bucket request payment done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         
         return RequestResult(resp)
