@@ -75,7 +75,7 @@ def clean_and_delete_bucket_by_prefix(bucket_prefix):
     service = oss2.Service(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT)
     buckets = service.list_buckets(prefix=bucket_prefix).buckets
     for b in buckets:
-        bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, b.name)
+        bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), b.extranet_endpoint, b.name)
         clean_and_delete_bucket(bucket)
         
 
