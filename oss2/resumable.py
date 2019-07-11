@@ -13,6 +13,7 @@ from . import utils
 from . import iterators
 from . import exceptions
 from . import defaults
+from . import http
 from .api import Bucket
 
 from .models import PartInfo
@@ -31,7 +32,6 @@ logger = logging.getLogger(__name__)
 
 _MAX_PART_COUNT = 10000
 _MIN_PART_SIZE = 100 * 1024
-
 
 def resumable_upload(bucket, key, filename,
                      store=None,
@@ -56,7 +56,13 @@ def resumable_upload(bucket, key, filename,
     :param key: 上传到用户空间的文件名
     :param filename: 待上传本地文件名
     :param store: 用来保存断点信息的持久存储，参见 :class:`ResumableStore` 的接口。如不指定，则使用 `ResumableStore` 。
-    :param headers: 传给 `put_object` 或 `init_multipart_upload` 的HTTP头部
+
+    :param headers: HTTP头部
+        # 调用外部函数put_object 或 init_multipart_upload传递完整headers
+        # 调用外部函数uplpad_part目前只传递OSS_REQUEST_PAYER, OSS_TRAFFIC_LIMIT
+        # 调用外部函数complete_multipart_upload目前只传递OSS_REQUEST_PAYER
+    :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+
     :param multipart_threshold: 文件长度大于该值时，则用分片上传。
     :param part_size: 指定分片上传的每个分片的大小。如不指定，则自动计算。
     :param progress_callback: 上传进度回调函数。参见 :ref:`progress_callback` 。
@@ -90,7 +96,8 @@ def resumable_download(bucket, key, filename,
                        progress_callback=None,
                        num_threads=None,
                        store=None,
-                       params=None):
+                       params=None,
+                       headers=None):
     """断点下载。
 
     实现的方法是：
@@ -123,16 +130,21 @@ def resumable_download(bucket, key, filename,
 
     :param dict params: 指定下载参数，可以传入versionId下载指定版本文件
 
+    :param headers: HTTP头部,
+        # 调用外部函数head_object目前只传递OSS_REQUEST_PAYER
+        # 调用外部函数get_object_to_file, get_object目前需要向下传递的值有OSS_REQUEST_PAYER, OSS_TRAFFIC_LIMIT
+    :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+
     :raises: 如果OSS文件不存在，则抛出 :class:`NotFound <oss2.exceptions.NotFound>` ；也有可能抛出其他因下载文件而产生的异常。
     """
-
     logger.debug("Start to resumable download, bucket: {0}, key: {1}, filename: {2}, multiget_threshold: {3}, "
                 "part_size: {4}, num_threads: {5}".format(bucket.bucket_name, to_string(key), filename,
                                                           multiget_threshold, part_size, num_threads))
     multiget_threshold = defaults.get(multiget_threshold, defaults.multiget_threshold)
 
     if isinstance(bucket, Bucket):
-        result = bucket.head_object(key, params=params)
+        valid_headers = _populate_valid_headers(headers, [OSS_REQUEST_PAYER])
+        result = bucket.head_object(key, params=params, headers=valid_headers)
         logger.debug("The size of object to download is: {0}, multiget_threshold: {1}".format(result.content_length,
                      multiget_threshold))
         if result.content_length >= multiget_threshold:
@@ -141,12 +153,15 @@ def resumable_download(bucket, key, filename,
                                               progress_callback=progress_callback,
                                               num_threads=num_threads,
                                               store=store,
-                                              params=params)
+                                              params=params,
+                                              headers=headers)
             downloader.download(result.server_crc)
         else:
-            bucket.get_object_to_file(key, filename, progress_callback=progress_callback, params=params)
+            valid_headers = _populate_valid_headers(headers, [OSS_REQUEST_PAYER, OSS_TRAFFIC_LIMIT])
+            bucket.get_object_to_file(key, filename, progress_callback=progress_callback, params=params, headers=valid_headers)
     else:
-        bucket.get_object_to_file(key, filename, progress_callback=progress_callback, params=params)
+        valid_headers = _populate_valid_headers(headers, [OSS_REQUEST_PAYER, OSS_TRAFFIC_LIMIT])
+        bucket.get_object_to_file(key, filename, progress_callback=progress_callback, params=params, headers=valid_headers)
 
 
 _MAX_MULTIGET_PART_COUNT = 100
@@ -197,6 +212,31 @@ def _split_to_parts(total_size, part_size):
 
     return parts
 
+def _populate_valid_headers(headers=None, valid_keys=None):
+    """构建只包含有效keys的http header
+
+    :param headers: 需要过滤的header
+    :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+
+    :param valid_keys: 有效的关键key列表
+    :type valid_keys: list
+
+    :return: 只包含有效keys的http header, type: oss2.CaseInsensitiveDict
+    """
+    if headers is None or valid_keys is None:
+        return None
+
+    headers = http.CaseInsensitiveDict(headers)
+    valid_headers = http.CaseInsensitiveDict()
+
+    for key in valid_keys:
+        if headers.get(key) is not None:
+            valid_headers[key] = headers[key]
+
+    if len(valid_headers) == 0:
+        valid_headers = None
+
+    return valid_headers
 
 class _ResumableOperation(object):
     def __init__(self, bucket, key, filename, size, store,
@@ -253,7 +293,8 @@ class _ResumableDownloader(_ResumableOperation):
                  store=None,
                  progress_callback=None,
                  num_threads=None,
-                 params=None):
+                 params=None,
+                 headers=None):
         super(_ResumableDownloader, self).__init__(bucket, key, filename, objectInfo.size,
                                                    store or ResumableDownloadStore(),
                                                    progress_callback=progress_callback)
@@ -267,6 +308,7 @@ class _ResumableDownloader(_ResumableOperation):
         self.__finished_parts = None
         self.__finished_size = None
         self.__params = params
+        self.__headers = headers
 
         # protect record
         self.__lock = threading.Lock()
@@ -315,8 +357,12 @@ class _ResumableDownloader(_ResumableOperation):
         with open(self.__tmp_file, 'rb+') as f:
             f.seek(part.start, os.SEEK_SET)
 
-            headers = {IF_MATCH : self.objectInfo.etag,
-                       IF_UNMODIFIED_SINCE : utils.http_date(self.objectInfo.mtime)}
+            headers = _populate_valid_headers(self.__headers, [OSS_REQUEST_PAYER, OSS_TRAFFIC_LIMIT])
+            if headers is None:
+                headers = http.CaseInsensitiveDict()
+            headers[IF_MATCH] = self.objectInfo.etag
+            headers[IF_UNMODIFIED_SINCE] = utils.http_date(self.objectInfo.mtime)
+
             result = self.bucket.get_object(self.key, byte_range=(part.start, part.end - 1), headers=headers, params=self.__params)
             utils.copyfileobj_and_verify(result, f, part.end - part.start, request_id=result.request_id)
 
@@ -436,6 +482,7 @@ class _ResumableUploader(_ResumableOperation):
                                                  progress_callback=progress_callback)
 
         self.__headers = headers
+
         self.__part_size = defaults.get(part_size, defaults.part_size)
 
         self.__mtime = os.path.getmtime(filename)
@@ -465,7 +512,8 @@ class _ResumableUploader(_ResumableOperation):
 
         self._report_progress(self.size)
 
-        result = self.bucket.complete_multipart_upload(self.key, self.__upload_id, self.__finished_parts)
+        headers = _populate_valid_headers(self.__headers, [OSS_REQUEST_PAYER])
+        result = self.bucket.complete_multipart_upload(self.key, self.__upload_id, self.__finished_parts, headers=headers)
         self._del_record()
 
         return result
@@ -487,8 +535,9 @@ class _ResumableUploader(_ResumableOperation):
             self._report_progress(self.__finished_size)
 
             f.seek(part.start, os.SEEK_SET)
+            headers = _populate_valid_headers(self.__headers, [OSS_REQUEST_PAYER, OSS_TRAFFIC_LIMIT])
             result = self.bucket.upload_part(self.key, self.__upload_id, part.part_number,
-                                             utils.SizedFileAdapter(f, part.size))
+                                             utils.SizedFileAdapter(f, part.size), headers=headers)
 
             logger.debug("Upload part success, add part info to record, part_number: {0}, etag: {1}, size: {2}".format(
                 part.part_number, result.etag, part.size))

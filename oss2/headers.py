@@ -35,6 +35,8 @@ OSS_OBJECT_TAGGING_COPY_DIRECTIVE = "x-oss-tagging-directive"
 
 OSS_REQUEST_PAYER = 'x-oss-request-payer'
 
+OSS_TRAFFIC_LIMIT = 'x-oss-traffic-limit'
+
 class RequestHeader(dict):
     def __init__(self, *arg, **kw): 
         super(RequestHeader, self).__init__(*arg, **kw)

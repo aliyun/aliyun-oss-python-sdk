@@ -175,7 +175,7 @@ class TestWebsite(OssTestCase):
         self.assertEqual(website_get.index_file, index_file)
         self.assertEqual(website_get.error_file, error_file)
         self.assertEqual(len(website_get.rules), 3)
-        
+
         for rule in website_get.rules:
             # check rule_num
             self.assertTrue(rule.rule_num in [rule1_num, rule2_num, rule3_num])
@@ -210,7 +210,7 @@ class TestWebsite(OssTestCase):
     def test_unnormal_routing_rule(self):
         index_file = 'index.html'
         error_file = 'error.html'
-        
+
         # correct test
         # correct condition
         include_header1= ConditionInlcudeHeader('host', 'test.oss-cn-beijing-internal.aliyuncs.com')
@@ -221,12 +221,12 @@ class TestWebsite(OssTestCase):
         # correct redirect
         redirect = Redirect(redirect_type=REDIRECT_TYPE_MIRROR, mirror_url='http://www.test.com/', mirror_pass_query_string=True, 
                         mirror_follow_redirect=True, mirror_check_md5=False, mirror_headers=None)
-        
+
         # correct routing rules 
         rule_num = 1
         rule = RoutingRule(rule_num, condition=condition, redirect=redirect)
         website_set = BucketWebsite(index_file, error_file, [rule])
-        
+
         # correct set get delete function
         self.bucket.put_bucket_website(website_set)
         wait_meta_sync()
@@ -234,7 +234,7 @@ class TestWebsite(OssTestCase):
         self.bucket.delete_bucket_website()
 
         # start incorrect test
-        # rule_num class is not int
+        # rule_num type is not int
         self.assertRaises(oss2.exceptions.ClientError, RoutingRule, rule_num='str', condition=condition, redirect=redirect)
         
         # rule_num < 0
@@ -254,7 +254,7 @@ class TestWebsite(OssTestCase):
                             http_err_code_return_equals=400, include_header_list=[include_header1, include_header2])
         self.assertRaises(oss2.exceptions.ClientError, RoutingRule, rule_num=1, condition=t_condition, redirect=redirect)
 
-        # rules class is not list
+        # rules type is not list
         self.assertRaises(oss2.exceptions.ClientError, BucketWebsite, index_file, error_file, rule)
         
         # rules capacity > 5
@@ -268,7 +268,7 @@ class TestWebsite(OssTestCase):
         condition = Condition(key_prefix_equals='test',http_err_code_return_equals=404, include_header_list=[include_header1, include_header2])
 
         # start incorrect conditon test
-        # condition include_header_list class is not list
+        # condition include_header_list type is not list
         self.assertRaises(oss2.exceptions.ClientError, Condition, 'test',404, 'str')
         
         # condition include_header_list capacity >5
@@ -289,7 +289,7 @@ class TestWebsite(OssTestCase):
         condition2 = Condition(key_prefix_equals='2~!@#$%^&*()-_=+|\\[]{}<>,./?`~', 
                             http_err_code_return_equals=404, include_header_list=[include_header1, include_header2])
 
-        # correct redirect        
+        # correct redirect
         # mirro_url_slave is indicated
         redirect1 = Redirect(redirect_type=REDIRECT_TYPE_MIRROR, mirror_url='http://www.test.com/',
                             mirror_url_slave='https://www.slave.com/', mirror_url_probe='http://www.test.com/index.html', 
@@ -366,7 +366,7 @@ class TestWebsite(OssTestCase):
 
         # correct pass_list
         mirror_header = RedirectMirrorHeaders(pass_list=['a','b'])
-        # pass_list class is not list
+        # pass_list type is not list
         self.assertRaises(oss2.exceptions.ClientError, RedirectMirrorHeaders, pass_list='a')
         # pass_list capacity > 10
         pass_list = ['key1', 'key2', 'key3', 'key4', 'key5', 'key6', 'key7', 'key8', 'key9', 'key10', 'key11']
@@ -374,7 +374,7 @@ class TestWebsite(OssTestCase):
 
         # correct remove_list
         mirror_header = RedirectMirrorHeaders(remove_list=['a','b'])
-        # remove_list class is not list
+        # remove_list type is not list
         self.assertRaises(oss2.exceptions.ClientError, RedirectMirrorHeaders, remove_list='str')
         # remove_list capacity > 10
         remove_list = ['key1', 'key2', 'key3', 'key4', 'key5', 'key6', 'key7', 'key8', 'key9', 'key10', 'key11']
@@ -383,7 +383,7 @@ class TestWebsite(OssTestCase):
         # correct set_list
         t_set = MirrorHeadersSet('key1', 'value1')
         mirror_header = RedirectMirrorHeaders(set_list=[t_set])
-        # mirror_header set_list class is not list
+        # mirror_header set_list type is not list
         self.assertRaises(oss2.exceptions.ClientError, RedirectMirrorHeaders, set_list=t_set)
         # mirror_header set_list capacity > 10
         set_list = [t_set, t_set, t_set, t_set, t_set, t_set, t_set, t_set, t_set, t_set, t_set]

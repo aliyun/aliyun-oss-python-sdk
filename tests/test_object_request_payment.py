@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 
-from .common import *
 import oss2
-from oss2.headers import OSS_REQUEST_PAYER
+from .common import *
+from oss2.headers import OSS_REQUEST_PAYER, OSS_OBJECT_TAGGING
 from oss2.models import PAYER_REQUESTER, PartInfo, Tagging, TaggingRule
 from oss2 import determine_part_size, SizedFileAdapter
 import base64
+import os
 
 
 class TestObjectRequestPayment(OssTestCase):
@@ -227,7 +228,7 @@ class TestObjectRequestPayment(OssTestCase):
 
         total_size = os.path.getsize(filename)
         # Set part size
-        part_size = determine_part_size(total_size, preferred_size=100 * 1024)
+        part_size = determine_part_size(total_size, preferred_size=(100*1024))
 
         # Init multipart without payer setting, should be failed.
         self.assertRaises(oss2.exceptions.AccessDenied, self.payer_bucket.init_multipart_upload, key)
@@ -282,7 +283,7 @@ class TestObjectRequestPayment(OssTestCase):
         self.assertEqual(total_size, 1024 * 1024)
 
         # Set part size
-        part_size = determine_part_size(total_size, preferred_size=100 * 1024)
+        part_size = determine_part_size(total_size, preferred_size=(100*1024))
 
         upload_id = self.payer_bucket.init_multipart_upload(dest_object_name, headers=headers).upload_id
         parts = []
@@ -314,6 +315,150 @@ class TestObjectRequestPayment(OssTestCase):
 
         self.bucket.delete_object(src_object_name)
         self.bucket.delete_object(dest_object_name)
+
+    def test_resumable_upload(self):
+        small_object = 'requestpayment-test-resumable-upload-small-object'
+        big_object = 'requestpayment-test-resumable-upload-big-object'
+
+        # Create tmp file smaller than multipart_threshold
+        file_name = self._prepare_temp_file_with_size(150 * 1024)
+
+        # Resumale upload small object without payer setting, should be failed.
+        self.assertRaises(oss2.exceptions.AccessDenied, oss2.resumable_upload, self.payer_bucket, small_object, file_name, 
+                        multipart_threshold=(200*1024), num_threads=2, part_size=(100*1024))
+
+        # Resumale upload small object with payer setting, should be successful.
+        headers = dict()
+        headers[OSS_REQUEST_PAYER] = "requester"
+        result = oss2.resumable_upload(self.payer_bucket, small_object, file_name, 
+                        multipart_threshold=(200*1024), num_threads=2, part_size=(100*1024), headers=headers)
+        self.assertEqual(result.status, 200)
+        self.bucket.delete_object(small_object)
+
+        # Start big file test
+        # Create big file bigger than multipart_threshold
+        file_name = self._prepare_temp_file_with_size(11 *1024 * 1024)
+
+        # Resumale upload big object without payer setting, should be failed.
+        self.assertRaises(oss2.exceptions.AccessDenied, oss2.resumable_upload, self.payer_bucket, big_object, file_name, 
+                        multipart_threshold=(200*1024), num_threads=2, part_size=(100*1024))
+
+        # Resumale upload big object with payer setting and tagging setting, should be successful.
+        key1 = 'key1'
+        value1 = 'value2'
+
+        key2 = 'key2'
+        value2 = 'value2'
+
+        tag_str = key1 + '=' + value1
+        tag_str += '&' + key2 + '=' + value2
+
+        headers = dict()
+        headers[OSS_REQUEST_PAYER] = "requester"
+        headers[OSS_OBJECT_TAGGING] = tag_str
+        result = oss2.resumable_upload(self.payer_bucket, big_object, file_name, 
+                    multipart_threshold=(200*1024), num_threads=2, part_size=(100*1024), headers=headers)
+        self.assertEqual(result.status, 200)
+
+        # Check object size
+        head_info = self.bucket.head_object(big_object)
+        total_size = head_info.content_length
+        self.assertEqual(total_size, (11 * 1024 * 1024))
+
+        # Check tagging
+        result = self.bucket.get_object_tagging(big_object)
+        self.assertEqual(2, result.tag_set.len())
+        tagging_rule = result.tag_set.tagging_rule
+        self.assertEqual(value1, tagging_rule[key1])
+        self.assertEqual(value2, tagging_rule[key2])
+
+        self.bucket.delete_object(big_object)
+
+    def test_resumable_down(self):
+        small_object = 'requestpayment-test-resumable-down-small-object'
+        content1 = b'a' * (150 * 1024)
+        big_object = 'requestpayment-test-resumable-down-big-object'
+        content2 = b'a' * (500 * 1024)
+        file_name = small_object + '.txt'
+
+        self.bucket.put_object(small_object, content1)
+        self.bucket.put_object(big_object, content2)
+
+        # Resumale down small object without payer setting, should be failed.
+        self.assertRaises(oss2.exceptions.ServerError, oss2.resumable_download, self.payer_bucket, small_object, file_name, 
+                    multiget_threshold=(200*1024), num_threads=2, part_size=(1024*1024))
+
+        # Resumale down small object with payer setting, should be successful.
+        headers = dict()
+        headers[OSS_REQUEST_PAYER] = "requester"
+        oss2.resumable_download(self.payer_bucket, small_object, file_name, 
+                    multiget_threshold=(200*1024), num_threads=2, part_size=(1024*1024), headers=headers)
+
+        # Check file size
+        file_size = os.stat(file_name).st_size
+        self.assertEqual(file_size, (150*1024))
+
+        os.remove(file_name)
+        self.bucket.delete_object(small_object)
+
+        file_name = big_object + '.txt'
+
+        # Resumale down big object without payer setting, should be failed.
+        self.assertRaises(oss2.exceptions.ServerError, oss2.resumable_download, self.payer_bucket, big_object, file_name, 
+                    multiget_threshold=(200*1024), num_threads=2, part_size=(1024*1024))
+
+        # Resumale down big object with payer setting, should be successful.
+        headers = dict()
+        headers[OSS_REQUEST_PAYER] = "requester"
+        oss2.resumable_download(self.payer_bucket, big_object, file_name, 
+                    multiget_threshold=(200*1024), num_threads=2, part_size=(1024*1024), headers=headers)
+
+        # Check file size
+        file_size = os.stat(file_name).st_size
+        self.assertEqual(file_size, (500*1024))
+
+        os.remove(file_name)
+        self.bucket.delete_object(big_object)
+
+    def test_resumable_down1(self):
+        key = 'requestpayment-test-resumable-down-object'
+        content = b'a' * (2 * 1024 * 1024)
+        file_name = key + '.txt'
+
+        self.bucket.put_object(key, content)
+
+        # Resumale down object smaller than multiget_threshold without payer setting, should be failed.
+        self.assertRaises(oss2.exceptions.ServerError, oss2.resumable_download, self.payer_bucket, key, file_name, 
+                    multiget_threshold=(3*1024*1024), num_threads=2, part_size=(100*1024))
+
+        # Resumale down object smaller than multiget_threshold with payer setting, should be successful.
+        headers = dict()
+        headers[OSS_REQUEST_PAYER] = "requester"
+        oss2.resumable_download(self.payer_bucket, key, file_name, 
+                    multiget_threshold=(3*1024*1024), num_threads=2, part_size=(100*1024), headers=headers)
+
+        # Check file size
+        file_size = os.stat(file_name).st_size
+        self.assertEqual(file_size, (2*1024*1024))
+
+        os.remove(file_name)
+
+        # Resumale down object bigger than multiget_threshold without payer setting, should be failed.
+        self.assertRaises(oss2.exceptions.ServerError, oss2.resumable_download, self.payer_bucket, key, file_name, 
+                    multiget_threshold=(500*1024), num_threads=2, part_size=(100*1024))
+
+        # Resumale down object bigger than multiget_threshold with payer setting, should be successful.
+        headers = dict()
+        headers[OSS_REQUEST_PAYER] = "requester"
+        oss2.resumable_download(self.payer_bucket, key, file_name, 
+                    multiget_threshold=(500*1024), num_threads=2, part_size=(100*1024), headers=headers)
+
+        # Check file size
+        file_size = os.stat(file_name).st_size
+        self.assertEqual(file_size, (2*1024*1024))
+
+        os.remove(file_name)
+        self.bucket.delete_object(key)
 
     def test_head_object(self):
         key = 'requestpayment-test-head-object'
@@ -382,7 +527,6 @@ class TestObjectRequestPayment(OssTestCase):
         self.payer_bucket.update_object_meta(key, headers=headers)
 
         self.bucket.delete_object(key)
-        
 
     def test_restore_object(self):
         key = 'requestpayment-test-restore-object'
@@ -498,7 +642,7 @@ class TestObjectRequestPayment(OssTestCase):
 
     def test_list_parts(self):
         key = 'requestpayment-list-parts'
-        
+
         upload_id = self.bucket.init_multipart_upload(key).upload_id
 
         # Abort multipart without payer setting, should be failed.
@@ -604,7 +748,7 @@ class TestObjectRequestPayment(OssTestCase):
         up_iter = oss2.PartIterator(self.payer_bucket, key, upload_id, headers=headers)
         for up in up_iter:
             pass
-
+    
 
 if __name__ == '__main__':
     unittest.main()
