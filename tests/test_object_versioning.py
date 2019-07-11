@@ -34,29 +34,31 @@ class TestObjectVersioning(OssTestCase):
 
         wait_meta_sync()
 
-        self.version_bucket = bucket
+        key = "test_resumable_download_with_version-object"
+        content_version1 = random_bytes(5*1024)
+        content_version2 = random_bytes(5*1024*1024)
 
-        content_small = random_bytes(5*1024)
-        result = bucket.put_object("object_small", content_small)
+        # Put object version1
+        result = bucket.put_object(key, content_version1)
+        versionid1 = result.versionid
 
-        version_small = result.versionid
-        filename_small = self.random_filename()
-        result = oss2.resumable_download(bucket, "object_small", filename_small)
+        # Put object version2
+        result = bucket.put_object(key, content_version2)
+        versionid2 = result.versionid
 
-        self.assertFileContent(filename_small, content_small)
+        # Resumable download object verison1, and check file length.
+        filename = self.random_filename()
+        oss2.resumable_download(bucket, key, filename, params={'versionId':versionid1})
+        self.assertFileContent(filename, content_version1)
 
-        content_big = random_bytes(5*1024*1024)
-        result = bucket.put_object("object_big", content_big)
-
-        version_big = result.versionid
-        filename_big = self.random_filename()
-        result = oss2.resumable_download(bucket, "object_big", filename_big)
-
-        self.assertFileContent(filename_big, content_big)
+        # Resumable download object verison2, and check file length.
+        filename = self.random_filename()
+        oss2.resumable_download(bucket, key, filename, params={'versionId':versionid2})
+        self.assertFileContent(filename, content_version2)
 
         version_list = BatchDeleteObjectVersionList()
-        version_list.append(BatchDeleteObjectVersion("object_small", version_small))
-        version_list.append(BatchDeleteObjectVersion("object_big", version_big))
+        version_list.append(BatchDeleteObjectVersion(key, versionid1))
+        version_list.append(BatchDeleteObjectVersion(key, versionid2))
 
         result = bucket.delete_object_versions(version_list)
         self.assertTrue(len(result.delete_versions) == 2)
@@ -999,6 +1001,7 @@ class TestObjectVersioning(OssTestCase):
         bucket.delete_object(key, params={'versionId': version1})
         bucket.delete_object(key, params={'versionId': version2})
         bucket.delete_bucket()
+
 
 if __name__ == '__main__':
     unittest.main()
