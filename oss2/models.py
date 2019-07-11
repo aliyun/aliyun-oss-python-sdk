@@ -677,21 +677,21 @@ class RedirectMirrorHeaders(object):
     def __init__(self,pass_all=None, pass_list=None, remove_list=None, set_list=None):
         if pass_list is not None:
             if not isinstance(pass_list, list):
-                raise ClientError('The class of pass_list should be list.')
+                raise ClientError('The type of pass_list should be list.')
             
             if len(pass_list) > 10:
                 raise ClientError('The capacity of pass_list should not > 10!')
         
         if remove_list is not None:
             if not isinstance(remove_list, list):
-                raise ClientError('The class of remove_list should be list.')
+                raise ClientError('The type of remove_list should be list.')
             
             if len(remove_list) > 10:
                 raise ClientError('The capacity of remove_list should not > 10!')
         
         if set_list is not None:
             if not isinstance(set_list, list):
-                raise ClientError('The class of set_list should be list.')
+                raise ClientError('The type of set_list should be list.')
             
             if len(set_list) > 10:
                 raise ClientError('The capacity of set_list should not > 10!')
@@ -751,7 +751,7 @@ class BucketWebsite(object):
     def __init__(self, index_file, error_file, rules=None):
         if rules is not None:
             if not isinstance(rules, list):
-                raise ClientError('rules class should be list.')
+                raise ClientError('rules type should be list.')
             if len(rules) > 5:
                 raise ClientError('capacity of rules should not be > 5.')
 
