@@ -3,6 +3,13 @@ OSS SDK for Python 版本记录
 
 Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
+Version 2.8.0
+-------------
+- 增加：Request Payment 接口，支持访问者付费请求
+- 增加：服务端限速设置接口，支持上传下载限速功能
+- 增加：Routing Rule 接口，支持设置跳转或者镜像回源规则
+- 优化：对部分bucket API 添加content-md5
+
 Version 2.7.0
 -------------
 - 增加：SelectObjct 接口 支持 byte range 查询
