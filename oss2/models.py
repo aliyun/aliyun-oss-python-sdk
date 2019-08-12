@@ -1325,3 +1325,123 @@ class GetBucketRequestPaymentResult(RequestResult):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         self.payer = ''
+
+class BucketQosInfo(object):
+    """bucket的Qos信息    
+    :以下参数如果设置为0则表示完全禁止指定类型的访问，如果为-1则表示不单独限制
+
+    :param total_upload_bw: 总上传带宽, 单位Gbps
+    :type total_upload_bw: int
+
+    :param intranet_upload_bw: 内网上传带宽, 单位Gbps
+    :type intranet_upload_bw: int
+
+    :param extranet_upload_bw: 外网上传带宽, 单位Gbps
+    :type extranet_upload_bw: int
+
+    :param total_download_bw: 总下载带宽, 单位Gbps
+    :type total_download_bw: int
+
+    :param intranet_download_bw: 内外下载带宽, 单位Gbps
+    :type intranet_download_bw: int
+
+    :param extranet_download_bw: 外网下载带宽, 单位Gbps
+    :type extranet_download_bw: int
+
+    :param total_qps: 总qps, 单位请求数/s
+    :type total_qps: int
+
+    :param intranet_qps: 内网访问qps, 单位请求数/s
+    :type intranet_qps: int
+
+    :param extranet_qps: 外网访问qps, 单位请求数/s
+    :type extranet_qps: int
+    """
+    def __init__(self,
+            total_upload_bw = None,
+            intranet_upload_bw = None,
+            extranet_upload_bw = None,
+            total_download_bw = None,
+            intranet_download_bw = None,
+            extranet_download_bw = None,
+            total_qps = None,
+            intranet_qps = None,
+            extranet_qps = None):
+
+        self.total_upload_bw = total_upload_bw
+        self.intranet_upload_bw = intranet_upload_bw
+        self.extranet_upload_bw = extranet_upload_bw
+        self.total_download_bw = total_download_bw
+        self.intranet_download_bw = intranet_download_bw
+        self.extranet_download_bw = extranet_download_bw
+        self.total_qps = total_qps
+        self.intranet_qps = intranet_qps
+        self.extranet_qps = extranet_qps
+
+class UserQosInfo(object):
+    """User的Qos信息    
+
+    :param region: 查询的qos配置生效的区域
+    :type region: str
+
+    :以下参数如果为0则表示完全禁止指定类型的访问，如果为-1表示不单独限制
+
+    :param total_upload_bw: 总上传带宽, 单位Gbps
+    :type total_upload_bw: int
+
+    :param intranet_upload_bw: 内网上传带宽, 单位:Gbps
+    :type intranet_upload_bw: int
+
+    :param extranet_upload_bw: 外网上传带宽, 单位:Gbps
+    :type extranet_upload_bw: int
+
+    :param total_download_bw: 总下载带宽, 单位:Gbps
+    :type total_download_bw: int
+
+    :param intranet_download_bw: 内外下载带宽, 单位:Gbps
+    :type intranet_download_bw: int
+
+    :param extranet_download_bw: 外网下载带宽, 单位:Gbps
+    :type extranet_download_bw: int
+
+    :param total_qps: 总qps限制
+    :type total_qps: int
+
+    :param intranet_qps: 内网访问qps
+    :type intranet_qps: int
+
+    :param extranet_qps: 外网访问qps
+    :type extranet_qps: int
+    """
+    def __init__(self, 
+            region=None,
+            total_upload_bw = None,
+            intranet_upload_bw = None,
+            extranet_upload_bw = None,
+            total_download_bw = None,
+            intranet_download_bw = None,
+            extranet_download_bw = None,
+            total_qps = None,
+            intranet_qps = None,
+            extranet_qps = None):
+
+        self.region = region
+        self.total_upload_bw = total_upload_bw
+        self.intranet_upload_bw = intranet_upload_bw
+        self.extranet_upload_bw = extranet_upload_bw
+        self.total_download_bw = total_download_bw
+        self.intranet_download_bw = intranet_download_bw
+        self.extranet_download_bw = extranet_download_bw
+        self.total_qps = total_qps
+        self.intranet_qps = intranet_qps
+        self.extranet_qps = extranet_qps
+
+class GetUserQosInfoResult(RequestResult, UserQosInfo):
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        UserQosInfo.__init__(self)
+
+class GetBucketQosInfoResult(RequestResult, BucketQosInfo):
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        BucketQosInfo.__init__(self)

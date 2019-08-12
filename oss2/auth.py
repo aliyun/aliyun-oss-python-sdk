@@ -73,7 +73,7 @@ class Auth(AuthBase):
          'restore', 'qos', 'referer', 'stat', 'bucketInfo', 'append', 'position', 'security-token',
          'live', 'comp', 'status', 'vod', 'startTime', 'endTime', 'x-oss-process',
          'symlink', 'callback', 'callback-var', 'tagging', 'encryption', 'versions',
-         'versioning', 'versionId', 'policy', 'requestPayment', 'x-oss-traffic-limit']
+         'versioning', 'versionId', 'policy', 'requestPayment', 'x-oss-traffic-limit', 'qosInfo']
     )
 
     def _sign_request(self, req, bucket_name, key):
@@ -132,7 +132,7 @@ class Auth(AuthBase):
 
     def __get_resource_string(self, req, bucket_name, key):
         if not bucket_name:
-            return '/'
+            return '/' + self.__get_subresource_string(req.params)
         else:
             return '/{0}/{1}{2}'.format(bucket_name, key, self.__get_subresource_string(req.params))
 
