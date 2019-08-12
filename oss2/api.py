@@ -284,6 +284,8 @@ class Service(_Base):
         注意到，最终这个字符串是要作为HTTP Header的值传输的，所以必须要遵循HTTP标准。
     """
 
+    QOS_INFO = 'qosInfo'
+
     def __init__(self, auth, endpoint,
                  session=None,
                  connect_timeout=None,
@@ -320,6 +322,15 @@ class Service(_Base):
         resp = self._do('GET', '', '', params=listParam)
         logger.debug("List buckets done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_buckets, ListBucketsResult)
+
+    def get_user_qos_info(self):
+        """获取User的QoSInfo
+        :return: :class:`GetUserQosInfoResult <oss2.models.GetUserQosInfoResult>`
+        """
+        logger.debug("Start to get user qos info.")
+        resp = self._do('GET', '', '', params={Service.QOS_INFO: ''})
+        logger.debug("get use qos, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_get_qos_info, GetUserQosInfoResult)
 
 class Bucket(_Base):
     """用于Bucket和Object操作的类，诸如创建、删除Bucket，上传、下载Object等。
@@ -372,6 +383,7 @@ class Bucket(_Base):
     OBJECTMETA = 'objectMeta'
     POLICY = 'policy'
     REQUESTPAYMENT  = 'requestPayment'
+    QOS_INFO = 'qosInfo'
 
     def __init__(self, auth, endpoint, bucket_name,
                  is_cname=False,
@@ -2106,6 +2118,43 @@ class Bucket(_Base):
         logger.debug("Get bucket request payment done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return self._parse_result(resp, xml_utils.parse_get_bucket_request_payment, GetBucketRequestPaymentResult)
+
+    def put_bucket_qos_info(self, bucket_qos_info):
+        """配置bucket的QoSInfo
+
+        :param bucket_qos_info :class:`BucketQosInfo <oss2.models.BucketQosInfo>`
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to put bucket qos info, bucket: {0}".format(self.bucket_name))
+        data = self.__convert_data(BucketQosInfo, xml_utils.to_put_qos_info, bucket_qos_info) 
+
+        headers = http.CaseInsensitiveDict()
+        headers['Content-MD5'] = utils.content_md5(data)
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.QOS_INFO: ''}, headers=headers)
+
+        return RequestResult(resp)
+
+    def get_bucket_qos_info(self):
+        """获取bucket的QoSInfo
+
+        :return: :class:`GetBucketQosInfoResult <oss2.models.GetBucketQosInfoResult>`
+        """
+        logger.debug("Start to get bucket qos info, bucket: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('GET', params={Bucket.QOS_INFO: ''})
+        logger.debug("Get bucket qos info, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_get_qos_info, GetBucketQosInfoResult)
+
+    def delete_bucket_qos_info(self):
+        """删除bucket的QoSInfo
+
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to delete bucket qos info, bucket: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('DELETE', params={Bucket.QOS_INFO: ''})
+        logger.debug("Delete bucket qos info done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return RequestResult(resp)
 
     def _get_bucket_config(self, config):
         """获得Bucket某项配置，具体哪种配置由 `config` 指定。该接口直接返回 `RequestResult` 对象。

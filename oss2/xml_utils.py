@@ -1181,3 +1181,49 @@ def parse_get_bucket_request_payment(result, body):
     result.payer = _find_tag(root, 'Payer')
    
     return result
+
+def to_put_qos_info(qos_info):
+    root = ElementTree.Element("QoSConfiguration")
+
+    if qos_info.total_upload_bw is not None:
+        _add_text_child(root, "TotalUploadBandwidth", str(qos_info.total_upload_bw))
+    if qos_info.intranet_upload_bw is not None:
+        _add_text_child(root, "IntranetUploadBandwidth", str(qos_info.intranet_upload_bw))
+    if qos_info.extranet_upload_bw is not None:
+        _add_text_child(root, "ExtranetUploadBandwidth", str(qos_info.extranet_upload_bw))
+    if qos_info.total_download_bw is not None:
+        _add_text_child(root, "TotalDownloadBandwidth", str(qos_info.total_download_bw))
+    if qos_info.intranet_download_bw is not None:
+        _add_text_child(root, "IntranetDownloadBandwidth", str(qos_info.intranet_download_bw))
+    if qos_info.extranet_download_bw is not None:
+        _add_text_child(root, "ExtranetDownloadBandwidth", str(qos_info.extranet_download_bw))
+    if qos_info.total_qps is not None:
+        _add_text_child(root, "TotalQps", str(qos_info.total_qps))
+    if qos_info.intranet_qps is not None:
+        _add_text_child(root, "IntranetQps", str(qos_info.intranet_qps))
+    if qos_info.extranet_qps is not None:
+        _add_text_child(root, "ExtranetQps", str(qos_info.extranet_qps))
+
+    return _node_to_string(root)
+
+def parse_get_qos_info(result, body):
+    """解析UserQosInfo 或者BucketQosInfo
+
+    :UserQosInfo包含成员region,其他成员同BucketQosInfo
+    """
+    root = ElementTree.fromstring(body)
+
+    if hasattr(result, 'region'):
+        result.region = _find_tag(root, 'Region')
+
+    result.total_upload_bw = _find_int(root, 'TotalUploadBandwidth')
+    result.intranet_upload_bw = _find_int(root, 'IntranetUploadBandwidth')
+    result.extranet_upload_bw = _find_int(root, 'ExtranetUploadBandwidth')
+    result.total_download_bw = _find_int(root, 'TotalDownloadBandwidth')
+    result.intranet_download_bw = _find_int(root, 'IntranetDownloadBandwidth')
+    result.extranet_download_bw = _find_int(root, 'ExtranetDownloadBandwidth')
+    result.total_qps = _find_int(root, 'TotalQps')
+    result.intranet_qps = _find_int(root, 'IntranetQps')
+    result.extranet_qps = _find_int(root, 'ExtranetQps')
+
+    return result
