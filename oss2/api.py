@@ -1817,6 +1817,21 @@ class Bucket(_Base):
         logger.debug("Post vod playlist done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
+    def get_vod_playlist(self, channel_name, start_time=0, end_time=0):
+        """查看指定时间段内的播放列表
+
+        param str channel_name: 要获取点播列表的live channel的名称
+        param int start_time: 点播的起始时间，Unix Time格式，可以使用int(time.time())获取
+        param int end_time: 点播的结束时间，Unix Time格式，可以使用int(time.time())获取
+        """
+        logger.debug("Start to get vod playlist, bucket: {0}, channel_name: {1},  start_time: "
+                     "{2}, end_time: {3}".format(self.bucket_name, to_string(channel_name),  start_time, end_time))
+        resp = self.__do_object('GET', channel_name, params={Bucket.VOD: '', 'startTime': str(start_time),
+                                                     'endTime': str(end_time)})
+        logger.debug("get vod playlist done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        result = GetVodPlaylistResult(resp)
+        return result
+
     def process_object(self, key, process, headers=None):
         """处理图片的接口，支持包括调整大小，旋转，裁剪，水印，格式转换等，支持多种方式组合处理。
 
