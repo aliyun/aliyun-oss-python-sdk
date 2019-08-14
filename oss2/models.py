@@ -464,8 +464,8 @@ class Owner(object):
 
 class BucketInfo(object):
     def __init__(self, name=None, owner=None, location=None, storage_class=None, intranet_endpoint=None,
-                 extranet_endpoint=None, creation_date=None, acl=None, bucket_encryption_rule=None,
-                 versioning_status=None):
+                 extranet_endpoint=None, creation_date=None, acl=None, data_redundancy_type=None, comment=None,
+                 bucket_encryption_rule=None, versioning_status=None):
         self.name = name
         self.owner = owner
         self.location = location
@@ -474,6 +474,8 @@ class BucketInfo(object):
         self.extranet_endpoint = extranet_endpoint
         self.creation_date = creation_date
         self.acl = acl
+        self.data_redundancy_type = data_redundancy_type
+        self.comment = comment
 
         self.bucket_encryption_rule = bucket_encryption_rule
         self.versioning_status = versioning_status

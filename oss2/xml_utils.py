@@ -294,6 +294,8 @@ def parse_get_bucket_info(result, body):
     result.location = _find_tag(root, 'Bucket/Location')
     result.owner = Owner(_find_tag(root, 'Bucket/Owner/DisplayName'), _find_tag(root, 'Bucket/Owner/ID'))
     result.acl = AccessControlList(_find_tag(root, 'Bucket/AccessControlList/Grant'))
+    result.data_redundancy_type = _find_tag(root, 'Bucket/DataRedundancyType')
+    result.comment = _find_tag(root, 'Bucket/Comment')
 
     server_side_encryption = root.find("Bucket/ServerSideEncryptionRule")
 
