@@ -1002,6 +1002,29 @@ class TestObjectVersioning(OssTestCase):
         bucket.delete_object(key, params={'versionId': version2})
         bucket.delete_bucket()
 
+    def test_delete_object_versions_with_invalid_arguments(self):
+        from oss2.models import BucketVersioningConfig
+        from oss2.models import BatchDeleteObjectVersion
+        from oss2.models import BatchDeleteObjectVersionList
+
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket_name = OSS_BUCKET + "test-delete-object-versions"
+        bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
+
+        config = BucketVersioningConfig()
+        config.status = 'Enabled'
+        bucket.put_bucket_versioning(config)
+
+        wait_meta_sync()
+
+        version_list = BatchDeleteObjectVersionList()
+        version_list.append(BatchDeleteObjectVersion('test-key', '234'))
+
+        self.assertRaises(oss2.exceptions.InvalidArgument, bucket.delete_object_versions, version_list)
+        self.assertRaises(oss2.exceptions.ClientError, bucket.delete_object_versions, None)
+        self.assertRaises(oss2.exceptions.ClientError, bucket.delete_object_versions, [])
+
 
 if __name__ == '__main__':
     unittest.main()

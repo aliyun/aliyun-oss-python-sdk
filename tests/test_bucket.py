@@ -687,7 +687,7 @@ class TestBucket(OssTestCase):
 
         # KMS
         rule.sse_algorithm = oss2.SERVER_SIDE_ENCRYPTION_KMS
-        rule.kms_master_keyid = ""
+        rule.kms_master_keyid = "123"
 
         result = self.bucket.put_bucket_encryption(rule)
         self.assertEqual(int(result.status)/100, 2)
@@ -696,7 +696,7 @@ class TestBucket(OssTestCase):
 
         result = self.bucket.get_bucket_info()
         self.assertEqual(result.bucket_encryption_rule.sse_algorithm, 'KMS')
-        self.assertTrue(result.bucket_encryption_rule.kms_master_keyid is None)
+        self.assertEqual(result.bucket_encryption_rule.kms_master_keyid, '123')
 
         result = self.bucket.delete_bucket_encryption()
         self.assertEqual(int(result.status), 204)

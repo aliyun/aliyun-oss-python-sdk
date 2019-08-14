@@ -634,6 +634,22 @@ class TestObject(OssTestCase):
         result = self.bucket.delete_object(key)
         self.assertEqual(result.status, 204)
 
+    def test_get_object_with_url_to_file_chunked(self):
+        # object后缀为txt, length >= 1024, 指定Accept-Encoding接收，服务器将会以chunked模式传输数据
+        key = 'test_get_object_with_url_to_file_chunked.txt'
+        content = b'a' * 1024
+        self.bucket.put_object(key, content)
+
+        filename = key + '-local.txt'
+        url = self.bucket.sign_url('GET', key, 240)
+        result = self.bucket.get_object_with_url_to_file(url, filename, headers={'Accept-Encoding': 'gzip'})
+
+        self.assertEqual(result.headers['Transfer-Encoding'], 'chunked')
+        self.assertFileContent(filename, content)
+
+        os.remove(filename)
+        self.bucket.delete_object(key)
+
     def test_modified_since(self):
         key = self.random_key()
         content = random_bytes(16)
@@ -760,6 +776,12 @@ class TestObject(OssTestCase):
         self.bucket.put_object(key, content, progress_callback=progress_callback)
         self.assertEqual(stats['previous'], len(content))
 
+        # 使用签名url上传
+        stats = {'previous': -1}
+        url = self.bucket.sign_url('PUT', key, 240)
+        result = self.bucket.put_object_with_url(url, content, progress_callback=progress_callback)
+        self.assertEqual(stats['previous'], len(content))
+
         # 追加内容
         stats = {'previous': -1}
         self.bucket.append_object(self.random_key(), 0, content, progress_callback=progress_callback)
@@ -825,6 +847,21 @@ class TestObject(OssTestCase):
         self.assertEqual(content, content_got)
 
         os.remove(filename)
+
+    def test_rsa_crypto_get_object_to_file_chunked(self):
+        # object后缀为txt, length >= 1024, 指定Accept-Encoding接收，服务器将会以chunked模式传输数据
+        key = 'test_rsa_crypto_get_object_to_file_chunked.txt'
+        content = b'a' * 1024
+
+        self.rsa_crypto_bucket.put_object(key, content)
+
+        filename =  key + '-local.txt'
+        result = self.rsa_crypto_bucket.get_object_to_file(key, filename, headers={'Accept-Encoding': 'gzip'})
+        self.assertEqual(result.headers['Transfer-Encoding'], 'chunked')
+        self.assertFileContent(filename, content)
+
+        os.remove(filename)
+        self.bucket.delete_object(key)
 
     def test_exceptions(self):
         key = self.random_key()

@@ -51,9 +51,11 @@ def clean_and_delete_bucket(bucket):
             all_objects = bucket.list_object_versions()
             for obj in all_objects.versions:
                 bucket.delete_object(obj.key, params={'versionId': obj.versionid})
+            for del_maker in all_objects.delete_marker:
+                bucket.delete_object(del_maker.key, params={'versionId': del_maker.versionid})
     except:
         pass
-    
+
     # list all upload_parts to delete
     up_iter = oss2.MultipartUploadIterator(bucket)
     for up in up_iter:
