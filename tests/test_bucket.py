@@ -583,6 +583,8 @@ class TestBucket(OssTestCase):
         self.assertTrue(len(result.extranet_endpoint) > 0)
         self.assertTrue(len(result.owner.id) > 0)
         self.assertEqual(result.acl.grant, oss2.BUCKET_ACL_PRIVATE)
+        self.assertIsNotNone(result.data_redundancy_type)
+        self.assertIsNotNone(result.comment)
         self.assertEqual(result.bucket_encryption_rule.sse_algorithm, None)
         self.assertEqual(result.versioning_status, None)
         bucket.delete_bucket()
