@@ -213,8 +213,7 @@ def parse_list_parts(result, body):
 
 def parse_batch_delete_objects(result, body):
     if not body:
-        return result
-
+        return result 
     root = ElementTree.fromstring(body)
     url_encoded = _is_url_encoding(root)
 
@@ -978,9 +977,7 @@ def to_select_json_object(sql, select_params):
     options = ElementTree.SubElement(root, 'Options')
     is_doc = select_params[SelectParameters.Json_Type] == SelectJsonTypes.DOCUMENT
     _add_text_child(json, 'Type', select_params[SelectParameters.Json_Type])
-    if select_params is None:
-        return _node_to_string(root)
-    
+
     for key, value in select_params.items(): 
         if SelectParameters.SplitRange == key and is_doc == False:
             _add_text_child(json, 'Range', utils._make_split_range_string(value))
