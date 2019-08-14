@@ -733,23 +733,18 @@ def make_download_store(root=None, dir=None):
     return ResumableDownloadStore(root=root, dir=dir)
 
 
-def _rebuild_record(filename, store, bucket, key, upload_id, part_size=None):
+def _rebuild_record(filename, store, bucket, key, upload_id, part_size):
     abspath = os.path.abspath(filename)
     mtime = os.path.getmtime(filename)
     size = os.path.getsize(filename)
 
     store_key = store.make_store_key(bucket.bucket_name, key, abspath)
     record = {'upload_id': upload_id, 'mtime': mtime, 'size': size, 'parts': [],
-              'abspath': abspath, 'key': key}
+              'abspath': abspath, 'key': key, 'part_size': part_size}
 
     for p in iterators.PartIterator(bucket, key, upload_id):
         record['parts'].append({'part_number': p.part_number,
                                 'etag': p.etag, 'part_crc': p.part_crc})
-
-        if not part_size:
-            part_size = p.size
-
-    record['part_size'] = part_size
 
     store.put(store_key, record)
 
