@@ -14,7 +14,7 @@ from oss2.models import Tagging, TaggingRule
 from oss2.headers import OSS_OBJECT_TAGGING, OSS_OBJECT_TAGGING_COPY_DIRECTIVE
 from oss2.compat import urlunquote, urlquote
 
-from common import *
+from .common import *
 
 
 def now():
@@ -62,7 +62,8 @@ class TestObject(OssTestCase):
 
     def test_restore_object(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+        bucket_name = OSS_BUCKET + "-test-restore-object"
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE, oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_ARCHIVE))
 
@@ -229,6 +230,7 @@ class TestObject(OssTestCase):
         oss2.defaults.connect_timeout = 0.001
         bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
         self.assertRaises(RequestError, bucket.get_bucket_acl)
+        oss2.defaults.connect_timeout = 60
 
     def test_get_object_iterator(self):
         key = self.random_key()
@@ -244,7 +246,7 @@ class TestObject(OssTestCase):
         self.assertEqual(len(content), len(content_got))
         self.assertEqual(content, content_got)
 
-        result = self.bucket.get_object(key, params={'versionId': 'null'})
+        result = self.bucket.get_object(key)
         content_got = b''
 
         for chunk in result:
@@ -554,7 +556,8 @@ class TestObject(OssTestCase):
         key = self.random_key()
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+        bucket_name = OSS_BUCKET + "-test-object_exists"
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
         self.assertRaises(NoSuchBucket, bucket.object_exists, key)
 
         self.assertTrue(not self.bucket.object_exists(key))
@@ -579,7 +582,6 @@ class TestObject(OssTestCase):
         # bucket no exist
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
-
         self.assertRaises(NoSuchBucket, bucket.get_object_meta, key)
 
         # object no exist
@@ -772,7 +774,6 @@ class TestObject(OssTestCase):
         # bucket no exist
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
-
         self.assertRaises(NoSuchBucket, bucket.get_symlink, symlink)
 
         # object no exist
@@ -1032,7 +1033,9 @@ class TestObject(OssTestCase):
 
         rule.add(128 * 'a', 256 * 'b')
         rule.add('+-/', ':+:')
-        self.assertEqual(rule.to_query_string(), 128 * 'a' + '=' + 256 * 'b' + '&%2B-/=%3A%2B%3A&key1=value1')
+        self.assertEqual('key1=value1' in rule.to_query_string(), True)
+        self.assertEqual((128*'a' + '=' + 256*'b') in rule.to_query_string(), True)
+        self.assertEqual('%2B-/=%3A%2B%3A' in rule.to_query_string(), True)
 
         headers = dict()
         headers[OSS_OBJECT_TAGGING] = rule.to_query_string()
@@ -1087,10 +1090,6 @@ class TestObject(OssTestCase):
 
         headers = dict()
         headers[OSS_OBJECT_TAGGING] = rule.to_query_string()
-
-        self.assertEqual(rule.to_query_string(), 'key9=value9&key8=value8&key3=value3&' +
-                         'key2=value2&key1=value1&key0=value0&key7=value7&key6=value6&key5=value5&' +
-                         'key4=value4&key14=value14&key13=value13&key12=value12&key11=value11&key10=value10')
 
         result = self.bucket.append_object(key, 0, content1, init_crc=0)
         self.assertEqual(result.next_position, len(content1))
@@ -1176,6 +1175,7 @@ class TestObject(OssTestCase):
 
         result = self.bucket.delete_object(symlink)
         self.assertEqual(2, int(result.status) / 100)
+        self.assertEqual(204, int(result.status))
 
     def test_put_symlink_with_tagging_with_wrong_num(self):
         key = self.random_key()
@@ -1228,6 +1228,7 @@ class TestObject(OssTestCase):
         self.assertEqual(head_result.headers['x-oss-meta-key1'], 'value1')
         self.assertEqual(head_result.headers['x-oss-meta-key2'], 'value2')
 
+<<<<<<< HEAD
     def test_put_symlink_with_version(self):
 
         from oss2.models import BucketVersioningConfig
@@ -2328,7 +2329,6 @@ class TestObject(OssTestCase):
 
             result = crypto_bucket.get_object(key)
             self.assertEqual(result.read(), content)
-
 
 class TestSign(TestObject):
     """

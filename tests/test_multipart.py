@@ -4,7 +4,7 @@ import unittest
 import oss2
 from oss2.utils import calc_obj_crc_from_parts
 
-from common import *
+from .common import *
 from oss2.headers import OSS_OBJECT_TAGGING, OSS_OBJECT_TAGGING_COPY_DIRECTIVE
 from oss2.compat import urlunquote, urlquote
 
@@ -648,7 +648,6 @@ class TestMultipart(OssTestCase):
             self.assertEqual(key2_content_1, key2_content_got[0:204800])
             self.assertEqual(key2_content_2, key2_content_got[204800:409600])
             self.assertEqual(key2_content_3, key2_content_got[409600:512000])
-
 
 if __name__ == '__main__':
     unittest.main()
