@@ -235,7 +235,7 @@ class CryptoBucket(Bucket):
     def init_multipart_upload(self, key, headers=None):
         raise ClientError("Missing data_size in init_multipart_upload for CryptoBucket")
 
-    def init_multipart_upload(self, key, data_size, part_size=None, headers=None):
+    def init_multipart_upload(self, key, data_size=None, part_size=None, headers=None):
         """客户端加密初始化分片上传。
 
         :param str key: 待上传的文件名
@@ -250,6 +250,10 @@ class CryptoBucket(Bucket):
         """
         logger.info("Start to init multipart upload by CryptoBucket, data_size: {0}, part_size: {1}".format(data_size,
                                                                                                             part_size))
+
+        if not data_size:
+            raise ClientError("Must specify the value of data_size")
+
         if part_size:
             res = self.crypto_provider.cipher.is_valid_part_size(part_size, data_size)
             if not res:

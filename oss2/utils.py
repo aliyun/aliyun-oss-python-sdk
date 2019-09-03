@@ -130,6 +130,8 @@ def is_ip_or_localhost(netloc):
 _ALPHA_NUM = 'abcdefghijklmnopqrstuvwxyz0123456789'
 _HYPHEN = '-'
 _BUCKET_NAME_CHARS = set(_ALPHA_NUM + _HYPHEN)
+_MAX_UINT32 = 2**32 - 1
+_MAX_UINT64 = 2**64 - 1
 
 
 def is_valid_bucket_name(name):
@@ -691,8 +693,10 @@ def random_key(key_len):
     return Random.new().read(key_len)
 
 
-def random_counter(begin=1, end=10):
-    return random.randint(begin, end)
+def random_counter():
+    nonce = random.randint(0, _MAX_UINT64)
+    counter = nonce << 64 + random.randint(0, _MAX_UINT32)
+    return counter
 
 
 _STRPTIME_LOCK = threading.Lock()
