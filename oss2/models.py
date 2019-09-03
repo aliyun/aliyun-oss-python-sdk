@@ -63,12 +63,8 @@ class ContentCryptoMaterial(object):
             headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_LENGTH] = headers['content-length']
             del headers['content-length']
 
-        if self.wrap_alg == "kms":
-            headers[OSS_CLIENT_SIDE_ENCRYPTION_KEY] = self.encrypted_key
-            headers[OSS_CLIENT_SIDE_ENCRYPTION_START] = self.encrypted_start
-        else:
-            headers[OSS_CLIENT_SIDE_ENCRYPTION_KEY] = b64encode_as_string(self.encrypted_key)
-            headers[OSS_CLIENT_SIDE_ENCRYPTION_START] = b64encode_as_string(self.encrypted_start)
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_KEY] = b64encode_as_string(self.encrypted_key)
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_START] = b64encode_as_string(self.encrypted_start)
         headers[OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG] = self.cek_alg
         headers[OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG] = self.wrap_alg
         if self.encrypted_magic_number_hmac is not None:
@@ -90,16 +86,16 @@ class ContentCryptoMaterial(object):
             deprecated = True
 
         if deprecated:
-            self.encrypted_key = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY)
-            self.encrypted_start = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_START)
+            self.encrypted_key = b64decode_from_string(_hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY))
+            self.encrypted_start = b64decode_from_string(_hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_START))
             cek_alg = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_CEK_ALG)
             wrap_alg = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_WRAP_ALG)
             if wrap_alg == utils.AES_GCM:
                 wrap_alg = utils.AES_CTR
             self.mat_desc = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYTPION_MATDESC)
         else:
-            self.encrypted_key = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_KEY)
-            self.encrypted_start = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_START)
+            self.encrypted_key = b64decode_from_string(_hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_KEY))
+            self.encrypted_start = b64decode_from_string(_hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_START))
             cek_alg = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG)
             wrap_alg = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG)
             self.mat_desc = _hget(headers, OSS_CLIENT_SIDE_ENCRYTPION_MATDESC)
@@ -109,10 +105,6 @@ class ContentCryptoMaterial(object):
 
         if self.is_invalid():
             raise ClientError('Missing some meta to initialize content crypto material')
-
-        if self.wrap_alg == "rsa":
-            self.encrypted_key = b64decode_from_string(self.encrypted_key)
-            self.encrypted_start = b64decode_from_string(self.encrypted_start)
 
         if cek_alg != self.cek_alg or wrap_alg != self.wrap_alg:
             logger.error("The cek algorithm or the wrap alg is inconsistent, object meta: cek_alg:{0}, wrap_alg:{1}, "

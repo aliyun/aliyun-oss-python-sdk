@@ -1317,9 +1317,7 @@ class Bucket(_Base):
         :param str key_marker: 文件名分页符。第一次调用可以不传，后续设为返回值中的 `next_key_marker`
         :param str upload_id_marker: 分片ID分页符。第一次调用可以不传，后续设为返回值中的 `next_upload_id_marker`
         :param int max_uploads: 一次罗列最多能够返回的条目数
-
-        :param headers: HTTP头部
-        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+        :param dict headers: HTTP头部
 
         :return: :class:`ListMultipartUploadsResult <oss2.models.ListMultipartUploadsResult>`
         """
