@@ -76,7 +76,6 @@ class TestQosInfo(OssTestCase):
         user_qos_info = service.get_user_qos_info()
         self.assertTrue(user_qos_info.total_upload_bw > 0, 'user_qos_info.total_upload_bw should be > 0')
         self.assertTrue(user_qos_info.total_download_bw > 0, 'user_qos_info.total_download_bw should be > 0')
-        self.assertTrue(user_qos_info.total_qps > 0, 'user_qos_info.total_qps should be > 0')
 
         # total_upload_bw > user_qos_info.total_upload_bw, should be failed.
         total_upload_bw = user_qos_info.total_upload_bw + 1
@@ -112,23 +111,26 @@ class TestQosInfo(OssTestCase):
         bucket_qos_info = BucketQosInfo(total_download_bw=total_download_bw, extranet_download_bw=extranet_download_bw)
         self.assertRaises(oss2.exceptions.InvalidArgument, self.bucket.put_bucket_qos_info, bucket_qos_info)
 
-        # total_qps > user_qos_info.total_qps, should be failed.
-        total_qps = user_qos_info.total_qps + 1
-        bucket_qos_info = BucketQosInfo(total_qps=total_qps)
-        self.assertRaises(oss2.exceptions.InvalidArgument, self.bucket.put_bucket_qos_info, bucket_qos_info)
+        #self.assertTrue(user_qos_info.total_qps > 0, 'user_qos_info.total_qps should be > 0')
+        if user_qos_info.total_qps > 0 :
+            # total_qps > user_qos_info.total_qps, should be failed.
+            total_qps = user_qos_info.total_qps + 1
+            bucket_qos_info = BucketQosInfo(total_qps=total_qps)
+            self.assertRaises(oss2.exceptions.InvalidArgument, self.bucket.put_bucket_qos_info, bucket_qos_info)
 
-        # intranet_qps > total_qps, should be failed.
-        total_qps = total_qps
-        intranet_qps = total_qps + 1
-        bucket_qos_info = BucketQosInfo(total_qps=total_qps, intranet_qps=intranet_qps)
-        self.assertRaises(oss2.exceptions.InvalidArgument, self.bucket.put_bucket_qos_info, bucket_qos_info)
+            # intranet_qps > total_qps, should be failed.
+            total_qps = total_qps
+            intranet_qps = total_qps + 1
+            bucket_qos_info = BucketQosInfo(total_qps=total_qps, intranet_qps=intranet_qps)
+            self.assertRaises(oss2.exceptions.InvalidArgument, self.bucket.put_bucket_qos_info, bucket_qos_info)
 
-        # extranet_qps > total_qps, should be failed.
-        total_qps = total_qps
-        extranet_qps = total_qps + 1
-        bucket_qos_info = BucketQosInfo(extranet_qps=extranet_qps)
-        self.assertRaises(oss2.exceptions.InvalidArgument, self.bucket.put_bucket_qos_info, bucket_qos_info)
-
+            # extranet_qps > total_qps, should be failed.
+            total_qps = total_qps
+            extranet_qps = total_qps + 1
+            bucket_qos_info = BucketQosInfo(extranet_qps=extranet_qps)
+            self.assertRaises(oss2.exceptions.InvalidArgument, self.bucket.put_bucket_qos_info, bucket_qos_info)
+        else:
+            self.assertTrue(user_qos_info.total_qps == -1, 'default user_qos_info.total_qps is -1')
 
 if __name__ == '__main__':
     unittest.main()

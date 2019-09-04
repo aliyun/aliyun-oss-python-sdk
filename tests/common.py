@@ -51,8 +51,8 @@ def clean_and_delete_bucket(bucket):
             all_objects = bucket.list_object_versions()
             for obj in all_objects.versions:
                 bucket.delete_object(obj.key, params={'versionId': obj.versionid})
-            for del_maker in all_objects.delete_marker:
-                bucket.delete_object(del_maker.key, params={'versionId': del_maker.versionid})
+            for del_marker in all_objects.delete_marker:
+                bucket.delete_object(del_marker.key, params={'versionId': del_marker.versionid})
     except:
         pass
 
