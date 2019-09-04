@@ -1820,7 +1820,7 @@ class Bucket(_Base):
         logger.debug("Post vod playlist done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
-    def get_vod_playlist(self, channel_name, start_time=0, end_time=0):
+    def get_vod_playlist(self, channel_name, start_time, end_time):
         """查看指定时间段内的播放列表
 
         param str channel_name: 要获取点播列表的live channel的名称

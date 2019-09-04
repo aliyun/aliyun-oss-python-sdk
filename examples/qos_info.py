@@ -37,7 +37,7 @@ print('extranet_qps:', user_qos_info.extranet_qps)
 # 创建Bucket对象，所有Object相关的接口都可以通过Bucket对象来进行
 bucket = oss2.Bucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name)
 
-# 创建BucketQosInfo对象, -1表示不做单独限制, 具体设置规则请参考官网文档
+# 创建BucketQosInfo对象, -1表示不做单独限制, 带宽单位为Gbps，具体设置规则请参考官网文档
 bucket_qos_info = BucketQosInfo(
                     total_upload_bw = -1,
                     intranet_upload_bw = 2,

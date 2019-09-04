@@ -32,8 +32,7 @@ filename = 'python_select.csv'
 # 上传文件
 bucket.put_object(key, content)
 
-csv_meta_params = {'CsvHeaderInfo': 'None',
-                'RecordDelimiter': '\r\n'}
+csv_meta_params = {'RecordDelimiter': '\r\n'}
 
 select_csv_params = {'CsvHeaderInfo': 'None',
                 'RecordDelimiter': '\r\n',
