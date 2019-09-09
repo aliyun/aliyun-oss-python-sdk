@@ -89,8 +89,6 @@ class LocalRsaProvider(BaseCryptoProvider):
 
     DEFAULT_PUB_KEY_SUFFIX = '.public_key.pem'
     DEFAULT_PRIV_KEY_SUFFIX = '.private_key.pem'
-    # "Hello, OSS!"
-    MAGIC_NUMBER = '56AAD346-F0899BFE-8BDD02C0-6BBE511E'
 
     def __init__(self, dir=None, key='', passphrase=None, cipher=utils.AESCTRCipher(),
                  pub_key_suffix=DEFAULT_PUB_KEY_SUFFIX, private_key_suffix=DEFAULT_PRIV_KEY_SUFFIX, gen_keys=False):
@@ -110,13 +108,6 @@ class LocalRsaProvider(BaseCryptoProvider):
                 with open(pub_key_path, 'rb') as f:
                     self.__encrypt_obj = PKCS1_OAEP.new(RSA.importKey(f.read(), passphrase=passphrase))
 
-                # In this place, to check the rsa keys are ok
-                encryption_magic_number = self.__encrypt_obj.encrypt(self.MAGIC_NUMBER)
-                magic_number = self.__decrypt_obj.decrypt(encryption_magic_number)
-
-                if magic_number != self.MAGIC_NUMBER:
-                    raise ClientError('The public and private keys do not match')
-
             else:
                 if not gen_keys:
                     raise ClientError('The file path of private key or public key is not exist')
@@ -133,11 +124,6 @@ class LocalRsaProvider(BaseCryptoProvider):
 
                 with open(pub_key_path, 'wb') as f:
                     f.write(public_key.exportKey(passphrase=passphrase))
-                encryption_magic_number = self.__encrypt_data(self.MAGIC_NUMBER)
-
-            sha256 = hashlib.sha256()
-            sha256.update(encryption_magic_number)
-            self.encryption_magic_number_hmac = sha256.hexdigest()
         except (ValueError, TypeError, IndexError) as e:
             raise ClientError(str(e))
 
@@ -168,12 +154,7 @@ class LocalRsaProvider(BaseCryptoProvider):
 
         content_crypto_material = models.ContentCryptoMaterial(cipher, wrap_alg, encrypted_key, encrypted_start,
                                                                mat_desc)
-        content_crypto_material.encrypted_magic_number_hmac = self.encryption_magic_number_hmac
         return content_crypto_material
-
-    def check_magic_number_hmac(self, magic_number_hmac):
-        if magic_number_hmac != self.encryption_magic_number_hmac:
-            raise ClientError("The hmac of magic number is inconsistent, please check the RSA keys pair")
 
     def __encrypt_data(self, data):
         return self.__encrypt_obj.encrypt(data)

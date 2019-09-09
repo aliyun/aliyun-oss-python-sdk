@@ -275,7 +275,7 @@ class CryptoBucket(Bucket):
         return resp
 
     def upload_part(self, key, upload_id, part_number, data, progress_callback=None, headers=None):
-        """客户端加密上传一个分片。
+        self.result_ = """客户端加密上传一个分片。
 
         :param str key: 待上传文件名，这个文件名要和 :func:`init_multipart_upload` 的文件名一致。
         :param str upload_id: 分片上传ID
@@ -304,8 +304,6 @@ class CryptoBucket(Bucket):
             err_msg = 'Envelope or data encryption/decryption algorithm is inconsistent'
             raise InconsistentError(err_msg, self)
      
-        if content_crypto_material.encrypted_magic_number_hmac is not None:
-            self.crypto_provider.check_magic_number_hmac(content_crypto_material.encrypted_magic_number_hmac)
         headers = content_crypto_material.to_object_meta(headers, context)
 
         plain_key = self.crypto_provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)

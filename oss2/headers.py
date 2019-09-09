@@ -39,7 +39,6 @@ OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_LENGTH = "x-oss-meta-client-side-
 OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_MD5 = "x-oss-meta-client-side-encryption-unencrypted-content-md5"
 OSS_CLIENT_SIDE_ENCRYPTION_DATA_SIZE = "x-oss-meta-client-side-encryption-data-size"
 OSS_CLIENT_SIDE_ENCRYPTION_PART_SIZE = "x-oss-meta-client-side-encryption-part-size"
-OSS_CLIENT_SIDE_ENCRYPTION_MAGIC_NUMBER_HMAC = "x-oss-meta-client-side-encryption-magic-number-hmac"
 
 DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY = "x-oss-meta-oss-crypto-key"
 DEPRECATED_CLIENT_SIDE_ENCRYPTION_START = "x-oss-meta-oss-crypto-start"

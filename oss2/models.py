@@ -49,7 +49,6 @@ class ContentCryptoMaterial(object):
         self.encrypted_key = encrypted_key
         self.encrypted_start = encrypted_start
         self.mat_desc = mat_desc
-        self.encrypted_magic_number_hmac = None
 
     def to_object_meta(self, headers=None, multipart_upload_context=None):
         if not isinstance(headers, CaseInsensitiveDict):
@@ -67,9 +66,6 @@ class ContentCryptoMaterial(object):
         headers[OSS_CLIENT_SIDE_ENCRYPTION_START] = b64encode_as_string(self.encrypted_start)
         headers[OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG] = self.cek_alg
         headers[OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG] = self.wrap_alg
-        if self.encrypted_magic_number_hmac is not None:
-            headers[OSS_CLIENT_SIDE_ENCRYPTION_MAGIC_NUMBER_HMAC] = b64encode_as_string(
-                self.encrypted_magic_number_hmac)
 
         if multipart_upload_context and multipart_upload_context.data_size and multipart_upload_context.part_size:
             headers[OSS_CLIENT_SIDE_ENCRYPTION_DATA_SIZE] = str(multipart_upload_context.data_size)
@@ -99,9 +95,6 @@ class ContentCryptoMaterial(object):
             cek_alg = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG)
             wrap_alg = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG)
             self.mat_desc = _hget(headers, OSS_CLIENT_SIDE_ENCRYTPION_MATDESC)
-            self.encrypted_magic_number_hmac = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_MAGIC_NUMBER_HMAC)
-            if self.encrypted_magic_number_hmac:
-                self.encrypted_magic_number_hmac = b64decode_from_string(self.encrypted_magic_number_hmac)
 
         if self.is_invalid():
             raise ClientError('Missing some meta to initialize content crypto material')
@@ -244,10 +237,6 @@ class GetObjectResult(HeadObjectResult):
 
             plain_key = self.__crypto_provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
             plain_start = int(self.__crypto_provider.decrypt_encrypted_start(content_crypto_material.encrypted_start))
-
-            # check whether the rsa key pairs is correct
-            if content_crypto_material.encrypted_magic_number_hmac:
-                self.__crypto_provider.check_magic_number_hmac(content_crypto_material.encrypted_magic_number_hmac)
 
             counter = 0
             if self.content_range:
