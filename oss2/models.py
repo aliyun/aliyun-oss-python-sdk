@@ -82,11 +82,15 @@ class ContentCryptoMaterial(object):
             deprecated = True
 
         if deprecated:
-            self.encrypted_key = b64decode_from_string(_hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY))
-            self.encrypted_start = b64decode_from_string(_hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_START))
+            if self.wrap_alg == "kms":
+                self.encrypted_key = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY)
+                self.encrypted_start = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_START)
+            else:
+                self.encrypted_key = b64decode_from_string(_hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY))
+                self.encrypted_start = b64decode_from_string(_hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_START))
             cek_alg = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_CEK_ALG)
             wrap_alg = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_WRAP_ALG)
-            if wrap_alg == utils.AES_GCM:
+            if cek_alg == utils.AES_GCM:
                 wrap_alg = utils.AES_CTR
             self.mat_desc = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYTPION_MATDESC)
         else:
