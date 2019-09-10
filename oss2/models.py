@@ -91,7 +91,7 @@ class ContentCryptoMaterial(object):
             cek_alg = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_CEK_ALG)
             wrap_alg = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_WRAP_ALG)
             if cek_alg == utils.AES_GCM:
-                wrap_alg = utils.AES_CTR
+                cek_alg = utils.AES_CTR
             self.mat_desc = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYTPION_MATDESC)
         else:
             self.encrypted_key = b64decode_from_string(_hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_KEY))
@@ -100,19 +100,26 @@ class ContentCryptoMaterial(object):
             wrap_alg = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG)
             self.mat_desc = _hget(headers, OSS_CLIENT_SIDE_ENCRYTPION_MATDESC)
 
-        if self.is_invalid():
-            raise ClientError('Missing some meta to initialize content crypto material')
-
-        if cek_alg != self.cek_alg or wrap_alg != self.wrap_alg:
-            logger.error("The cek algorithm or the wrap alg is inconsistent, object meta: cek_alg:{0}, wrap_alg:{1}, "
-                         "material: cek_alg:{2}, wrap_alg:{3}".format(cek_alg, wrap_alg, self.cek_alg, self.wrap_alg))
-            err_msg = 'Envelope or data encryption/decryption algorithm is inconsistent'
+        if cek_alg and cek_alg != self.cek_alg:
+            logger.error("CEK algorithm or is inconsistent, object meta: cek_alg:{0}, material: cek_alg:{1}".
+                         format(cek_alg, self.cek_alg))
+            err_msg = 'Envelope encryption/decryption algorithm is inconsistent'
             raise InconsistentError(err_msg, self)
 
-    def is_invalid(self):
-        if self.encrypted_key and self.encrypted_start and self.cek_alg and self.wrap_alg:
+        if wrap_alg and wrap_alg != self.wrap_alg:
+            logger.error("WRAP algorithm or is inconsistent, object meta: wrap_alg:{0}, material: wrap_alg:{1}".
+                         format(wrap_alg, self.wrap_alg))
+            err_msg = 'Data encryption/decryption algorithm is inconsistent'
+            raise InconsistentError(err_msg, self)
+
+        self.cek_alg = cek_alg
+        self.wrap_alg = wrap_alg
+
+    def is_unencrypted(self):
+        if not self.encrypted_key and not self.encrypted_start and not self.cek_alg and not self.wrap_alg:
+            return True
+        else:
             return False
-        return True
 
 
 class MultipartUploadCryptoContext(object):
@@ -231,28 +238,31 @@ class GetObjectResult(HeadObjectResult):
         else:
             self.stream = self.resp
 
-        if self.__crc_enabled:
-            self.stream = make_crc_adapter(self.stream, discard=discard)
-
         if self.__crypto_provider:
             content_crypto_material = ContentCryptoMaterial(self.__crypto_provider.cipher,
                                                             self.__crypto_provider.wrap_alg)
             content_crypto_material.from_object_meta(resp.headers)
 
-            plain_key = self.__crypto_provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
-            plain_start = int(self.__crypto_provider.decrypt_encrypted_start(content_crypto_material.encrypted_start))
+            if not content_crypto_material.is_unencrypted():
+                plain_key = self.__crypto_provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
+                plain_start = int(self.__crypto_provider.decrypt_encrypted_start(content_crypto_material.encrypted_start))
 
-            counter = 0
-            if self.content_range:
-                start, end = self.__crypto_provider.adjust_range(byte_range[0], byte_range[1])
-                counter = content_crypto_material.cipher.calc_counter(start)
+                counter = 0
+                if self.content_range:
+                    start, end = self.__crypto_provider.adjust_range(byte_range[0], byte_range[1])
+                    counter = content_crypto_material.cipher.calc_counter(start)
 
-            cipher = copy.copy(content_crypto_material.cipher)
-            cipher.initialize(plain_key, plain_start + counter)
-            self.stream = self.__crypto_provider.make_decrypt_adapter(self.stream, cipher, discard)
+                cipher = copy.copy(content_crypto_material.cipher)
+                cipher.initialize(plain_key, plain_start + counter)
+                self.stream = self.__crypto_provider.make_decrypt_adapter(self.stream, cipher, discard)
+            else:
+                discard = 0
         else:
             if OSS_CLIENT_SIDE_ENCRYPTION_KEY in resp.headers or DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY in resp.headers:
-                raise ClientError('Could not use bucket to decrypt an encrypted object')
+                raise ClientError('Could not use Bucket to decrypt an encrypted object')
+
+        if self.__crc_enabled:
+            self.stream = make_crc_adapter(self.stream, discard=discard)
 
     @staticmethod
     def _parse_range_str(content_range):
@@ -558,6 +568,7 @@ REDIRECT_TYPE_ALICDN = 'AliCDN'
 PAYER_BUCKETOWNER = 'BucketOwner'
 PAYER_REQUESTER = 'Requester'
 
+
 class GetBucketAclResult(RequestResult):
     def __init__(self, resp):
         super(GetBucketAclResult, self).__init__(resp)
@@ -661,6 +672,7 @@ class GetBucketRefererResult(RequestResult, BucketReferer):
         RequestResult.__init__(self, resp)
         BucketReferer.__init__(self, False, [])
 
+
 class Condition(object):
     """ 匹配规则
 
@@ -674,11 +686,12 @@ class Condition(object):
     :param include_header_list: 匹配指定的header
     :type include_header_list: list of :class:`ConditionInlcudeHeader`
     """
+
     def __init__(self, key_prefix_equals=None, http_err_code_return_equals=None, include_header_list=None):
-        if (include_header_list is not None): 
+        if (include_header_list is not None):
             if not isinstance(include_header_list, list):
                 raise ClientError('class of include_header should be list')
-            
+
             if len(include_header_list) > 5:
                 raise ClientError('capacity of include_header_list should not > 5, please check!')
 
@@ -696,7 +709,8 @@ class ConditionInlcudeHeader(object):
     :param key: header value
     :type key: str
     """
-    def __init__(self, key=None, equals= None):
+
+    def __init__(self, key=None, equals=None):
         self.key = key
         self.equals = equals
 
@@ -756,17 +770,19 @@ class Redirect(object):
     :type mirror_headers: class:`RedirectMirrorHeaders <oss2.models.RedirectMirrorHeaders>`
 
     """
-    def __init__(self, redirect_type=None, pass_query_string= None, replace_key_with=None, replace_key_prefix_with=None, 
-                    proto=None, host_name=None, http_redirect_code=None,  mirror_url=None, mirror_url_slave=None, 
-                    mirror_url_probe=None, mirror_pass_query_string=None, mirror_follow_redirect=None, 
-                    mirror_check_md5=None, mirror_headers=None):
 
-        if redirect_type not in [REDIRECT_TYPE_MIRROR, REDIRECT_TYPE_EXTERNAL, REDIRECT_TYPE_INTERNAL, REDIRECT_TYPE_ALICDN]:
+    def __init__(self, redirect_type=None, pass_query_string=None, replace_key_with=None, replace_key_prefix_with=None,
+                 proto=None, host_name=None, http_redirect_code=None, mirror_url=None, mirror_url_slave=None,
+                 mirror_url_probe=None, mirror_pass_query_string=None, mirror_follow_redirect=None,
+                 mirror_check_md5=None, mirror_headers=None):
+
+        if redirect_type not in [REDIRECT_TYPE_MIRROR, REDIRECT_TYPE_EXTERNAL, REDIRECT_TYPE_INTERNAL,
+                                 REDIRECT_TYPE_ALICDN]:
             raise ClientError('redirect_type must be Internal, External, Mirror or AliCDN.')
 
         if redirect_type == REDIRECT_TYPE_INTERNAL:
             if any((host_name, proto, http_redirect_code)):
-                 raise ClientError('host_name, proto, http_redirect_code must be empty when redirect_type is Internal.')
+                raise ClientError('host_name, proto, http_redirect_code must be empty when redirect_type is Internal.')
 
         if redirect_type in [REDIRECT_TYPE_EXTERNAL, REDIRECT_TYPE_ALICDN]:
             if http_redirect_code is not None:
@@ -777,22 +793,26 @@ class Redirect(object):
             if all((replace_key_with, replace_key_prefix_with)):
                 raise ClientError("replace_key_with or replace_key_prefix_with only choose one.")
 
-        elif redirect_type == REDIRECT_TYPE_MIRROR: 
+        elif redirect_type == REDIRECT_TYPE_MIRROR:
             if any((proto, host_name, replace_key_with, replace_key_prefix_with, http_redirect_code)):
-                    raise ClientError('host_name, replace_key_with, replace_key_prefix_with, http_redirect_code and proto must be empty when redirect_type is Mirror.') 
+                raise ClientError(
+                    'host_name, replace_key_with, replace_key_prefix_with, http_redirect_code and proto must be empty when redirect_type is Mirror.')
 
             if mirror_url is None:
                 raise ClientError('mirror_url should not be None when redirect_type is Mirror.')
 
-            if (not mirror_url.startswith('http://') and not mirror_url.startswith('https://')) or not mirror_url.endswith('/'):
+            if (not mirror_url.startswith('http://') and not mirror_url.startswith(
+                    'https://')) or not mirror_url.endswith('/'):
                 raise ClientError(r'mirror_url is invalid, should startwith "http://" or "https://", and endwith "/"')
 
             if mirror_url_slave is not None:
                 if mirror_url_probe is None:
                     raise ClientError('mirror_url_probe should not be none when mirror_url_slave is indicated')
 
-                if (not mirror_url_slave.startswith('http://') and not mirror_url_slave.startswith('https://')) or not mirror_url_slave.endswith('/'):
-                    raise ClientError(r'mirror_url_salve is invalid, should startwith "http://" or "https://", and endwith "/"')
+                if (not mirror_url_slave.startswith('http://') and not mirror_url_slave.startswith(
+                        'https://')) or not mirror_url_slave.endswith('/'):
+                    raise ClientError(
+                        r'mirror_url_salve is invalid, should startwith "http://" or "https://", and endwith "/"')
 
         self.redirect_type = redirect_type
         self.pass_query_string = pass_query_string
@@ -828,25 +848,26 @@ class RedirectMirrorHeaders(object):
     :type set_list: list of :class:`MirrorHeadersSet <oss2.models.MirrorHeadersSet>`
 
     """
-    def __init__(self,pass_all=None, pass_list=None, remove_list=None, set_list=None):
+
+    def __init__(self, pass_all=None, pass_list=None, remove_list=None, set_list=None):
         if pass_list is not None:
             if not isinstance(pass_list, list):
                 raise ClientError('The type of pass_list should be list.')
-            
+
             if len(pass_list) > 10:
                 raise ClientError('The capacity of pass_list should not > 10!')
-        
+
         if remove_list is not None:
             if not isinstance(remove_list, list):
                 raise ClientError('The type of remove_list should be list.')
-            
+
             if len(remove_list) > 10:
                 raise ClientError('The capacity of remove_list should not > 10!')
-        
+
         if set_list is not None:
             if not isinstance(set_list, list):
                 raise ClientError('The type of set_list should be list.')
-            
+
             if len(set_list) > 10:
                 raise ClientError('The capacity of set_list should not > 10!')
 
@@ -854,7 +875,7 @@ class RedirectMirrorHeaders(object):
         self.pass_list = pass_list or []
         self.remove_list = remove_list or []
         self.set_list = set_list or []
-  
+
 
 class MirrorHeadersSet(object):
     """父节点: class `RedirectMirrorHeaders <oss2.models.RedirectMirrorHeaders>`
@@ -864,6 +885,7 @@ class MirrorHeadersSet(object):
     :param value:设置header的value，最多1024个字节，不能出现”\r\n” 。只有在RedirectType为Mirror时生效。
     :type value: str
     """
+
     def __init__(self, key=None, value=None):
         self.key = key
         self.value = value
@@ -880,19 +902,21 @@ class RoutingRule(object):
     :param redirect: 指定匹配此规则后执行的动作
     :type redirect: class:`Redirect <oss2.models.Redirect>`
     """
+
     def __init__(self, rule_num=None, condition=None, redirect=None):
         if (rule_num is None) or (not isinstance(rule_num, int)) or (rule_num <= 0):
             raise ClientError('rule_num should be positive integer.')
-        
-        if(condition is None) or (redirect is None):
+
+        if (condition is None) or (redirect is None):
             raise ClientError('condition and redirect should be effective.')
-        
-        if(redirect.redirect_type == REDIRECT_TYPE_MIRROR) and condition.http_err_code_return_equals != 404:
+
+        if (redirect.redirect_type == REDIRECT_TYPE_MIRROR) and condition.http_err_code_return_equals != 404:
             raise ClientError('http_err_code not match redirect_type, it should be 404!')
 
         self.rule_num = rule_num
         self.condition = condition
         self.redirect = redirect
+
 
 class BucketWebsite(object):
     """静态网站托管配置。
@@ -1492,6 +1516,7 @@ class GetBucketPolicyResult(RequestResult):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         self.policy = to_string(resp.read())
+
 
 class GetBucketRequestPaymentResult(RequestResult):
     def __init__(self, resp):

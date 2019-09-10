@@ -151,8 +151,6 @@ class CryptoBucket(Bucket):
         range_string = ''
 
         if byte_range:
-            if byte_range[0] is None and byte_range[1]:
-                raise ClientError("Don't support range get while start is none and end is not")
             start, end = self.crypto_provider.adjust_range(byte_range[0], byte_range[1])
             adjust_byte_range = (start, end)
 
