@@ -273,7 +273,7 @@ class CryptoBucket(Bucket):
         return resp
 
     def upload_part(self, key, upload_id, part_number, data, progress_callback=None, headers=None):
-        self.result_ = """客户端加密上传一个分片。
+        """客户端加密上传一个分片。
 
         :param str key: 待上传文件名，这个文件名要和 :func:`init_multipart_upload` 的文件名一致。
         :param str upload_id: 分片上传ID

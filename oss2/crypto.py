@@ -14,7 +14,7 @@ import copy
 from functools import partial
 
 import six
-from Crypto.Cipher import PKCS1_OAEP
+from Crypto.Cipher import PKCS1_OAEP, PKCS1_v1_5
 from Crypto.PublicKey import RSA
 from aliyunsdkcore import client
 from aliyunsdkcore.acs_exception.exceptions import ServerException, ClientException
@@ -28,18 +28,39 @@ from .compat import to_bytes, to_unicode
 from .exceptions import ClientError, OpenApiFormatError, OpenApiServerError
 
 
+class EncryptionMaterials(object):
+    def __init__(self, desc, key_pair=None, custom_master_key_id=None):
+        self.desc = desc
+        if key_pair and custom_master_key_id:
+            raise ClientError('Both key_pair and custom_master_key_id are not none')
+
+        self.key_pair = key_pair
+        self.custom_master_key_id = custom_master_key_id
+
+    def add_description(self, key, value):
+        self.desc[key] = value
+
+    def add_descriptions(self, descriptions):
+        for key in descriptions:
+            self.desc[key] = descriptions[key]
+
+
 @six.add_metaclass(abc.ABCMeta)
 class BaseCryptoProvider(object):
     """CryptoProvider 基类，提供基础的数据加密解密adapter
 
     """
-
-    def __init__(self, cipher):
+    def __init__(self, cipher, mat_desc=None):
         if not cipher:
             raise ClientError('Please initialize the value of cipher!')
         self.cipher = cipher
+        self.cek_alg = None
         self.wrap_alg = None
-        self.mat_desc = None
+        if mat_desc:
+            if isinstance(mat_desc, dict):
+                self.mat_desc = mat_desc
+            else:
+                raise ClientError('Invalid type, the type of mat_desc must be dict!')
 
     @abc.abstractmethod
     def get_key(self):
@@ -64,6 +85,10 @@ class BaseCryptoProvider(object):
     def decrypt_encrypted_start(self, encrypted_start):
         pass
 
+    @abc.abstractmethod
+    def reset_encryption_materials(self, encryption_materials):
+        pass
+
     def adjust_range(self, start, end):
         return self.cipher.adjust_range(start, end)
 
@@ -71,10 +96,18 @@ class BaseCryptoProvider(object):
     def create_content_material(self):
         pass
 
+    def add_encryption_materials(self, encryption_materials):
+        if encryption_materials.desc:
+            self.encryption_materials_dict[encryption_materials.desc] = encryption_materials
+
+    def get_encryption_materials(self, desc):
+        if desc in self.encryption_materials_dict:
+            return self.encryption_materials_dict[desc]
+
 
 _LOCAL_RSA_TMP_DIR = '.oss-local-rsa'
-RSA_WRAP_ALGORITHM = 'rsa'
-KMS_WRAP_ALGORITHM = 'kms'
+RSA_WRAP_ALGORITHM = 'RSA/NONE/PKCS1Padding'
+ALI_KMS_WRAP_ALGORITHM = 'KMS/ALICLOUD'
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -163,6 +196,76 @@ class LocalRsaProvider(BaseCryptoProvider):
         return self.__decrypt_obj.decrypt(data)
 
 
+@six.add_metaclass(abc.ABCMeta)
+class RsaProvider(BaseCryptoProvider):
+    """使用本地RSA加密数据密钥。
+
+        :param str dir: 本地RSA公钥私钥存储路径
+        :param str key: 本地RSA公钥私钥名称前缀
+        :param str passphrase: 本地RSA公钥私钥密码
+        :param class cipher: 数据加密，默认aes256，用户可自行实现对称加密算法，需符合AESCipher注释规则
+    """
+
+    def __init__(self, key_pair, passphrase=None, cipher=utils.AESCTRCipher()):
+
+        super(RsaProvider, self).__init__(cipher=cipher)
+        self.wrap_alg = RSA_WRAP_ALGORITHM
+
+        if 'public_key' not in key_pair:
+            raise ClientError('The is no public_key in key_pair')
+        self.__decrypt_obj = PKCS1_v1_5.new(RSA.import_key(key_pair['public_key'], passphrase=passphrase))
+
+        if 'private_key' in key_pair:
+            self.__encrypt_obj = PKCS1_v1_5.new(RSA.importKey(key_pair['private_key'], passphrase=passphrase))
+
+    def get_key(self):
+        return self.cipher.get_key()
+
+    def decrypt_encrypted_key(self, encrypted_key):
+        try:
+            return self.__decrypt_data(encrypted_key)
+        except ValueError as e:
+            raise ClientError(str(e))
+
+    def decrypt_encrypted_start(self, encrypted_start):
+        try:
+            return self.__decrypt_data(encrypted_start)
+        except ValueError as e:
+            raise ClientError(str(e))
+
+    def reset_encryption_materials(self, encryption_materials):
+        key_pair = encryption_materials.key_pair
+        if key_pair:
+            if 'public_key' not in key_pair:
+                raise ClientError('The is no public_key in key_pair')
+            self.__decrypt_obj = PKCS1_v1_5.new(RSA.import_key(key_pair['public_key']))
+
+            if 'private_key' in key_pair:
+                self.__encrypt_obj = PKCS1_v1_5.new(RSA.importKey(key_pair['private_key']))
+        else:
+            raise ClientError('The key_pair in encryption_materials is none')
+
+    def create_content_material(self):
+        plain_key = self.get_key()
+        encrypted_key = self.__encrypt_data(plain_key)
+        plain_start = self.get_start()
+        encrypted_start = self.__encrypt_data(to_bytes(str(plain_start)))
+        cipher = copy.copy(self.cipher)
+        wrap_alg = self.wrap_alg
+        mat_desc = self.mat_desc
+        cipher.initialize(plain_key, plain_start)
+
+        content_crypto_material = models.ContentCryptoMaterial(cipher, wrap_alg, encrypted_key, encrypted_start,
+                                                               mat_desc)
+        return content_crypto_material
+
+    def __encrypt_data(self, data):
+        return self.__encrypt_obj.encrypt(data)
+
+    def __decrypt_data(self, data):
+        return self.__decrypt_obj.decrypt(data)
+
+
 class AliKMSProvider(BaseCryptoProvider):
     """使用aliyun kms服务加密数据密钥。kms的详细说明参见
         https://help.aliyun.com/product/28933.html?spm=a2c4g.11186623.3.1.jlYT4v
@@ -184,7 +287,7 @@ class AliKMSProvider(BaseCryptoProvider):
         super(AliKMSProvider, self).__init__(cipher=cipher)
         if not isinstance(cipher, utils.AESCTRCipher):
             raise ClientError('AliKMSProvider only support AES256 cipher now')
-        self.wrap_alg = KMS_WRAP_ALGORITHM
+        self.wrap_alg = ALI_KMS_WRAP_ALGORITHM
         self.custom_master_key_id = cmk_id
         self.sts_token = sts_token
         self.context = '{"x-passphrase":"' + passphrase + '"}' if passphrase else ''
@@ -199,6 +302,12 @@ class AliKMSProvider(BaseCryptoProvider):
 
     def decrypt_encrypted_start(self, encrypted_start):
         return self.__decrypt_data(encrypted_start)
+
+    def reset_encryption_materials(self, encryption_materials):
+        if encryption_materials.custom_master_key_id:
+            self.custom_master_key_id = encryption_materials.custom_master_key_id
+        else:
+            raise ClientError('The key_pair in encryption_materials is none')
 
     def create_content_material(self):
         plain_key, encrypted_key = self.get_key()

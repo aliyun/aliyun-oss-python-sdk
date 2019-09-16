@@ -3,7 +3,7 @@
 import os
 
 import oss2
-from oss2.crypto import LocalRsaProvider, AliKMSProvider
+from oss2.crypto import LocalRsaProvider, RsaProvider, AliKMSProvider
 
 # 以下代码展示了客户端文件加密上传下载的用法，如下载文件、上传文件等。
 
@@ -51,6 +51,7 @@ for chunk in result:
     content_got += chunk
 assert content_got == content
 
+'''
 # 下载原文件到本地文件
 result = bucket.get_object_to_file(key, filename)
 

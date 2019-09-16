@@ -71,6 +71,9 @@ class ContentCryptoMaterial(object):
             headers[OSS_CLIENT_SIDE_ENCRYPTION_DATA_SIZE] = str(multipart_upload_context.data_size)
             headers[OSS_CLIENT_SIDE_ENCRYPTION_PART_SIZE] = str(multipart_upload_context.part_size)
 
+        if self.mat_desc:
+            headers[OSS_CLIENT_SIDE_ENCRYTPION_MATDESC] = json.dumps(self.mat_desc)
+
         return headers
 
     def from_object_meta(self, headers):
@@ -98,7 +101,10 @@ class ContentCryptoMaterial(object):
             self.encrypted_start = b64decode_from_string(_hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_START))
             cek_alg = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG)
             wrap_alg = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG)
-            self.mat_desc = _hget(headers, OSS_CLIENT_SIDE_ENCRYTPION_MATDESC)
+            mat_desc = _hget(headers, OSS_CLIENT_SIDE_ENCRYTPION_MATDESC)
+
+        if mat_desc:
+            self.mat_desc = json.loads(mat_desc)
 
         if cek_alg and cek_alg != self.cek_alg:
             logger.error("CEK algorithm or is inconsistent, object meta: cek_alg:{0}, material: cek_alg:{1}".
@@ -243,9 +249,22 @@ class GetObjectResult(HeadObjectResult):
                                                             self.__crypto_provider.wrap_alg)
             content_crypto_material.from_object_meta(resp.headers)
 
-            if not content_crypto_material.is_unencrypted():
+            if content_crypto_material.is_unencrypted():
+                discard = 0
+            else:
+                if content_crypto_material.mat_desc != self.__crypto_provider.mat_desc:
+                    logger.warn("The material description of the object and the provider is inconsistent")
+                    encryption_materials = self.__crypto_provider.get_encryption_materials(
+                        content_crypto_material.mat_desc)
+                    if encryption_materials:
+                        self.__crypto_provider.reset_encryption_materials(encryption_materials)
+                    else:
+                        raise ClientError(
+                            'There is no encryption materials match the material description of the object')
+
                 plain_key = self.__crypto_provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
-                plain_start = int(self.__crypto_provider.decrypt_encrypted_start(content_crypto_material.encrypted_start))
+                plain_start = int(
+                    self.__crypto_provider.decrypt_encrypted_start(content_crypto_material.encrypted_start))
 
                 counter = 0
                 if self.content_range:
@@ -255,8 +274,6 @@ class GetObjectResult(HeadObjectResult):
                 cipher = copy.copy(content_crypto_material.cipher)
                 cipher.initialize(plain_key, plain_start + counter)
                 self.stream = self.__crypto_provider.make_decrypt_adapter(self.stream, cipher, discard)
-            else:
-                discard = 0
         else:
             if OSS_CLIENT_SIDE_ENCRYPTION_KEY in resp.headers or DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY in resp.headers:
                 raise ClientError('Could not use Bucket to decrypt an encrypted object')
