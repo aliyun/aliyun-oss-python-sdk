@@ -8,7 +8,8 @@ import time
 import tempfile
 import errno
 import logging
-
+from Crypto.PublicKey import RSA
+from Crypto.PublicKey.RSA import RsaKey
 import oss2
 
 logging.basicConfig(level=logging.DEBUG)
@@ -30,6 +31,12 @@ OSS_PAYER_ID = os.getenv("OSS_TEST_PAYER_ACCESS_KEY_ID")
 OSS_PAYER_SECRET = os.getenv("OSS_TEST_PAYER_ACCESS_KEY_SECRET")
 
 OSS_AUTH_VERSION = None
+
+private_key = RSA.generate(1024)
+public_key = private_key.publickey()
+private_key_str = RsaKey.exportKey(private_key)
+public_key_str = RsaKey.exportKey(public_key)
+key_pair = {'private_key': private_key_str, 'public_key': public_key_str}
 
 
 def random_string(n):
@@ -73,6 +80,7 @@ def clean_and_delete_bucket(bucket):
 
     # delete_bucket
     bucket.delete_bucket()
+
 
 def clean_and_delete_bucket_by_prefix(bucket_prefix):
     service = oss2.Service(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT)
@@ -137,7 +145,7 @@ class OssTestCase(unittest.TestCase):
             pass
 
         self.rsa_crypto_bucket = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT,
-                                                   OSS_BUCKET, crypto_provider=oss2.LocalRsaProvider())
+                                                   OSS_BUCKET, crypto_provider=oss2.RsaProvider(key_pair))
 
         self.kms_crypto_bucket = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT,
                                                    OSS_BUCKET, crypto_provider=oss2.AliKMSProvider(OSS_ID, OSS_SECRET,

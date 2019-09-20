@@ -11,6 +11,8 @@ import hashlib
 import json
 import os
 import copy
+import logging
+import struct
 from functools import partial
 
 import six
@@ -22,20 +24,23 @@ from aliyunsdkcore.http import format_type, method_type
 from aliyunsdkkms.request.v20160120 import GenerateDataKeyRequest, DecryptRequest, EncryptRequest
 
 from . import models
-from utils import b64decode_from_string
+from utils import b64decode_from_string, b64encode_as_string
 from . import utils
 from .compat import to_bytes, to_unicode
 from .exceptions import ClientError, OpenApiFormatError, OpenApiServerError
 
+logger = logging.getLogger(__name__)
+
 
 class EncryptionMaterials(object):
-    def __init__(self, desc, key_pair=None, custom_master_key_id=None):
+    def __init__(self, desc, key_pair=None, custom_master_key_id=None, passphrase=None):
         self.desc = desc
         if key_pair and custom_master_key_id:
             raise ClientError('Both key_pair and custom_master_key_id are not none')
 
         self.key_pair = key_pair
         self.custom_master_key_id = custom_master_key_id
+        self.passphrase = passphrase
 
     def add_description(self, key, value):
         self.desc[key] = value
@@ -50,12 +55,15 @@ class BaseCryptoProvider(object):
     """CryptoProvider 基类，提供基础的数据加密解密adapter
 
     """
+
     def __init__(self, cipher, mat_desc=None):
         if not cipher:
             raise ClientError('Please initialize the value of cipher!')
         self.cipher = cipher
         self.cek_alg = None
         self.wrap_alg = None
+        self.mat_desc = None
+        self.encryption_materials_dict = {}
         if mat_desc:
             if isinstance(mat_desc, dict):
                 self.mat_desc = mat_desc
@@ -66,8 +74,8 @@ class BaseCryptoProvider(object):
     def get_key(self):
         pass
 
-    def get_start(self):
-        return self.cipher.get_start()
+    def get_iv(self):
+        return self.cipher.get_iv()
 
     @staticmethod
     def make_encrypt_adapter(stream, cipher):
@@ -82,7 +90,7 @@ class BaseCryptoProvider(object):
         pass
 
     @abc.abstractmethod
-    def decrypt_encrypted_start(self, encrypted_start):
+    def decrypt_encrypted_iv(self, encrypted_iv):
         pass
 
     @abc.abstractmethod
@@ -101,13 +109,14 @@ class BaseCryptoProvider(object):
             self.encryption_materials_dict[encryption_materials.desc] = encryption_materials
 
     def get_encryption_materials(self, desc):
-        if desc in self.encryption_materials_dict:
+        if desc in self.encryption_materials_dict.keys():
             return self.encryption_materials_dict[desc]
 
 
 _LOCAL_RSA_TMP_DIR = '.oss-local-rsa'
-RSA_WRAP_ALGORITHM = 'RSA/NONE/PKCS1Padding'
-ALI_KMS_WRAP_ALGORITHM = 'KMS/ALICLOUD'
+RSA_NONE_PKCS1Padding_WRAP_ALGORITHM = 'RSA/NONE/PKCS1Padding'
+RSA_NONE_OAEPWithSHA1AndMGF1Padding = 'RSA/NONE/OAEPWithSHA-1AndMGF1Padding'
+KMS_ALI_WRAP_ALGORITHM = 'KMS/ALICLOUD'
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -124,11 +133,11 @@ class LocalRsaProvider(BaseCryptoProvider):
     DEFAULT_PRIV_KEY_SUFFIX = '.private_key.pem'
 
     def __init__(self, dir=None, key='', passphrase=None, cipher=utils.AESCTRCipher(),
-                 pub_key_suffix=DEFAULT_PUB_KEY_SUFFIX, private_key_suffix=DEFAULT_PRIV_KEY_SUFFIX, gen_keys=False):
+                 pub_key_suffix=DEFAULT_PUB_KEY_SUFFIX, private_key_suffix=DEFAULT_PRIV_KEY_SUFFIX):
 
         super(LocalRsaProvider, self).__init__(cipher=cipher)
 
-        self.wrap_alg = RSA_WRAP_ALGORITHM
+        self.wrap_alg = RSA_NONE_OAEPWithSHA1AndMGF1Padding
         keys_dir = dir or os.path.join(os.path.expanduser('~'), _LOCAL_RSA_TMP_DIR)
 
         priv_key_path = os.path.join(keys_dir, key + private_key_suffix)
@@ -142,9 +151,7 @@ class LocalRsaProvider(BaseCryptoProvider):
                     self.__encrypt_obj = PKCS1_OAEP.new(RSA.importKey(f.read(), passphrase=passphrase))
 
             else:
-                if not gen_keys:
-                    raise ClientError('The file path of private key or public key is not exist')
-
+                logger.warn('The file path of private key or public key is not exist, will generate key pair')
                 private_key = RSA.generate(2048)
                 public_key = private_key.publickey()
 
@@ -169,23 +176,37 @@ class LocalRsaProvider(BaseCryptoProvider):
         except ValueError as e:
             raise ClientError(str(e))
 
-    def decrypt_encrypted_start(self, encrypted_start):
+    def decrypt_encrypted_iv(self, encrypted_iv):
         try:
-            return self.__decrypt_data(encrypted_start)
+            return self.__decrypt_data(encrypted_iv)
         except ValueError as e:
             raise ClientError(str(e))
+
+    def reset_encryption_materials(self, encryption_materials):
+        key_pair = encryption_materials.key_pair
+        passphrase = encryption_materials.passphrase
+        if key_pair:
+            if 'public_key' not in key_pair:
+                raise ClientError('The is no public_key in key_pair')
+            self.__decrypt_obj = PKCS1_OAEP.new(RSA.importKey(key_pair['public_key'], passphrase))
+
+            if 'private_key' in key_pair:
+                self.__encrypt_obj = PKCS1_OAEP.new(RSA.importKey(key_pair['public_key'], passphrase))
+        else:
+            raise ClientError('The key_pair in encryption_materials is none')
 
     def create_content_material(self):
         plain_key = self.get_key()
         encrypted_key = self.__encrypt_data(plain_key)
-        plain_start = self.get_start()
-        encrypted_start = self.__encrypt_data(to_bytes(str(plain_start)))
+        plain_iv = self.get_iv()
+        encrypted_iv = self.__encrypt_data(plain_iv)
         cipher = copy.copy(self.cipher)
         wrap_alg = self.wrap_alg
         mat_desc = self.mat_desc
-        cipher.initialize(plain_key, plain_start)
 
-        content_crypto_material = models.ContentCryptoMaterial(cipher, wrap_alg, encrypted_key, encrypted_start,
+        cipher.initialize(plain_key, plain_iv)
+
+        content_crypto_material = models.ContentCryptoMaterial(cipher, wrap_alg, encrypted_key, encrypted_iv,
                                                                mat_desc)
         return content_crypto_material
 
@@ -209,14 +230,16 @@ class RsaProvider(BaseCryptoProvider):
     def __init__(self, key_pair, passphrase=None, cipher=utils.AESCTRCipher()):
 
         super(RsaProvider, self).__init__(cipher=cipher)
-        self.wrap_alg = RSA_WRAP_ALGORITHM
+        self.wrap_alg = RSA_NONE_PKCS1Padding_WRAP_ALGORITHM
 
-        if 'public_key' not in key_pair:
-            raise ClientError('The is no public_key in key_pair')
-        self.__decrypt_obj = PKCS1_v1_5.new(RSA.import_key(key_pair['public_key'], passphrase=passphrase))
+        try:
+            if 'public_key' in key_pair:
+                self.__encrypt_obj = PKCS1_v1_5.new(RSA.importKey(key_pair['public_key'], passphrase=passphrase))
 
-        if 'private_key' in key_pair:
-            self.__encrypt_obj = PKCS1_v1_5.new(RSA.importKey(key_pair['private_key'], passphrase=passphrase))
+            if 'private_key' in key_pair:
+                self.__decrypt_obj = PKCS1_v1_5.new(RSA.importKey(key_pair['private_key'], passphrase=passphrase))
+        except (ValueError, TypeError) as e:
+            raise ClientError(str(e))
 
     def get_key(self):
         return self.cipher.get_key()
@@ -227,35 +250,40 @@ class RsaProvider(BaseCryptoProvider):
         except ValueError as e:
             raise ClientError(str(e))
 
-    def decrypt_encrypted_start(self, encrypted_start):
+    def decrypt_encrypted_iv(self, encrypted_iv):
         try:
-            return self.__decrypt_data(encrypted_start)
+            return self.__decrypt_data(encrypted_iv)
         except ValueError as e:
             raise ClientError(str(e))
 
     def reset_encryption_materials(self, encryption_materials):
-        key_pair = encryption_materials.key_pair
-        if key_pair:
-            if 'public_key' not in key_pair:
-                raise ClientError('The is no public_key in key_pair')
-            self.__decrypt_obj = PKCS1_v1_5.new(RSA.import_key(key_pair['public_key']))
-
-            if 'private_key' in key_pair:
-                self.__encrypt_obj = PKCS1_v1_5.new(RSA.importKey(key_pair['private_key']))
-        else:
-            raise ClientError('The key_pair in encryption_materials is none')
+        return RsaProvider(encryption_materials.key_pair, encryption_materials.passphrase, self.cipher)
+        # key_pair = encryption_materials.key_pair
+        # passphrase = encryption_materials.passphrase
+        # if key_pair:
+        #    try:
+        #        if 'public_key' in key_pair:
+        #            self.__decrypt_obj = PKCS1_v1_5.new(RSA.import_key(key_pair['public_key'], passphrase=passphrase))
+        #
+        #        if 'private_key' in key_pair:
+        #            self.__encrypt_obj = PKCS1_v1_5.new(RSA.importKey(key_pair['private_key'], passphrase=passphrase))
+        #    except (ValueError, TypeError) as e:
+        #        raise ClientError(str(e))
+        # else:
+        #    raise ClientError('The key_pair in encryption_materials is none')
 
     def create_content_material(self):
         plain_key = self.get_key()
         encrypted_key = self.__encrypt_data(plain_key)
-        plain_start = self.get_start()
-        encrypted_start = self.__encrypt_data(to_bytes(str(plain_start)))
+        plain_iv = self.get_iv()
+        encrypted_iv = self.__encrypt_data(plain_iv)
         cipher = copy.copy(self.cipher)
         wrap_alg = self.wrap_alg
         mat_desc = self.mat_desc
-        cipher.initialize(plain_key, plain_start)
 
-        content_crypto_material = models.ContentCryptoMaterial(cipher, wrap_alg, encrypted_key, encrypted_start,
+        cipher.initialize(plain_key, plain_iv)
+
+        content_crypto_material = models.ContentCryptoMaterial(cipher, wrap_alg, encrypted_key, encrypted_iv,
                                                                mat_desc)
         return content_crypto_material
 
@@ -263,7 +291,7 @@ class RsaProvider(BaseCryptoProvider):
         return self.__encrypt_obj.encrypt(data)
 
     def __decrypt_data(self, data):
-        return self.__decrypt_obj.decrypt(data)
+        return self.__decrypt_obj.decrypt(data, object)
 
 
 class AliKMSProvider(BaseCryptoProvider):
@@ -287,7 +315,7 @@ class AliKMSProvider(BaseCryptoProvider):
         super(AliKMSProvider, self).__init__(cipher=cipher)
         if not isinstance(cipher, utils.AESCTRCipher):
             raise ClientError('AliKMSProvider only support AES256 cipher now')
-        self.wrap_alg = ALI_KMS_WRAP_ALGORITHM
+        self.wrap_alg = KMS_ALI_WRAP_ALGORITHM
         self.custom_master_key_id = cmk_id
         self.sts_token = sts_token
         self.context = '{"x-passphrase":"' + passphrase + '"}' if passphrase else ''
@@ -300,25 +328,31 @@ class AliKMSProvider(BaseCryptoProvider):
     def decrypt_encrypted_key(self, encrypted_key):
         return b64decode_from_string(self.__decrypt_data(encrypted_key))
 
-    def decrypt_encrypted_start(self, encrypted_start):
-        return self.__decrypt_data(encrypted_start)
+    def decrypt_encrypted_iv(self, encrypted_iv):
+        return b64decode_from_string(self.__decrypt_data(encrypted_iv))
 
     def reset_encryption_materials(self, encryption_materials):
-        if encryption_materials.custom_master_key_id:
-            self.custom_master_key_id = encryption_materials.custom_master_key_id
-        else:
-            raise ClientError('The key_pair in encryption_materials is none')
+        provider = copy.copy(self)
+        provider.custom_master_key_id = encryption_materials.custom_master_key_id
+        provider.context = '{"x-passphrase":"' + encryption_materials.passphrase + '"}' if encryption_materials.passphrase else ''
+        return provider
+        # return BaseCryptoProvider(self.cipher, self.mat_desc)
+        # if encryption_materials.custom_master_key_id:
+        #    self.custom_master_key_id = encryption_materials.custom_master_key_id
+        # else:
+        #    raise ClientError('The custom master key id in encryption_materials is none')
 
     def create_content_material(self):
         plain_key, encrypted_key = self.get_key()
-        plain_start = self.get_start()
-        encrypted_start = self.__encrypt_data(to_bytes(str(plain_start)))
+        plain_iv = self.get_iv()
+        encrypted_iv = self.__encrypt_data(b64encode_as_string(plain_iv))
         cipher = copy.copy(self.cipher)
         wrap_alg = self.wrap_alg
         mat_desc = self.mat_desc
-        cipher.initialize(plain_key, plain_start)
 
-        content_crypto_material = models.ContentCryptoMaterial(cipher, wrap_alg, encrypted_key, encrypted_start,
+        cipher.initialize(plain_key, plain_iv)
+
+        content_crypto_material = models.ContentCryptoMaterial(cipher, wrap_alg, encrypted_key, encrypted_iv,
                                                                mat_desc)
         return content_crypto_material
 

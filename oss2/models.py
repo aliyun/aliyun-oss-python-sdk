@@ -15,6 +15,7 @@ from .headers import *
 import json
 import logging
 import copy
+import struct
 from requests.structures import CaseInsensitiveDict
 
 logger = logging.getLogger(__name__)
@@ -42,12 +43,12 @@ class PartInfo(object):
 
 
 class ContentCryptoMaterial(object):
-    def __init__(self, cipher, wrap_alg, encrypted_key=None, encrypted_start=None, mat_desc=None):
+    def __init__(self, cipher, wrap_alg, encrypted_key=None, encrypted_iv=None, mat_desc=None):
         self.cipher = cipher
         self.cek_alg = cipher.alg
         self.wrap_alg = wrap_alg
         self.encrypted_key = encrypted_key
-        self.encrypted_start = encrypted_start
+        self.encrypted_iv = encrypted_iv
         self.mat_desc = mat_desc
 
     def to_object_meta(self, headers=None, multipart_upload_context=None):
@@ -63,7 +64,7 @@ class ContentCryptoMaterial(object):
             del headers['content-length']
 
         headers[OSS_CLIENT_SIDE_ENCRYPTION_KEY] = b64encode_as_string(self.encrypted_key)
-        headers[OSS_CLIENT_SIDE_ENCRYPTION_START] = b64encode_as_string(self.encrypted_start)
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_START] = b64encode_as_string(self.encrypted_iv)
         headers[OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG] = self.cek_alg
         headers[OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG] = self.wrap_alg
 
@@ -87,10 +88,10 @@ class ContentCryptoMaterial(object):
         if deprecated:
             if self.wrap_alg == "kms":
                 self.encrypted_key = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY)
-                self.encrypted_start = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_START)
+                self.encrypted_iv = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_START)
             else:
                 self.encrypted_key = b64decode_from_string(_hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY))
-                self.encrypted_start = b64decode_from_string(_hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_START))
+                self.encrypted_iv = b64decode_from_string(_hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_START))
             cek_alg = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_CEK_ALG)
             wrap_alg = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_WRAP_ALG)
             if cek_alg == utils.AES_GCM:
@@ -98,7 +99,7 @@ class ContentCryptoMaterial(object):
             self.mat_desc = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYTPION_MATDESC)
         else:
             self.encrypted_key = b64decode_from_string(_hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_KEY))
-            self.encrypted_start = b64decode_from_string(_hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_START))
+            self.encrypted_iv = b64decode_from_string(_hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_START))
             cek_alg = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG)
             wrap_alg = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG)
             mat_desc = _hget(headers, OSS_CLIENT_SIDE_ENCRYTPION_MATDESC)
@@ -122,7 +123,7 @@ class ContentCryptoMaterial(object):
         self.wrap_alg = wrap_alg
 
     def is_unencrypted(self):
-        if not self.encrypted_key and not self.encrypted_start and not self.cek_alg and not self.wrap_alg:
+        if not self.encrypted_key and not self.encrypted_iv and not self.cek_alg and not self.wrap_alg:
             return True
         else:
             return False
@@ -244,42 +245,43 @@ class GetObjectResult(HeadObjectResult):
         else:
             self.stream = self.resp
 
+        if self.__crc_enabled:
+            self.stream = make_crc_adapter(self.stream, discard=discard)
+
         if self.__crypto_provider:
             content_crypto_material = ContentCryptoMaterial(self.__crypto_provider.cipher,
                                                             self.__crypto_provider.wrap_alg)
             content_crypto_material.from_object_meta(resp.headers)
 
             if content_crypto_material.is_unencrypted():
-                discard = 0
+                logger.info("The object is not encrypted, use crypto provider is not recommended")
             else:
+                crypto_provider = self.__crypto_provider
                 if content_crypto_material.mat_desc != self.__crypto_provider.mat_desc:
                     logger.warn("The material description of the object and the provider is inconsistent")
                     encryption_materials = self.__crypto_provider.get_encryption_materials(
                         content_crypto_material.mat_desc)
                     if encryption_materials:
-                        self.__crypto_provider.reset_encryption_materials(encryption_materials)
+                        crypto_provider = self.__crypto_provider.reset_encryption_materials(encryption_materials)
                     else:
                         raise ClientError(
                             'There is no encryption materials match the material description of the object')
 
-                plain_key = self.__crypto_provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
-                plain_start = int(
-                    self.__crypto_provider.decrypt_encrypted_start(content_crypto_material.encrypted_start))
+                plain_key = crypto_provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
+                plain_iv = crypto_provider.decrypt_encrypted_iv(
+                    content_crypto_material.encrypted_iv)
 
                 counter = 0
                 if self.content_range:
-                    start, end = self.__crypto_provider.adjust_range(byte_range[0], byte_range[1])
+                    start, end = crypto_provider.adjust_range(byte_range[0], byte_range[1])
                     counter = content_crypto_material.cipher.calc_counter(start)
 
                 cipher = copy.copy(content_crypto_material.cipher)
-                cipher.initialize(plain_key, plain_start + counter)
-                self.stream = self.__crypto_provider.make_decrypt_adapter(self.stream, cipher, discard)
+                cipher.initialize(plain_key, plain_iv, counter)
+                self.stream = crypto_provider.make_decrypt_adapter(self.stream, cipher, discard)
         else:
             if OSS_CLIENT_SIDE_ENCRYPTION_KEY in resp.headers or DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY in resp.headers:
                 raise ClientError('Could not use Bucket to decrypt an encrypted object')
-
-        if self.__crc_enabled:
-            self.stream = make_crc_adapter(self.stream, discard=discard)
 
     @staticmethod
     def _parse_range_str(content_range):
@@ -558,9 +560,6 @@ class ListPartsResult(RequestResult):
 
         # 客户端加密Multipart文件块大小
         self.client_encryption_part_size = 0
-
-        # 加密幻数的哈希值
-        self.client_encryption_magic_number_hmac = None
 
     def is_encrypted(self):
         if self.client_encryption_key and self.client_encryption_start and self.client_encryption_cek_alg and \

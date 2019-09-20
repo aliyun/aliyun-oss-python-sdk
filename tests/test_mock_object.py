@@ -915,7 +915,7 @@ x-oss-server-time: 39'''
         req_info = unittests.common.mock_response(do_request, response_text)
 
         with patch.object(oss2.utils, 'random_aes256_key', return_value=unittests.common.fixed_aes_key, autospect=True):
-            with patch.object(oss2.utils, 'random_counter', return_value=unittests.common.fixed_aes_start, autospect=True):
+            with patch.object(oss2.utils, 'random_iv', return_value=unittests.common.fixed_aes_start, autospect=True):
 
                 unittests.common.bucket(oss2.LocalRsaProvider(key='oss-test')).put_object('sjbhlsgsbecvlpbf.txt', content,
                                                                 headers={'content-md5': oss2.utils.md5_string(content),
@@ -933,7 +933,7 @@ x-oss-server-time: 39'''
         req_info = unittests.common.mock_response(do_request, response_text)
 
         with patch.object(oss2.utils, 'random_aes256_key', return_value=unittests.common.fixed_aes_key, autospect=True):
-            with patch.object(oss2.utils, 'random_counter', return_value=unittests.common.fixed_aes_start, autospect=True):
+            with patch.object(oss2.utils, 'random_iv', return_value=unittests.common.fixed_aes_start, autospect=True):
 
                 unittests.common.bucket(oss2.LocalRsaProvider(key='oss-test')).put_object('sjbhlsgsbecvlpbf.txt', content, progress_callback=self.progress_callback)
                 self.assertRequest(req_info, request_text)
@@ -949,7 +949,7 @@ x-oss-server-time: 39'''
         req_info = unittests.common.mock_response(do_request, response_text)
 
         with patch.object(oss2.utils, 'random_aes256_key', return_value=unittests.common.fixed_aes_key, autospect=True):
-            with patch.object(oss2.utils, 'random_counter', return_value=unittests.common.fixed_aes_start, autospect=True):
+            with patch.object(oss2.utils, 'random_iv', return_value=unittests.common.fixed_aes_start, autospect=True):
                 result = unittests.common.bucket(oss2.LocalRsaProvider(key='oss-test')).put_object_from_file('sjbhlsgsbecvlpbf.txt', filename)
 
                 self.assertRequest(req_info, request_text)

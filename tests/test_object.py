@@ -1228,7 +1228,6 @@ class TestObject(OssTestCase):
         self.assertEqual(head_result.headers['x-oss-meta-key1'], 'value1')
         self.assertEqual(head_result.headers['x-oss-meta-key2'], 'value2')
 
-<<<<<<< HEAD
     def test_put_symlink_with_version(self):
 
         from oss2.models import BucketVersioningConfig

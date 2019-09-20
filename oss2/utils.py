@@ -28,6 +28,7 @@ import sys
 import random
 import abc, six
 import defaults
+import struct
 
 from Crypto.Cipher import AES
 from Crypto import Random
@@ -130,8 +131,8 @@ def is_ip_or_localhost(netloc):
 _ALPHA_NUM = 'abcdefghijklmnopqrstuvwxyz0123456789'
 _HYPHEN = '-'
 _BUCKET_NAME_CHARS = set(_ALPHA_NUM + _HYPHEN)
-_MAX_UINT32 = 2**32 - 1
-_MAX_UINT64 = 2**64 - 1
+_MAX_UINT32 = 2 ** 32 - 1
+_MAX_UINT64 = 2 ** 64 - 1
 
 
 def is_valid_bucket_name(name):
@@ -584,11 +585,11 @@ class AESCipher(object):
         pass
 
     @abc.abstractmethod
-    def get_start(self):
+    def get_iv(self):
         pass
 
     @abc.abstractmethod
-    def initialize(self, key, start):
+    def initialize(self, key, iv, off=0):
         pass
 
     @abc.abstractmethod
@@ -634,11 +635,12 @@ class AESCTRCipher(AESCipher):
     def get_key(self):
         return random_key(self.key_len)
 
-    def get_start(self):
-        return random_counter()
+    def get_iv(self):
+        return random_iv()
 
-    def initialize(self, key, start):
-        ctr = Counter.new(self.block_size_len_in_bits, initial_value=start)
+    def initialize(self, key, iv, offset=0):
+        iv_int = iv_to_big_int(iv)
+        ctr = Counter.new(self.block_size_len_in_bits, initial_value=(iv_int+offset))
         self.__cipher = AES.new(key, AES.MODE_CTR, counter=ctr)
 
     def encrypt(self, raw):
@@ -693,10 +695,16 @@ def random_key(key_len):
     return Random.new().read(key_len)
 
 
-def random_counter():
-    nonce = random.randint(0, _MAX_UINT64)
-    counter = nonce << 64 + random.randint(0, _MAX_UINT32)
-    return counter
+def random_iv():
+    iv = Random.new().read(16)
+    safe_iv = iv[0:8] + struct.pack(">L", 0) + iv[12:]
+    return safe_iv
+
+
+def iv_to_big_int(iv):
+    iv_high_low_pair = struct.unpack(">QQ", iv)
+    iv_big_int = iv_high_low_pair[0] << 64| iv_high_low_pair[1]
+    return iv_big_int
 
 
 _STRPTIME_LOCK = threading.Lock()

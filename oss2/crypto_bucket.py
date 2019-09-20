@@ -74,6 +74,7 @@ class CryptoBucket(Bucket):
             >>> with open(u'local_file.txt', 'rb') as f:
             >>>     bucket.put_object('remote_file.txt', f)
 
+        :param mat_desc: map，对象文件的description
         :param key: 上传到OSS的文件名
 
         :param data: 待上传的内容。
@@ -301,17 +302,17 @@ class CryptoBucket(Bucket):
                 self.crypto_provider.wrap_alg:
             err_msg = 'Envelope or data encryption/decryption algorithm is inconsistent'
             raise InconsistentError(err_msg, self)
-     
+
         headers = content_crypto_material.to_object_meta(headers, context)
 
         plain_key = self.crypto_provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
-        plain_start = self.crypto_provider.decrypt_encrypted_start(content_crypto_material.encrypted_start)
+        plain_iv = self.crypto_provider.decrypt_encrypted_iv(content_crypto_material.encrypted_iv)
 
         offset = context.part_size * (part_number - 1)
         counter = self.crypto_provider.cipher.calc_counter(offset)
 
         cipher = copy.copy(content_crypto_material.cipher)
-        cipher.initialize(plain_key, int(plain_start) + counter)
+        cipher.initialize(plain_key, plain_iv, counter)
         data = self.crypto_provider.make_encrypt_adapter(data, cipher)
         resp = super(CryptoBucket, self).upload_part(key, upload_id, part_number, data, progress_callback, headers)
 
@@ -415,9 +416,6 @@ class CryptoBucket(Bucket):
                                                                 resp.client_encryption_wrap_alg,
                                                                 resp.client_encryption_key,
                                                                 resp.client_encryption_start)
-                if resp.client_encryption_magic_number_hmac:
-                    content_crypto_material.encrypted_magic_number_hmac = b64decode_from_string(
-                        resp.client_encryption_magic_number_hmac)
                 context = MultipartUploadCryptoContext(content_crypto_material,
                                                        resp.client_encryption_data_size,
                                                        resp.client_encryption_part_size)

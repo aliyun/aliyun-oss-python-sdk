@@ -34,7 +34,7 @@ class FakeCrypto:
         return 'fake_key'
 
     @staticmethod
-    def get_start():
+    def get_iv():
         return 'fake_start'
 
     def __init__(self, key=None, start=None, count=None):
@@ -88,7 +88,7 @@ class CustomCryptoProvider(BaseCryptoProvider):
             del headers['content-length']
 
         headers[OSS_CLIENT_SIDE_ENCRYPTION_KEY] = b64encode_as_string(self.public_key.encrypt(self.plain_key))
-        headers[OSS_CLIENT_SIDE_ENCRYPTION_START] = b64encode_as_string(self.public_key.encrypt(to_bytes(str(self.plain_start))))
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_START] = b64encode_as_string(self.public_key.encrypt(to_bytes(str(self.plain_iv))))
         headers[OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG] = self.cipher.ALGORITHM
         headers[OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG] = 'custom'
 
@@ -98,7 +98,7 @@ class CustomCryptoProvider(BaseCryptoProvider):
             headers[OSS_CLIENT_SIDE_ENCRYPTION_PART_SIZE] = str(multipart_context.part_size)
 
         self.plain_key = None
-        self.plain_start = None
+        self.plain_iv = None
 
         return headers
 
@@ -115,7 +115,7 @@ class CustomCryptoProvider(BaseCryptoProvider):
             del headers['content-length']
 
         self.plain_key = None
-        self.plain_start = None
+        self.plain_iv = None
 
         return headers
 
@@ -123,9 +123,9 @@ class CustomCryptoProvider(BaseCryptoProvider):
         self.plain_key = self.cipher.get_key()
         return self.plain_key
 
-    def get_start(self):
-        self.plain_start = self.cipher.get_start()
-        return self.plain_start
+    def get_iv(self):
+        self.plain_iv = self.cipher.get_iv()
+        return self.plain_iv
 
     def decrypt_oss_meta_data(self, headers, key, conv=lambda x:x):
         try:
