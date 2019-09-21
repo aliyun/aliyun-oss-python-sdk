@@ -258,19 +258,6 @@ class RsaProvider(BaseCryptoProvider):
 
     def reset_encryption_materials(self, encryption_materials):
         return RsaProvider(encryption_materials.key_pair, encryption_materials.passphrase, self.cipher)
-        # key_pair = encryption_materials.key_pair
-        # passphrase = encryption_materials.passphrase
-        # if key_pair:
-        #    try:
-        #        if 'public_key' in key_pair:
-        #            self.__decrypt_obj = PKCS1_v1_5.new(RSA.import_key(key_pair['public_key'], passphrase=passphrase))
-        #
-        #        if 'private_key' in key_pair:
-        #            self.__encrypt_obj = PKCS1_v1_5.new(RSA.importKey(key_pair['private_key'], passphrase=passphrase))
-        #    except (ValueError, TypeError) as e:
-        #        raise ClientError(str(e))
-        # else:
-        #    raise ClientError('The key_pair in encryption_materials is none')
 
     def create_content_material(self):
         plain_key = self.get_key()
@@ -336,11 +323,6 @@ class AliKMSProvider(BaseCryptoProvider):
         provider.custom_master_key_id = encryption_materials.custom_master_key_id
         provider.context = '{"x-passphrase":"' + encryption_materials.passphrase + '"}' if encryption_materials.passphrase else ''
         return provider
-        # return BaseCryptoProvider(self.cipher, self.mat_desc)
-        # if encryption_materials.custom_master_key_id:
-        #    self.custom_master_key_id = encryption_materials.custom_master_key_id
-        # else:
-        #    raise ClientError('The custom master key id in encryption_materials is none')
 
     def create_content_material(self):
         plain_key, encrypted_key = self.get_key()

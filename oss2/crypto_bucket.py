@@ -10,8 +10,13 @@ from .compat import to_string, urlsplit, parse_qs
 from .crypto import BaseCryptoProvider
 from .exceptions import ClientError
 import copy
+import threading
 
 logger = logging.getLogger(__name__)
+
+#upload_contexts = {}
+#upload_contexts_flag = False
+#upload_contexts_lock = threading.Lock()
 
 
 class CryptoBucket(Bucket):
@@ -45,9 +50,8 @@ class CryptoBucket(Bucket):
     :param bool enable_crc: 如果开启crc校验则设为True；反之，则为False
 
     """
-    upload_contexts = {}
 
-    def __init__(self, auth, endpoint, bucket_name, crypto_provider,
+    def __init__(self, auth, endpoint, bucket_name, crypto_provider, upload_contexts_flag=False,
                  is_cname=False,
                  session=None,
                  connect_timeout=None,
@@ -63,6 +67,9 @@ class CryptoBucket(Bucket):
                                            enable_crc)
 
         self.crypto_provider = crypto_provider
+        self.upload_contexts_flag = upload_contexts_flag
+        self.upload_contexts = {}
+        self.upload_contexts_lock = threading.Lock()
 
     def put_object(self, key, data,
                    headers=None,
@@ -269,7 +276,8 @@ class CryptoBucket(Bucket):
         resp = super(CryptoBucket, self).init_multipart_upload(key, headers)
 
         if resp.upload_id:
-            self.upload_contexts[resp.upload_id] = context
+            with self.upload_contexts_lock:
+                upload_contexts[resp.upload_id] = context
 
         return resp
 
@@ -291,10 +299,11 @@ class CryptoBucket(Bucket):
             "Start to upload multipart of CryptoBucket, upload_id = {0}, part_number = {1}".format(upload_id,
                                                                                                    part_number))
 
-        if upload_id in self.upload_contexts:
-            context = self.upload_contexts[upload_id]
-        else:
-            raise ClientError("Could not find upload context, please check the upload_id!")
+        with self.upload_contexts_lock:
+            if upload_id in self.upload_contexts:
+                context = self.upload_contexts[upload_id]
+            else:
+                raise ClientError("Could not find upload context, please check the upload_id!")
 
         content_crypto_material = context.content_crypto_material
 
@@ -335,13 +344,13 @@ class CryptoBucket(Bucket):
         """
         logger.info("Start to complete multipart upload of CryptoBucket, upload_id = {0}".format(upload_id))
 
-        if upload_id not in self.upload_contexts:
-            logger.warn("Could not find upload_id in upload contexts")
-
         try:
             resp = super(CryptoBucket, self).complete_multipart_upload(key, upload_id, parts, headers)
-            if upload_id in self.upload_contexts:
-                self.upload_contexts.pop(upload_id)
+            with self.upload_contexts_lock:
+                if upload_id in self.upload_contexts:
+                    self.upload_contexts.pop(upload_id)
+                else:
+                    logger.warn("Could not find upload_id in upload contexts")
         except exceptions as e:
             raise e
 
@@ -357,13 +366,13 @@ class CryptoBucket(Bucket):
         """
         logger.info("Start to abort multipart upload of CryptoBucket, upload_id = {0}".format(upload_id))
 
-        if upload_id not in self.upload_contexts:
-            logger.warn("Could not find upload_id in upload contexts")
-
         try:
             resp = super(CryptoBucket, self).abort_multipart_upload(key, upload_id)
-            if upload_id in self.upload_contexts:
-                self.upload_contexts.pop(upload_id)
+            with self.upload_contexts_lock:
+                if upload_id in self.upload_contexts:
+                    self.upload_contexts.pop(upload_id)
+                else:
+                    logger.warn("Could not find upload_id in upload contexts")
         except exceptions as e:
             raise e
 
@@ -419,7 +428,8 @@ class CryptoBucket(Bucket):
                 context = MultipartUploadCryptoContext(content_crypto_material,
                                                        resp.client_encryption_data_size,
                                                        resp.client_encryption_part_size)
-                self.upload_contexts[upload_id] = context
+                with self.upload_contexts_lock:
+                    self.upload_contexts[upload_id] = context
         except exceptions as e:
             raise e
 
