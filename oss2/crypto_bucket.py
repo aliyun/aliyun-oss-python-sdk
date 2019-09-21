@@ -47,12 +47,13 @@ class CryptoBucket(Bucket):
 
     """
 
-    def __init__(self, auth, endpoint, bucket_name, crypto_provider, upload_contexts_flag=False,
+    def __init__(self, auth, endpoint, bucket_name, crypto_provider,
                  is_cname=False,
                  session=None,
                  connect_timeout=None,
                  app_name='',
                  enable_crc=True,
+                 upload_contexts_flag=False,
                  ):
 
         if not isinstance(crypto_provider, BaseCryptoProvider):
@@ -234,9 +235,6 @@ class CryptoBucket(Bucket):
                       ):
         raise ClientError("The operation is not support for CryptoBucket")
 
-    # def init_multipart_upload(self, key, headers=None):
-    #    raise ClientError("Missing data_size in init_multipart_upload for CryptoBucket")
-
     def init_multipart_upload(self, key, headers=None, upload_context=None):
         """客户端加密初始化分片上传。
 
@@ -275,7 +273,7 @@ class CryptoBucket(Bucket):
 
         if resp.upload_id and self.upload_contexts_flag:
             with self.upload_contexts_lock:
-                upload_contexts[resp.upload_id] = upload_context
+                self.upload_contexts[resp.upload_id] = upload_context
 
         return resp
 

@@ -29,6 +29,7 @@ import random
 import string
 
 import logging
+import models
 
 logger = logging.getLogger(__name__)
 
@@ -157,7 +158,8 @@ def resumable_download(bucket, key, filename,
         downloader.download(result.server_crc)
     else:
         valid_headers = _populate_valid_headers(headers, [OSS_REQUEST_PAYER, OSS_TRAFFIC_LIMIT])
-        bucket.get_object_to_file(key, filename, progress_callback=progress_callback, params=params, headers=valid_headers)
+        bucket.get_object_to_file(key, filename, progress_callback=progress_callback, params=params,
+                                  headers=valid_headers)
 
 
 _MAX_MULTIGET_PART_COUNT = 100
@@ -204,6 +206,7 @@ def _split_to_parts(total_size, part_size):
 
     return parts
 
+
 def _populate_valid_headers(headers=None, valid_keys=None):
     """构建只包含有效keys的http header
 
@@ -229,6 +232,7 @@ def _populate_valid_headers(headers=None, valid_keys=None):
         valid_headers = None
 
     return valid_headers
+
 
 class _ResumableOperation(object):
     def __init__(self, bucket, key, filename, size, store,
@@ -355,7 +359,8 @@ class _ResumableDownloader(_ResumableOperation):
             headers[IF_MATCH] = self.objectInfo.etag
             headers[IF_UNMODIFIED_SINCE] = utils.http_date(self.objectInfo.mtime)
 
-            result = self.bucket.get_object(self.key, byte_range=(part.start, part.end - 1), headers=headers, params=self.__params)
+            result = self.bucket.get_object(self.key, byte_range=(part.start, part.end - 1), headers=headers,
+                                            params=self.__params)
             utils.copyfileobj_and_verify(result, f, part.end - part.start, request_id=result.request_id)
 
         part.part_crc = result.client_crc
@@ -494,6 +499,14 @@ class _ResumableUploader(_ResumableOperation):
         self.__record = None
         self.__finished_size = 0
         self.__finished_parts = None
+        self.__encryption = False
+        self.__record_upload_context = False
+        self.__upload_context = None
+
+        if isinstance(self.bucket, CryptoBucket):
+            self.__encryption = True
+            self.__record_upload_context = not self.bucket.upload_contexts_flag
+
         logger.debug("Init _ResumableUploader, bucket: {0}, key: {1}, part_size: {2}, num_thread: {3}".format(
             bucket.bucket_name, to_string(key), self.__part_size, self.__num_threads))
 
@@ -511,7 +524,8 @@ class _ResumableUploader(_ResumableOperation):
         self._report_progress(self.size)
 
         headers = _populate_valid_headers(self.__headers, [OSS_REQUEST_PAYER])
-        result = self.bucket.complete_multipart_upload(self.key, self.__upload_id, self.__finished_parts, headers=headers)
+        result = self.bucket.complete_multipart_upload(self.key, self.__upload_id, self.__finished_parts,
+                                                       headers=headers)
         self._del_record()
 
         return result
@@ -535,7 +549,8 @@ class _ResumableUploader(_ResumableOperation):
             f.seek(part.start, os.SEEK_SET)
             headers = _populate_valid_headers(self.__headers, [OSS_REQUEST_PAYER, OSS_TRAFFIC_LIMIT])
             result = self.bucket.upload_part(self.key, self.__upload_id, part.part_number,
-                                             utils.SizedFileAdapter(f, part.size), headers=headers)
+                                             utils.SizedFileAdapter(f, part.size), headers=headers,
+                                             upload_context=self.__upload_context)
 
             logger.debug("Upload part success, add part info to record, part_number: {0}, etag: {1}, size: {2}".format(
                 part.part_number, result.etag, part.size))
@@ -569,13 +584,21 @@ class _ResumableUploader(_ResumableOperation):
             part_size = determine_part_size(self.size, self.__part_size)
             logger.debug("Upload File size: {0}, User-specify part_size: {1}, Calculated part_size: {2}".format(
                 self.size, self.__part_size, part_size))
-            if isinstance(self.bucket, CryptoBucket):
-                upload_id = self.bucket.init_multipart_upload(self.key, self.size, part_size,
-                                                              headers=self.__headers).upload_id
+            if self.__encryption:
+                upload_context = models.MultipartUploadCryptoContext(None, self.size, part_size)
+                upload_id = self.bucket.init_multipart_upload(self.key, self.__headers, upload_context).upload_id
+                if self.__record_upload_context:
+                    material = upload_context.content_crypto_material
+                    material_record = {'wrap_alg': material.wrap_alg, 'cek_alg': material.cek_alg,
+                                       'encrypted_key': material.encrypted_key, 'encrypted_iv': material.encrypted_iv,
+                                       'mat_desc': material.mat_desc}
             else:
                 upload_id = self.bucket.init_multipart_upload(self.key, headers=self.__headers).upload_id
+
             record = {'op_type': self.__op, 'upload_id': upload_id, 'file_path': self._abspath, 'size': self.size,
                       'mtime': self.__mtime, 'bucket': self.bucket.bucket_name, 'key': self.key, 'part_size': part_size}
+            if self.__encryption_flag and not self.bucket.upload_contexts_flag:
+                record['content_crypto_material'] = material_record
 
             logger.debug('Add new record, bucket: {0}, key: {1}, upload_id: {2}, part_size: {3}'.format(
                 self.bucket.bucket_name, self.key, upload_id, part_size))
@@ -584,6 +607,24 @@ class _ResumableUploader(_ResumableOperation):
         self.__record = record
         self.__part_size = self.__record['part_size']
         self.__upload_id = self.__record['upload_id']
+        if self.__record_upload_context and 'content_crypto_material' in self.__record:
+            material_record = self.__record['content_crypto_material']
+            wrap_alg = material_record['wrap_alg']
+            cek_alg = material_record['cek_alg']
+            if cek_alg != self.bucket.crypto_provider.cipher.alg or wrap_alg != self.bucket.crypto_provider.wrap_alg:
+                err_msg = 'Envelope or data encryption/decryption algorithm is inconsistent'
+                raise exceptions.InconsistentError(err_msg, self)
+            content_crypto_material = models.ContentCryptoMaterial(self.bucket.crypto_provider.cipher,
+                                                                   material_record['wrap_alg'],
+                                                                   material_record['encrypted_key'],
+                                                                   material_record['encrypted_iv'],
+                                                                   material_record['mat_desc'])
+            self.__upload_context = models.MultipartUploadCryptoContext(content_crypto_material, self.size,
+                                                                        self.__part_size)
+        else:
+            err_msg = 'If record_upload_context flag is true, content_crypto_material in the the record，and vice versa.'
+            raise exceptions.InconsistentError(err_msg, self)
+
         self.__finished_parts = self.__get_finished_parts()
         self.__finished_size = sum(p.size for p in self.__finished_parts)
 

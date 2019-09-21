@@ -135,6 +135,7 @@ class MultipartUploadCryptoContext(object):
         self.data_size = data_size
         self.part_size = part_size
 
+
 def _hget(headers, key, converter=lambda x: x):
     if key in headers:
         return converter(headers[key])
@@ -267,8 +268,7 @@ class GetObjectResult(HeadObjectResult):
                             'There is no encryption materials match the material description of the object')
 
                 plain_key = crypto_provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
-                plain_iv = crypto_provider.decrypt_encrypted_iv(
-                    content_crypto_material.encrypted_iv)
+                plain_iv = crypto_provider.decrypt_encrypted_iv(content_crypto_material.encrypted_iv)
 
                 counter = 0
                 if self.content_range:
