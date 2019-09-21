@@ -14,10 +14,6 @@ import threading
 
 logger = logging.getLogger(__name__)
 
-#upload_contexts = {}
-#upload_contexts_flag = False
-#upload_contexts_lock = threading.Lock()
-
 
 class CryptoBucket(Bucket):
     """用于加密Bucket和Object操作的类，诸如上传、下载Object等。创建、删除bucket的操作需使用Bucket类接口。
@@ -238,12 +234,13 @@ class CryptoBucket(Bucket):
                       ):
         raise ClientError("The operation is not support for CryptoBucket")
 
-    def init_multipart_upload(self, key, headers=None):
-        raise ClientError("Missing data_size in init_multipart_upload for CryptoBucket")
+    # def init_multipart_upload(self, key, headers=None):
+    #    raise ClientError("Missing data_size in init_multipart_upload for CryptoBucket")
 
-    def init_multipart_upload(self, key, data_size=None, part_size=None, headers=None):
+    def init_multipart_upload(self, key, headers=None, upload_context=None):
         """客户端加密初始化分片上传。
 
+        :param upload_context:
         :param str key: 待上传的文件名
         :param int data_size : 待上传文件总大小
         :param int part_size : 后续分片上传时除最后一个分片之外的其他分片大小
@@ -254,36 +251,38 @@ class CryptoBucket(Bucket):
         :return: :class:`InitMultipartUploadResult <oss2.models.InitMultipartUploadResult>`
         返回值中的 `crypto_multipart_context` 记录了加密Meta信息，在upload_part时需要一并传入
         """
-        logger.info("Start to init multipart upload by CryptoBucket, data_size: {0}, part_size: {1}".format(data_size,
-                                                                                                            part_size))
 
-        if not data_size:
-            raise ClientError("Must specify the value of data_size")
+        if not upload_context or not upload_context.data_size:
+            raise ClientError("It is not support none upload_context and must specify data_size of upload_context ")
 
-        if part_size:
-            res = self.crypto_provider.cipher.is_valid_part_size(part_size, data_size)
+        logger.info("Start to init multipart upload by CryptoBucket, data_size: {0}, part_size: {1}".format(
+            upload_context.data_size, upload_context.part_size))
+
+        if upload_context.part_size:
+            res = self.crypto_provider.cipher.is_valid_part_size(upload_context.part_size, upload_context.data_size)
             if not res:
                 raise ClientError("part_size is invalid for multipart upload for CryptoBucket")
         else:
-            part_size = self.crypto_provider.cipher.determine_part_size(data_size)
+            upload_context.part_size = self.crypto_provider.cipher.determine_part_size(upload_context.data_size)
 
         content_crypto_material = self.crypto_provider.create_content_material()
 
-        context = MultipartUploadCryptoContext(content_crypto_material, data_size, part_size)
+        upload_context.content_crypto_material = content_crypto_material
 
-        headers = content_crypto_material.to_object_meta(headers, context)
+        headers = content_crypto_material.to_object_meta(headers, upload_context)
 
         resp = super(CryptoBucket, self).init_multipart_upload(key, headers)
 
-        if resp.upload_id:
+        if resp.upload_id and self.upload_contexts_flag:
             with self.upload_contexts_lock:
-                upload_contexts[resp.upload_id] = context
+                upload_contexts[resp.upload_id] = upload_context
 
         return resp
 
-    def upload_part(self, key, upload_id, part_number, data, progress_callback=None, headers=None):
+    def upload_part(self, key, upload_id, part_number, data, progress_callback=None, headers=None, upload_context=None):
         """客户端加密上传一个分片。
 
+        :param upload_context:
         :param str key: 待上传文件名，这个文件名要和 :func:`init_multipart_upload` 的文件名一致。
         :param str upload_id: 分片上传ID
         :param int part_number: 分片号，最小值是1.
@@ -298,12 +297,16 @@ class CryptoBucket(Bucket):
         logger.info(
             "Start to upload multipart of CryptoBucket, upload_id = {0}, part_number = {1}".format(upload_id,
                                                                                                    part_number))
-
-        with self.upload_contexts_lock:
-            if upload_id in self.upload_contexts:
-                context = self.upload_contexts[upload_id]
-            else:
-                raise ClientError("Could not find upload context, please check the upload_id!")
+        if self.upload_contexts_flag:
+            with self.upload_contexts_lock:
+                if upload_id in self.upload_contexts:
+                    context = self.upload_contexts[upload_id]
+                else:
+                    raise ClientError("Could not find upload context, please check the upload_id!")
+        elif upload_context:
+            context = upload_context
+        else:
+            raise ClientError("Could not init upload context, upload contexts flag is False and upload context is none")
 
         content_crypto_material = context.content_crypto_material
 
@@ -346,11 +349,12 @@ class CryptoBucket(Bucket):
 
         try:
             resp = super(CryptoBucket, self).complete_multipart_upload(key, upload_id, parts, headers)
-            with self.upload_contexts_lock:
-                if upload_id in self.upload_contexts:
-                    self.upload_contexts.pop(upload_id)
-                else:
-                    logger.warn("Could not find upload_id in upload contexts")
+            if self.upload_contexts_flag:
+                with self.upload_contexts_lock:
+                    if upload_id in self.upload_contexts:
+                        self.upload_contexts.pop(upload_id)
+                    else:
+                        logger.warn("Could not find upload_id in upload contexts")
         except exceptions as e:
             raise e
 
@@ -368,19 +372,19 @@ class CryptoBucket(Bucket):
 
         try:
             resp = super(CryptoBucket, self).abort_multipart_upload(key, upload_id)
-            with self.upload_contexts_lock:
-                if upload_id in self.upload_contexts:
-                    self.upload_contexts.pop(upload_id)
-                else:
-                    logger.warn("Could not find upload_id in upload contexts")
+            if self.upload_contexts_flag:
+                with self.upload_contexts_lock:
+                    if upload_id in self.upload_contexts:
+                        self.upload_contexts.pop(upload_id)
+                    else:
+                        logger.warn("Could not find upload_id in upload contexts")
         except exceptions as e:
             raise e
 
         return resp
 
-    def upload_part_copy(self, source_bucket_name, source_key, byte_range,
-                         target_key, target_upload_id, target_part_number,
-                         headers=None):
+    def upload_part_copy(self, source_bucket_name, source_key, byte_range, target_key, target_upload_id,
+                         target_part_number, headers=None):
         """分片拷贝。把一个已有文件的一部分或整体拷贝成目标文件的一个分片。
 
         :param target_part_number:
@@ -413,23 +417,23 @@ class CryptoBucket(Bucket):
         try:
             resp = super(CryptoBucket, self).list_parts(key, upload_id, marker=marker, max_parts=max_parts,
                                                         headers=headers)
-            if not resp.is_encrypted():
-                raise ClientError('Could not use CryptoBucket to list an unencrypted upload parts')
 
-            if resp.client_encryption_cek_alg != self.crypto_provider.cipher.alg or resp.client_encryption_wrap_alg != \
-                    self.crypto_provider.wrap_alg:
-                err_msg = 'Envelope or data encryption/decryption algorithm is inconsistent'
-                raise InconsistentError(err_msg, self)
-            if resp.upload_id == upload_id:
-                content_crypto_material = ContentCryptoMaterial(self.crypto_provider.cipher,
-                                                                resp.client_encryption_wrap_alg,
-                                                                resp.client_encryption_key,
-                                                                resp.client_encryption_start)
-                context = MultipartUploadCryptoContext(content_crypto_material,
-                                                       resp.client_encryption_data_size,
-                                                       resp.client_encryption_part_size)
-                with self.upload_contexts_lock:
-                    self.upload_contexts[upload_id] = context
+            if self.upload_contexts_flag:
+                if not resp.is_encrypted():
+                    raise ClientError('Could not use CryptoBucket to list an unencrypted upload parts')
+
+                if resp.client_encryption_cek_alg != self.crypto_provider.cipher.alg or resp.client_encryption_wrap_alg != self.crypto_provider.wrap_alg:
+                    err_msg = 'Envelope or data encryption/decryption algorithm is inconsistent'
+                    raise InconsistentError(err_msg, self)
+                if resp.upload_id == upload_id:
+                    content_crypto_material = ContentCryptoMaterial(self.crypto_provider.cipher,
+                                                                    resp.client_encryption_wrap_alg,
+                                                                    resp.client_encryption_key,
+                                                                    resp.client_encryption_start)
+                    context = MultipartUploadCryptoContext(content_crypto_material, resp.client_encryption_data_size,
+                                                           resp.client_encryption_part_size)
+                    with self.upload_contexts_lock:
+                        self.upload_contexts[upload_id] = context
         except exceptions as e:
             raise e
 

@@ -135,7 +135,6 @@ class MultipartUploadCryptoContext(object):
         self.data_size = data_size
         self.part_size = part_size
 
-
 def _hget(headers, key, converter=lambda x: x):
     if key in headers:
         return converter(headers[key])
