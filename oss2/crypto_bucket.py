@@ -156,6 +156,8 @@ class CryptoBucket(Bucket):
         range_string = ''
 
         if byte_range:
+            if not byte_range[0] and byte_range[1]:
+                raise ClientError("Don't support range get while start is none and end is not")
             start, end = self.crypto_provider.adjust_range(byte_range[0], byte_range[1])
             adjust_byte_range = (start, end)
 
@@ -428,8 +430,8 @@ class CryptoBucket(Bucket):
                                                                     resp.client_encryption_wrap_alg,
                                                                     resp.client_encryption_key,
                                                                     resp.client_encryption_start)
-                    context = MultipartUploadCryptoContext(content_crypto_material, resp.client_encryption_data_size,
-                                                           resp.client_encryption_part_size)
+                    context = MultipartUploadCryptoContext(resp.client_encryption_data_size,
+                                                           resp.client_encryption_part_size, content_crypto_material)
                     with self.upload_contexts_lock:
                         self.upload_contexts[upload_id] = context
         except exceptions as e:

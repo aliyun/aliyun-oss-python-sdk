@@ -9,6 +9,7 @@ sys.path.append("/Users/fengyu/aliyun-oss-python-sdk")
 
 import oss2
 from oss2 import LocalRsaProvider, AliKMSProvider, RsaProvider
+from oss2 import models
 
 # 以下代码展示了客户端文件加密上传下载的用法，如下载文件、上传文件等。
 
@@ -56,6 +57,7 @@ MIGJAoGBAKiR+IBVdd/kiYXMoPD5c79QHJbqax7ZCwiDPdnAG0w27n19HnO21LH7
 x8Hu9HgI3dtPO2s/0DpuOg3QUWeGVDe80kLkwU7U8HKsT8w13kAB9JVtr3cjqzHw
 1KTkzNQIDg0nMBSpg4RYa0YFyibqQQXoyZHUQqJvUh3yGmihjnFpAgMBAAE=
 -----END RSA PUBLIC KEY-----'''
+
 
 key_pair = {'private_key': private_key, 'public_key': public_key}
 bucket = oss2.CryptoBucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name,
@@ -109,12 +111,13 @@ data_size = 100 * 1024 * 3
 part_size = 100 * 1024
 multi_key = "test_crypto_multipart"
 
-res = bucket.init_multipart_upload(multi_key, data_size, part_size)
+context = models.MultipartUploadCryptoContext(data_size, part_size)
+res = bucket.init_multipart_upload(multi_key, upload_context=context)
 upload_id = res.upload_id
 
 # 分片上传
 for i in range(3):
-    result = bucket.upload_part(multi_key, upload_id, i+1, multi_content[i])
+    result = bucket.upload_part(multi_key, upload_id, i+1, multi_content[i], upload_context=context)
     parts.append(oss2.models.PartInfo(i+1, result.etag, size=part_size, part_crc=result.crc))
 
 # 完成上传
@@ -184,12 +187,13 @@ data_size = 100 * 1024 * 3
 part_size = 100 * 1024
 multi_key = "test_crypto_multipart"
 
-res = bucket.init_multipart_upload(multi_key, data_size, part_size)
+context = models.MultipartUploadCryptoContext(data_size, part_size)
+res = bucket.init_multipart_upload(multi_key, upload_context=context)
 upload_id = res.upload_id
 
 # 分片上传时，若意外中断丢失crypto_multipart_context, 利用list_parts找回。
 for i in range(3):
-    result = bucket.upload_part(multi_key, upload_id, i+1, multi_content[i])
+    result = bucket.upload_part(multi_key, upload_id, i+1, multi_content[i], upload_context=context)
     parts.append(oss2.models.PartInfo(i+1, result.etag, size = part_size, part_crc = result.crc))
 
 # 完成上传

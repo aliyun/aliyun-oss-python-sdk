@@ -86,20 +86,28 @@ class ContentCryptoMaterial(object):
             deprecated = True
 
         if deprecated:
+            undecode_encrypted_key = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY)
+            undecode_encrypted_iv = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_START)
             if self.wrap_alg == "kms":
-                self.encrypted_key = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY)
-                self.encrypted_iv = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_START)
+                self.encrypted_key = undecode_encrypted_key
+                self.encrypted_iv = undecode_encrypted_iv
             else:
-                self.encrypted_key = b64decode_from_string(_hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY))
-                self.encrypted_iv = b64decode_from_string(_hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_START))
+                if undecode_encrypted_key:
+                    self.encrypted_key = b64decode_from_string(undecode_encrypted_key)
+                if undecode_encrypted_iv:
+                    self.encrypted_iv = b64decode_from_string(undecode_encrypted_iv)
             cek_alg = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_CEK_ALG)
             wrap_alg = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_WRAP_ALG)
             if cek_alg == utils.AES_GCM:
                 cek_alg = utils.AES_CTR
             self.mat_desc = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYTPION_MATDESC)
         else:
-            self.encrypted_key = b64decode_from_string(_hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_KEY))
-            self.encrypted_iv = b64decode_from_string(_hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_START))
+            undecode_encrypted_key = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_KEY)
+            undecode_encrypted_iv = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_START)
+            if undecode_encrypted_key:
+                self.encrypted_key = b64decode_from_string(undecode_encrypted_key)
+            if undecode_encrypted_iv:
+                self.encrypted_iv = b64decode_from_string(undecode_encrypted_iv)
             cek_alg = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG)
             wrap_alg = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG)
             mat_desc = _hget(headers, OSS_CLIENT_SIDE_ENCRYTPION_MATDESC)
@@ -130,7 +138,7 @@ class ContentCryptoMaterial(object):
 
 
 class MultipartUploadCryptoContext(object):
-    def __init__(self, content_crypto_material, data_size=None, part_size=None):
+    def __init__(self, data_size=None, part_size=None, content_crypto_material=None):
         self.content_crypto_material = content_crypto_material
         self.data_size = data_size
         self.part_size = part_size

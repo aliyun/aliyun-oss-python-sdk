@@ -703,7 +703,7 @@ def random_iv():
 
 def iv_to_big_int(iv):
     iv_high_low_pair = struct.unpack(">QQ", iv)
-    iv_big_int = iv_high_low_pair[0] << 64| iv_high_low_pair[1]
+    iv_big_int = iv_high_low_pair[0] << 64 | iv_high_low_pair[1]
     return iv_big_int
 
 

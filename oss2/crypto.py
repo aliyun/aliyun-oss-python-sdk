@@ -173,13 +173,13 @@ class LocalRsaProvider(BaseCryptoProvider):
     def decrypt_encrypted_key(self, encrypted_key):
         try:
             return self.__decrypt_data(encrypted_key)
-        except ValueError as e:
+        except (TypeError, ValueError) as e:
             raise ClientError(str(e))
 
     def decrypt_encrypted_iv(self, encrypted_iv):
         try:
             return self.__decrypt_data(encrypted_iv)
-        except ValueError as e:
+        except (TypeError, ValueError) as e:
             raise ClientError(str(e))
 
     def reset_encryption_materials(self, encryption_materials):
@@ -247,13 +247,13 @@ class RsaProvider(BaseCryptoProvider):
     def decrypt_encrypted_key(self, encrypted_key):
         try:
             return self.__decrypt_data(encrypted_key)
-        except ValueError as e:
+        except (TypeError, ValueError) as e:
             raise ClientError(str(e))
 
     def decrypt_encrypted_iv(self, encrypted_iv):
         try:
             return self.__decrypt_data(encrypted_iv)
-        except ValueError as e:
+        except (TypeError, ValueError) as e:
             raise ClientError(str(e))
 
     def reset_encryption_materials(self, encryption_materials):
@@ -278,7 +278,10 @@ class RsaProvider(BaseCryptoProvider):
         return self.__encrypt_obj.encrypt(data)
 
     def __decrypt_data(self, data):
-        return self.__decrypt_obj.decrypt(data, object)
+        decrypted_data = self.__decrypt_obj.decrypt(data, object)
+        if decrypted_data == object:
+            raise ClientError('Decrypted data error, please check you key pair!')
+        return decrypted_data
 
 
 class AliKMSProvider(BaseCryptoProvider):

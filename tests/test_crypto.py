@@ -13,9 +13,10 @@ from oss2.exceptions import OpenApiServerError, OpenApiFormatError, ClientError
 from mock import patch
 
 from .common import OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK, OSS_STS_ID, OSS_STS_ARN, OSS_STS_KEY, random_string, \
-    key_pair
+    key_pair, key_pair_compact
 from aliyunsdksts.request.v20150401 import AssumeRoleRequest
 from Crypto.PublicKey import RSA
+from Crypto.PublicKey.RSA import RsaKey
 import random
 
 
@@ -23,7 +24,7 @@ class TestCrypto(unittests.common.OssTestCase):
     # 测试初始化LocalRsaProvider时未初始化cipher，此时应该抛出异常
     def test_rsa_provider_init_cipher_is_none(self):
         self.assertRaises(ClientError, LocalRsaProvider, dir='./', key='rsa-test', cipher=None)
-        self.assertRaises(ClientError, RsaProvider(key_pair=key_pair, cipher=None))
+        self.assertRaises(ClientError, RsaProvider, key_pair=key_pair, cipher=None)
 
     # 测试当keys不存在时, local_rsa_provider会创建一个默认的密钥对
     def test_rsa_provider_init_keys_not_exist(self):
@@ -71,11 +72,15 @@ class TestCrypto(unittests.common.OssTestCase):
         silently_remove('./rsa-test.public_key.pem')
         silently_remove('./rsa-test.private_key.pem')
 
-        self.assertRaises(ClientError, RsaProvider, key_pair={'private_key': private_key, 'public_key': public_key},
+        private_key_str = RsaKey.exportKey(private_key, passphrase=passphrase)
+        public_key_str = RsaKey.exportKey(public_key, passphrase=passphrase)
+
+        self.assertRaises(ClientError, RsaProvider,
+                          key_pair={'private_key': private_key_str, 'public_key': public_key_str},
                           passphrase=invalid_passphrase)
 
     # 测试基本key, start加/解密
-    def test_local_rsa_provider_basic(self):
+    def test_rsa_provider_basic(self):
         silently_remove('./rsa-test.public_key.pem')
         silently_remove('./rsa-test.private_key.pem')
 
@@ -91,9 +96,9 @@ class TestCrypto(unittests.common.OssTestCase):
                 content_crypto_material = provider.create_content_material()
                 self.assertFalse(content_crypto_material.is_unencrypted())
                 decrypted_key = provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
-                decrypted_start = provider.decrypt_encrypted_iv(content_crypto_material.encrypted_iv)
+                decrypted_iv = provider.decrypt_encrypted_iv(content_crypto_material.encrypted_iv)
                 self.assertEqual(plain_key, decrypted_key)
-                self.assertEqual(plain_iv, int(decrypted_start))
+                self.assertEqual(plain_iv, decrypted_iv)
 
         silently_remove('./rsa-test.public_key.pem')
         silently_remove('./rsa-test.private_key.pem')
@@ -110,9 +115,9 @@ class TestCrypto(unittests.common.OssTestCase):
                 content_crypto_material = provider.create_content_material()
                 self.assertFalse(content_crypto_material.is_unencrypted())
                 decrypted_key = provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
-                decrypted_start = provider.decrypt_encrypted_iv(content_crypto_material.encrypted_iv)
+                decrypted_iv = provider.decrypt_encrypted_iv(content_crypto_material.encrypted_iv)
                 self.assertEqual(plain_key, decrypted_key)
-                self.assertEqual(plain_iv, int(decrypted_start))
+                self.assertEqual(plain_iv, decrypted_iv)
 
     # 测试使用不同的rsa keys的provider
     def test_local_rsa_provider_diff_keys(self):
@@ -141,7 +146,22 @@ class TestCrypto(unittests.common.OssTestCase):
         silently_remove('./rsa-test-diff.public_key.pem')
         silently_remove('./rsa-test-diff.private_key.pem')
 
-    def test_local_rsa_provider_adapter(self):
+        provider = RsaProvider(key_pair=key_pair)
+        provider_diff = RsaProvider(key_pair=key_pair_compact)
+
+        plain_key = provider.get_key()
+        plain_iv = provider.get_iv()
+
+        with patch.object(oss2.utils, 'random_key', return_value=plain_key, autospect=True):
+            with patch.object(oss2.utils, 'random_iv', return_value=plain_iv, autospect=True):
+                content_crypto_material = provider.create_content_material()
+                self.assertFalse(content_crypto_material.is_unencrypted())
+                self.assertRaises(ClientError, provider_diff.decrypt_encrypted_key,
+                                  content_crypto_material.encrypted_key)
+                self.assertRaises(ClientError, provider_diff.decrypt_encrypted_iv,
+                                  content_crypto_material.encrypted_iv)
+
+    def test_rsa_provider_adapter(self):
         silently_remove('./rsa-test.public_key.pem')
         silently_remove('./rsa-test.private_key.pem')
 
@@ -159,22 +179,24 @@ class TestCrypto(unittests.common.OssTestCase):
         stream_decrypted = provider.make_decrypt_adapter(encrypted_content, cipher)
         self.assertEqual(content, stream_decrypted.read())
 
-        # 使用不同的content crypto material
-        content_crypto_material_diff = provider.create_content_material()
-        plain_key = provider.decrypt_encrypted_key(content_crypto_material_diff.encrypted_key)
-        plain_iv = provider.decrypt_encrypted_iv(content_crypto_material_diff.encrypted_iv)
-        cipher = content_crypto_material_diff.cipher
-
-        stream_encrypted_diff = provider.make_encrypt_adapter(content, cipher)
-        encrypted_content_diff = stream_encrypted_diff.read()
-        self.assertNotEqual(encrypted_content_diff, encrypted_content)
-        # reset cipher
-        cipher.initialize(plain_key, plain_iv)
-        stream_decrypted_diff = provider.make_decrypt_adapter(encrypted_content_diff, cipher)
-        self.assertEqual(content, stream_decrypted_diff.read())
-
         silently_remove('./rsa-test.public_key.pem')
         silently_remove('./rsa-test.private_key.pem')
+
+        provider = RsaProvider(key_pair)
+        content = b'b' * random.randint(1, 100) * 1024
+        content_crypto_material = provider.create_content_material()
+        plain_key = provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
+        plain_iv = provider.decrypt_encrypted_iv(content_crypto_material.encrypted_iv)
+        print("the value of plain_key is ", plain_key)
+        print("the value of plain_iv is ", plain_iv)
+        cipher = content_crypto_material.cipher
+
+        stream_encrypted = provider.make_encrypt_adapter(content, cipher)
+        encrypted_content = stream_encrypted.read()
+        # reset cipher
+        cipher.initialize(plain_key, plain_iv)
+        stream_decrypted = provider.make_decrypt_adapter(encrypted_content, cipher)
+        self.assertEqual(content, stream_decrypted.read())
 
     # 测试初始化AliKMSProvider时未初始化cipher，此时应该抛出异常
     def test_ali_kms_provider_init_cipher_is_none(self):
@@ -185,7 +207,7 @@ class TestCrypto(unittests.common.OssTestCase):
     # 测试基本key, start加/解密
     def test_ali_kms_provider_basic(self):
         provider = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK, passphrase=random_string(8))
-        self.assertEqual(provider.wrap_alg, "kms")
+        self.assertEqual(provider.wrap_alg, "KMS/ALICLOUD")
         self.assertEqual(provider.cipher.alg, "AES/CTR/NoPadding")
         plain_key, encrypted_key = provider.get_key()
         plain_iv = provider.get_iv()
@@ -193,11 +215,11 @@ class TestCrypto(unittests.common.OssTestCase):
         with patch('oss2.AliKMSProvider.get_key', return_value=[plain_key, encrypted_key]):
             with patch.object(oss2.utils, 'random_iv', return_value=plain_iv, autospect=True):
                 content_crypto_material = provider.create_content_material()
-                self.assertFalse(content_crypto_material.is_invalid())
+                self.assertFalse(content_crypto_material.is_unencrypted())
                 decrypted_key = provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
-                decrypted_start = provider.decrypt_encrypted_iv(content_crypto_material.encrypted_iv)
+                decrypted_iv = provider.decrypt_encrypted_iv(content_crypto_material.encrypted_iv)
                 self.assertEqual(plain_key, decrypted_key)
-                self.assertEqual(plain_iv, int(decrypted_start))
+                self.assertEqual(plain_iv, decrypted_iv)
 
     # 测试使用不同的passphrase解析加密key和start抛出异常
     def test_ali_kms_provider_diff_passphrase(self):
@@ -302,4 +324,5 @@ class TestCrypto(unittests.common.OssTestCase):
 
         j = json.loads(compat.to_unicode(body))
 
-        return j['Credentials']['AccessKeyId'], j['Credentials']['AccessKeySecret'], j['Credentials']['SecurityToken']
+        return j['Credentials']['AccessKeyId'], j['Credentials']['AccessKeySecret'], j['Credentials'][
+            'SecurityToken']

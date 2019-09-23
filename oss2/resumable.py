@@ -585,7 +585,7 @@ class _ResumableUploader(_ResumableOperation):
             logger.debug("Upload File size: {0}, User-specify part_size: {1}, Calculated part_size: {2}".format(
                 self.size, self.__part_size, part_size))
             if self.__encryption:
-                upload_context = models.MultipartUploadCryptoContext(None, self.size, part_size)
+                upload_context = models.MultipartUploadCryptoContext(self.size, part_size)
                 upload_id = self.bucket.init_multipart_upload(self.key, self.__headers, upload_context).upload_id
                 if self.__record_upload_context:
                     material = upload_context.content_crypto_material
@@ -619,8 +619,8 @@ class _ResumableUploader(_ResumableOperation):
                                                                    material_record['encrypted_key'],
                                                                    material_record['encrypted_iv'],
                                                                    material_record['mat_desc'])
-            self.__upload_context = models.MultipartUploadCryptoContext(content_crypto_material, self.size,
-                                                                        self.__part_size)
+            self.__upload_context = models.MultipartUploadCryptoContext(self.size, self.__part_size,
+                                                                        content_crypto_material)
         else:
             err_msg = 'If record_upload_context flag is true, content_crypto_material in the the record，and vice versa.'
             raise exceptions.InconsistentError(err_msg, self)
