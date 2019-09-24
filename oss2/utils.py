@@ -663,7 +663,7 @@ class AESCTRCipher(AESCipher):
             return False
 
         if part_size * defaults.max_part_count < data_size:
-            return
+            return False
         return True
 
     def calc_counter(self, offset):

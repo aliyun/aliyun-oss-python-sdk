@@ -103,7 +103,6 @@ class TestBucket(OssTestCase):
 
         other_bucket.delete_bucket()
 
-<<<<<<< HEAD
     def test_website(self):
         key = self.random_key('/')
         content = random_bytes(32)
@@ -736,7 +735,6 @@ class TestBucket(OssTestCase):
         self.assertTrue(result.bucket_encryption_rule.kms_master_keyid is None)
 
         result = self.bucket.delete_bucket_encryption()
-<<<<<<< HEAD
         self.assertEqual(int(result.status) / 100, 2)
 
     def test_bucket_versioning_wrong(self):

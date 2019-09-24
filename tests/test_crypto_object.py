@@ -248,6 +248,7 @@ class TestCryptoObject(OssTestCase):
             self.assertTrue(get_result.server_crc is not None)
             self.assertTrue(get_result.client_crc == get_result.server_crc)
 
+    '''
     # 测试CryptoBucket类的Copy方法, 并使用"REPLACE"模式修改meta
     def test_copy_crypto_object_with_replace_meta(self):
         for crypto_bucket in [self.rsa_crypto_bucket, self.kms_crypto_bucket]:
@@ -314,3 +315,4 @@ class TestCryptoObject(OssTestCase):
 
             result = crypto_bucket.get_object(key)
             self.assertEqual(result.read(), content)
+    '''
