@@ -10,6 +10,7 @@ oss2.resumable
 import os
 
 from . import utils
+from .utils import b64encode_as_string, b64decode_from_string
 from . import iterators
 from . import exceptions
 from . import defaults
@@ -548,9 +549,13 @@ class _ResumableUploader(_ResumableOperation):
 
             f.seek(part.start, os.SEEK_SET)
             headers = _populate_valid_headers(self.__headers, [OSS_REQUEST_PAYER, OSS_TRAFFIC_LIMIT])
-            result = self.bucket.upload_part(self.key, self.__upload_id, part.part_number,
-                                             utils.SizedFileAdapter(f, part.size), headers=headers,
-                                             upload_context=self.__upload_context)
+            if self.__encryption:
+                result = self.bucket.upload_part(self.key, self.__upload_id, part.part_number,
+                                                 utils.SizedFileAdapter(f, part.size), headers=headers,
+                                                 upload_context=self.__upload_context)
+            else:
+                result = self.bucket.upload_part(self.key, self.__upload_id, part.part_number,
+                                                 utils.SizedFileAdapter(f, part.size), headers=headers)
 
             logger.debug("Upload part success, add part info to record, part_number: {0}, etag: {1}, size: {2}".format(
                 part.part_number, result.etag, part.size))
@@ -590,14 +595,15 @@ class _ResumableUploader(_ResumableOperation):
                 if self.__record_upload_context:
                     material = upload_context.content_crypto_material
                     material_record = {'wrap_alg': material.wrap_alg, 'cek_alg': material.cek_alg,
-                                       'encrypted_key': material.encrypted_key, 'encrypted_iv': material.encrypted_iv,
+                                       'encrypted_key': b64encode_as_string(material.encrypted_key),
+                                       'encrypted_iv': b64encode_as_string(material.encrypted_iv),
                                        'mat_desc': material.mat_desc}
             else:
                 upload_id = self.bucket.init_multipart_upload(self.key, headers=self.__headers).upload_id
 
             record = {'op_type': self.__op, 'upload_id': upload_id, 'file_path': self._abspath, 'size': self.size,
                       'mtime': self.__mtime, 'bucket': self.bucket.bucket_name, 'key': self.key, 'part_size': part_size}
-            if self.__encryption_flag and not self.bucket.upload_contexts_flag:
+            if self.__record_upload_context:
                 record['content_crypto_material'] = material_record
 
             logger.debug('Add new record, bucket: {0}, key: {1}, upload_id: {2}, part_size: {3}'.format(
@@ -607,23 +613,30 @@ class _ResumableUploader(_ResumableOperation):
         self.__record = record
         self.__part_size = self.__record['part_size']
         self.__upload_id = self.__record['upload_id']
-        if self.__record_upload_context and 'content_crypto_material' in self.__record:
-            material_record = self.__record['content_crypto_material']
-            wrap_alg = material_record['wrap_alg']
-            cek_alg = material_record['cek_alg']
-            if cek_alg != self.bucket.crypto_provider.cipher.alg or wrap_alg != self.bucket.crypto_provider.wrap_alg:
-                err_msg = 'Envelope or data encryption/decryption algorithm is inconsistent'
+        if self.__record_upload_context:
+            if 'content_crypto_material' in self.__record:
+                material_record = self.__record['content_crypto_material']
+                wrap_alg = material_record['wrap_alg']
+                cek_alg = material_record['cek_alg']
+                if cek_alg != self.bucket.crypto_provider.cipher.alg or wrap_alg != self.bucket.crypto_provider.wrap_alg:
+                    err_msg = 'Envelope or data encryption/decryption algorithm is inconsistent'
+                    raise exceptions.InconsistentError(err_msg, self)
+                content_crypto_material = models.ContentCryptoMaterial(self.bucket.crypto_provider.cipher,
+                                                                       material_record['wrap_alg'],
+                                                                       b64decode_from_string(
+                                                                           material_record['encrypted_key']),
+                                                                       b64decode_from_string(
+                                                                           material_record['encrypted_iv']),
+                                                                       material_record['mat_desc'])
+                self.__upload_context = models.MultipartUploadCryptoContext(self.size, self.__part_size,
+                                                                            content_crypto_material)
+            else:
+                err_msg = 'If record_upload_context flag is true, content_crypto_material must in the the record'
                 raise exceptions.InconsistentError(err_msg, self)
-            content_crypto_material = models.ContentCryptoMaterial(self.bucket.crypto_provider.cipher,
-                                                                   material_record['wrap_alg'],
-                                                                   material_record['encrypted_key'],
-                                                                   material_record['encrypted_iv'],
-                                                                   material_record['mat_desc'])
-            self.__upload_context = models.MultipartUploadCryptoContext(self.size, self.__part_size,
-                                                                        content_crypto_material)
         else:
-            err_msg = 'If record_upload_context flag is true, content_crypto_material in the the record，and vice versa.'
-            raise exceptions.InconsistentError(err_msg, self)
+            if 'content_crypto_material' in self.__record:
+                err_msg = 'content_crypto_material must in the the record, but record_upload_context flat is false'
+                raise exceptions.InvalidEncryptionRequest(err_msg, self)
 
         self.__finished_parts = self.__get_finished_parts()
         self.__finished_size = sum(p.size for p in self.__finished_parts)
