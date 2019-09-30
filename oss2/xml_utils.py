@@ -713,7 +713,10 @@ def to_batch_delete_objects_version_request(objectVersions, quiet):
 def to_put_bucket_config(bucket_config):
     root = ElementTree.Element('CreateBucketConfiguration')
 
-    _add_text_child(root, 'StorageClass', str(bucket_config.storage_class))
+    _add_text_child(root, 'StorageClass', bucket_config.storage_class)
+
+    if bucket_config.data_redundancy_type is not None:
+        _add_text_child(root, 'DataRedundancyType', bucket_config.data_redundancy_type)
 
     return _node_to_string(root)
 
