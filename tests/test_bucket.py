@@ -61,6 +61,29 @@ class TestBucket(OssTestCase):
         wait_meta_sync()
         self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.delete_bucket)
 
+    def test_bucket_with_data_redundancy_type(self):
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket_name = OSS_BUCKET + "-test-redundancy-type"
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
+
+        # LRS
+        bucketConfig = oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_IA, oss2.BUCKET_DATA_REDUNDANCY_TYPE_LRS)
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE, bucketConfig)
+        wait_meta_sync()
+        
+        result = bucket.get_bucket_info()
+        self.assertEqual(oss2.BUCKET_DATA_REDUNDANCY_TYPE_LRS, result.data_redundancy_type)
+        bucket.delete_bucket()
+
+        # ZRS
+        bucketConfig = oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_IA, oss2.BUCKET_DATA_REDUNDANCY_TYPE_ZRS)
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE, bucketConfig)
+        wait_meta_sync()
+        
+        result = bucket.get_bucket_info()
+        self.assertEqual(oss2.BUCKET_DATA_REDUNDANCY_TYPE_ZRS, result.data_redundancy_type)
+        bucket.delete_bucket()
+
     def test_acl(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket_name = OSS_BUCKET + "-test-acl"
