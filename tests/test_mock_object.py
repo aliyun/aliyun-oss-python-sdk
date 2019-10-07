@@ -14,6 +14,7 @@ from mock import patch
 import struct
 import copy
 from .common import *
+import json
 
 
 def make_get_object(content):
@@ -125,6 +126,49 @@ x-oss-object-type: Normal{6}
 
 '''.format(len(encrypted_content), wrap_alg, cek_alg, encrypted_key, encrypted_iv, len(content),
            '\nContent-Range: {0}'.format(ranges) if ranges else '')
+
+    io = BytesIO()
+    io.write(oss2.to_bytes(response_text))
+    io.write(encrypted_content)
+
+    response_text = io.getvalue()
+
+    return request_text, response_text
+
+
+def make_get_encrypted_object_compact(key, encrypted_content, encrypted_meta):
+    request_text = '''GET /{0} HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:53 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:PAedG7U86ZxQ2WTB+GdpSltoiTI='''.format(key)
+
+    encrypted_key = encrypted_meta['x-oss-meta-client-side-encryption-key']
+    encrypted_iv = encrypted_meta['x-oss-meta-client-side-encryption-start']
+    wrap_alg = encrypted_meta['x-oss-meta-client-side-encryption-wrap-alg']
+    cek_alg = encrypted_meta['x-oss-meta-client-side-encryption-cek-alg']
+
+    response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:53 GMT
+Content-Type: text/plain
+Content-Length: {0}
+Connection: keep-alive
+x-oss-request-id: 566B6BE93A7B8CFD53D4BAA3
+Accept-Ranges: bytes
+ETag: "D80CF0E5BE2436514894D64B2BCFB2AE"
+x-oss-meta-client-side-encryption-wrap-alg: {1}
+x-oss-meta-client-side-encryption-cek-alg: {2}
+x-oss-meta-client-side-encryption-key: {3}
+x-oss-meta-client-side-encryption-start: {4}
+x-oss-meta-unencrypted-content-length: {5}
+Last-Modified: Sat, 12 Dec 2015 00:35:53 GMT
+x-oss-object-type: Normal{6}
+
+'''.format(len(encrypted_content), wrap_alg, cek_alg, encrypted_key, encrypted_iv, len(encrypted_content))
 
     io = BytesIO()
     io.write(oss2.to_bytes(response_text))
@@ -885,7 +929,38 @@ x-oss-server-time: 39'''
         self.assertRaises(oss2.exceptions.InconsistentError, unittests.common.bucket(provider).get_object, key)
 
     @patch('oss2.Session.do_request')
-    def test_crypto_put( self, do_request):
+    def test_crypto_get_compact(self, do_request):
+        example_path = "tests/example.jpg"
+        with open(example_path, 'rb') as f:
+            content = f.read()
+
+        for compact_sdk in ["cpp", "go"]:
+            if compact_sdk == "cpp":
+                encrypted_example_path = "tests/encrypted_cpp_example.jpg"
+                encrypted_example_meta_path = "tests/encrypted_cpp_example_meta.json"
+            else:
+                encrypted_example_path = "tests/encrypted_go_example.jpg"
+                encrypted_example_meta_path = "tests/encrypted_go_example_meta.json"
+
+            with open(encrypted_example_path, 'rb') as f:
+                encrypted_content = f.read()
+
+            with open(encrypted_example_meta_path, 'rb') as f:
+                meta = json.loads(f.read())
+
+            key = random_bytes(10)
+            provider = oss2.RsaProvider(key_pair=key_pair_compact)
+
+            request_text, response_text = make_get_encrypted_object_compact(key, encrypted_content, meta)
+
+            req_info = unittests.common.mock_response(do_request, response_text)
+            result = unittests.common.bucket(provider).get_object(key)
+
+            self.assertRequest(req_info, request_text)
+            self.assertEqual(result.read(), content)
+
+    @patch('oss2.Session.do_request')
+    def test_crypto_put(self, do_request):
         content = unittests.common.random_bytes(1023)
 
         key = random_bytes(10)

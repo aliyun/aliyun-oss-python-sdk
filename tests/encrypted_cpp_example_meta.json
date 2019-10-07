@@ -1,0 +1,6 @@
+{
+    "x-oss-meta-client-side-encryption-cek-alg": "AES/CTR/NoPadding",
+    "x-oss-meta-client-side-encryption-key": "nyXOp7delQ/MQLjKQMhHLaT0w7u2yQoDLkSnK8MFg/MwYdh4na4/LS8LLbLcM18m8I/ObWUHU775I50sJCpdv+f4e0jLeVRRiDFWe+uo7Puc9j4xHj8YB3QlcIOFQiTxHIB6q+C+RA6lGwqqYVa+n3aV5uWhygyv1MWmESurppg=",
+    "x-oss-meta-client-side-encryption-start": "De/S3T8wFjx7QPxAAFl7h7TeI2EsZlfCwox4WhLGng5DK2vNXxULmulMUUpYkdc9umqmDilgSy5Z3Foafw+v4JJThfw68T/9G2gxZLrQTbAlvFPFfPM9Ehk6cY4+8WpY32uN8w5vrHyoSZGr343NxCUGIp6fQ9sSuOLMoJg7hNw=",
+    "x-oss-meta-client-side-encryption-wrap-alg": "RSA/NONE/PKCS1Padding"
+}
