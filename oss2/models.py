@@ -50,6 +50,7 @@ class ContentCryptoMaterial(object):
         self.encrypted_key = encrypted_key
         self.encrypted_iv = encrypted_iv
         self.mat_desc = mat_desc
+        self.deprecated = False
 
     def to_object_meta(self, headers=None, multipart_upload_context=None):
         if not isinstance(headers, CaseInsensitiveDict):
@@ -81,26 +82,28 @@ class ContentCryptoMaterial(object):
         if not isinstance(headers, CaseInsensitiveDict):
             headers = CaseInsensitiveDict(headers)
 
-        deprecated = False
         if DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY in headers:
-            deprecated = True
+            self.deprecated = True
 
-        if deprecated:
+        if self.deprecated:
             undecode_encrypted_key = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY)
             undecode_encrypted_iv = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_START)
-            if self.wrap_alg == "kms":
+            cek_alg = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_CEK_ALG)
+            wrap_alg = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_WRAP_ALG)
+            mat_desc = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYTPION_MATDESC)
+
+            if wrap_alg == "kms":
                 self.encrypted_key = undecode_encrypted_key
                 self.encrypted_iv = undecode_encrypted_iv
+                wrap_alg == 'KMS/ALICLOUD'
             else:
                 if undecode_encrypted_key:
                     self.encrypted_key = b64decode_from_string(undecode_encrypted_key)
                 if undecode_encrypted_iv:
                     self.encrypted_iv = b64decode_from_string(undecode_encrypted_iv)
-            cek_alg = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_CEK_ALG)
-            wrap_alg = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_WRAP_ALG)
+                wrap_alg == "RSA/NONE/OAEPWithSHA-1AndMGF1Padding"
             if cek_alg == utils.AES_GCM:
                 cek_alg = utils.AES_CTR
-            mat_desc = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYTPION_MATDESC)
         else:
             undecode_encrypted_key = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_KEY)
             undecode_encrypted_iv = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_START)
@@ -276,15 +279,25 @@ class GetObjectResult(HeadObjectResult):
                             'There is no encryption materials match the material description of the object')
 
                 plain_key = crypto_provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
-                plain_iv = crypto_provider.decrypt_encrypted_iv(content_crypto_material.encrypted_iv)
+                if content_crypto_material.deprecated:
+                    if content_crypto_material.wrap_alg == "kms":
+                        plain_counter = int(
+                            crypto_provider.decrypt_encrypted_iv(content_crypto_material.encrypted_iv, True))
+                    else:
+                        plain_counter = int(crypto_provider.decrypt_encrypted_iv(content_crypto_material.encrypted_iv))
+                else:
+                    plain_iv = crypto_provider.decrypt_encrypted_iv(content_crypto_material.encrypted_iv)
 
-                counter = 0
+                offset = 0
                 if self.content_range:
                     start, end = crypto_provider.adjust_range(byte_range[0], byte_range[1])
-                    counter = content_crypto_material.cipher.calc_counter(start)
+                    offset = content_crypto_material.cipher.calc_offset(start)
 
                 cipher = copy.copy(content_crypto_material.cipher)
-                cipher.initialize(plain_key, plain_iv, counter)
+                if content_crypto_material.deprecated:
+                    cipher.initial_by_counter(plain_key, plain_counter + offset)
+                else:
+                    cipher.initialize(plain_key, plain_iv, offset)
                 self.stream = crypto_provider.make_decrypt_adapter(self.stream, cipher, discard)
         else:
             if OSS_CLIENT_SIDE_ENCRYPTION_KEY in resp.headers or DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY in resp.headers:

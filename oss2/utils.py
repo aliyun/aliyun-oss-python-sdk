@@ -639,8 +639,11 @@ class AESCTRCipher(AESCipher):
         return random_iv()
 
     def initialize(self, key, iv, offset=0):
-        iv_int = iv_to_big_int(iv)
-        ctr = Counter.new(self.block_size_len_in_bits, initial_value=(iv_int+offset))
+        counter = iv_to_big_int(iv) + offset
+        self.initial_by_counter(self, key, counter)
+
+    def initial_by_counter(self, key, counter):
+        ctr = Counter.new(self.block_size_len_in_bits, initial_value=counter)
         self.__cipher = AES.new(key, AES.MODE_CTR, counter=ctr)
 
     def encrypt(self, raw):
@@ -666,7 +669,7 @@ class AESCTRCipher(AESCipher):
             return False
         return True
 
-    def calc_counter(self, offset):
+    def calc_offset(self, offset):
         if not self.is_block_aligned(offset):
             raise ClientError('offset is not align to encrypt block')
         return offset / self.block_size_len

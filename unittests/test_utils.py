@@ -16,14 +16,14 @@ class TestUtils(unittest.TestCase):
         is_aligned = cipher.is_block_aligned(start)
         self.assertFalse(is_aligned)
         
-    def test_aes_ctr_calc_counter(self):
+    def test_aes_ctr_calc_offset(self):
         cipher = AESCTRCipher()
         start = 1024
-        cout_offset = cipher.calc_counter(start)
+        cout_offset = cipher.calc_offset(start)
         self.assertEqual(cout_offset, start / 16)
 
         start = 1025
-        self.assertRaises(ClientError, cipher.calc_counter, start)
+        self.assertRaises(ClientError, cipher.calc_offset, start)
 
     def test_acs_ctr_is_valid_part_size(self):
         cipher = AESCTRCipher()

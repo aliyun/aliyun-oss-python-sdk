@@ -321,7 +321,7 @@ class CryptoBucket(Bucket):
         plain_iv = self.crypto_provider.decrypt_encrypted_iv(content_crypto_material.encrypted_iv)
 
         offset = context.part_size * (part_number - 1)
-        counter = self.crypto_provider.cipher.calc_counter(offset)
+        counter = self.crypto_provider.cipher.calc_offset(offset)
 
         cipher = copy.copy(content_crypto_material.cipher)
         cipher.initialize(plain_key, plain_iv, counter)

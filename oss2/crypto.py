@@ -318,7 +318,9 @@ class AliKMSProvider(BaseCryptoProvider):
     def decrypt_encrypted_key(self, encrypted_key):
         return b64decode_from_string(self.__decrypt_data(encrypted_key))
 
-    def decrypt_encrypted_iv(self, encrypted_iv):
+    def decrypt_encrypted_iv(self, encrypted_iv, deprecated=False):
+        if deprecated:
+            return self.__decrypt_data(encrypted_iv)
         return b64decode_from_string(self.__decrypt_data(encrypted_iv))
 
     def reset_encryption_materials(self, encryption_materials):
