@@ -1053,9 +1053,13 @@ x-oss-server-time: 39'''
         provider = oss2.AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK)
 
         request_text, response_text = make_get_encrypted_object_compact_deprecated(key, encrypted_content, meta)
+        plain_key = utils.b64decode_from_string(meta['base64-plain-key'])
+        plain_start = meta['plain-start']
 
         req_info = unittests.common.mock_response(do_request, response_text)
-        result = unittests.common.bucket(provider).get_object(key)
+        with patch('oss2.AliKMSProvider.decrypt_encrypted_key', return_value=plain_key):
+            with patch('oss2.AliKMSProvider.decrypt_encrypted_iv', return_value=plain_start):
+                result = unittests.common.bucket(provider).get_object(key)
 
         self.assertRequest(req_info, request_text)
         self.assertEqual(result.read(), content)
