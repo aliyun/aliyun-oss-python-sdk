@@ -179,6 +179,49 @@ x-oss-object-type: Normal
     return request_text, response_text
 
 
+def make_get_encrypted_object_compact_deprecated(key, encrypted_content, encrypted_meta):
+    request_text = '''GET /{0} HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:53 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:PAedG7U86ZxQ2WTB+GdpSltoiTI='''.format(key)
+
+    encrypted_key = encrypted_meta['x-oss-meta-oss-crypto-key']
+    encrypted_iv = encrypted_meta['x-oss-meta-oss-crypto-start']
+    wrap_alg = encrypted_meta['x-oss-meta-oss-wrap-alg']
+    cek_alg = encrypted_meta['x-oss-meta-oss-cek-alg']
+
+    response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:53 GMT
+Content-Type: text/plain
+Content-Length: {0}
+Connection: keep-alive
+x-oss-request-id: 566B6BE93A7B8CFD53D4BAA3
+Accept-Ranges: bytes
+ETag: "D80CF0E5BE2436514894D64B2BCFB2AE"
+x-oss-meta-oss-wrap-alg: {1}
+x-oss-meta-oss-cek-alg: {2}
+x-oss-meta-oss-crypto-key: {3}
+x-oss-meta-oss-crypto-start: {4}
+x-oss-meta-unencrypted-content-length: {5}
+Last-Modified: Sat, 12 Dec 2015 00:35:53 GMT
+x-oss-object-type: Normal
+
+'''.format(len(encrypted_content), wrap_alg, cek_alg, encrypted_key, encrypted_iv, len(encrypted_content))
+
+    io = BytesIO()
+    io.write(oss2.to_bytes(response_text))
+    io.write(encrypted_content)
+
+    response_text = io.getvalue()
+
+    return request_text, response_text
+
+
 def make_put_object(content):
     request_text = '''PUT /sjbhlsgsbecvlpbf.txt HTTP/1.1
 Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
@@ -960,6 +1003,64 @@ x-oss-server-time: 39'''
             self.assertEqual(result.read(), content)
 
     @patch('oss2.Session.do_request')
+    def test_crypto_get_compact_deprecated_rsa(self, do_request):
+        utils.silently_remove('./rsa-test.public_key.pem')
+        utils.silently_remove('./rsa-test.private_key.pem')
+
+        with open("./rsa-test.private_key.pem", 'wb') as f:
+            f.write(private_key_compact)
+
+        with open("./rsa-test.public_key.pem", 'wb') as f:
+            f.write(public_key_compact)
+
+        content = b'a' * 1024 * 1024
+        encrypted_rsa_path = "tests/deprecated_encrypted_1MB_a_rsa"
+        encrypted_meta_rsa_path = "tests/deprecated_encrypted_1MB_a_meta_rsa.json"
+
+        with open(encrypted_rsa_path, 'rb') as f:
+            encrypted_content = f.read()
+
+        with open(encrypted_meta_rsa_path, 'rb') as f:
+            meta = json.loads(f.read())
+
+        key = random_bytes(10)
+        provider = oss2.LocalRsaProvider(dir='./', key='rsa-test')
+
+        request_text, response_text = make_get_encrypted_object_compact_deprecated(key, encrypted_content, meta)
+
+        req_info = unittests.common.mock_response(do_request, response_text)
+        result = unittests.common.bucket(provider).get_object(key)
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.read(), content)
+
+        utils.silently_remove('./rsa-test.public_key.pem')
+        utils.silently_remove('./rsa-test.private_key.pem')
+
+    @patch('oss2.Session.do_request')
+    def test_crypto_get_compact_deprecated_kms(self, do_request):
+        content = b'a' * 1024 * 1024
+        encrypted_kms_path = "tests/deprecated_encrypted_1MB_a_kms"
+        encrypted_meta_kms_path = "tests/deprecated_encrypted_1MB_a_meta_kms.json"
+
+        with open(encrypted_kms_path, 'rb') as f:
+            encrypted_content = f.read()
+
+        with open(encrypted_meta_kms_path, 'rb') as f:
+            meta = json.loads(f.read())
+
+        key = random_bytes(10)
+        provider = oss2.AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK)
+
+        request_text, response_text = make_get_encrypted_object_compact_deprecated(key, encrypted_content, meta)
+
+        req_info = unittests.common.mock_response(do_request, response_text)
+        result = unittests.common.bucket(provider).get_object(key)
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.read(), content)
+
+    @patch('oss2.Session.do_request')
     def test_crypto_put(self, do_request):
         content = unittests.common.random_bytes(1023)
 
@@ -987,49 +1088,49 @@ x-oss-server-time: 39'''
         self.assertEqual(result.etag, 'D80CF0E5BE2436514894D64B2BCFB2AE')
 
 
-@patch('oss2.Session.do_request')
-def test_get_object_tagging(self, do_request):
-    request_text, response_text = make_get_object_tagging()
+    @patch('oss2.Session.do_request')
+    def test_get_object_tagging(self, do_request):
+        request_text, response_text = make_get_object_tagging()
 
-    req_info = unittests.common.mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
 
-    result = unittests.common.bucket().get_object_tagging('sjbhlsgsbecvlpbf')
+        result = unittests.common.bucket().get_object_tagging('sjbhlsgsbecvlpbf')
 
-    req_info = unittests.common.mock_response(do_request, response_text)
+        req_info = unittests.common.mock_response(do_request, response_text)
 
-    self.assertEqual(3, result.tag_set.len())
-    self.assertEqual('v1', result.tag_set.tagging_rule['k1'])
-    self.assertEqual('v2', result.tag_set.tagging_rule['k2'])
-    self.assertEqual('v3', result.tag_set.tagging_rule['k3'])
+        self.assertEqual(3, result.tag_set.len())
+        self.assertEqual('v1', result.tag_set.tagging_rule['k1'])
+        self.assertEqual('v2', result.tag_set.tagging_rule['k2'])
+        self.assertEqual('v3', result.tag_set.tagging_rule['k3'])
 
 
-# for ci
-def test_oss_utils_negative(self):
-    try:
-        oss2.utils.makedir_p('/')
-        self.assertTrue(False)
-    except:
-        pass
+    # for ci
+    def test_oss_utils_negative(self):
+        try:
+            oss2.utils.makedir_p('/')
+            self.assertTrue(False)
+        except:
+            pass
 
-    try:
-        oss2.utils.silently_remove('/')
-        self.assertTrue(False)
-    except:
-        pass
+        try:
+            oss2.utils.silently_remove('/')
+            self.assertTrue(False)
+        except:
+            pass
 
-    try:
-        oss2.utils.force_rename('/', '/')
-        self.assertTrue(False)
-    except:
-        pass
+        try:
+            oss2.utils.force_rename('/', '/')
+            self.assertTrue(False)
+        except:
+            pass
 
-    oss2.utils.makedir_p('xyz')
-    oss2.utils.makedir_p('zyz')
-    try:
-        oss2.utils.force_rename('xyz', 'zyx')
-        self.assertTrue(False)
-    except:
-        pass
+        oss2.utils.makedir_p('xyz')
+        oss2.utils.makedir_p('zyz')
+        try:
+            oss2.utils.force_rename('xyz', 'zyx')
+            self.assertTrue(False)
+        except:
+            pass
 
 
 if __name__ == '__main__':
