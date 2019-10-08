@@ -95,13 +95,13 @@ class ContentCryptoMaterial(object):
             if wrap_alg == "kms":
                 self.encrypted_key = undecode_encrypted_key
                 self.encrypted_iv = undecode_encrypted_iv
-                wrap_alg == 'KMS/ALICLOUD'
+                wrap_alg == KMS_ALI_WRAP_ALGORITHM
             else:
                 if undecode_encrypted_key:
                     self.encrypted_key = b64decode_from_string(undecode_encrypted_key)
                 if undecode_encrypted_iv:
                     self.encrypted_iv = b64decode_from_string(undecode_encrypted_iv)
-                wrap_alg == "RSA/NONE/OAEPWithSHA-1AndMGF1Padding"
+                wrap_alg == RSA_NONE_OAEPWithSHA1AndMGF1Padding
             if cek_alg == utils.AES_GCM:
                 cek_alg = utils.AES_CTR
         else:
@@ -280,7 +280,7 @@ class GetObjectResult(HeadObjectResult):
 
                 plain_key = crypto_provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
                 if content_crypto_material.deprecated:
-                    if content_crypto_material.wrap_alg == "kms":
+                    if content_crypto_material.wrap_alg == KMS_ALI_WRAP_ALGORITHM:
                         plain_counter = int(
                             crypto_provider.decrypt_encrypted_iv(content_crypto_material.encrypted_iv, True))
                     else:

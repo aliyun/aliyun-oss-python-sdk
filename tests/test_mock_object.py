@@ -166,7 +166,7 @@ x-oss-meta-client-side-encryption-key: {3}
 x-oss-meta-client-side-encryption-start: {4}
 x-oss-meta-unencrypted-content-length: {5}
 Last-Modified: Sat, 12 Dec 2015 00:35:53 GMT
-x-oss-object-type: Normal{6}
+x-oss-object-type: Normal
 
 '''.format(len(encrypted_content), wrap_alg, cek_alg, encrypted_key, encrypted_iv, len(encrypted_content))
 

@@ -55,6 +55,10 @@ OSS_REQUEST_PAYER = 'x-oss-request-payer'
 
 OSS_TRAFFIC_LIMIT = 'x-oss-traffic-limit'
 
+RSA_NONE_PKCS1Padding_WRAP_ALGORITHM = 'RSA/NONE/PKCS1Padding'
+RSA_NONE_OAEPWithSHA1AndMGF1Padding = 'RSA/NONE/OAEPWithSHA-1AndMGF1Padding'
+KMS_ALI_WRAP_ALGORITHM = 'KMS/ALICLOUD'
+
 class RequestHeader(dict):
     def __init__(self, *arg, **kw):
         super(RequestHeader, self).__init__(*arg, **kw)

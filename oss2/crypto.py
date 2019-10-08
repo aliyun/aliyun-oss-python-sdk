@@ -24,6 +24,7 @@ from aliyunsdkcore.http import format_type, method_type
 from aliyunsdkkms.request.v20160120 import GenerateDataKeyRequest, DecryptRequest, EncryptRequest
 
 from . import models
+from . import headers
 from utils import b64decode_from_string, b64encode_as_string
 from . import utils
 from .compat import to_bytes, to_unicode
@@ -114,9 +115,6 @@ class BaseCryptoProvider(object):
 
 
 _LOCAL_RSA_TMP_DIR = '.oss-local-rsa'
-RSA_NONE_PKCS1Padding_WRAP_ALGORITHM = 'RSA/NONE/PKCS1Padding'
-RSA_NONE_OAEPWithSHA1AndMGF1Padding = 'RSA/NONE/OAEPWithSHA-1AndMGF1Padding'
-KMS_ALI_WRAP_ALGORITHM = 'KMS/ALICLOUD'
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -137,7 +135,7 @@ class LocalRsaProvider(BaseCryptoProvider):
 
         super(LocalRsaProvider, self).__init__(cipher=cipher)
 
-        self.wrap_alg = RSA_NONE_OAEPWithSHA1AndMGF1Padding
+        self.wrap_alg = headers.RSA_NONE_OAEPWithSHA1AndMGF1Padding
         keys_dir = dir or os.path.join(os.path.expanduser('~'), _LOCAL_RSA_TMP_DIR)
 
         priv_key_path = os.path.join(keys_dir, key + private_key_suffix)
@@ -230,7 +228,7 @@ class RsaProvider(BaseCryptoProvider):
     def __init__(self, key_pair, passphrase=None, cipher=utils.AESCTRCipher()):
 
         super(RsaProvider, self).__init__(cipher=cipher)
-        self.wrap_alg = RSA_NONE_PKCS1Padding_WRAP_ALGORITHM
+        self.wrap_alg = headers.RSA_NONE_PKCS1Padding_WRAP_ALGORITHM
 
         try:
             if 'public_key' in key_pair:
@@ -305,7 +303,7 @@ class AliKMSProvider(BaseCryptoProvider):
         super(AliKMSProvider, self).__init__(cipher=cipher)
         if not isinstance(cipher, utils.AESCTRCipher):
             raise ClientError('AliKMSProvider only support AES256 cipher now')
-        self.wrap_alg = KMS_ALI_WRAP_ALGORITHM
+        self.wrap_alg = headers.KMS_ALI_WRAP_ALGORITHM
         self.custom_master_key_id = cmk_id
         self.sts_token = sts_token
         self.context = '{"x-passphrase":"' + passphrase + '"}' if passphrase else ''

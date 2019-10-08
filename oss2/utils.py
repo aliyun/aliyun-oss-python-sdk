@@ -640,7 +640,7 @@ class AESCTRCipher(AESCipher):
 
     def initialize(self, key, iv, offset=0):
         counter = iv_to_big_int(iv) + offset
-        self.initial_by_counter(self, key, counter)
+        self.initial_by_counter(key, counter)
 
     def initial_by_counter(self, key, counter):
         ctr = Counter.new(self.block_size_len_in_bits, initial_value=counter)
