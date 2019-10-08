@@ -95,13 +95,13 @@ class ContentCryptoMaterial(object):
             if wrap_alg == "kms":
                 self.encrypted_key = undecode_encrypted_key
                 self.encrypted_iv = undecode_encrypted_iv
-                wrap_alg == KMS_ALI_WRAP_ALGORITHM
+                wrap_alg = KMS_ALI_WRAP_ALGORITHM
             else:
                 if undecode_encrypted_key:
                     self.encrypted_key = b64decode_from_string(undecode_encrypted_key)
                 if undecode_encrypted_iv:
                     self.encrypted_iv = b64decode_from_string(undecode_encrypted_iv)
-                wrap_alg == RSA_NONE_OAEPWithSHA1AndMGF1Padding
+                wrap_alg = RSA_NONE_OAEPWithSHA1AndMGF1Padding
             if cek_alg == utils.AES_GCM:
                 cek_alg = utils.AES_CTR
         else:
@@ -121,13 +121,13 @@ class ContentCryptoMaterial(object):
         if cek_alg and cek_alg != self.cek_alg:
             logger.error("CEK algorithm or is inconsistent, object meta: cek_alg:{0}, material: cek_alg:{1}".
                          format(cek_alg, self.cek_alg))
-            err_msg = 'Envelope encryption/decryption algorithm is inconsistent'
+            err_msg = 'Data encryption/decryption algorithm is inconsistent'
             raise InconsistentError(err_msg, self)
 
         if wrap_alg and wrap_alg != self.wrap_alg:
             logger.error("WRAP algorithm or is inconsistent, object meta: wrap_alg:{0}, material: wrap_alg:{1}".
                          format(wrap_alg, self.wrap_alg))
-            err_msg = 'Data encryption/decryption algorithm is inconsistent'
+            err_msg = 'Envelope encryption/decryption algorithm is inconsistent'
             raise InconsistentError(err_msg, self)
 
         self.cek_alg = cek_alg
