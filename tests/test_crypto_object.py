@@ -5,6 +5,7 @@ import base64
 from random import choice
 
 from oss2.exceptions import (ClientError, NotFound, NoSuchKey)
+from oss2 import RsaProvider
 
 from .common import *
 from .test_object import now
@@ -247,6 +248,45 @@ class TestCryptoObject(OssTestCase):
         self.assertTrue(get_result.client_crc is not None)
         self.assertTrue(get_result.server_crc is not None)
         self.assertTrue(get_result.client_crc == get_result.server_crc)
+
+    def test_crypto_object_incorrect_description(self):
+        private_key_1 = RSA.generate(1024)
+        public_key_1 = private_key_1.publickey()
+        passphrase_1 = random_string(6)
+        private_key_str_1 = RsaKey.exportKey(private_key_1, passphrase=passphrase_1)
+        public_key_str_1 = RsaKey.exportKey(public_key_1, passphrase=passphrase_1)
+        mat_desc_1 = {'key1': 'value1'}
+        provider_1 = RsaProvider(key_pair={'private_key': private_key_str_1, 'public_key': public_key_str_1},
+                                 passphrase=passphrase_1, mat_desc=mat_desc_1)
+        crypto_bucket_1 = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT,
+                                            OSS_BUCKET, crypto_provider=provider_1)
+        private_key_2 = RSA.generate(2048)
+        public_key_2 = private_key_2.publickey()
+        passphrase_2 = random_string(6)
+        private_key_str_2 = RsaKey.exportKey(private_key_2, passphrase=passphrase_2)
+        public_key_str_2 = RsaKey.exportKey(public_key_2, passphrase=passphrase_2)
+        mat_desc_2 = {'key2': 'value2'}
+        provider_2 = RsaProvider(key_pair={'private_key': private_key_str_2, 'public_key': public_key_str_2},
+                                 passphrase=passphrase_2, mat_desc=mat_desc_2)
+        crypto_bucket_2 = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT,
+                                            OSS_BUCKET, crypto_provider=provider_2)
+        key = self.random_key('.js')
+        content = random_bytes(1024)
+        crypto_bucket_1.put_object(key, content)
+        self.assertRaises(ClientError, crypto_bucket_2.get_object, key)
+
+        # 口令未设置
+        encryption_materials = oss2.EncryptionMaterials(mat_desc_1, key_pair={'private_key': private_key_str_1,
+                                                                              'public_key': public_key_str_1})
+        provider_2.add_encryption_materials(encryption_materials)
+        self.assertRaises(ClientError, crypto_bucket_2.get_object, key)
+
+        encryption_materials = oss2.EncryptionMaterials(mat_desc_1, key_pair={'private_key': private_key_str_1,
+                                                                              'public_key': public_key_str_1},
+                                                        passphrase=passphrase_1)
+        provider_2.add_encryption_materials(encryption_materials)
+        get_result = crypto_bucket_2.get_object(key)
+        self.assertEqual(get_result.read(), content)
 
     '''
     # 测试CryptoBucket类的Copy方法, 并使用"REPLACE"模式修改meta

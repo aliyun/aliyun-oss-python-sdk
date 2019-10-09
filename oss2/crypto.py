@@ -35,9 +35,17 @@ logger = logging.getLogger(__name__)
 
 class EncryptionMaterials(object):
     def __init__(self, desc, key_pair=None, custom_master_key_id=None, passphrase=None):
-        self.desc = desc
+        self.desc = {}
+        if desc:
+            if isinstance(desc, dict):
+                self.desc = desc
+            else:
+                raise ClientError('Invalid type, the type of mat_desc must be dict!')
         if key_pair and custom_master_key_id:
             raise ClientError('Both key_pair and custom_master_key_id are not none')
+
+        if key_pair and not isinstance(key_pair, dict):
+            raise ClientError('Invalid type, the type of key_pair must be dict!')
 
         self.key_pair = key_pair
         self.custom_master_key_id = custom_master_key_id
@@ -107,11 +115,14 @@ class BaseCryptoProvider(object):
 
     def add_encryption_materials(self, encryption_materials):
         if encryption_materials.desc:
-            self.encryption_materials_dict[encryption_materials.desc] = encryption_materials
+            key = frozenset(encryption_materials.desc.items())
+            self.encryption_materials_dict[key] = encryption_materials
 
     def get_encryption_materials(self, desc):
-        if desc in self.encryption_materials_dict.keys():
-            return self.encryption_materials_dict[desc]
+        if desc:
+            key = frozenset(desc.items())
+            if key in self.encryption_materials_dict.keys():
+                return self.encryption_materials_dict[key]
 
 
 _LOCAL_RSA_TMP_DIR = '.oss-local-rsa'
@@ -181,17 +192,7 @@ class LocalRsaProvider(BaseCryptoProvider):
             raise ClientError(str(e))
 
     def reset_encryption_materials(self, encryption_materials):
-        key_pair = encryption_materials.key_pair
-        passphrase = encryption_materials.passphrase
-        if key_pair:
-            if 'public_key' not in key_pair:
-                raise ClientError('The is no public_key in key_pair')
-            self.__decrypt_obj = PKCS1_OAEP.new(RSA.importKey(key_pair['public_key'], passphrase))
-
-            if 'private_key' in key_pair:
-                self.__encrypt_obj = PKCS1_OAEP.new(RSA.importKey(key_pair['public_key'], passphrase))
-        else:
-            raise ClientError('The key_pair in encryption_materials is none')
+        raise ClientError("do not support reset_encryption_materials!")
 
     def create_content_material(self):
         plain_key = self.get_key()
@@ -225,10 +226,13 @@ class RsaProvider(BaseCryptoProvider):
         :param class cipher: 数据加密，默认aes256，用户可自行实现对称加密算法，需符合AESCipher注释规则
     """
 
-    def __init__(self, key_pair, passphrase=None, cipher=utils.AESCTRCipher()):
+    def __init__(self, key_pair, passphrase=None, cipher=utils.AESCTRCipher(), mat_desc=None):
 
-        super(RsaProvider, self).__init__(cipher=cipher)
+        super(RsaProvider, self).__init__(cipher=cipher, mat_desc=mat_desc)
         self.wrap_alg = headers.RSA_NONE_PKCS1Padding_WRAP_ALGORITHM
+
+        if key_pair and not isinstance(key_pair, dict):
+            raise ClientError('Invalid type, the type of key_pair must be dict!')
 
         try:
             if 'public_key' in key_pair:
@@ -255,7 +259,8 @@ class RsaProvider(BaseCryptoProvider):
             raise ClientError(str(e))
 
     def reset_encryption_materials(self, encryption_materials):
-        return RsaProvider(encryption_materials.key_pair, encryption_materials.passphrase, self.cipher)
+        return RsaProvider(encryption_materials.key_pair, encryption_materials.passphrase, self.cipher,
+                           encryption_materials.desc)
 
     def create_content_material(self):
         plain_key = self.get_key()
@@ -298,9 +303,9 @@ class AliKMSProvider(BaseCryptoProvider):
     """
 
     def __init__(self, access_key_id, access_key_secret, region, cmk_id, sts_token=None, passphrase=None,
-                 cipher=utils.AESCTRCipher()):
+                 cipher=utils.AESCTRCipher(), mat_desc=None):
 
-        super(AliKMSProvider, self).__init__(cipher=cipher)
+        super(AliKMSProvider, self).__init__(cipher=cipher, mat_desc=mat_desc)
         if not isinstance(cipher, utils.AESCTRCipher):
             raise ClientError('AliKMSProvider only support AES256 cipher now')
         self.wrap_alg = headers.KMS_ALI_WRAP_ALGORITHM
@@ -325,6 +330,7 @@ class AliKMSProvider(BaseCryptoProvider):
         provider = copy.copy(self)
         provider.custom_master_key_id = encryption_materials.custom_master_key_id
         provider.context = '{"x-passphrase":"' + encryption_materials.passphrase + '"}' if encryption_materials.passphrase else ''
+        provider.mat_desc = encryption_materials.desc
         return provider
 
     def create_content_material(self):

@@ -187,8 +187,6 @@ class TestCrypto(unittests.common.OssTestCase):
         content_crypto_material = provider.create_content_material()
         plain_key = provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
         plain_iv = provider.decrypt_encrypted_iv(content_crypto_material.encrypted_iv)
-        print("the value of plain_key is ", plain_key)
-        print("the value of plain_iv is ", plain_iv)
         cipher = content_crypto_material.cipher
 
         stream_encrypted = provider.make_encrypt_adapter(content, cipher)
