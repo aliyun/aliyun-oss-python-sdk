@@ -929,7 +929,7 @@ x-oss-server-time: 39'''
     def test_crypto_get(self, do_request):
         content = unittests.common.random_bytes(1023)
 
-        key = random_bytes(10)
+        key = random_string(10)
         provider = oss2.RsaProvider(key_pair=key_pair)
         content_crypto_material = provider.create_content_material()
 
@@ -988,10 +988,10 @@ x-oss-server-time: 39'''
             with open(encrypted_example_path, 'rb') as f:
                 encrypted_content = f.read()
 
-            with open(encrypted_example_meta_path, 'rb') as f:
+            with open(encrypted_example_meta_path, 'r') as f:
                 meta = json.loads(f.read())
 
-            key = random_bytes(10)
+            key = random_string(10)
             provider = oss2.RsaProvider(key_pair=key_pair_compact)
 
             request_text, response_text = make_get_encrypted_object_compact(key, encrypted_content, meta)
@@ -1008,10 +1008,10 @@ x-oss-server-time: 39'''
         utils.silently_remove('./rsa-test.private_key.pem')
 
         with open("./rsa-test.private_key.pem", 'wb') as f:
-            f.write(private_key_compact)
+            f.write(oss2.to_bytes(private_key_compact))
 
         with open("./rsa-test.public_key.pem", 'wb') as f:
-            f.write(public_key_compact)
+            f.write(oss2.to_bytes(public_key_compact))
 
         content = b'a' * 1024 * 1024
         encrypted_rsa_path = "tests/deprecated_encrypted_1MB_a_rsa"
@@ -1020,10 +1020,10 @@ x-oss-server-time: 39'''
         with open(encrypted_rsa_path, 'rb') as f:
             encrypted_content = f.read()
 
-        with open(encrypted_meta_rsa_path, 'rb') as f:
+        with open(encrypted_meta_rsa_path, 'r') as f:
             meta = json.loads(f.read())
 
-        key = random_bytes(10)
+        key = random_string(10)
         provider = oss2.LocalRsaProvider(dir='./', key='rsa-test')
 
         request_text, response_text = make_get_encrypted_object_compact_deprecated(key, encrypted_content, meta)
@@ -1046,10 +1046,10 @@ x-oss-server-time: 39'''
         with open(encrypted_kms_path, 'rb') as f:
             encrypted_content = f.read()
 
-        with open(encrypted_meta_kms_path, 'rb') as f:
+        with open(encrypted_meta_kms_path, 'r') as f:
             meta = json.loads(f.read())
 
-        key = random_bytes(10)
+        key = random_string(10)
         provider = oss2.AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK)
 
         request_text, response_text = make_get_encrypted_object_compact_deprecated(key, encrypted_content, meta)
@@ -1068,7 +1068,7 @@ x-oss-server-time: 39'''
     def test_crypto_put(self, do_request):
         content = unittests.common.random_bytes(1023)
 
-        key = random_bytes(10)
+        key = random_string(10)
         provider = oss2.RsaProvider(key_pair=key_pair)
         plain_key = provider.get_key()
         plain_iv = provider.get_iv()

@@ -273,7 +273,7 @@ class TestUpload(OssTestCase):
         def change_size(store, bucket_name, key, pathname):
             mtime = os.path.getmtime(pathname)
 
-            with open(pathname, 'w') as f:
+            with open(pathname, 'wb') as f:
                 f.write(random_bytes(500 * 1024 - 1))
 
             os.utime(pathname, (mtime, mtime))

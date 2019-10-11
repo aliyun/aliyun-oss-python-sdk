@@ -44,7 +44,7 @@ class TestCrypto(unittests.common.OssTestCase):
         private_key = random_string(2048)
 
         with open('./rsa-test.private_key.pem', 'wb') as f:
-            f.write(private_key)
+            f.write(oss2.to_bytes(private_key))
 
         with open('./rsa-test.public_key.pem', 'wb') as f:
             f.write(public_key.exportKey())
@@ -227,7 +227,7 @@ class TestCrypto(unittests.common.OssTestCase):
 
         provider_diff = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK, passphrase=random_string(8))
         self.assertRaises(OpenApiServerError, provider_diff.decrypt_encrypted_key, encrypted_key)
-        self.assertRaises(OpenApiServerError, provider_diff.decrypt_encrypted_key, encrypted_iv)
+        self.assertRaises(OpenApiServerError, provider_diff.decrypt_encrypted_iv, encrypted_iv)
 
     # 测试使用不同的region解析加密key和start时抛出异常
     def test_ali_kms_provider_invalid_region(self):

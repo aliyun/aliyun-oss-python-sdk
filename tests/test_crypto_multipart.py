@@ -98,7 +98,8 @@ class TestCryptoMultipart(OssTestCase):
                     headers = None
                 upload_result = crypto_bucket.upload_part(key, upload_id, i + 1, content[i], headers=headers,
                                                           upload_context=context)
-                parts.append(oss2.models.PartInfo(i + 1, upload_result.etag, part_crc=upload_result.crc))
+                parts.append(oss2.models.PartInfo(i + 1, upload_result.etag, size=len(content[i]),
+                                                  part_crc=upload_result.crc))
                 self.assertTrue(upload_result.status == 200)
                 self.assertTrue(upload_result.crc is not None)
 
@@ -197,7 +198,7 @@ class TestCryptoMultipart(OssTestCase):
 
             key2_upload_result = crypto_bucket.upload_part(key2, key2_upload_id, i + 1, key2_content[i],
                                                            upload_context=context2)
-            key2_parts.append(oss2.models.PartInfo(i + 1, key2_upload_result.etag,
+            key2_parts.append(oss2.models.PartInfo(i + 1, key2_upload_result.etag, size=len(key2_content[i]),
                                                    part_crc=key2_upload_result.crc))
             self.assertTrue(key2_upload_result.status == 200)
             self.assertTrue(key2_upload_result.crc is not None)
@@ -316,7 +317,7 @@ class TestCryptoMultipart(OssTestCase):
         for i in range(2):
             upload_result = crypto_bucket.upload_part(key, upload_id, i + 1, content[i])
             parts.append(
-                oss2.models.PartInfo(i + 1, upload_result.etag, part_crc=upload_result.crc))
+                oss2.models.PartInfo(i + 1, upload_result.etag, size=len(content[i]), part_crc=upload_result.crc))
             self.assertTrue(upload_result.status == 200)
             self.assertTrue(upload_result.crc is not None)
 

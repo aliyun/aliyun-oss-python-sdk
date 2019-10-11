@@ -25,8 +25,8 @@ from aliyunsdkkms.request.v20160120 import GenerateDataKeyRequest, DecryptReques
 
 from . import models
 from . import headers
-from utils import b64decode_from_string, b64encode_as_string
 from . import utils
+from .utils import b64decode_from_string, b64encode_as_string
 from .compat import to_bytes, to_unicode
 from .exceptions import ClientError, OpenApiFormatError, OpenApiServerError
 

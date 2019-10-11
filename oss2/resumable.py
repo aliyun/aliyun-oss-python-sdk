@@ -15,7 +15,7 @@ from . import iterators
 from . import exceptions
 from . import defaults
 from . import http
-from .api import Bucket
+from . import models
 from .crypto_bucket import CryptoBucket
 from .iterators import PartIterator
 
@@ -30,7 +30,6 @@ import random
 import string
 
 import logging
-import models
 
 logger = logging.getLogger(__name__)
 

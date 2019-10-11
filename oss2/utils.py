@@ -27,7 +27,6 @@ import re
 import sys
 import random
 import abc, six
-import defaults
 import struct
 
 from Crypto.Cipher import AES
@@ -37,6 +36,7 @@ from Crypto.Util import Counter
 from .crc64_combine import mkCombineFun
 from .compat import to_string, to_bytes
 from .exceptions import ClientError, InconsistentError, RequestError, OpenApiFormatError
+from . import defaults
 
 logger = logging.getLogger(__name__)
 
@@ -271,7 +271,7 @@ def calc_obj_crc_from_parts(parts, init_crc=0):
     object_crc = 0
     crc_obj = Crc64(init_crc)
     for part in parts:
-        if part.part_crc is None or part.size <= 0:
+        if not part.part_crc or not part.size:
             return None
         else:
             object_crc = crc_obj.combine(object_crc, part.part_crc, part.size)
@@ -656,9 +656,9 @@ class AESCTRCipher(AESCipher):
         if start:
             if end:
                 if start <= end:
-                    start = (start / self.block_size_len) * self.block_size_len
+                    start = (start // self.block_size_len) * self.block_size_len
             else:
-                start = (start / self.block_size_len) * self.block_size_len
+                start = (start // self.block_size_len) * self.block_size_len
         return start, end
 
     def is_valid_part_size(self, part_size, data_size):
@@ -672,7 +672,7 @@ class AESCTRCipher(AESCipher):
     def calc_offset(self, offset):
         if not self.is_block_aligned(offset):
             raise ClientError('offset is not align to encrypt block')
-        return offset / self.block_size_len
+        return offset // self.block_size_len
 
     def determine_part_size(self, data_size, excepted_part_size=None):
         if excepted_part_size:
