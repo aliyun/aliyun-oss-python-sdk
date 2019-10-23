@@ -849,6 +849,33 @@ class TestBucket(OssTestCase):
         self.assertEqual(int(result.status)//100, 2)
         bucket.delete_bucket()
 
+    def test_bucket_storage_capacity(self):
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
+
+        # test default storage capacity
+        result = bucket.get_bucket_storage_capacity()
+        self.assertEqual(result.storage_capacity, -1)
+
+        #test set default capacity value -1
+        user_qos = oss2.models.BucketUserQos(-1)
+        bucket.set_bucket_storage_capacity(user_qos)
+        result = bucket.get_bucket_storage_capacity()
+        self.assertEqual(result.storage_capacity, -1)
+
+        #set neagetive value other than -1
+        user_qos = oss2.models.BucketUserQos(-2)
+        self.assertRaises(oss2.exceptions.InvalidArgument, bucket.set_bucket_storage_capacity, user_qos) 
+
+        #set positive value
+        user_qos = oss2.models.BucketUserQos(100)
+        resp = bucket.set_bucket_storage_capacity(user_qos)
+        result = bucket.get_bucket_storage_capacity()
+        self.assertEqual(result.storage_capacity, 100)
+
+        bucket.delete_bucket()
+
     def test_malformed_xml(self):
         xml_input = '''<This is a bad xml></bad as I am>'''
         self.assertRaises(oss2.exceptions.MalformedXml, self.bucket.put_bucket_lifecycle, xml_input)

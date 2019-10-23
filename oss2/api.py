@@ -384,6 +384,7 @@ class Bucket(_Base):
     POLICY = 'policy'
     REQUESTPAYMENT  = 'requestPayment'
     QOS_INFO = 'qosInfo'
+    USER_QOS = 'qos'
 
     def __init__(self, auth, endpoint, bucket_name,
                  is_cname=False,
@@ -2172,6 +2173,23 @@ class Bucket(_Base):
         logger.debug("Delete bucket qos info done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return RequestResult(resp)
+
+    def set_bucket_storage_capacity(self, user_qos):
+        """设置Bucket的容量，单位GB
+
+        :param user_qos :class:`BucketUserQos <oss2.models.BucketUserQos>`
+        """
+        data = xml_utils.to_put_bucket_user_qos(user_qos)
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.USER_QOS: ''})
+        return RequestResult(resp)
+
+    def get_bucket_storage_capacity(self):
+        """获取bucket的容量信息。
+
+        :return: :class:`GetBucketUserQosResult <oss2.models.GetBucketUserQosResult>`
+        """
+        resp = self._Bucket__do_bucket('GET', params={Bucket.USER_QOS: ''})
+        return self._parse_result(resp, xml_utils.parse_get_bucket_user_qos, GetBucketUserQosResult)
 
     def _get_bucket_config(self, config):
         """获得Bucket某项配置，具体哪种配置由 `config` 指定。该接口直接返回 `RequestResult` 对象。

@@ -1229,3 +1229,17 @@ def parse_get_qos_info(result, body):
     result.extranet_qps = _find_int(root, 'ExtranetQps')
 
     return result
+
+def parse_get_bucket_user_qos(result, body):
+    root = ElementTree.fromstring(body)
+
+    result.storage_capacity = _find_int(root, 'StorageCapacity')
+
+    return result
+
+def to_put_bucket_user_qos(user_qos):
+    root = ElementTree.Element('BucketUserQos')
+
+    _add_text_child(root, 'StorageCapacity', str(user_qos.storage_capacity))
+
+    return _node_to_string(root)
