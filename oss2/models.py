@@ -1455,3 +1455,15 @@ class GetBucketQosInfoResult(RequestResult, BucketQosInfo):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         BucketQosInfo.__init__(self)
+
+class BucketUserQos(object):
+    """用户服务质量。
+    :param int storage_capacity: 容量大小，单位GB
+    """
+    def __init__(self, storage_capacity=None):
+        self.storage_capacity = storage_capacity
+
+class GetBucketUserQosResult(RequestResult, BucketUserQos):
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        BucketUserQos.__init__(self)
