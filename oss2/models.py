@@ -776,13 +776,19 @@ class LifecycleExpiration(object):
     """过期删除操作。
 
     :param days: 表示在文件修改后过了这么多天，就会匹配规则，从而被删除
-    :param date: 表示在该日期之后，规则就一直生效。即每天都会对符合前缀的文件执行删除操作（如，删除），而不管文件是什么时候生成的。
-        *不建议使用*
-    :param created_before_date: delete files if their last modified time earlier than created_before_date
+    :type days: int
 
+    :param date: 表示在该日期之后，规则就一直生效。即每天都会对符合前缀的文件执行删除操作（如，删除），而不管文件是什么时候生成的。*不建议使用*
     :type date: `datetime.date`
+
+    :param created_before_date: delete files if their last modified time earlier than created_before_date
+    :type created_before_date: `datetime.date`
+
+    :param expired_detete_marker: 真实文件删除之后是否自动移除删除标记，适用于多版本场景。
+    :param expired_detete_marker: bool
+
     """
-    def __init__(self, days=None, date=None, created_before_date=None):
+    def __init__(self, days=None, date=None, created_before_date=None, expired_detete_marker=None):
         not_none_fields = 0
         if days is not None:
             not_none_fields += 1
@@ -790,13 +796,16 @@ class LifecycleExpiration(object):
             not_none_fields += 1
         if created_before_date is not None:
             not_none_fields += 1
+        if expired_detete_marker is not None:
+            not_none_fields += 1
 
         if not_none_fields > 1:
-            raise ClientError('More than one field(days, date and created_before_date) has been specified')
+            raise ClientError('More than one field(days, date and created_before_date, expired_detete_marker) has been specified')
 
         self.days = days
         self.date = date
         self.created_before_date = created_before_date
+        self.expired_detete_marker = expired_detete_marker
 
 
 class AbortMultipartUpload(object):
@@ -830,18 +839,52 @@ class StorageTransition(object):
         self.storage_class = storage_class
 
 
+class NoncurrentVersionExpiration(object):
+    """OSS何时将非当前版本的object删除
+
+    :param noncurrent_days: 指定多少天之后删除
+    :type noncurrent_days: int
+    """
+    def __init__(self, noncurrent_days):
+        self.noncurrent_days = noncurrent_days
+
+
+class NoncurrentVersionStorageTransition(object):
+    """生命周期内，OSS何时将指定Object的非当前版本转储为IA或者Archive存储类型。
+
+    :param noncurrent_days: 多少天之后转存储
+    :type noncurrent_days: int
+    """
+    def __init__(self, noncurrent_days, storage_class):
+        self.noncurrent_days = noncurrent_days
+        self.storage_class = storage_class
+
+
 class LifecycleRule(object):
     """生命周期规则。
 
     :param id: 规则名
+    :type id: str
+
     :param prefix: 只有文件名匹配该前缀的文件才适用本规则
+    :type prefix: str
+
     :param expiration: 过期删除操作。
     :type expiration: :class:`LifecycleExpiration`
+
     :param status: 启用还是禁止该规则。可选值为 `LifecycleRule.ENABLED` 或 `LifecycleRule.DISABLED`
+
     :param storage_transitions: 存储类型转换规则
-    :type storage_transitions: :class:`StorageTransition`
+    :type storage_transitions: list of class:`StorageTransition <oss2.models.StorageTransition>`
+
     :param tagging: object tagging 规则
-    :type tagging: :class:`Tagging`
+    :type tagging: :class:`Tagging <oss2.models.StorageTransition>`
+    
+    :param noncurrent_version_expiration: 指定Object非当前版本生命周期规则的过期属性。适用于多版本场景。
+    :type noncurrent_version_expiration class:`NoncurrentVersionExpiration <oss2.models.NoncurrentVersionExpiration>`
+
+    :param noncurrent_version_sotrage_transitions: 在有效生命周期中，OSS何时将指定Object的非当前版本转储为IA或者Archive存储类型，适用于多版本场景。
+    :type noncurrent_version_sotrage_transitions: list of class:`NoncurrentVersionStorageTransition <oss2.models.NoncurrentVersionStorageTransition>`
     """
 
     ENABLED = 'Enabled'
@@ -850,7 +893,9 @@ class LifecycleRule(object):
     def __init__(self, id, prefix,
                  status=ENABLED, expiration=None,
                  abort_multipart_upload=None,
-                 storage_transitions=None, tagging=None):
+                 storage_transitions=None, tagging=None,
+                 noncurrent_version_expiration=None,
+                 noncurrent_version_sotrage_transitions=None):
         self.id = id
         self.prefix = prefix
         self.status = status
@@ -858,13 +903,15 @@ class LifecycleRule(object):
         self.abort_multipart_upload = abort_multipart_upload
         self.storage_transitions = storage_transitions
         self.tagging = tagging
+        self.noncurrent_version_expiration = noncurrent_version_expiration
+        self.noncurrent_version_sotrage_transitions = noncurrent_version_sotrage_transitions
 
 
 class BucketLifecycle(object):
     """Bucket的生命周期配置。
 
     :param rules: 规则列表，
-    :type rules: list of :class:`LifecycleRule`
+    :type rules: list of :class:`LifecycleRule <oss2.models.LifecycleRule>`
     """
     def __init__(self, rules=None):
         self.rules = rules or []
