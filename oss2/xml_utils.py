@@ -47,7 +47,9 @@ from .models import (SimplifiedObjectInfo,
                      REDIRECT_TYPE_MIRROR,
                      REDIRECT_TYPE_EXTERNAL,
                      REDIRECT_TYPE_INTERNAL,
-                     REDIRECT_TYPE_ALICDN)
+                     REDIRECT_TYPE_ALICDN,
+                     NoncurrentVersionStorageTransition,
+                     NoncurrentVersionExpiration)
 
 from .select_params import (SelectJsonTypes, SelectParameters)
 
@@ -583,6 +585,10 @@ def parse_lifecycle_expiration(expiration_node):
         expiration.days = _find_int(expiration_node, 'Days')
     elif expiration_node.find('Date') is not None:
         expiration.date = iso8601_to_date(_find_tag(expiration_node, 'Date'))
+    elif expiration_node.find('CreatedBeforeDate') is not None:
+        expiration.created_before_date = iso8601_to_date(_find_tag(expiration_node, 'CreatedBeforeDate'))
+    elif expiration_node.find('ExpiredObjectDeleteMarker') is not None:
+        expiration.expired_detete_marker = _find_bool(expiration_node, 'ExpiredObjectDeleteMarker')
 
     return expiration
 
@@ -629,6 +635,25 @@ def parse_lifecycle_object_taggings(lifecycle_tagging_nodes):
 
     return Tagging(tagging_rule)
 
+def parse_lifecycle_version_expiration(version_expiration_node):
+    if version_expiration_node is None:
+        return None
+
+    noncurrent_days = _find_int(version_expiration_node, 'NoncurrentDays')
+    expiration = NoncurrentVersionExpiration(noncurrent_days)
+
+    return expiration
+
+def parse_lifecycle_verison_storage_transitions(version_storage_transition_nodes):
+    version_storage_transitions = []
+    for transition_node in version_storage_transition_nodes:
+        storage_class = _find_tag(transition_node, 'StorageClass')
+        non_crurrent_days = _find_int(transition_node, 'NoncurrentDays')
+        version_storage_transition = NoncurrentVersionStorageTransition(non_crurrent_days, storage_class)
+        version_storage_transitions.append(version_storage_transition)
+
+    return version_storage_transitions
+
 def parse_get_bucket_lifecycle(result, body):
 
     root = ElementTree.fromstring(body)
@@ -639,6 +664,9 @@ def parse_get_bucket_lifecycle(result, body):
         abort_multipart_upload = parse_lifecycle_abort_multipart_upload(rule_node.find('AbortMultipartUpload'))
         storage_transitions = parse_lifecycle_storage_transitions(rule_node.findall('Transition'))
         tagging = parse_lifecycle_object_taggings(rule_node.findall('Tag'))
+        noncurrent_version_expiration = parse_lifecycle_version_expiration(rule_node.find('NoncurrentVersionExpiration'))
+        noncurrent_version_sotrage_transitions = parse_lifecycle_verison_storage_transitions(rule_node.findall('NoncurrentVersionTransition'))
+
         rule = LifecycleRule(
             _find_tag(rule_node, 'ID'),
             _find_tag(rule_node, 'Prefix'),
@@ -646,7 +674,9 @@ def parse_get_bucket_lifecycle(result, body):
             expiration=expiration,
             abort_multipart_upload=abort_multipart_upload,
             storage_transitions=storage_transitions,
-            tagging=tagging 
+            tagging=tagging,
+            noncurrent_version_expiration = noncurrent_version_expiration,
+            noncurrent_version_sotrage_transitions = noncurrent_version_sotrage_transitions
             )
         result.rules.append(rule)
 
@@ -852,6 +882,8 @@ def to_put_bucket_lifecycle(bucket_lifecycle):
                 _add_text_child(expiration_node, 'Date', date_to_iso8601(expiration.date))
             elif expiration.created_before_date is not None:
                 _add_text_child(expiration_node, 'CreatedBeforeDate', date_to_iso8601(expiration.created_before_date))
+            elif expiration.expired_detete_marker is not None:
+                _add_text_child(expiration_node, 'ExpiredObjectDeleteMarker', str(expiration.expired_detete_marker))
 
         abort_multipart_upload = rule.abort_multipart_upload
         if abort_multipart_upload:
@@ -880,6 +912,19 @@ def to_put_bucket_lifecycle(bucket_lifecycle):
                 tag_node = ElementTree.SubElement(rule_node, 'Tag')
                 _add_text_child(tag_node, 'Key', key)
                 _add_text_child(tag_node, 'Value', tagging_rule[key])
+
+        noncurrent_version_expiration = rule.noncurrent_version_expiration
+        if noncurrent_version_expiration is not None:
+            version_expiration_node = ElementTree.SubElement(rule_node, 'NoncurrentVersionExpiration')
+            _add_text_child(version_expiration_node, 'NoncurrentDays', str(noncurrent_version_expiration.noncurrent_days))
+
+        noncurrent_version_sotrage_transitions = rule.noncurrent_version_sotrage_transitions
+        if noncurrent_version_sotrage_transitions is not None:
+            for noncurrent_version_sotrage_transition in noncurrent_version_sotrage_transitions:
+                version_transition_node = ElementTree.SubElement(rule_node, 'NoncurrentVersionTransition')
+                _add_text_child(version_transition_node, 'NoncurrentDays', str(noncurrent_version_sotrage_transition.noncurrent_days))
+                _add_text_child(version_transition_node, 'StorageClass', str(noncurrent_version_sotrage_transition.storage_class))
+
     return _node_to_string(root)
 
 
