@@ -240,7 +240,7 @@ def _populate_valid_headers(headers=None, valid_keys=None):
 
 class _ResumableOperation(object):
     def __init__(self, bucket, key, filename, size, store,
-                 progress_callback=None):
+                 progress_callback=None, versionid=None):
         self.bucket = bucket
         self.key = to_string(key)
         self.filename = filename
@@ -249,7 +249,12 @@ class _ResumableOperation(object):
         self._abspath = os.path.abspath(filename)
 
         self.__store = store
-        self.__record_key = self.__store.make_store_key(bucket.bucket_name, self.key, self._abspath)
+
+        if versionid is None:
+            self.__record_key = self.__store.make_store_key(bucket.bucket_name, self.key, self._abspath)
+        else:
+            self.__record_key = self.__store.make_store_key(bucket.bucket_name, self.key, self._abspath, versionid)
+
         logger.debug("Init _ResumableOperation, record_key: {0}".format(self.__record_key))
 
         # protect self.__progress_callback
@@ -295,9 +300,13 @@ class _ResumableDownloader(_ResumableOperation):
                  num_threads=None,
                  params=None,
                  headers=None):
+        versionid = None
+        if params is not None and params.get('versionId') is not None:
+            versionid = params.get('versionId')
         super(_ResumableDownloader, self).__init__(bucket, key, filename, objectInfo.size,
                                                    store or ResumableDownloadStore(),
-                                                   progress_callback=progress_callback)
+                                                   progress_callback=progress_callback, 
+                                                   versionid=versionid)
         self.objectInfo = objectInfo
 
         self.__part_size = defaults.get(part_size, defaults.multiget_part_size)
@@ -718,10 +727,15 @@ class ResumableDownloadStore(_ResumableStoreBase):
         super(ResumableDownloadStore, self).__init__(root or os.path.expanduser('~'), dir or _DOWNLOAD_TEMP_DIR)
 
     @staticmethod
-    def make_store_key(bucket_name, key, filename):
+    def make_store_key(bucket_name, key, filename, versionid=None):
         filepath = _normalize_path(filename)
+        oss_pathname = None
 
-        oss_pathname = 'oss://{0}/{1}'.format(bucket_name, key)
+        if versionid is None:
+            oss_pathname = 'oss://{0}/{1}'.format(bucket_name, key)
+        else:
+            oss_pathname = 'oss://{0}/{1}?versionid={2}'.format(bucket_name, key, versionid)
+        
         return utils.md5_string(oss_pathname) + '-' + utils.md5_string(filepath) + '-download'
 
 
