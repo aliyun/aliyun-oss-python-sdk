@@ -51,6 +51,17 @@ class TestUtils(OssTestCase):
         self.assertTrue(not oss2.is_valid_bucket_name('hello-'))
         self.assertTrue(not oss2.is_valid_bucket_name('-hello'))
 
+        access_key_id = "test_access_key_id"
+        access_key_secret = "test_access_key_secret"
+        endpoint = "oss-cn-shenzhen.aliyuncs.com"
+
+        bucket_name = "hello"
+        bucket = oss2.Bucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name)
+
+        bucket_name = "hello-"
+        self.assertRaises(oss2.exceptions.ClientError, oss2.Bucket, oss2.Auth(access_key_id, access_key_secret), 
+            endpoint, bucket_name)
+
     def test_compat(self):
         # from unicode
         u = u'中文'

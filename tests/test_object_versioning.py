@@ -1008,7 +1008,7 @@ class TestObjectVersioning(OssTestCase):
         from oss2.models import BatchDeleteObjectVersionList
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "test-delete-object-versions"
+        bucket_name = OSS_BUCKET + "-test-delete-object-versions"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
 

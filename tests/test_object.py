@@ -717,7 +717,7 @@ class TestObject(OssTestCase):
         key = self.random_key()
         
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-object_exists"
+        bucket_name = OSS_BUCKET + "-test-object-exists"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
         self.assertRaises(NoSuchBucket, bucket.object_exists, key)
 
