@@ -398,6 +398,8 @@ class Bucket(_Base):
                                      app_name, enable_crc)
 
         self.bucket_name = bucket_name.strip()
+        if utils.is_valid_bucket_name(self.bucket_name) is not True:
+            raise ClientError("The bucket_name is invalid, please check it.")
 
     def sign_url(self, method, key, expires, headers=None, params=None, slash_safe=False):
         """生成签名URL。
