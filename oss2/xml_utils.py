@@ -711,34 +711,37 @@ def to_complete_upload_request(parts):
 
     return _node_to_string(root)
 
-
 def to_batch_delete_objects_request(keys, quiet):
-    root_node = ElementTree.Element('Delete')
-
-    _add_text_child(root_node, 'Quiet', str(quiet).lower())
+    xml_body = '''<?xml version="1.0" encoding="UTF-8"?>'''
+    xml_body += "<Delete>"
+    xml_body += "<Quiet>" + str(quiet).lower() + "</Quiet>"
 
     for key in keys:
-        object_node = ElementTree.SubElement(root_node, 'Object')
-        _add_text_child(object_node, 'Key', key)
+        new_key = utils.xml_escape(to_unicode(key))
+        object_body = "<Object>" + "<Key>" + new_key + "</Key>" + "</Object>"
+        xml_body += object_body
 
-    return _node_to_string(root_node)
+    xml_body += "</Delete>"
+
+    return xml_body
 
 def to_batch_delete_objects_version_request(objectVersions, quiet):
-
-    root_node = ElementTree.Element('Delete')
-
-    _add_text_child(root_node, 'Quiet', str(quiet).lower())
+    xml_body = '''<?xml version="1.0" encoding="UTF-8"?>'''
+    xml_body += "<Delete>"
+    xml_body += "<Quiet>" + str(quiet).lower() + "</Quiet>"
 
     objectVersionList = objectVersions.object_version_list
-
     for ver in objectVersionList:
-        object_node = ElementTree.SubElement(root_node, 'Object')
-        _add_text_child(object_node, 'Key', ver.key)
-        if ver.versionid != '':
-            _add_text_child(object_node, 'VersionId', ver.versionid)
+        new_key = utils.xml_escape(to_unicode(ver.key))
+        object_body = "<Object>"
+        object_body += "<Key>" + new_key + "</Key>"
+        object_body += "<VersionId>" + ver.versionid + "</VersionId>"
+        object_body += "</Object>"
+        xml_body += object_body
 
-    return _node_to_string(root_node)
+    xml_body += "</Delete>"
 
+    return xml_body
 
 def to_put_bucket_config(bucket_config):
     root = ElementTree.Element('CreateBucketConfiguration')

@@ -1025,6 +1025,55 @@ class TestObjectVersioning(OssTestCase):
         self.assertRaises(oss2.exceptions.ClientError, bucket.delete_object_versions, None)
         self.assertRaises(oss2.exceptions.ClientError, bucket.delete_object_versions, [])
 
+    def test_batch_delete_verions_with_specifical_chars(self):
+    
+        from oss2.models import BucketVersioningConfig
+        from oss2.models import BatchDeleteObjectVersion
+        from oss2.models import BatchDeleteObjectVersionList
+
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket_name = OSS_BUCKET + "-test-batch-delete-versions-spec-chars"
+        bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
+
+        wait_meta_sync()
+
+        config = BucketVersioningConfig()
+        config.status = 'Enabled'
+
+        result = bucket.put_bucket_versioning(config)
+
+        wait_meta_sync()
+
+        result = bucket.get_bucket_info()
+
+        object_name = "测试中文python-bswodnvsttpqvnzwsgifetwe\"'\n\n\t@#$!\t<>!@#$%^&*()-="
+        for i in range(1, 32):
+            object_name += chr(i)
+        
+        # put version 1
+        result = bucket.put_object(object_name, "123")
+        self.assertEqual(int(result.status)/100, 2)
+        self.assertTrue(result.versionid != "")
+        versionid1 = result.versionid
+
+        version_list = BatchDeleteObjectVersionList()
+        version_list.append(BatchDeleteObjectVersion(key=object_name, versionid=versionid1))
+
+        self.assertTrue(version_list.len(), 1)
+
+        result = bucket.delete_object_versions(version_list)
+
+        self.assertTrue(len(result.delete_versions) == 1)
+        self.assertTrue(result.delete_versions[0].versionid == versionid1)
+
+        self.assertFalse(bucket.object_exists(object_name))
+
+        try:
+            bucket.delete_bucket()
+        except:
+            self.assertFalse(True, "should not get a exception")
 
 if __name__ == '__main__':
     unittest.main()
