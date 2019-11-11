@@ -803,3 +803,25 @@ def _range_internal(start, last):
             return str(pos)
 
     return to_str(start) + '-' + to_str(last)
+
+def xml_escape(key):
+    if key is None:
+        return None
+
+    new_key = ""
+    escape_keys = { 
+        '\r' : '&#x000D;',
+        '\'' :'&apos;',
+        '"' : '&quot;',
+        '&' : '&amp;',
+        '<' : '&lt;',
+        '>' : '&gt;'
+    }
+
+    for i in range(0, len(key)):
+        if escape_keys.get(key[i]) is not None:
+            new_key += escape_keys.get(key[i])
+        else:
+            new_key += key[i]
+
+    return new_key

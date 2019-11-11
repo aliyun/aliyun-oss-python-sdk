@@ -387,6 +387,17 @@ class TestObject(OssTestCase):
         for object in object_list:
             self.assertTrue(not self.bucket.object_exists(object))
 
+    def test_batch_delete_objects_specificalChars(self):
+        object_name = "测试中文python-bswodnvsttpqvnzwsgifetwe\"'\n\n\t@#$!\t<>!@#$%^&*()-="
+        for i in range(1, 32):
+            object_name += chr(i)
+        
+        result = self.bucket.put_object(object_name, "123")
+
+        key_list = [object_name]
+        self.bucket.batch_delete_objects(key_list)
+        self.assertFalse(self.bucket.object_exists(object_name))
+
     def test_batch_delete_objects_empty(self):
         try:
             self.bucket.batch_delete_objects([])
