@@ -3,6 +3,16 @@ OSS SDK for Python 版本记录
 
 Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
+Version 2.9.0
+-------------
+- 增加：面向用户的QOS查询设置接口
+- 增加：支持在创建bucket时设置容灾类型
+- 增加：GetVodPlaylist 接口，支持获取指定时间播放列表 
+- 增加：sign url接口新增 slash-safe参数，避免'/'转义成'%2F'
+- 增加：Storage Capacity 接口，支持设置Bucket容量
+- 增加：Lifecycle 支持多版本
+- 优化：增加bucket名字的合法性检查
+
 Version 2.8.0
 -------------
 - 增加：Request Payment 接口，支持访问者付费请求
