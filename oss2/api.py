@@ -385,6 +385,7 @@ class Bucket(_Base):
     REQUESTPAYMENT  = 'requestPayment'
     QOS_INFO = 'qosInfo'
     USER_QOS = 'qos'
+    ASYNC_FETCH = 'asyncFetch'
 
     def __init__(self, auth, endpoint, bucket_name,
                  is_cname=False,
@@ -2063,14 +2064,14 @@ class Bucket(_Base):
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
-        logger.debug("Start to put object versioning, bucket: {0}".format(
-            self.bucket_name))
+        logger.debug("Start to put object versioning, bucket: {0}".format(self.bucket_name))
         data = self.__convert_data(BucketVersioningConfig, xml_utils.to_put_bucket_versioning, config) 
 
         headers = http.CaseInsensitiveDict(headers)
         headers['Content-MD5'] = utils.content_md5(data)
 
         resp = self.__do_bucket('PUT', data=data, params={Bucket.VERSIONING: ''}, headers=headers)
+        logger.debug("Put bucket versiong done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return RequestResult(resp)
 
@@ -2078,27 +2079,26 @@ class Bucket(_Base):
         """
         :return: :class:`GetBucketVersioningResult<oss2.models.GetBucketVersioningResult>` 
         """
-        logger.debug("Start to get bucket versioning, bucket: {0}".format(
-                    self.bucket_name))
-        
+        logger.debug("Start to get bucket versioning, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('GET', params={Bucket.VERSIONING: ''})
+        logger.debug("Get bucket versiong done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return self._parse_result(resp, xml_utils.parse_get_bucket_versioning, GetBucketVersioningResult)
 
     def put_bucket_policy(self, policy):
-        """设置bucket policy, 具体policy书写规则请参考官方文档
-        :param str policy: 
+        """设置bucket授权策略, 具体policy书写规则请参考官方文档
+
+        :param str policy: 授权策略
         """
-
-        logger.debug("Start to put bucket policy, bucket: {0}, policy: {1}".format(
-            self.bucket_name, policy))
-
+        logger.debug("Start to put bucket policy, bucket: {0}, policy: {1}".format(self.bucket_name, policy))
         resp = self.__do_bucket('PUT', data=policy, params={Bucket.POLICY: ''}, headers={'Content-MD5': utils.content_md5(policy)})
         logger.debug("Put bucket policy done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
         return RequestResult(resp)
 
     def get_bucket_policy(self):
-        """
+        """获取bucket授权策略
+
         :return: :class:`GetBucketPolicyResult <oss2.models.GetBucketPolicyResult>`
         """
 
@@ -2108,7 +2108,7 @@ class Bucket(_Base):
         return GetBucketPolicyResult(resp)
 
     def delete_bucket_policy(self):
-        """
+        """删除bucket授权策略
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
         logger.debug("Start to delete bucket policy, bucket: {0}".format(self.bucket_name))
@@ -2151,6 +2151,7 @@ class Bucket(_Base):
         headers = http.CaseInsensitiveDict()
         headers['Content-MD5'] = utils.content_md5(data)
         resp = self.__do_bucket('PUT', data=data, params={Bucket.QOS_INFO: ''}, headers=headers)
+        logger.debug("Get bucket qos info done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return RequestResult(resp)
 
@@ -2181,8 +2182,11 @@ class Bucket(_Base):
 
         :param user_qos :class:`BucketUserQos <oss2.models.BucketUserQos>`
         """
+        logger.debug("Start to set bucket storage capacity: {0}".format(self.bucket_name))
         data = xml_utils.to_put_bucket_user_qos(user_qos)
         resp = self.__do_bucket('PUT', data=data, params={Bucket.USER_QOS: ''})
+        logger.debug("Set bucket storage capacity done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
         return RequestResult(resp)
 
     def get_bucket_storage_capacity(self):
@@ -2190,8 +2194,40 @@ class Bucket(_Base):
 
         :return: :class:`GetBucketUserQosResult <oss2.models.GetBucketUserQosResult>`
         """
+        logger.debug("Start to get bucket storage capacity, bucket:{0}".format(self.bucket_name))
         resp = self._Bucket__do_bucket('GET', params={Bucket.USER_QOS: ''})
+        logger.debug("Get bucket storage capacity done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
         return self._parse_result(resp, xml_utils.parse_get_bucket_user_qos, GetBucketUserQosResult)
+
+    def put_async_fetch_task(self, task_config):
+        """创建一个异步获取文件到bucket的任务。
+
+        :param task_config: 任务配置
+        :type task_config: class:`AsyncFetchTaskConfiguration <oss2.models.AsyncFetchTaskConfiguration>` 
+
+        :return: :class:`PutAsyncFetchTaskResult <oss2.models.PutAsyncFetchTaskResult>`
+        """
+        logger.debug("Start to put async fetch task, bucket:{0}".format(self.bucket_name))
+        data = xml_utils.to_put_async_fetch_task(task_config)
+        headers = http.CaseInsensitiveDict()
+        headers['Content-MD5'] = utils.content_md5(data)
+        resp = self._Bucket__do_bucket('POST', data=data, params={Bucket.ASYNC_FETCH: ''}, headers=headers)
+        logger.debug("Put async fetch task done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_put_async_fetch_task_result, PutAsyncFetchTaskResult)
+
+    def get_async_fetch_task(self, task_id):
+        """获取一个异步获取文件到bucket的任务信息。
+
+        :param str task_id: 任务id
+        :return: :class:`GetAsyncFetchTaskResult <oss2.models.GetAsyncFetchTaskResult>`
+        """
+        logger.debug("Start to get async fetch task, bucket:{0}, task_id:{1}".format(self.bucket_name, task_id))
+        resp = self._Bucket__do_bucket('GET', headers={OSS_TASK_ID: task_id}, params={Bucket.ASYNC_FETCH: ''})
+        logger.debug("Put async fetch task done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_get_async_fetch_task_result, GetAsyncFetchTaskResult)
 
     def _get_bucket_config(self, config):
         """获得Bucket某项配置，具体哪种配置由 `config` 指定。该接口直接返回 `RequestResult` 对象。

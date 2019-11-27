@@ -49,7 +49,8 @@ from .models import (SimplifiedObjectInfo,
                      REDIRECT_TYPE_INTERNAL,
                      REDIRECT_TYPE_ALICDN,
                      NoncurrentVersionStorageTransition,
-                     NoncurrentVersionExpiration)
+                     NoncurrentVersionExpiration,
+                     AsyncFetchTaskConfiguration)
 
 from .select_params import (SelectJsonTypes, SelectParameters)
 
@@ -1288,3 +1289,48 @@ def to_put_bucket_user_qos(user_qos):
     _add_text_child(root, 'StorageCapacity', str(user_qos.storage_capacity))
 
     return _node_to_string(root)
+
+
+def to_put_async_fetch_task(task_config):
+    root = ElementTree.Element('AsyncFetchTaskConfiguration')
+
+    _add_text_child(root, 'Url', task_config.url)
+    _add_text_child(root, 'Object', task_config.object_name)
+
+    if task_config.host is not None:    
+        _add_text_child(root, 'Host', task_config.host)
+    if task_config.content_md5 is not None:
+        _add_text_child(root, 'ContentMD5', task_config.content_md5)
+    if task_config.callback is not None:
+        _add_text_child(root, 'Callback', task_config.callback)
+    if task_config.ignore_same_key is not None:
+        _add_text_child(root, 'IgnoreSameKey', str(task_config.ignore_same_key).lower())
+
+    return _node_to_string(root)
+
+def parse_put_async_fetch_task_result(result, body):
+    root = ElementTree.fromstring(body)
+
+    result.task_id = _find_tag(root, 'TaskId')
+
+    return result
+
+def _parse_async_fetch_task_configuration(task_info_node):
+    url = _find_tag(task_info_node, 'Url')
+    object_name = _find_tag(task_info_node, 'Object')
+    host = _find_tag(task_info_node, 'Host')
+    content_md5 = _find_tag(task_info_node, 'ContentMD5')
+    callback = _find_tag(task_info_node, 'Callback')
+    ignore_same_key = _find_bool(task_info_node, 'IgnoreSameKey')
+
+    return AsyncFetchTaskConfiguration(url, object_name, host, content_md5, callback, ignore_same_key)
+
+def parse_get_async_fetch_task_result(result, body):
+    root = ElementTree.fromstring(body)
+
+    result.task_id = _find_tag(root, 'TaskId')
+    result.task_state = _find_tag(root, 'State')
+    result.error_msg = _find_tag(root, 'ErrorMsg')
+    result.task_config = _parse_async_fetch_task_configuration(root.find('TaskInfo'))
+
+    return result
