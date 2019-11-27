@@ -73,7 +73,7 @@ class Auth(AuthBase):
          'restore', 'qos', 'referer', 'stat', 'bucketInfo', 'append', 'position', 'security-token',
          'live', 'comp', 'status', 'vod', 'startTime', 'endTime', 'x-oss-process',
          'symlink', 'callback', 'callback-var', 'tagging', 'encryption', 'versions',
-         'versioning', 'versionId', 'policy', 'requestPayment', 'x-oss-traffic-limit', 'qosInfo']
+         'versioning', 'versionId', 'policy', 'requestPayment', 'x-oss-traffic-limit', 'qosInfo', 'asyncFetch']
     )
 
     def _sign_request(self, req, bucket_name, key):
