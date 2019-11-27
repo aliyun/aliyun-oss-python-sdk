@@ -1514,3 +1514,81 @@ class GetBucketUserQosResult(RequestResult, BucketUserQos):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         BucketUserQos.__init__(self)
+
+
+ASYNC_FETCH_TASK_STATE_RUNNING = 'Running'
+ASYNC_FETCH_TASK_STATE_RETRY = 'Retry'
+ASYNC_FETCH_TASK_STATE_FETCH_SUCCESS_CALLBACK_FAILED = 'FetchSuccessCallbackFailed'
+ASYNC_FETCH_TASK_STATE_FAILED= 'Failed'
+ASYNC_FETCH_TASK_STATE_SUCCESS = 'Success'
+
+class AsyncFetchTaskConfiguration(object):
+    """异步获取文件到bucket到任务配置项
+
+    :param url: 源文件url
+    :type url: str
+
+    :param object_name: 文件的名称。
+    :type task_state: str
+
+    :param host: 文件所在服务器的host，如果不指定则会根据url解析填充。
+    :type host: str
+
+    :param content_md5: 指定校验源文件的md5
+    :type content_md5: str
+
+    :param callback: 指定fetch成功知乎回调给用户的引用服务器，如果不指定则不回调。
+            callback格式与OSS上传回调的请求头callback一致，详情见官网。
+    :type callback: str
+
+    :param ignore_same_key: 默认为True表示如果文件已存在则忽略本次任务，api调用将会报错。如果为False，则会覆盖已存在的object。
+    :type ignore_same_key: bool
+    """
+    def __init__(self, 
+            url, 
+            object_name,
+            host = None,
+            content_md5 = None,
+            callback = None,
+            ignore_same_key = None):
+
+        self.url = url
+        self.object_name = object_name
+        self.host = host
+        self.content_md5 = content_md5
+        self.callback = callback
+        self.ignore_same_key = ignore_same_key
+
+class PutAsyncFetchTaskResult(RequestResult):
+    def __init__(self, resp, task_id=None):
+        RequestResult.__init__(self, resp)
+        self.task_id = task_id
+
+class GetAsyncFetchTaskResult(RequestResult):
+    """获取异步获取文件到bucket的任务的返回结果
+
+    :param task_id: 任务id
+    :type task_id: str
+
+    :param task_state: 取值范围：oss2.models.ASYNC_FETCH_TASK_STATE_RUNNING, oss2.models.ASYNC_FETCH_TASK_STATE_RETRY, 
+            oss2.models.ASYNC_FETCH_TASK_STATE_FETCH_SUCCESS_CALLBACK_FAILED, oss2.models.ASYNC_FETCH_TASK_STATE_FAILED, 
+            oss2.models.ASYNC_FETCH_TASK_STATE_SUCCESS。
+    :type task_state: str
+
+    :param error_msg: 错误信息
+    :type error_msg: str
+
+    :param task_config: 任务配置信息
+    :type task_config: class:`AsyncFetchTaskConfiguration <oss2.models.AsyncFetchTaskConfiguration>`
+    """
+    def __init__(self, resp, 
+            task_id=None, 
+            task_state=None, 
+            error_msg=None, 
+            task_config=None):
+
+        RequestResult.__init__(self, resp)
+        self.task_id = task_id
+        self.task_state = task_state
+        self.error_msg = error_msg
+        self.task_config = task_config
