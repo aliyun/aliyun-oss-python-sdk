@@ -310,6 +310,28 @@ class TestUpload(OssTestCase):
         self.assertEqual(0, result.tag_set.len())
         self.bucket.delete_object(key)
 
+    def test_upload_sequenial(self):
+        endpoint = "http://oss-cn-shanghai.aliyuncs.com"
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket_name = OSS_BUCKET + "-test-upload-sequential"
+        bucket = oss2.Bucket(auth, endpoint, bucket_name)
+        bucket.create_bucket()
+
+        key = random_string(16)
+        content = random_bytes(5 * 100 * 1024)
+        pathname = self._prepare_temp_file(content)
+
+        oss2.resumable_upload(bucket, key, pathname, multipart_threshold=200 * 1024, part_size=None)
+        result = bucket.get_object(key)
+        self.assertIsNone(result.resp.headers.get('Content-MD5'))
+
+        params={'sequential' : ''}
+        oss2.resumable_upload(bucket, key, pathname, multipart_threshold=200 * 1024, part_size=None, params=params)
+        result = bucket.get_object(key)
+        self.assertIsNotNone(result.resp.headers.get('Content-MD5'))
+
+        bucket.delete_object(key)
+        bucket.delete_bucket()
 
 if __name__ == '__main__':
     unittest.main()
