@@ -39,7 +39,8 @@ def resumable_upload(bucket, key, filename,
                      multipart_threshold=None,
                      part_size=None,
                      progress_callback=None,
-                     num_threads=None):
+                     num_threads=None,
+                     params=None):
     """断点上传本地文件。
 
     实现中采用分片上传方式上传本地文件，缺省的并发数是 `oss2.defaults.multipart_num_threads` ，并且在
@@ -67,6 +68,11 @@ def resumable_upload(bucket, key, filename,
     :param part_size: 指定分片上传的每个分片的大小。如不指定，则自动计算。
     :param progress_callback: 上传进度回调函数。参见 :ref:`progress_callback` 。
     :param num_threads: 并发上传的线程数，如不指定则使用 `oss2.defaults.multipart_num_threads` 。
+
+    :param params: HTTP请求参数
+        # 只有'sequential'这个参数才会被传递到外部函数init_multipart_upload中。
+        # 其他参数视为无效参数不会往外部函数传递。
+    :type params: dict
     """
     logger.debug("Start to resumable upload, bucket: {0}, key: {1}, filename: {2}, headers: {3}, "
                 "multipart_threshold: {4}, part_size: {5}, num_threads: {6}".format(bucket.bucket_name, to_string(key),
@@ -81,7 +87,8 @@ def resumable_upload(bucket, key, filename,
                                       part_size=part_size,
                                       headers=headers,
                                       progress_callback=progress_callback,
-                                      num_threads=num_threads)
+                                      num_threads=num_threads,
+                                      params=params)
         result = uploader.upload()
     else:
         with open(to_unicode(filename), 'rb') as f:
@@ -237,6 +244,31 @@ def _populate_valid_headers(headers=None, valid_keys=None):
         valid_headers = None
 
     return valid_headers
+
+def _populate_valid_params(params=None, valid_keys=None):
+    """构建只包含有效keys的params
+
+    :param params: 需要过滤的params
+    :type params: dict
+
+    :param valid_keys: 有效的关键key列表
+    :type valid_keys: list
+
+    :return: 只包含有效keys的params
+    """
+    if params is None or valid_keys is None:
+        return None
+
+    valid_params = dict()
+
+    for key in valid_keys:
+        if params.get(key) is not None:
+            valid_params[key] = params[key]
+
+    if len(valid_params) == 0:
+        valid_params = None
+
+    return valid_params
 
 class _ResumableOperation(object):
     def __init__(self, bucket, key, filename, size, store,
@@ -485,7 +517,8 @@ class _ResumableUploader(_ResumableOperation):
                  headers=None,
                  part_size=None,
                  progress_callback=None,
-                 num_threads=None):
+                 num_threads=None,
+                 params=None):
         super(_ResumableUploader, self).__init__(bucket, key, filename, size,
                                                  store or ResumableStore(),
                                                  progress_callback=progress_callback)
@@ -499,6 +532,8 @@ class _ResumableUploader(_ResumableOperation):
         self.__num_threads = defaults.get(num_threads, defaults.multipart_num_threads)
 
         self.__upload_id = None
+
+        self.__params = params
 
         # protect below fields
         self.__lock = threading.Lock()
@@ -583,7 +618,8 @@ class _ResumableUploader(_ResumableOperation):
             part_size = determine_part_size(self.size, self.__part_size)
             logger.debug("Upload File size: {0}, User-specify part_size: {1}, Calculated part_size: {2}".format(
                 self.size, self.__part_size, part_size))
-            upload_id = self.bucket.init_multipart_upload(self.key, headers=self.__headers).upload_id
+            params = _populate_valid_params(self.__params, [Bucket.SEQUENTIAL])
+            upload_id = self.bucket.init_multipart_upload(self.key, headers=self.__headers, params=params).upload_id
             record = {'upload_id': upload_id, 'mtime': self.__mtime, 'size': self.size, 'parts': [],
                       'abspath': self._abspath, 'bucket': self.bucket.bucket_name, 'key': self.key,
                       'part_size': part_size}
