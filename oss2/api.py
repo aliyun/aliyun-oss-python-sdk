@@ -386,6 +386,7 @@ class Bucket(_Base):
     QOS_INFO = 'qosInfo'
     USER_QOS = 'qos'
     ASYNC_FETCH = 'asyncFetch'
+    SEQUENTIAL = 'sequential'
 
     def __init__(self, auth, endpoint, bucket_name,
                  is_cname=False,
@@ -1208,7 +1209,7 @@ class Bucket(_Base):
         logger.debug("Delete object versions done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_batch_delete_objects, BatchDeleteObjectsResult)
 
-    def init_multipart_upload(self, key, headers=None):
+    def init_multipart_upload(self, key, headers=None, params=None):
         """初始化分片上传。
 
         返回值中的 `upload_id` 以及Bucket名和Object名三元组唯一对应了此次分片上传事件。
@@ -1222,9 +1223,15 @@ class Bucket(_Base):
         """
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), key)
 
-        logger.debug("Start to init multipart upload, bucket: {0}, keys: {1}, headers: {2}".format(
-            self.bucket_name, to_string(key), headers))
-        resp = self.__do_object('POST', key, params={'uploads': ''}, headers=headers)
+        if params is None:
+            tmp_params = dict()
+        else:
+            tmp_params = params.copy()
+
+        tmp_params['uploads'] = ''
+        logger.debug("Start to init multipart upload, bucket: {0}, keys: {1}, headers: {2}, params: {3}".format(
+            self.bucket_name, to_string(key), headers, tmp_params))
+        resp = self.__do_object('POST', key, params=tmp_params, headers=headers)
         logger.debug("Init multipart upload done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_init_multipart_upload, InitMultipartUploadResult)
 
