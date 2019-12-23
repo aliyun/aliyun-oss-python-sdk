@@ -12,7 +12,7 @@ from oss2.exceptions import (ClientError, RequestError, NoSuchBucket, OpenApiSer
 from oss2.compat import is_py2, is_py33
 from oss2.models import Tagging, TaggingRule
 from oss2.headers import OSS_OBJECT_TAGGING, OSS_OBJECT_TAGGING_COPY_DIRECTIVE
-from oss2.compat import urlunquote, urlquote
+from oss2.compat import urlunquote, urlquote, to_bytes, to_string
 
 from .common import *
 
@@ -1454,6 +1454,21 @@ class TestObject(OssTestCase):
         self.assertEqual(head_result.etag, '5D41402ABC4B2A76B9719D911017C592')
         self.assertEqual(head_result.headers['x-oss-meta-key1'], 'value1')
         self.assertEqual(head_result.headers['x-oss-meta-key2'], 'value2')
+
+    def test_put_object_with_unicode_header(self):
+        key = self.random_key()
+        value = '测试'
+        byte = to_bytes(value)
+        headers={'x-oss-meta-unicode': byte}
+        self.bucket.put_object(key, 'a novel', headers=headers)
+        result = self.bucket.head_object(key)
+        self.assertEqual(result.status, 200)
+        newstr = result.headers['x-oss-meta-unicode']
+        if is_py2:
+            b_str = newstr
+        else:
+            b_str = newstr.encode('iso-8859-1')
+        self.assertEqual(to_string(b_str), value)
 
     
 class TestSign(TestObject):
