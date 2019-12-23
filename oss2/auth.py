@@ -5,7 +5,7 @@ import hashlib
 import time
 
 from . import utils
-from .compat import urlquote, to_bytes
+from .compat import urlquote, to_bytes, is_py2
 from .headers import *
 import logging
 
@@ -96,7 +96,10 @@ class Auth(AuthBase):
         return req.url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in req.params.items())
 
     def __make_signature(self, req, bucket_name, key):
-        string_to_sign = self.__get_string_to_sign(req, bucket_name, key)
+        if is_py2:
+            string_to_sign = self.__get_string_to_sign(req, bucket_name, key)
+        else:
+            string_to_sign = self.__get_bytes_to_sign(req, bucket_name, key)
 
         logger.debug('Make signature: string to be signed = {0}'.format(string_to_sign))
 
@@ -159,6 +162,33 @@ class Auth(AuthBase):
         else:
             return k
 
+    def __get_bytes_to_sign(self, req, bucket_name, key):
+        resource_bytes = self.__get_resource_string(req, bucket_name, key).encode('utf-8')
+        headers_bytes = self.__get_headers_bytes(req)
+
+        content_md5 = req.headers.get('content-md5', '').encode('utf-8')
+        content_type = req.headers.get('content-type', '').encode('utf-8')
+        date = req.headers.get('date', '').encode('utf-8')
+        return b'\n'.join([req.method.encode('utf-8'),
+                          content_md5,
+                          content_type,
+                          date,
+                          headers_bytes + resource_bytes])
+
+    def __get_headers_bytes(self, req):
+        headers = req.headers
+        canon_headers = []
+        for k, v in headers.items():
+            lower_key = k.lower()
+            if lower_key.startswith('x-oss-'):
+                canon_headers.append((lower_key, v))
+
+        canon_headers.sort(key=lambda x: x[0])
+
+        if canon_headers:
+            return b'\n'.join(to_bytes(k) + b':' + to_bytes(v) for k, v in canon_headers) + b'\n'
+        else:
+            return b''
 
 class AnonymousAuth(object):
     """用于匿名访问。
@@ -300,7 +330,10 @@ class AuthV2(AuthBase):
         return req.url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in req.params.items())
 
     def __make_signature(self, req, bucket_name, key, additional_headers):
-        string_to_sign = self.__get_string_to_sign(req, bucket_name, key, additional_headers)
+        if is_py2:
+            string_to_sign = self.__get_string_to_sign(req, bucket_name, key, additional_headers)
+        else:
+            string_to_sign = self.__get_bytes_to_sign(req, bucket_name, key, additional_headers)
 
         logger.debug('Make signature: string to be signed = {0}'.format(string_to_sign))
 
@@ -374,3 +407,36 @@ class AuthV2(AuthBase):
         canon_headers.sort(key=lambda x: x[0])
 
         return ''.join(v[0] + ':' + v[1] + '\n' for v in canon_headers)
+
+    def __get_bytes_to_sign(self, req, bucket_name, key, additional_header_list):
+        verb = req.method.encode('utf-8')
+        content_md5 = req.headers.get('content-md5', '').encode('utf-8')
+        content_type = req.headers.get('content-type', '').encode('utf-8')
+        date = req.headers.get('date', '').encode('utf-8')
+
+        canonicalized_oss_headers = self.__get_canonicalized_oss_headers_bytes(req, additional_header_list)
+        additional_headers = ';'.join(sorted(additional_header_list)).encode('utf-8')
+        canonicalized_resource = self.__get_resource_string(req, bucket_name, key).encode('utf-8')
+
+        return verb + b'\n' +\
+            content_md5 + b'\n' +\
+            content_type + b'\n' +\
+            date + b'\n' +\
+            canonicalized_oss_headers +\
+            additional_headers + b'\n' +\
+            canonicalized_resource
+    
+    def __get_canonicalized_oss_headers_bytes(self, req, additional_headers):
+        """
+        :param additional_headers: 小写的headers列表, 并且这些headers都不以'x-oss-'为前缀.
+        """
+        canon_headers = []
+
+        for k, v in req.headers.items():
+            lower_key = k.lower()
+            if lower_key.startswith('x-oss-') or lower_key in additional_headers:
+                canon_headers.append((lower_key, v))
+
+        canon_headers.sort(key=lambda x: x[0])
+
+        return b''.join(to_bytes(v[0]) + b':' + to_bytes(v[1]) + b'\n' for v in canon_headers)
