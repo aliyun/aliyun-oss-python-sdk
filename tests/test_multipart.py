@@ -206,6 +206,39 @@ class TestMultipart(OssTestCase):
         self.assertEqual('中文', result.tag_set.tagging_rule[' + '])
 
         result = self.bucket.delete_object_tagging(key)
-   
+
+    def test_multipart_sequential(self): 
+        endpoint = "http://oss-cn-shanghai.aliyuncs.com"
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket_name = OSS_BUCKET + "-test-multipart-sequential"
+        bucket = oss2.Bucket(auth, endpoint, bucket_name)
+        bucket.create_bucket()
+
+        key = self.random_key()
+        content = random_bytes(128 * 1024)
+
+        parts = []
+        upload_id = bucket.init_multipart_upload(key).upload_id
+        result = bucket.upload_part(key, upload_id, 1, content)
+        parts.append(oss2.models.PartInfo(1, result.etag, size=len(content), part_crc=result.crc))
+        bucket.complete_multipart_upload(key, upload_id, parts)
+        
+        result = bucket.get_object(key)
+        self.assertIsNone(result.resp.headers.get('Content-MD5'))
+
+        parts = []
+        params = {'sequential':''}
+        upload_id = bucket.init_multipart_upload(key, params=params).upload_id
+        result = bucket.upload_part(key, upload_id, 1, content)
+        parts.append(oss2.models.PartInfo(1, result.etag, size=len(content), part_crc=result.crc))
+        bucket.complete_multipart_upload(key, upload_id, parts)
+
+        result = bucket.get_object(key)
+        self.assertIsNotNone(result.resp.headers.get('Content-MD5'))
+
+        bucket.delete_object(key)
+        bucket.delete_bucket()
+
+
 if __name__ == '__main__':
     unittest.main()
