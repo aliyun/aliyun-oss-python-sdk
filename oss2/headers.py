@@ -37,6 +37,8 @@ OSS_REQUEST_PAYER = 'x-oss-request-payer'
 
 OSS_TRAFFIC_LIMIT = 'x-oss-traffic-limit'
 
+OSS_TASK_ID = 'x-oss-task-id'
+
 class RequestHeader(dict):
     def __init__(self, *arg, **kw): 
         super(RequestHeader, self).__init__(*arg, **kw)
