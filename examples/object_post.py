@@ -170,7 +170,7 @@ field_dict['Content-Disposition'] = 'attachment;filename=download.txt'
 # 用户自定义meta
 field_dict['x-oss-meta-uuid'] = 'uuid-xxx'
 # callback，没有回调需求不填该域
-field_dict['callback'] = bulid_callback('http://oss-demo.aliyuncs.com:23450',
+field_dict['callback'] = build_callback('http://oss-demo.aliyuncs.com:23450',
                                         'filename=${object}&size=${size}&mimeType=${mimeType}',
                                         'application/x-www-form-urlencoded') 
 # callback中的自定义变量，没有回调不填该域
