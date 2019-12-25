@@ -987,7 +987,6 @@ class Bucket(_Base):
         #
         # 目前的实现是通过get_object_meta判断文件是否存在。
 
-        headers = http.CaseInsensitiveDict(headers)
         logger.debug("Start to check if object exists, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
         try:
             self.get_object_meta(key, headers=headers)
