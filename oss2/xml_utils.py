@@ -296,12 +296,14 @@ def parse_get_bucket_info(result, body):
     result.location = _find_tag(root, 'Bucket/Location')
     result.owner = Owner(_find_tag(root, 'Bucket/Owner/DisplayName'), _find_tag(root, 'Bucket/Owner/ID'))
     result.acl = AccessControlList(_find_tag(root, 'Bucket/AccessControlList/Grant'))
-    result.data_redundancy_type = _find_tag(root, 'Bucket/DataRedundancyType')
     result.comment = _find_tag(root, 'Bucket/Comment')
 
     server_side_encryption = root.find("Bucket/ServerSideEncryptionRule")
 
-    result.bucket_encryption_rule = _parse_bucket_encryption_info(server_side_encryption)
+    if server_side_encryption is None:
+        result.bucket_encryption_rule = None
+    else:
+        result.bucket_encryption_rule = _parse_bucket_encryption_info(server_side_encryption)
 
     bucket_versioning = root.find('Bucket/Versioning')
     
@@ -309,6 +311,12 @@ def parse_get_bucket_info(result, body):
         result.versioning_status = None
     else:
         result.versioning_status = to_string(bucket_versioning.text)
+
+    data_redundancy_type = root.find('Bucket/DataRedundancyType')
+    if data_redundancy_type is None or data_redundancy_type.text is None:
+        result.data_redundancy_type = None
+    else:
+        result.data_redundancy_type = to_string(data_redundancy_type.text)
 
     return result
 
