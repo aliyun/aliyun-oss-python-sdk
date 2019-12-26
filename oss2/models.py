@@ -301,7 +301,7 @@ class GetObjectResult(HeadObjectResult):
                 self.stream = crypto_provider.make_decrypt_adapter(self.stream, cipher, discard)
         else:
             if OSS_CLIENT_SIDE_ENCRYPTION_KEY in resp.headers or DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY in resp.headers:
-                raise ClientError('Could not use Bucket to decrypt an encrypted object')
+                logger.warn("Using Bucket to get an encrypted object will return raw data, please confirm if you really want to do this")
 
     @staticmethod
     def _parse_range_str(content_range):
