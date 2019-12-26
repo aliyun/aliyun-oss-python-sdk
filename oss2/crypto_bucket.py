@@ -68,6 +68,15 @@ class CryptoBucket(Bucket):
         self.upload_contexts = {}
         self.upload_contexts_lock = threading.Lock()
 
+        if self.app_name:
+            self.user_agent = http.USER_AGENT + '/' + self.app_name + '/' + OSS_ENCRYPTION_CLIENT
+        else:
+            self.user_agent = http.USER_AGENT + '/' + OSS_ENCRYPTION_CLIENT
+
+    def _init_user_agent(self, headers):
+        if 'User-Agent' not in headers:
+            headers['User-Agent'] = self.user_agent
+
     def put_object(self, key, data,
                    headers=None,
                    progress_callback=None):
@@ -93,6 +102,7 @@ class CryptoBucket(Bucket):
         """
         logger.debug("Start to put object to CryptoBucket")
 
+        self._init_user_agent(headers)
         content_crypto_material = self.crypto_provider.create_content_material()
         data = self.crypto_provider.make_encrypt_adapter(data, content_crypto_material.cipher)
         headers = content_crypto_material.to_object_meta(headers)
@@ -151,6 +161,7 @@ class CryptoBucket(Bucket):
             raise ClientError("Process object operation is not support for Crypto Bucket")
 
         headers = http.CaseInsensitiveDict(headers)
+        self._init_user_agent(headers)
 
         discard = 0
         range_string = ''
@@ -202,6 +213,7 @@ class CryptoBucket(Bucket):
             raise ClientError("Process object operation is not support for Crypto Bucket")
 
         headers = http.CaseInsensitiveDict(headers)
+        self._init_user_agent(headers)
 
         discard = 0
         range_string = ''
@@ -252,6 +264,7 @@ class CryptoBucket(Bucket):
         返回值中的 `crypto_multipart_context` 记录了加密Meta信息，在upload_part时需要一并传入
         """
 
+        self._init_user_agent(headers)
         if not upload_context or not upload_context.data_size:
             raise ClientError("It is not support none upload_context and must specify data_size of upload_context ")
 
@@ -297,6 +310,8 @@ class CryptoBucket(Bucket):
         logger.info(
             "Start to upload multipart of CryptoBucket, upload_id = {0}, part_number = {1}".format(upload_id,
                                                                                                    part_number))
+
+        self._init_user_agent(headers)
         if self.upload_contexts_flag:
             with self.upload_contexts_lock:
                 if upload_id in self.upload_contexts:
@@ -347,6 +362,7 @@ class CryptoBucket(Bucket):
         """
         logger.info("Start to complete multipart upload of CryptoBucket, upload_id = {0}".format(upload_id))
 
+        self._init_user_agent(headers)
         try:
             resp = super(CryptoBucket, self).complete_multipart_upload(key, upload_id, parts, headers)
             if self.upload_contexts_flag:
@@ -360,9 +376,10 @@ class CryptoBucket(Bucket):
 
         return resp
 
-    def abort_multipart_upload(self, key, upload_id):
+    def abort_multipart_upload(self, key, upload_id, headers=None):
         """取消分片上传。
 
+        :param headers: 可以是dict，建议是oss2.CaseInsensitiveDict
         :param str key: 待上传的文件名，这个文件名要和 :func:`init_multipart_upload` 的文件名一致。
         :param str upload_id: 分片上传ID
 
@@ -370,6 +387,7 @@ class CryptoBucket(Bucket):
         """
         logger.info("Start to abort multipart upload of CryptoBucket, upload_id = {0}".format(upload_id))
 
+        self._init_user_agent(headers)
         try:
             resp = super(CryptoBucket, self).abort_multipart_upload(key, upload_id)
             if self.upload_contexts_flag:
@@ -414,6 +432,7 @@ class CryptoBucket(Bucket):
         """
         logger.info("Start to list parts of CryptoBucket, upload_id = {0}".format(upload_id))
 
+        self._init_user_agent(headers)
         try:
             resp = super(CryptoBucket, self).list_parts(key, upload_id, marker=marker, max_parts=max_parts,
                                                         headers=headers)

@@ -20,7 +20,7 @@ from .utils import file_object_remaining_bytes, SizedFileAdapter
 
 import logging
 
-_USER_AGENT = 'aliyun-sdk-python/{0}({1}/{2}/{3};{4})'.format(
+USER_AGENT = 'aliyun-sdk-python/{0}({1}/{2}/{3};{4})'.format(
     __version__, platform.system(), platform.release(), platform.machine(), platform.python_version())
 
 logger = logging.getLogger(__name__)
@@ -72,9 +72,10 @@ class Request(object):
 
         if 'User-Agent' not in self.headers:
             if app_name:
-                self.headers['User-Agent'] = _USER_AGENT + '/' + app_name
+                self.headers['User-Agent'] = USER_AGENT + '/' + app_name
             else:
-                self.headers['User-Agent'] = _USER_AGENT
+                self.headers['User-Agent'] = USER_AGENT
+
         logger.debug("Init request, method: {0}, url: {1}, params: {2}, headers: {3}".format(method, url, params,
                                                                                              headers))
 
