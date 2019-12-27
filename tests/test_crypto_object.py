@@ -6,6 +6,8 @@ from random import choice
 
 from oss2.exceptions import (ClientError, NotFound, NoSuchKey)
 from oss2 import RsaProvider
+from oss2 import http
+from oss2 import headers
 
 from .common import *
 from .test_object import now
@@ -13,6 +15,18 @@ from .test_object import now
 
 class TestCryptoObject(OssTestCase):
     # test cases for CryptoBucket
+    def test_crypto_bucket_init_user_agent(self):
+        crypto_bucket = self.rsa_crypto_bucket
+        http_headers = None
+        http_headers = http.CaseInsensitiveDict(http_headers)
+        crypto_bucket._init_user_agent(http_headers)
+        self.assertEqual(http_headers['User-Agent'], crypto_bucket.user_agent)
+
+        user_agent = self.random_key()
+        http_headers['User-Agent'] = user_agent
+        crypto_bucket._init_user_agent(http_headers)
+        self.assertEqual(http_headers['User-Agent'], user_agent + '/' + headers.OSS_ENCRYPTION_CLIENT)
+
     # 测试使用普通的Bucket读取加密的的对象数据
     def test_crypto_get_encrypted_object_with_bucket(self):
         crypto_bucket = choice([self.rsa_crypto_bucket, self.kms_crypto_bucket])
