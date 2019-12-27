@@ -3,6 +3,15 @@ OSS SDK for Python 版本记录
 
 Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
+Version 2.9.1
+-------------
+- 增加：异步fetch 接口
+- 增加：签名url支持访问者付费参数
+- 增加：分片上传支持sequential参数，支持分片上传的文件返回content-md5
+- 增加：支持python3.6 & python3.7
+- 优化：在python3下，支持传入bytes类型数据
+- 优化：GetBucketInfo api 兼容低版本后台服务
+
 Version 2.9.0
 -------------
 - 增加：面向用户的QOS查询设置接口
