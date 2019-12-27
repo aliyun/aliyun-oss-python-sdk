@@ -76,6 +76,8 @@ class CryptoBucket(Bucket):
     def _init_user_agent(self, headers):
         if 'User-Agent' not in headers:
             headers['User-Agent'] = self.user_agent
+        else:
+            headers['User-Agent'] += '/' + OSS_ENCRYPTION_CLIENT
 
     def put_object(self, key, data,
                    headers=None,
@@ -102,6 +104,7 @@ class CryptoBucket(Bucket):
         """
         logger.debug("Start to put object to CryptoBucket")
 
+        headers = http.CaseInsensitiveDict(headers)
         self._init_user_agent(headers)
         content_crypto_material = self.crypto_provider.create_content_material()
         data = self.crypto_provider.make_encrypt_adapter(data, content_crypto_material.cipher)
@@ -264,6 +267,7 @@ class CryptoBucket(Bucket):
         返回值中的 `crypto_multipart_context` 记录了加密Meta信息，在upload_part时需要一并传入
         """
 
+        headers = http.CaseInsensitiveDict(headers)
         self._init_user_agent(headers)
         if not upload_context or not upload_context.data_size:
             raise ClientError("It is not support none upload_context and must specify data_size of upload_context ")
@@ -310,7 +314,7 @@ class CryptoBucket(Bucket):
         logger.info(
             "Start to upload multipart of CryptoBucket, upload_id = {0}, part_number = {1}".format(upload_id,
                                                                                                    part_number))
-
+        headers = http.CaseInsensitiveDict(headers)
         self._init_user_agent(headers)
         if self.upload_contexts_flag:
             with self.upload_contexts_lock:
@@ -362,6 +366,7 @@ class CryptoBucket(Bucket):
         """
         logger.info("Start to complete multipart upload of CryptoBucket, upload_id = {0}".format(upload_id))
 
+        headers = http.CaseInsensitiveDict(headers)
         self._init_user_agent(headers)
         try:
             resp = super(CryptoBucket, self).complete_multipart_upload(key, upload_id, parts, headers)
@@ -387,6 +392,7 @@ class CryptoBucket(Bucket):
         """
         logger.info("Start to abort multipart upload of CryptoBucket, upload_id = {0}".format(upload_id))
 
+        headers = http.CaseInsensitiveDict(headers)
         self._init_user_agent(headers)
         try:
             resp = super(CryptoBucket, self).abort_multipart_upload(key, upload_id)
@@ -432,6 +438,7 @@ class CryptoBucket(Bucket):
         """
         logger.info("Start to list parts of CryptoBucket, upload_id = {0}".format(upload_id))
 
+        headers = http.CaseInsensitiveDict(headers)
         self._init_user_agent(headers)
         try:
             resp = super(CryptoBucket, self).list_parts(key, upload_id, marker=marker, max_parts=max_parts,

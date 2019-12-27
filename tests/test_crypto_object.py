@@ -13,8 +13,48 @@ from .test_object import now
 
 class TestCryptoObject(OssTestCase):
     # test cases for CryptoBucket
+    # 测试使用普通的Bucket读取加密的的对象数据
+    def test_crypto_get_encrypted_object_with_bucket(self):
+        crypto_bucket = choice([self.rsa_crypto_bucket, self.kms_crypto_bucket])
+
+        key = self.random_key('.js')
+        content = random_bytes(1024)
+
+        self.assertRaises(NotFound, self.bucket.head_object, key)
+
+        lower_bound = now() - 60 * 16
+        upper_bound = now() + 60 * 16
+
+        def assert_result(result):
+            self.assertEqual(result.content_length, len(content))
+            self.assertEqual(result.content_type, 'application/javascript')
+            self.assertEqual(result.object_type, 'Normal')
+
+            self.assertTrue(result.last_modified > lower_bound)
+            self.assertTrue(result.last_modified < upper_bound)
+
+            self.assertTrue(result.etag)
+
+        crypto_bucket.put_object(key, content)
+
+        get_result = self.bucket.get_object(key)
+        self.assertNotEqual(get_result.read(), content)
+        assert_result(get_result)
+        self.assertTrue(get_result.client_crc is not None)
+        self.assertTrue(get_result.server_crc is not None)
+        self.assertTrue(get_result.client_crc == get_result.server_crc)
+
+        head_result = crypto_bucket.head_object(key)
+        assert_result(head_result)
+
+        self.assertEqual(get_result.last_modified, head_result.last_modified)
+        self.assertEqual(get_result.etag, head_result.etag)
+
+        crypto_bucket.delete_object(key)
+        self.assertRaises(NoSuchKey, crypto_bucket.get_object, key)
+
     # 测试CryptoBucket普通put、get、delete、head等功能
-    def test_crypto_object(self):
+    def test_crypto_object_basic(self):
         crypto_bucket = choice([self.rsa_crypto_bucket, self.kms_crypto_bucket])
 
         key = self.random_key('.js')
