@@ -387,6 +387,9 @@ class Bucket(_Base):
     USER_QOS = 'qos'
     ASYNC_FETCH = 'asyncFetch'
     SEQUENTIAL = 'sequential'
+    INVENTORY = "inventory";
+    INVENTORY_CONFIG_ID = "inventoryId";
+    CONTINUATION_TOKEN = "continuation-token";
 
     def __init__(self, auth, endpoint, bucket_name,
                  is_cname=False,
@@ -2234,6 +2237,62 @@ class Bucket(_Base):
         logger.debug("Put async fetch task done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return self._parse_result(resp, xml_utils.parse_get_async_fetch_task_result, GetAsyncFetchTaskResult)
+
+    def put_bucket_inventory_configuration(self, inventory_configuration):
+        """设置bucket清单配置
+
+        :param inventory_configuration :class:`InventoryConfiguration <oss2.models.InventoryConfiguration>`
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to put bucket inventory configuration, bucket: {0}".format(self.bucket_name))
+        data = self.__convert_data(InventoryConfiguration, xml_utils.to_put_inventory_configuration, inventory_configuration) 
+
+        headers = http.CaseInsensitiveDict()
+        headers['Content-MD5'] = utils.content_md5(data)
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.INVENTORY: '', Bucket.INVENTORY_CONFIG_ID:inventory_configuration.inventory_id}, headers=headers)
+        logger.debug("Put bucket inventory configuration done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return RequestResult(resp)
+
+    def get_bucket_inventory_configuration(self, inventory_id):
+        """获取指定的清单配置。
+
+        :param str inventory_id : 清单配置id
+        :return: :class:`GetInventoryConfigurationResult <oss2.models.GetInventoryConfigurationResult>`
+        """
+        logger.debug("Start to get bucket inventory configuration, bucket: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('GET', params={Bucket.INVENTORY: '', Bucket.INVENTORY_CONFIG_ID:inventory_id})
+        logger.debug("Get bucket inventory cinfguration done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_get_bucket_inventory_configuration, GetInventoryConfigurationResult)
+
+    def list_bucket_inventory_configurations(self, continuation_token=None):
+        """罗列清单配置，默认单次最大返回100条配置，如果存在超过100条配置，罗列结果将会分页，
+        分页信息保存在 class:`ListInventoryConfigurationResult <oss2.models.ListInventoryConfigurationResult>`中。
+
+        :param str continuation_token: 分页标识, 默认值为None, 如果上次罗列不完整，这里设置为上次罗列结果中的next_continuation_token值。
+        :return: :class:`ListInventoryConfigurationResult <oss2.models.ListInventoryConfigurationResult>`
+        """
+        logger.debug("Start to list bucket inventory configuration, bucket: {0}".format(self.bucket_name))
+        params = {Bucket.INVENTORY:''}
+        if continuation_token is not None:
+            params[Bucket.CONTINUATION_TOKEN] = continuation_token
+        resp = self.__do_bucket('GET', params=params)
+        logger.debug("List bucket inventory configuration done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_list_bucket_inventory_configurations, ListInventoryConfigurationsResult)
+
+    def delete_bucket_inventory_configuration(self, inventory_id):
+        """删除指定的清单配置
+
+        :param str inventory_id : 清单配置id
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to delete bucket inventory configuration, bucket: {0}, configuration id: {1}.".format(self.bucket_name, inventory_id))
+        resp = self.__do_bucket('DELETE', params={Bucket.INVENTORY:'', Bucket.INVENTORY_CONFIG_ID:inventory_id})
+        logger.debug("Delete bucket inventory configuration, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return RequestResult(resp)
 
     def _get_bucket_config(self, config):
         """获得Bucket某项配置，具体哪种配置由 `config` 指定。该接口直接返回 `RequestResult` 对象。

@@ -186,6 +186,9 @@ class NoSuchBucketPolicy(NotFound):
     status = 404
     code = 'NoSuchBucketPolicy'
 
+class NoSuchInventory(NotFound):
+    status = 404
+    code = 'NoSuchInventory'
 
 class Conflict(ServerError):
     status = 409

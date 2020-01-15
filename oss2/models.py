@@ -1592,3 +1592,175 @@ class GetAsyncFetchTaskResult(RequestResult):
         self.task_state = task_state
         self.error_msg = error_msg
         self.task_config = task_config
+
+INVENTORY_INCLUDED_OBJECT_VERSIONS_CURRENT = "Current"
+INVENTORY_INCLUDED_OBJECT_VERSIONS_ALL = "All"
+
+INVENTORY_FREQUENCY_DAILY = "Daily"
+INVENTORY_FREQUENCY_WEEKLY = "Weekly"
+
+INVENTORY_FORMAT_CSV = "CSV"
+
+FIELD_SIZE = "Size"
+FIELD_LAST_MODIFIED_DATE = "LastModifiedDate"
+FIELD_STORAG_CLASS = "StorageClass"
+FIELD_ETAG = "ETag"
+FIELD_IS_MULTIPART_UPLOADED = "IsMultipartUploaded"
+FIELD_ENCRYPTION_STATUS = "EncryptionStatus"
+
+class InventoryConfiguration(object):
+    """清单配置    
+
+    :param str inventory_id: 清单的识别id
+    :type inventory_id: str
+
+    :param is_enabled: 是否生效
+    :type is_enabled: bool
+
+    :param include_object_versions: 包含的对象版本，
+        取值可以是 INVENTORY_INCLUDE_OBJECT_VERSIONS_CURRENT 或者 INVENTORY_INCLUDE_OBJECT_VERSIONS_ALL.
+    :type include_object_versions: str
+
+    :param inventory_filter: 清单的过滤器
+    :type inventory_filter: class:`InventoryFilter <oss2.models.InventoryFilter>`
+
+    :param inventory_destination: 清单的目标地址
+    :type inventory_destination: class:`InventoryDestination <oss2.models.InventoryDestination>`
+    
+    :param inventory_schedule: 清单的生成周期
+    :type inventory_schedule: class:`InventoryDestination <oss2.models.InventorySchedule>`
+
+    :param optional_fields: 清单中包含的字段
+    :type optional_fields: str
+    """
+    def __init__(self, 
+            inventory_id=None, 
+            is_enabled=None,
+            included_object_versions=None,
+            inventory_filter=None, 
+            inventory_destination=None, 
+            inventory_schedule=None,
+            optional_fields=None):
+
+        self.inventory_id = inventory_id
+        self.is_enabled = is_enabled
+        self.included_object_versions = included_object_versions
+        self.inventory_filter = inventory_filter
+        self.inventory_destination = inventory_destination
+        self.inventory_schedule = inventory_schedule
+        self.optional_fields = optional_fields or []
+
+class InventoryFilter(object):
+    """清单过滤器   
+
+    :param prefix: 清单筛选的前缀, 指定前缀后，清单将筛选出符合前缀设置的对象。
+    :type prefix: str
+    """
+    def __init__(self, prefix=None):
+        self.prefix = prefix
+
+class InventorySchedule(object):
+    """清单的生成周期
+
+    :param frequency: 清单的生成周期，可以是oss2.models.INVENTORY_FREQUENCY_DAILY 或者 oss2.models.INVENTORY_FREQUENCY_WEEKLY
+    :type frequency: str
+    """
+    def __init__(self, frequency):
+        self.frequency = frequency
+
+class InventoryDestination(object):
+    """清单的接收目的地址
+
+    :param bucket_destination: OSS Bucket作为目的地，需要配置的OSS Bucket信息。
+    :type bucket_destination: class:`InventoryBucketDestination <oss2.models.InventoryBucketDestination>`
+    """
+    def __init__(self, bucket_destination=None):
+        self.bucket_destination = bucket_destination
+
+class InventoryBucketDestination(object):
+    """OSS Bucket作为清单目的地的配置
+
+    :param account_id: 接收方的account id
+    :type account_id: class:`InventoryBucketDestination <oss2.models.InventoryBucketDestination>`
+    
+    :param role_arn: 接收方的ram role arn
+    :type role_arn: str
+    
+    :param bucket: OSS Bucket名称
+    :type bucket: str
+
+    :param inventory_format: 清单格式，可以是 oss2.models.INVENTORY_FORMAT_CSV。
+    :type inventory_format: str
+    
+    :param prefix: 清单文件的存储路径前缀
+    :type prefix: str
+    
+    :param sse_kms_encryption: 服务端使用kms作为清单的加密项
+    :type sse_kms_encryption: class:`InventoryServerSideEncryptionKMS <oss2.models.InventoryServerSideEncryptionKMS>`
+
+    :param sse_oss_encryption: OSS服务端为清单提供加密支持。
+    :type sse_oss_encryption: class:`InventoryServerSideEncryptionOSS <oss2.models.InventoryServerSideEncryptionOSS>`
+    """
+    def __init__(self, 
+            account_id=None, 
+            role_arn=None,
+            bucket=None,
+            inventory_format=None,
+            prefix=None,
+            sse_kms_encryption=None,
+            sse_oss_encryption=None):
+
+        if all((sse_kms_encryption, sse_oss_encryption)):
+            raise ClientError('only one encryption method between sse_kms_encryption and sse_oss_encryption can be chosen.')
+
+        self.account_id = account_id
+        self.role_arn = role_arn
+        self.bucket = bucket
+        self.inventory_format = inventory_format
+        self.prefix = prefix
+        self.sse_kms_encryption = sse_kms_encryption
+        self.sse_oss_encryption = sse_oss_encryption
+
+class InventoryServerSideEncryptionKMS(object):
+    """服务端使用kms加密清单的加密项。
+
+    :param key_id: kms key id
+    :type key_id: str
+    """
+    def __init__(self, key_id):
+        self.key_id = key_id
+
+class InventoryServerSideEncryptionOSS(object):
+    """OSS服务端加密清单的加密项。
+
+    """
+    pass
+
+class GetInventoryConfigurationResult(RequestResult, InventoryConfiguration):
+    """获取清单配置的操作返回结果
+    """
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        InventoryConfiguration.__init__(self)
+
+class ListInventoryConfigurationsResult(RequestResult):
+    """列出清单配置的操作返回结果
+
+    :param inventory_configurations: list of class:`InventoryConfiguration <oss2.models.InventoryConfiguration>`
+    :type inventory_configurations: list 
+
+    :param is_truncated: 罗列结果是否是截断的， true: 本地罗列结果并不完整, False: 所有清单配置项已经罗列完毕。
+    :type is_truncated: bool 
+
+    :param continuaiton_token: 本地罗列操作所携带的continuaiton_token
+    :type continuaiton_token: str
+
+    :param next_continuation_token: 下一个罗列操作携带的token
+    :type next_continuation_token: str
+    """
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        self.inventory_configurations= []
+        self.is_truncated = None
+        self.continuaiton_token = None
+        self.next_continuation_token = None
