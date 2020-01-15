@@ -50,7 +50,14 @@ from .models import (SimplifiedObjectInfo,
                      REDIRECT_TYPE_ALICDN,
                      NoncurrentVersionStorageTransition,
                      NoncurrentVersionExpiration,
-                     AsyncFetchTaskConfiguration)
+                     AsyncFetchTaskConfiguration,
+                     InventoryConfiguration,
+                     InventoryFilter, 
+                     InventorySchedule, 
+                     InventoryDestination, 
+                     InventoryBucketDestination, 
+                     InventoryServerSideEncryptionKMS,
+                     InventoryServerSideEncryptionOSS)
 
 from .select_params import (SelectJsonTypes, SelectParameters)
 
@@ -1161,6 +1168,7 @@ def parse_get_bucket_encryption(result, body):
         result.kms_master_keyid = to_string(kmsnode.text)
 
     return result
+
 def parse_list_object_versions(result, body):
     root = ElementTree.fromstring(body)
     url_encoded = _is_url_encoding(root)
@@ -1340,5 +1348,144 @@ def parse_get_async_fetch_task_result(result, body):
     result.task_state = _find_tag(root, 'State')
     result.error_msg = _find_tag(root, 'ErrorMsg')
     result.task_config = _parse_async_fetch_task_configuration(root.find('TaskInfo'))
+
+    return result
+
+def to_put_inventory_configuration(inventory_config):
+    root = ElementTree.Element("InventoryConfiguration")
+    _add_text_child(root, "Id", inventory_config.inventory_id)
+
+    if inventory_config.is_enabled is not None:
+        _add_text_child(root, "IsEnabled", str(inventory_config.is_enabled))
+
+    if inventory_config.included_object_versions is not None:
+        _add_text_child(root, "IncludedObjectVersions", inventory_config.included_object_versions)
+    
+    if inventory_config.inventory_filter is not None and inventory_config.inventory_filter.prefix is not None:
+        filter_node = ElementTree.SubElement(root, 'Filter')
+        _add_text_child(filter_node, "Prefix", inventory_config.inventory_filter.prefix)
+    
+    if inventory_config.inventory_schedule is not None and inventory_config.inventory_schedule.frequency is not None:
+        schedule_node = ElementTree.SubElement(root, 'Schedule')
+        _add_text_child(schedule_node, "Frequency", inventory_config.inventory_schedule.frequency)
+
+    if inventory_config.optional_fields is not None:
+        fields_node = ElementTree.SubElement(root, 'OptionalFields')
+        for field in inventory_config.optional_fields:
+            _add_text_child(fields_node, "Field", field)
+
+    if inventory_config.inventory_destination is not None and inventory_config.inventory_destination.bucket_destination is not None:
+        destin_node = ElementTree.SubElement(root, 'Destination')
+        bucket_destin_node = ElementTree.SubElement(destin_node, 'OSSBucketDestination')
+        bucket_destin = inventory_config.inventory_destination.bucket_destination
+
+        if bucket_destin.account_id is not None:
+            _add_text_child(bucket_destin_node, "AccountId", str(bucket_destin.account_id))
+
+        if bucket_destin.role_arn is not None:
+            _add_text_child(bucket_destin_node, "RoleArn", bucket_destin.role_arn)
+
+        if bucket_destin.bucket is not None:
+            _add_text_child(bucket_destin_node, "Bucket", "acs:oss:::" + bucket_destin.bucket)
+
+        if bucket_destin.inventory_format is not None:
+            _add_text_child(bucket_destin_node, "Format", bucket_destin.inventory_format)
+
+        if bucket_destin.prefix is not None:
+            _add_text_child(bucket_destin_node, "Prefix", bucket_destin.prefix)
+
+        if bucket_destin.sse_kms_encryption is not None:
+            encryption_node =  ElementTree.SubElement(bucket_destin_node, 'Encryption')
+            sse_kms_node =  ElementTree.SubElement(encryption_node, 'SSE-KMS')
+            _add_text_child(sse_kms_node, "KeyId", bucket_destin.sse_kms_encryption.key_id)
+        elif bucket_destin.sse_oss_encryption is not None:
+            encryption_node =  ElementTree.SubElement(bucket_destin_node, 'Encryption')
+            _add_node_child(encryption_node, 'SSE-OSS')
+
+    return _node_to_string(root)
+
+def get_Inventory_configuration_from_element(elem):
+    root = elem
+    result = InventoryConfiguration()
+
+    result.inventory_id = _find_tag(root, 'Id')
+    result.is_enabled = _find_bool(root, 'IsEnabled')
+    result.included_object_versions = _find_tag(root, 'IncludedObjectVersions')
+
+    if root.find("Filter/Prefix") is not None:
+        result.inventory_filter = InventoryFilter(_find_tag(root, 'Filter/Prefix'))
+    
+    if root.find("Schedule/Frequency") is not None:
+        result.inventory_schedule = InventorySchedule(_find_tag(root, 'Schedule/Frequency'))
+
+    result.optional_fields =  _find_all_tags(root, "OptionalFields/Field")
+
+    if root.find("Destination/OSSBucketDestination") is not None:
+        bucket_distin_node = root.find("Destination/OSSBucketDestination")
+        account_id = None
+        role_arn = None
+        bucket = None
+        inventory_format = None
+        prefix = None
+        sse_kms_encryption = None
+        sse_oss_encryption = None
+
+        if bucket_distin_node.find('AccountId') is not None:
+            account_id = _find_tag(bucket_distin_node, 'AccountId')
+        if bucket_distin_node.find('RoleArn') is not None:
+            role_arn = _find_tag(bucket_distin_node, 'RoleArn')
+        if bucket_distin_node.find('Bucket') is not None:
+            origin_bucket = _find_tag(bucket_distin_node, 'Bucket')
+            if origin_bucket.startswith('acs:oss:::'):
+                bucket = origin_bucket.replace('acs:oss:::', '')
+
+        if bucket_distin_node.find('Format') is not None:
+            inventory_format = _find_tag(bucket_distin_node, 'Format')
+        if bucket_distin_node.find('Prefix') is not None:
+            prefix = _find_tag(bucket_distin_node, 'Prefix')
+
+        sse_kms_node = bucket_distin_node.find("Encryption/SSE-KMS")
+        if sse_kms_node is not None:
+            sse_kms_encryption = InventoryServerSideEncryptionKMS(_find_tag(sse_kms_node, 'KeyId'))
+        elif bucket_distin_node.find("Encryption/SSE-OSS") is not None:
+            sse_oss_encryption = InventoryServerSideEncryptionOSS()
+
+        bucket_destination = InventoryBucketDestination(account_id=account_id, role_arn=role_arn, 
+                bucket=bucket, inventory_format=inventory_format, prefix=prefix, 
+                sse_kms_encryption=sse_kms_encryption, sse_oss_encryption=sse_oss_encryption)
+ 
+        result.inventory_destination = InventoryDestination(bucket_destination)
+
+    return result
+
+def parse_get_bucket_inventory_configuration(result, body):
+    root = ElementTree.fromstring(body)
+    inventory_config = get_Inventory_configuration_from_element(root)
+
+    result.inventory_id = inventory_config.inventory_id
+    result.is_enabled = inventory_config.is_enabled
+    result.included_object_versions = inventory_config.included_object_versions
+    result.inventory_filter = inventory_config.inventory_filter
+    result.inventory_schedule = inventory_config.inventory_schedule
+    result.optional_fields = inventory_config.optional_fields
+    result.inventory_destination = inventory_config.inventory_destination
+
+    return result
+
+def parse_list_bucket_inventory_configurations(result, body):
+    root = ElementTree.fromstring(body)
+
+    for inventory_config_node in root.findall("InventoryConfiguration"):
+        inventory_config = get_Inventory_configuration_from_element(inventory_config_node)
+        result.inventory_configurations.append(inventory_config)
+
+    if root.find("ContinuationToken") is not None:
+        result.continuaiton_token = _find_tag(root, "ContinuationToken")
+
+    if root.find("IsTruncated") is not None:
+        result.is_truncated = _find_bool(root, "IsTruncated")
+
+    if root.find("NextContinuationToken") is not None:
+        result.next_continuation_token = _find_tag(root, "NextContinuationToken")
 
     return result
