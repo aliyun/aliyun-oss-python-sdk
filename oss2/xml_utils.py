@@ -1489,3 +1489,16 @@ def parse_list_bucket_inventory_configurations(result, body):
         result.next_continuation_token = _find_tag(root, "NextContinuationToken")
 
     return result
+
+def to_put_restore_config(restore_config):
+    root = ElementTree.Element('RestoreRequest')
+
+    _add_text_child(root, 'Days', str(restore_config.days))
+
+    if restore_config.job_parameters is not None:
+        job_parameters = restore_config.job_parameters
+        job_parameters_node = ElementTree.SubElement(root, "JobParameters")
+        if job_parameters.tier is not None:
+            _add_text_child(job_parameters_node, 'Tier', job_parameters.tier)
+
+    return _node_to_string(root)
