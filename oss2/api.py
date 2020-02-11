@@ -1064,7 +1064,7 @@ class Bucket(_Base):
         logger.debug("Delete object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
-    def restore_object(self, key, params=None, headers=None):
+    def restore_object(self, key, params=None, headers=None, input=None):
         """restore an object
             如果是第一次针对该object调用接口，返回RequestResult.status = 202；
             如果已经成功调用过restore接口，且服务端仍处于解冻中，抛异常RestoreAlreadyInProgress(status=409)
@@ -1089,6 +1089,9 @@ class Bucket(_Base):
         :param headers: HTTP头部
         :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
 
+        :param input: 解冻配置。
+        :type input: class:`RestoreConfiguration <oss2.models.RestoreConfiguration>`
+
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
         headers = http.CaseInsensitiveDict(headers)
@@ -1096,11 +1099,13 @@ class Bucket(_Base):
 
         if params is None:
             params = dict()
-        
+
         if Bucket.RESTORE not in params:
             params[Bucket.RESTORE] = ''
 
-        resp = self.__do_object('POST', key, params=params, headers=headers)
+        data = self.__convert_data(RestoreConfiguration, xml_utils.to_put_restore_config, input)
+
+        resp = self.__do_object('POST', key, params=params, headers=headers, data=data)
         logger.debug("Restore object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
