@@ -138,6 +138,50 @@ class TestObject(OssTestCase):
         bucket.delete_object(key)
         bucket.delete_bucket()
 
+    def test_restore_object_with_config(self):
+        from oss2.models import (ResotreJobParameters, RestoreConfiguration, RESTORE_TIER_EXPEDITED,  
+                                 RESTORE_TIER_STANDARD, RESTORE_TIER_BULK)
+
+        prefix = "test-restore-object-with-request"
+        tiers = [RESTORE_TIER_EXPEDITED, RESTORE_TIER_STANDARD, RESTORE_TIER_BULK]
+
+        for index in range(0, len(tiers)):
+            object_name = prefix + str(index) + ".txt"
+            self.bucket.put_object(object_name, '123', headers={"x-oss-storage-class": oss2.BUCKET_STORAGE_CLASS_LONG_TERM_ARCHIVE})
+
+            meta = self.bucket.head_object(object_name)
+            self.assertEqual(oss2.BUCKET_STORAGE_CLASS_LONG_TERM_ARCHIVE, meta.resp.headers['x-oss-storage-class'])
+
+            job_parameters = ResotreJobParameters(tiers[index])
+            restore_config= oss2.models.RestoreConfiguration(days=5, job_parameters=job_parameters)
+            result = self.bucket.restore_object(object_name, input=restore_config)
+            self.assertEqual(tiers[index], result.resp.headers.get('x-oss-object-restore-priority'))
+
+    def test_restore_object_with_wrong_request(self):
+        from oss2.models import ResotreJobParameters, RestoreConfiguration
+
+        object_name =  "test_restore_object_with_wrong_configuration.txt"
+        self.bucket.put_object(object_name, '123', headers={"x-oss-storage-class": oss2.BUCKET_STORAGE_CLASS_LONG_TERM_ARCHIVE})
+        meta = self.bucket.head_object(object_name)
+        self.assertEqual(oss2.BUCKET_STORAGE_CLASS_LONG_TERM_ARCHIVE, meta.resp.headers['x-oss-storage-class'])
+
+        # wrong tier
+        job_parameters = ResotreJobParameters('wrong-tier')
+        restore_config = oss2.models.RestoreConfiguration(days=5, job_parameters=job_parameters)
+        self.assertRaises(oss2.exceptions.InvalidArgument, self.bucket.restore_object, object_name, input=restore_config)
+
+    def test_restore_archive_object_with_job_parameters(self):
+        from oss2.models import ResotreJobParameters, RestoreConfiguration, RESTORE_TIER_BULK
+
+        object_name = "test_restore_archive_object_with_job_parameters.txt"
+        self.bucket.put_object(object_name, '123', headers={"x-oss-storage-class": oss2.BUCKET_STORAGE_CLASS_ARCHIVE})
+        meta = self.bucket.head_object(object_name)
+        self.assertEqual(oss2.BUCKET_STORAGE_CLASS_ARCHIVE, meta.resp.headers['x-oss-storage-class'])
+
+        job_parameters = ResotreJobParameters(RESTORE_TIER_BULK)
+        restore_config = oss2.models.RestoreConfiguration(days=5, job_parameters=job_parameters)
+        self.assertRaises(oss2.exceptions.MalformedXml, self.bucket.restore_object, object_name, input=restore_config)
+
     def test_last_modified_time(self):
         key = self.random_key()
         content = random_bytes(10)
