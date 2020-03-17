@@ -79,6 +79,15 @@ def _find_tag(parent, path):
 
     return to_string(child.text)
 
+def _find_tag_with_default(parent, path, default_value):
+    child = parent.find(path)
+    if child is None:
+        return default_value
+
+    if child.text is None:
+        return ''
+
+    return to_string(child.text)
 
 def _find_bool(parent, path):
     text = _find_tag(parent, path)
@@ -303,27 +312,15 @@ def parse_get_bucket_info(result, body):
     result.location = _find_tag(root, 'Bucket/Location')
     result.owner = Owner(_find_tag(root, 'Bucket/Owner/DisplayName'), _find_tag(root, 'Bucket/Owner/ID'))
     result.acl = AccessControlList(_find_tag(root, 'Bucket/AccessControlList/Grant'))
-    result.comment = _find_tag(root, 'Bucket/Comment')
+    result.comment = _find_tag_with_default(root, 'Bucket/Comment', None)
+    result.versioning_status = _find_tag_with_default(root, 'Bucket/Versioning', None)
+    result.data_redundancy_type = _find_tag_with_default(root, 'Bucket/DataRedundancyType', None)
 
     server_side_encryption = root.find("Bucket/ServerSideEncryptionRule")
-
     if server_side_encryption is None:
         result.bucket_encryption_rule = None
     else:
         result.bucket_encryption_rule = _parse_bucket_encryption_info(server_side_encryption)
-
-    bucket_versioning = root.find('Bucket/Versioning')
-    
-    if bucket_versioning is None or bucket_versioning.text is None:
-        result.versioning_status = None
-    else:
-        result.versioning_status = to_string(bucket_versioning.text)
-
-    data_redundancy_type = root.find('Bucket/DataRedundancyType')
-    if data_redundancy_type is None or data_redundancy_type.text is None:
-        result.data_redundancy_type = None
-    else:
-        result.data_redundancy_type = to_string(data_redundancy_type.text)
 
     return result
 
