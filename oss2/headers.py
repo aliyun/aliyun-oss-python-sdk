@@ -40,7 +40,7 @@ OSS_TRAFFIC_LIMIT = 'x-oss-traffic-limit'
 OSS_TASK_ID = 'x-oss-task-id'
 
 class RequestHeader(dict):
-    def __init__(self, *arg, **kw): 
+    def __init__(self, *arg, **kw):
         super(RequestHeader, self).__init__(*arg, **kw)
 
     def set_server_side_encryption(self, algorithm=None, cmk_id=None):
@@ -49,9 +49,9 @@ class RequestHeader(dict):
         if OSS_SERVER_SIDE_ENCRYPTION_KEY_ID in self:
             del self[OSS_SERVER_SIDE_ENCRYPTION_KEY_ID]
 
-        if algorithm is "AES256":
+        if algorithm == "AES256":
             self[OSS_SERVER_SIDE_ENCRYPTION] = "AES256"
-        elif algorithm is "KMS":
+        elif algorithm == "KMS":
             self[OSS_SERVER_SIDE_ENCRYPTION] = "KMS"
             if cmk_id is not None:
                 self[OSS_SERVER_SIDE_ENCRYPTION_KEY_ID] = cmk_id
