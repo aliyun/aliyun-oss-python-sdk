@@ -142,33 +142,43 @@ class TestObject(OssTestCase):
         from oss2.models import (ResotreJobParameters, RestoreConfiguration, RESTORE_TIER_EXPEDITED,  
                                  RESTORE_TIER_STANDARD, RESTORE_TIER_BULK)
 
+        endpoint = "http://oss-ap-southeast-2.aliyuncs.com"
+        bucket_name = OSS_BUCKET + "-test-restore-1"
+        bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), endpoint, bucket_name)
+        bucket.create_bucket()
+
         prefix = "test-restore-object-with-request"
         tiers = [RESTORE_TIER_EXPEDITED, RESTORE_TIER_STANDARD, RESTORE_TIER_BULK]
 
         for index in range(0, len(tiers)):
             object_name = prefix + str(index) + ".txt"
-            self.bucket.put_object(object_name, '123', headers={"x-oss-storage-class": oss2.BUCKET_STORAGE_CLASS_COLD_ARCHIVE})
+            bucket.put_object(object_name, '123', headers={"x-oss-storage-class": oss2.BUCKET_STORAGE_CLASS_COLD_ARCHIVE})
 
-            meta = self.bucket.head_object(object_name)
+            meta = bucket.head_object(object_name)
             self.assertEqual(oss2.BUCKET_STORAGE_CLASS_COLD_ARCHIVE, meta.resp.headers['x-oss-storage-class'])
 
             job_parameters = ResotreJobParameters(tiers[index])
             restore_config= oss2.models.RestoreConfiguration(days=5, job_parameters=job_parameters)
-            result = self.bucket.restore_object(object_name, input=restore_config)
+            result = bucket.restore_object(object_name, input=restore_config)
             self.assertEqual(tiers[index], result.resp.headers.get('x-oss-object-restore-priority'))
 
     def test_restore_object_with_wrong_request(self):
         from oss2.models import ResotreJobParameters, RestoreConfiguration
 
+        endpoint = "http://oss-ap-southeast-2.aliyuncs.com"
+        bucket_name = OSS_BUCKET + "-test-restore-2"
+        bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), endpoint, bucket_name)
+        bucket.create_bucket()
+
         object_name =  "test_restore_object_with_wrong_configuration.txt"
-        self.bucket.put_object(object_name, '123', headers={"x-oss-storage-class": oss2.BUCKET_STORAGE_CLASS_COLD_ARCHIVE})
-        meta = self.bucket.head_object(object_name)
+        bucket.put_object(object_name, '123', headers={"x-oss-storage-class": oss2.BUCKET_STORAGE_CLASS_COLD_ARCHIVE})
+        meta = bucket.head_object(object_name)
         self.assertEqual(oss2.BUCKET_STORAGE_CLASS_COLD_ARCHIVE, meta.resp.headers['x-oss-storage-class'])
 
         # wrong tier
         job_parameters = ResotreJobParameters('wrong-tier')
         restore_config = oss2.models.RestoreConfiguration(days=5, job_parameters=job_parameters)
-        self.assertRaises(oss2.exceptions.InvalidArgument, self.bucket.restore_object, object_name, input=restore_config)
+        self.assertRaises(oss2.exceptions.InvalidArgument, bucket.restore_object, object_name, input=restore_config)
 
     def test_restore_archive_object_with_job_parameters(self):
         from oss2.models import ResotreJobParameters, RestoreConfiguration, RESTORE_TIER_BULK
