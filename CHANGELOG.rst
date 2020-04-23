@@ -3,6 +3,12 @@ OSS SDK for Python 版本记录
 
 Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
+Version 2.10.0
+-------------
+- 增加：冷归档设置接口
+- 增加：清单设置接口
+- 优化：GetBucketInfo api 兼容低版本后台服务
+
 Version 2.9.1
 -------------
 - 增加：异步fetch 接口
