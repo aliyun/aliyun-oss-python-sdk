@@ -228,7 +228,28 @@ class TestLiveChannel(OssTestCase):
                           end_time = end_time)
 
         self.bucket.delete_live_channel(channel_name)
+
+    def test_get_vod_playlist(self):
+        channel_name = 'test-post-vod-playlist'
         
+        channel_target = oss2.models.LiveChannelInfoTarget()
+        channel_info = oss2.models.LiveChannelInfo(target = channel_target)
+        self.bucket.create_live_channel(channel_name, channel_info)
+
+        # push rtmp stream here, then generate some ts files on oss.
+
+        end_time = int(time.time()) - 60
+        start_time = end_time - 3600
+
+        # throw exception because no ts file been generated.
+        self.assertRaises(oss2.exceptions.InvalidArgument,
+                          self.bucket.get_vod_playlist,
+                          channel_name,
+                          start_time = start_time,
+                          end_time = end_time)
+
+        self.bucket.delete_live_channel(channel_name)
+
     def test_sign_rtmp_url(self):
         channel_name = 'test-sign-rtmp-url'
         playlist_name = 'test.m3u8'

@@ -209,7 +209,7 @@ multi_key = "test_crypto_multipart"
 
 res = bucket.init_multipart_upload(multi_key, data_size, part_size)
 upload_id = res.upload_id
-crypto_multipart_context = res.crypto_multipart_context;
+crypto_multipart_context = res.crypto_multipart_context
 
 # 分片上传
 for i in range(3):

@@ -748,7 +748,31 @@ class TestObjectRequestPayment(OssTestCase):
         up_iter = oss2.PartIterator(self.payer_bucket, key, upload_id, headers=headers)
         for up in up_iter:
             pass
-    
+
+    def test_put_object_with_signed_url(self):
+        key = 'request-payment-test-put-object-signed-url'
+        file_name = self._prepare_temp_file_with_size(1024)
+
+        params = dict()
+        params[OSS_REQUEST_PAYER] = "requester" 
+        url = self.payer_bucket.sign_url('PUT', key, 60, params=params)
+        self.payer_bucket.put_object_with_url_from_file(url, file_name)
+
+    def test_get_object_with_signed_url(self):
+        key = 'request-payment-test-get-object-signed-url'
+        content = b'a' * 1024
+        file_name = key + '.txt'
+
+        result = self.bucket.put_object(key, content);
+        self.assertEqual(result.status, 200)
+
+        params = dict()
+        params[OSS_REQUEST_PAYER] = "requester"
+        url = self.payer_bucket.sign_url('GET', key, 60, params=params)
+        result = self.payer_bucket.get_object_with_url_to_file(url, file_name)
+
+        os.remove(file_name)
+        self.bucket.delete_object(key)
 
 if __name__ == '__main__':
     unittest.main()

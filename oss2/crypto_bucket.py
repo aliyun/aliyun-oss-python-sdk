@@ -252,13 +252,11 @@ class CryptoBucket(Bucket):
                       ):
         raise ClientError("The operation is not support for CryptoBucket")
 
-    def init_multipart_upload(self, key, headers=None, upload_context=None):
+    def init_multipart_upload(self, key, headers=None, params=None, upload_context=None):
         """客户端加密初始化分片上传。
 
-        :param upload_context:
-        :param str key: 待上传的文件名
-        :param int data_size : 待上传文件总大小
-        :param int part_size : 后续分片上传时除最后一个分片之外的其他分片大小
+        :param params
+        :param upload_context
 
         :param headers: HTTP头部
         :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict

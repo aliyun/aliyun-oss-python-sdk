@@ -283,6 +283,8 @@ class Service(_Base):
         注意到，最终这个字符串是要作为HTTP Header的值传输的，所以必须要遵循HTTP标准。
     """
 
+    QOS_INFO = 'qosInfo'
+
     def __init__(self, auth, endpoint,
                  session=None,
                  connect_timeout=None,
@@ -320,6 +322,15 @@ class Service(_Base):
         logger.debug("List buckets done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_buckets, ListBucketsResult)
 
+
+    def get_user_qos_info(self):
+        """获取User的QoSInfo
+        :return: :class:`GetUserQosInfoResult <oss2.models.GetUserQosInfoResult>`
+        """
+        logger.debug("Start to get user qos info.")
+        resp = self._do('GET', '', '', params={Service.QOS_INFO: ''})
+        logger.debug("get use qos, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_get_qos_info, GetUserQosInfoResult)
 
 class Bucket(_Base):
     """用于Bucket和Object操作的类，诸如创建、删除Bucket，上传、下载Object等。
@@ -371,7 +382,14 @@ class Bucket(_Base):
     RESTORE = 'restore'
     OBJECTMETA = 'objectMeta'
     POLICY = 'policy'
-    REQUESTPAYMENT = 'requestPayment'
+    REQUESTPAYMENT  = 'requestPayment'
+    QOS_INFO = 'qosInfo'
+    USER_QOS = 'qos'
+    ASYNC_FETCH = 'asyncFetch'
+    SEQUENTIAL = 'sequential'
+    INVENTORY = "inventory"
+    INVENTORY_CONFIG_ID = "inventoryId"
+    CONTINUATION_TOKEN = "continuation-token"
 
     def __init__(self, auth, endpoint, bucket_name,
                  is_cname=False,
@@ -384,8 +402,10 @@ class Bucket(_Base):
         super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout, app_name, enable_crc)
 
         self.bucket_name = bucket_name.strip()
+        if utils.is_valid_bucket_name(self.bucket_name) is not True:
+            raise ClientError("The bucket_name is invalid, please check it.")
 
-    def sign_url(self, method, key, expires, headers=None, params=None):
+    def sign_url(self, method, key, expires, headers=None, params=None, slash_safe=False):
         """生成签名URL。
 
         常见的用法是生成加签的URL以供授信用户下载，如为log.jpg生成一个5分钟后过期的下载链接::
@@ -404,13 +424,16 @@ class Bucket(_Base):
 
         :param params: 需要签名的HTTP查询参数
 
+        :param slash_safe: 是否开启key名称中的‘/’转义保护，如果不开启'/'将会转义成%2F
+        :type slash_safe: bool
+
         :return: 签名URL。
         """
         key = to_string(key)
         logger.debug(
-            "Start to sign_url, method: {0}, bucket: {1}, key: {2}, expires: {3}, headers: {4}, params: {5}".format(
-                method, self.bucket_name, to_string(key), expires, headers, params))
-        req = http.Request(method, self._make_url(self.bucket_name, key),
+            "Start to sign_url, method: {0}, bucket: {1}, key: {2}, expires: {3}, headers: {4}, params: {5}, slash_safe: {6}".format(
+                method, self.bucket_name, to_string(key), expires, headers, params, slash_safe))
+        req = http.Request(method, self._make_url(self.bucket_name, key, slash_safe),
                            headers=headers,
                            params=params)
         return self.auth._sign_url(req, self.bucket_name, key, expires)
@@ -968,7 +991,6 @@ class Bucket(_Base):
         #
         # 目前的实现是通过get_object_meta判断文件是否存在。
 
-        headers = http.CaseInsensitiveDict(headers)
         logger.debug("Start to check if object exists, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
         try:
             self.get_object_meta(key, headers=headers)
@@ -1043,7 +1065,7 @@ class Bucket(_Base):
         logger.debug("Delete object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
-    def restore_object(self, key, params=None, headers=None):
+    def restore_object(self, key, params=None, headers=None, input=None):
         """restore an object
             如果是第一次针对该object调用接口，返回RequestResult.status = 202；
             如果已经成功调用过restore接口，且服务端仍处于解冻中，抛异常RestoreAlreadyInProgress(status=409)
@@ -1068,6 +1090,9 @@ class Bucket(_Base):
         :param headers: HTTP头部
         :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
 
+        :param input: 解冻配置。
+        :type input: class:`RestoreConfiguration <oss2.models.RestoreConfiguration>`
+
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
         headers = http.CaseInsensitiveDict(headers)
@@ -1079,7 +1104,9 @@ class Bucket(_Base):
         if Bucket.RESTORE not in params:
             params[Bucket.RESTORE] = ''
 
-        resp = self.__do_object('POST', key, params=params, headers=headers)
+        data = self.__convert_data(RestoreConfiguration, xml_utils.to_put_restore_config, input)
+
+        resp = self.__do_object('POST', key, params=params, headers=headers, data=data)
         logger.debug("Restore object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
@@ -1190,7 +1217,7 @@ class Bucket(_Base):
         logger.debug("Delete object versions done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_batch_delete_objects, BatchDeleteObjectsResult)
 
-    def init_multipart_upload(self, key, headers=None):
+    def init_multipart_upload(self, key, headers=None, params=None):
         """初始化分片上传。
 
         返回值中的 `upload_id` 以及Bucket名和Object名三元组唯一对应了此次分片上传事件。
@@ -1204,9 +1231,15 @@ class Bucket(_Base):
         """
         headers = utils.set_content_type(http.CaseInsensitiveDict(headers), key)
 
-        logger.debug("Start to init multipart upload, bucket: {0}, keys: {1}, headers: {2}".format(
-            self.bucket_name, to_string(key), headers))
-        resp = self.__do_object('POST', key, params={'uploads': ''}, headers=headers)
+        if params is None:
+            tmp_params = dict()
+        else:
+            tmp_params = params.copy()
+
+        tmp_params['uploads'] = ''
+        logger.debug("Start to init multipart upload, bucket: {0}, keys: {1}, headers: {2}, params: {3}".format(
+            self.bucket_name, to_string(key), headers, tmp_params))
+        resp = self.__do_object('POST', key, params=tmp_params, headers=headers)
         logger.debug("Init multipart upload done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_init_multipart_upload, InitMultipartUploadResult)
 
@@ -1806,6 +1839,21 @@ class Bucket(_Base):
         logger.debug("Post vod playlist done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
+    def get_vod_playlist(self, channel_name, start_time, end_time):
+        """查看指定时间段内的播放列表
+
+        param str channel_name: 要获取点播列表的live channel的名称
+        param int start_time: 点播的起始时间，Unix Time格式，可以使用int(time.time())获取
+        param int end_time: 点播的结束时间，Unix Time格式，可以使用int(time.time())获取
+        """
+        logger.debug("Start to get vod playlist, bucket: {0}, channel_name: {1},  start_time: "
+                     "{2}, end_time: {3}".format(self.bucket_name, to_string(channel_name),  start_time, end_time))
+        resp = self.__do_object('GET', channel_name, params={Bucket.VOD: '', 'startTime': str(start_time),
+                                                     'endTime': str(end_time)})
+        logger.debug("get vod playlist done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        result = GetVodPlaylistResult(resp)
+        return result
+
     def process_object(self, key, process, headers=None):
         """处理图片的接口，支持包括调整大小，旋转，裁剪，水印，格式转换等，支持多种方式组合处理。
 
@@ -1951,8 +1999,7 @@ class Bucket(_Base):
         logger.debug("Start to put object tagging, bucket: {0} tagging: {1}".format(
             self.bucket_name, tagging))
 
-        if headers is not None:
-            headers = http.CaseInsensitiveDict(headers)
+        headers = http.CaseInsensitiveDict(headers)
 
         data = self.__convert_data(Tagging, xml_utils.to_put_tagging, tagging)
         resp = self.__do_bucket('PUT', data=data, params={Bucket.TAGGING: ''}, headers=headers)
@@ -2033,14 +2080,14 @@ class Bucket(_Base):
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
-        logger.debug("Start to put object versioning, bucket: {0}".format(
-            self.bucket_name))
+        logger.debug("Start to put object versioning, bucket: {0}".format(self.bucket_name))
         data = self.__convert_data(BucketVersioningConfig, xml_utils.to_put_bucket_versioning, config)
 
         headers = http.CaseInsensitiveDict(headers)
         headers['Content-MD5'] = utils.content_md5(data)
 
         resp = self.__do_bucket('PUT', data=data, params={Bucket.VERSIONING: ''}, headers=headers)
+        logger.debug("Put bucket versiong done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return RequestResult(resp)
 
@@ -2048,28 +2095,26 @@ class Bucket(_Base):
         """
         :return: :class:`GetBucketVersioningResult<oss2.models.GetBucketVersioningResult>` 
         """
-        logger.debug("Start to get bucket versioning, bucket: {0}".format(
-            self.bucket_name))
 
+        logger.debug("Start to get bucket versioning, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('GET', params={Bucket.VERSIONING: ''})
+        logger.debug("Get bucket versiong done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return self._parse_result(resp, xml_utils.parse_get_bucket_versioning, GetBucketVersioningResult)
 
     def put_bucket_policy(self, policy):
-        """设置bucket policy, 具体policy书写规则请参考官方文档
-        :param str policy: 
+        """设置bucket授权策略, 具体policy书写规则请参考官方文档
+        :param str policy: 授权策略
         """
-
-        logger.debug("Start to put bucket policy, bucket: {0}, policy: {1}".format(
-            self.bucket_name, policy))
-
-        resp = self.__do_bucket('PUT', data=policy, params={Bucket.POLICY: ''},
-                                headers={'Content-MD5': utils.content_md5(policy)})
+        logger.debug("Start to put bucket policy, bucket: {0}, policy: {1}".format(self.bucket_name, policy))
+        resp = self.__do_bucket('PUT', data=policy, params={Bucket.POLICY: ''}, headers={'Content-MD5': utils.content_md5(policy)})
         logger.debug("Put bucket policy done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
         return RequestResult(resp)
 
     def get_bucket_policy(self):
-        """
+        """获取bucket授权策略
+
         :return: :class:`GetBucketPolicyResult <oss2.models.GetBucketPolicyResult>`
         """
 
@@ -2079,7 +2124,7 @@ class Bucket(_Base):
         return GetBucketPolicyResult(resp)
 
     def delete_bucket_policy(self):
-        """
+        """删除bucket授权策略
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
         logger.debug("Start to delete bucket policy, bucket: {0}".format(self.bucket_name))
@@ -2090,7 +2135,7 @@ class Bucket(_Base):
     def put_bucket_request_payment(self, payer):
         """设置付费者。
 
-        :param input: :class: str 
+        :param input: :class: str
         """
         data = xml_utils.to_put_bucket_request_payment(payer)
         logger.debug("Start to put bucket request payment, bucket: {0}, payer: {1}".format(self.bucket_name, payer))
@@ -2112,6 +2157,152 @@ class Bucket(_Base):
             "Get bucket request payment done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return self._parse_result(resp, xml_utils.parse_get_bucket_request_payment, GetBucketRequestPaymentResult)
+
+    def put_bucket_qos_info(self, bucket_qos_info):
+        """配置bucket的QoSInfo
+
+        :param bucket_qos_info :class:`BucketQosInfo <oss2.models.BucketQosInfo>`
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to put bucket qos info, bucket: {0}".format(self.bucket_name))
+        data = self.__convert_data(BucketQosInfo, xml_utils.to_put_qos_info, bucket_qos_info)
+
+        headers = http.CaseInsensitiveDict()
+        headers['Content-MD5'] = utils.content_md5(data)
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.QOS_INFO: ''}, headers=headers)
+        logger.debug("Get bucket qos info done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return RequestResult(resp)
+
+    def get_bucket_qos_info(self):
+        """获取bucket的QoSInfo
+
+        :return: :class:`GetBucketQosInfoResult <oss2.models.GetBucketQosInfoResult>`
+        """
+        logger.debug("Start to get bucket qos info, bucket: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('GET', params={Bucket.QOS_INFO: ''})
+        logger.debug("Get bucket qos info, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_get_qos_info, GetBucketQosInfoResult)
+
+    def delete_bucket_qos_info(self):
+        """删除bucket的QoSInfo
+
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to delete bucket qos info, bucket: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('DELETE', params={Bucket.QOS_INFO: ''})
+        logger.debug("Delete bucket qos info done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return RequestResult(resp)
+
+    def set_bucket_storage_capacity(self, user_qos):
+        """设置Bucket的容量，单位GB
+
+        :param user_qos :class:`BucketUserQos <oss2.models.BucketUserQos>`
+        """
+        logger.debug("Start to set bucket storage capacity: {0}".format(self.bucket_name))
+        data = xml_utils.to_put_bucket_user_qos(user_qos)
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.USER_QOS: ''})
+        logger.debug("Set bucket storage capacity done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return RequestResult(resp)
+
+    def get_bucket_storage_capacity(self):
+        """获取bucket的容量信息。
+
+        :return: :class:`GetBucketUserQosResult <oss2.models.GetBucketUserQosResult>`
+        """
+        logger.debug("Start to get bucket storage capacity, bucket:{0}".format(self.bucket_name))
+        resp = self._Bucket__do_bucket('GET', params={Bucket.USER_QOS: ''})
+        logger.debug("Get bucket storage capacity done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_get_bucket_user_qos, GetBucketUserQosResult)
+
+    def put_async_fetch_task(self, task_config):
+        """创建一个异步获取文件到bucket的任务。
+
+        :param task_config: 任务配置
+        :type task_config: class:`AsyncFetchTaskConfiguration <oss2.models.AsyncFetchTaskConfiguration>`
+
+        :return: :class:`PutAsyncFetchTaskResult <oss2.models.PutAsyncFetchTaskResult>`
+        """
+        logger.debug("Start to put async fetch task, bucket:{0}".format(self.bucket_name))
+        data = xml_utils.to_put_async_fetch_task(task_config)
+        headers = http.CaseInsensitiveDict()
+        headers['Content-MD5'] = utils.content_md5(data)
+        resp = self._Bucket__do_bucket('POST', data=data, params={Bucket.ASYNC_FETCH: ''}, headers=headers)
+        logger.debug("Put async fetch task done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_put_async_fetch_task_result, PutAsyncFetchTaskResult)
+
+    def get_async_fetch_task(self, task_id):
+        """获取一个异步获取文件到bucket的任务信息。
+
+        :param str task_id: 任务id
+        :return: :class:`GetAsyncFetchTaskResult <oss2.models.GetAsyncFetchTaskResult>`
+        """
+        logger.debug("Start to get async fetch task, bucket:{0}, task_id:{1}".format(self.bucket_name, task_id))
+        resp = self._Bucket__do_bucket('GET', headers={OSS_TASK_ID: task_id}, params={Bucket.ASYNC_FETCH: ''})
+        logger.debug("Put async fetch task done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_get_async_fetch_task_result, GetAsyncFetchTaskResult)
+
+    def put_bucket_inventory_configuration(self, inventory_configuration):
+        """设置bucket清单配置
+
+        :param inventory_configuration :class:`InventoryConfiguration <oss2.models.InventoryConfiguration>`
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to put bucket inventory configuration, bucket: {0}".format(self.bucket_name))
+        data = self.__convert_data(InventoryConfiguration, xml_utils.to_put_inventory_configuration, inventory_configuration)
+
+        headers = http.CaseInsensitiveDict()
+        headers['Content-MD5'] = utils.content_md5(data)
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.INVENTORY: '', Bucket.INVENTORY_CONFIG_ID:inventory_configuration.inventory_id}, headers=headers)
+        logger.debug("Put bucket inventory configuration done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return RequestResult(resp)
+
+    def get_bucket_inventory_configuration(self, inventory_id):
+        """获取指定的清单配置。
+
+        :param str inventory_id : 清单配置id
+        :return: :class:`GetInventoryConfigurationResult <oss2.models.GetInventoryConfigurationResult>`
+        """
+        logger.debug("Start to get bucket inventory configuration, bucket: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('GET', params={Bucket.INVENTORY: '', Bucket.INVENTORY_CONFIG_ID:inventory_id})
+        logger.debug("Get bucket inventory cinfguration done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_get_bucket_inventory_configuration, GetInventoryConfigurationResult)
+
+    def list_bucket_inventory_configurations(self, continuation_token=None):
+        """罗列清单配置，默认单次最大返回100条配置，如果存在超过100条配置，罗列结果将会分页，
+        分页信息保存在 class:`ListInventoryConfigurationResult <oss2.models.ListInventoryConfigurationResult>`中。
+
+        :param str continuation_token: 分页标识, 默认值为None, 如果上次罗列不完整，这里设置为上次罗列结果中的next_continuation_token值。
+        :return: :class:`ListInventoryConfigurationResult <oss2.models.ListInventoryConfigurationResult>`
+        """
+        logger.debug("Start to list bucket inventory configuration, bucket: {0}".format(self.bucket_name))
+        params = {Bucket.INVENTORY:''}
+        if continuation_token is not None:
+            params[Bucket.CONTINUATION_TOKEN] = continuation_token
+        resp = self.__do_bucket('GET', params=params)
+        logger.debug("List bucket inventory configuration done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_list_bucket_inventory_configurations, ListInventoryConfigurationsResult)
+
+    def delete_bucket_inventory_configuration(self, inventory_id):
+        """删除指定的清单配置
+
+        :param str inventory_id : 清单配置id
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to delete bucket inventory configuration, bucket: {0}, configuration id: {1}.".format(self.bucket_name, inventory_id))
+        resp = self.__do_bucket('DELETE', params={Bucket.INVENTORY:'', Bucket.INVENTORY_CONFIG_ID:inventory_id})
+        logger.debug("Delete bucket inventory configuration, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return RequestResult(resp)
 
     def _get_bucket_config(self, config):
         """获得Bucket某项配置，具体哪种配置由 `config` 指定。该接口直接返回 `RequestResult` 对象。
@@ -2195,10 +2386,11 @@ class _UrlMaker(object):
         self.netloc = p.netloc
         self.is_cname = is_cname
 
-    def __call__(self, bucket_name, key):
+    def __call__(self, bucket_name, key, slash_safe=False):
         self.type = _determine_endpoint_type(self.netloc, self.is_cname, bucket_name)
 
-        key = urlquote(key, '')
+        safe = '/' if slash_safe is True else ''
+        key = urlquote(key, safe=safe)
 
         if self.type == _ENDPOINT_TYPE_CNAME:
             return '{0}://{1}/{2}'.format(self.scheme, self.netloc, key)

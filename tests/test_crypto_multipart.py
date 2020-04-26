@@ -32,7 +32,7 @@ class TestCryptoMultipart(OssTestCase):
         # part size is small than 100*1024
         part_size = random.randint(1, 1024 * 100 - 1)
         context.part_size = part_size
-        self.assertRaises(oss2.exceptions.ClientError, crypto_bucket.init_multipart_upload, key, context)
+        self.assertRaises(oss2.exceptions.ClientError, crypto_bucket.init_multipart_upload, key, upload_context=context)
 
     # 测试不指定part_size的情况，由接口指定part_size
     def test_crypto_init_multipart_with_out_part_size(self):

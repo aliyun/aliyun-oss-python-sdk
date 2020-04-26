@@ -194,6 +194,9 @@ class NoSuchBucketPolicy(NotFound):
     status = 404
     code = 'NoSuchBucketPolicy'
 
+class NoSuchInventory(NotFound):
+    status = 404
+    code = 'NoSuchInventory'
 
 class Conflict(ServerError):
     status = 409
@@ -284,6 +287,9 @@ class SignatureDoesNotMatch(ServerError):
     status = 403
     code = 'SignatureDoesNotMatch'
 
+class ObjectAlreadyExists(ServerError):
+    status = 400
+    code = 'ObjectAlreadyExists'
 
 def make_exception(resp):
     status = resp.status

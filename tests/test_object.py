@@ -12,7 +12,7 @@ from oss2.exceptions import (ClientError, RequestError, NoSuchBucket, OpenApiSer
 from oss2.compat import is_py2, is_py33
 from oss2.models import Tagging, TaggingRule
 from oss2.headers import OSS_OBJECT_TAGGING, OSS_OBJECT_TAGGING_COPY_DIRECTIVE
-from oss2.compat import urlunquote, urlquote
+from oss2.compat import urlunquote, urlquote, to_bytes, to_string
 
 from .common import *
 
@@ -77,6 +77,60 @@ class TestObject(OssTestCase):
         self.assertEqual(202, bucket.restore_object(key).status)
         bucket.delete_object(key)
         bucket.delete_bucket()
+
+    def test_restore_object_with_config(self):
+        from oss2.models import (ResotreJobParameters, RestoreConfiguration, RESTORE_TIER_EXPEDITED,  
+                                 RESTORE_TIER_STANDARD, RESTORE_TIER_BULK)
+
+        endpoint = "http://oss-ap-southeast-2.aliyuncs.com"
+        bucket_name = OSS_BUCKET + "-test-restore-1"
+        bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), endpoint, bucket_name)
+        bucket.create_bucket()
+
+        prefix = "test-restore-object-with-request"
+        tiers = [RESTORE_TIER_EXPEDITED, RESTORE_TIER_STANDARD, RESTORE_TIER_BULK]
+
+        for index in range(0, len(tiers)):
+            object_name = prefix + str(index) + ".txt"
+            bucket.put_object(object_name, '123', headers={"x-oss-storage-class": oss2.BUCKET_STORAGE_CLASS_COLD_ARCHIVE})
+
+            meta = bucket.head_object(object_name)
+            self.assertEqual(oss2.BUCKET_STORAGE_CLASS_COLD_ARCHIVE, meta.resp.headers['x-oss-storage-class'])
+
+            job_parameters = ResotreJobParameters(tiers[index])
+            restore_config= oss2.models.RestoreConfiguration(days=5, job_parameters=job_parameters)
+            result = bucket.restore_object(object_name, input=restore_config)
+            self.assertEqual(tiers[index], result.resp.headers.get('x-oss-object-restore-priority'))
+
+    def test_restore_object_with_wrong_request(self):
+        from oss2.models import ResotreJobParameters, RestoreConfiguration
+
+        endpoint = "http://oss-ap-southeast-2.aliyuncs.com"
+        bucket_name = OSS_BUCKET + "-test-restore-2"
+        bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), endpoint, bucket_name)
+        bucket.create_bucket()
+
+        object_name =  "test_restore_object_with_wrong_configuration.txt"
+        bucket.put_object(object_name, '123', headers={"x-oss-storage-class": oss2.BUCKET_STORAGE_CLASS_COLD_ARCHIVE})
+        meta = bucket.head_object(object_name)
+        self.assertEqual(oss2.BUCKET_STORAGE_CLASS_COLD_ARCHIVE, meta.resp.headers['x-oss-storage-class'])
+
+        # wrong tier
+        job_parameters = ResotreJobParameters('wrong-tier')
+        restore_config = oss2.models.RestoreConfiguration(days=5, job_parameters=job_parameters)
+        self.assertRaises(oss2.exceptions.InvalidArgument, bucket.restore_object, object_name, input=restore_config)
+
+    def test_restore_archive_object_with_job_parameters(self):
+        from oss2.models import ResotreJobParameters, RestoreConfiguration, RESTORE_TIER_BULK
+
+        object_name = "test_restore_archive_object_with_job_parameters.txt"
+        self.bucket.put_object(object_name, '123', headers={"x-oss-storage-class": oss2.BUCKET_STORAGE_CLASS_ARCHIVE})
+        meta = self.bucket.head_object(object_name)
+        self.assertEqual(oss2.BUCKET_STORAGE_CLASS_ARCHIVE, meta.resp.headers['x-oss-storage-class'])
+
+        job_parameters = ResotreJobParameters(RESTORE_TIER_BULK)
+        restore_config = oss2.models.RestoreConfiguration(days=5, job_parameters=job_parameters)
+        self.assertRaises(oss2.exceptions.MalformedXml, self.bucket.restore_object, object_name, input=restore_config)
 
     def test_last_modified_time(self):
         key = self.random_key()
@@ -489,6 +543,109 @@ class TestObject(OssTestCase):
         result = self.bucket.get_object_with_url_to_file(url, file_name)
         self.assertEqual(result.status, 200)
 
+    def test_get_object_with_sign_url_slash_safe(self):
+        key = 'url下载测试斜杠保护+/二层目录+/测+试斜杠保护.object'
+        slash_safe_key = urlquote('url下载测试斜杠保护+') + '/' + urlquote('二层目录+') + '/' + urlquote('测+试斜杠保护.object')
+        content = random_bytes(100)
+
+        result = self.bucket.put_object(key, content)
+        self.assertEqual(result.status, 200)
+
+        # 不带slash_safe参数
+        url = self.bucket.sign_url("GET", key, 60)
+        # 验证url中‘/’是否被转义
+        seek = url.find(slash_safe_key)
+        self.assertEqual(seek, -1)
+
+        result = self.bucket.get_object_with_url(url)
+        self.assertEqual(result.status, 200)
+
+        # slash_safe = False
+        url = self.bucket.sign_url("GET", key, 60, slash_safe=False)
+        # 验证url中‘/’是否被转义
+        seek = url.find(slash_safe_key)
+        self.assertEqual(seek, -1)
+
+        result = self.bucket.get_object_with_url(url)
+        self.assertEqual(result.status, 200)
+
+        # slash_safe = True
+        url = self.bucket.sign_url("GET", key, 60, slash_safe=True)
+        # 验证url中‘/’是否被转义
+        seek = url.find(slash_safe_key)
+        self.assertTrue(seek != -1)
+
+        result = self.bucket.get_object_with_url(url)
+        self.assertEqual(result.status, 200)
+
+        self.bucket.delete_object(key)
+    
+    def test_put_object_with_sign_url_slash_safe(self):
+        key = 'url上传测试斜杠保护+/二层目录+/测+试斜杠保护.object'
+        slash_safe_key = urlquote('url上传测试斜杠保护+') + '/' + urlquote('二层目录+') + '/' + urlquote('测+试斜杠保护.object')
+        content = random_bytes(1024)
+
+        # 不带slash_safe 参数
+        url = self.bucket.sign_url('PUT', key, 60)
+        # 验证url中‘/’是否被转义
+        seek = url.find(slash_safe_key)
+        self.assertEqual(seek, -1)
+
+        result = self.bucket.put_object_with_url(url, content)
+        self.assertEqual(result.status, 200)
+
+        result = self.bucket.head_object(key)
+        self.assertEqual(result.content_length, 1024)
+
+        result = self.bucket.delete_object(key)
+        self.assertEqual(result.status, 204)
+
+        # slash_safe = False
+        url = self.bucket.sign_url('PUT', key, 60, slash_safe=False)
+        # 验证url中‘/’是否被转义
+        seek = url.find(slash_safe_key)
+        self.assertEqual(seek, -1)
+
+        result = self.bucket.put_object_with_url(url, content)
+        self.assertEqual(result.status, 200)
+
+        result = self.bucket.head_object(key)
+        self.assertEqual(result.content_length, 1024)
+        
+        result = self.bucket.delete_object(key)
+        self.assertEqual(result.status, 204)
+
+        # slash_safe = True
+        url = self.bucket.sign_url('PUT', key, 60, slash_safe=True)
+        # 验证url中‘/’是否被转义
+        seek = url.find(slash_safe_key)
+        self.assertTrue(seek != -1)
+
+        result = self.bucket.put_object_with_url(url, content)
+        self.assertEqual(result.status, 200)
+
+        result = self.bucket.head_object(key)
+        self.assertEqual(result.content_length, 1024)
+
+        result = self.bucket.delete_object(key)
+        self.assertEqual(result.status, 204)
+
+    def test_get_object_with_url_to_file_chunked(self):
+        # object后缀为txt, length >= 1024, 指定Accept-Encoding接收，服务器将会以chunked模式传输数据
+        key = 'test_get_object_with_url_to_file_chunked.txt'
+        content = b'a' * 1024
+        self.bucket.put_object(key, content)
+
+        filename = key + '-local.txt'
+        url = self.bucket.sign_url('GET', key, 240)
+        result = self.bucket.get_object_with_url_to_file(url, filename, headers={'Accept-Encoding': 'gzip'})
+
+        self.assertEqual(result.headers['Transfer-Encoding'], 'chunked')
+        self.assertFileContent(filename, content)
+
+        os.remove(filename)
+        self.bucket.delete_object(key)
+
     def test_modified_since(self):
         key = self.random_key()
         content = random_bytes(16)
@@ -556,7 +713,7 @@ class TestObject(OssTestCase):
         key = self.random_key()
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-object_exists"
+        bucket_name = OSS_BUCKET + "-test-object-exists"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
         self.assertRaises(NoSuchBucket, bucket.object_exists, key)
 
@@ -613,6 +770,12 @@ class TestObject(OssTestCase):
         # 上传内存中的内容
         stats = {'previous': -1}
         self.bucket.put_object(key, content, progress_callback=progress_callback)
+        self.assertEqual(stats['previous'], len(content))
+
+        # 使用签名url上传
+        stats = {'previous': -1}
+        url = self.bucket.sign_url('PUT', key, 240)
+        result = self.bucket.put_object_with_url(url, content, progress_callback=progress_callback)
         self.assertEqual(stats['previous'], len(content))
 
         # 追加内容
@@ -1231,6 +1394,21 @@ class TestObject(OssTestCase):
         self.assertEqual(head_result.etag, '5D41402ABC4B2A76B9719D911017C592')
         self.assertEqual(head_result.headers['x-oss-meta-key1'], 'value1')
         self.assertEqual(head_result.headers['x-oss-meta-key2'], 'value2')
+
+    def test_put_object_with_unicode_header(self):
+        key = self.random_key()
+        value = '测试'
+        byte = to_bytes(value)
+        headers={'x-oss-meta-unicode': byte}
+        self.bucket.put_object(key, 'a novel', headers=headers)
+        result = self.bucket.head_object(key)
+        self.assertEqual(result.status, 200)
+        newstr = result.headers['x-oss-meta-unicode']
+        if is_py2:
+            b_str = newstr
+        else:
+            b_str = newstr.encode('iso-8859-1')
+        self.assertEqual(to_string(b_str), value)
 
     
 class TestSign(TestObject):

@@ -33,8 +33,7 @@ class TestApiBase(OssTestCase):
 
     def test_invalid_bucket_name(self):
         bucket_name = random_string(64)
-        bucket = oss2.Bucket(oss2.AnonymousAuth(), OSS_ENDPOINT, bucket_name)
-        self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.get_object, 'hello.txt')
+        self.assertRaises(oss2.exceptions.ClientError, oss2.Bucket, oss2.AnonymousAuth(), OSS_ENDPOINT, bucket_name)
 
     def test_whitespace(self):
         bucket = oss2.Bucket(oss2.Auth(OSS_ID, ' ' + OSS_SECRET + ' '), OSS_ENDPOINT, OSS_BUCKET)

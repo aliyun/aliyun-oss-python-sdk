@@ -61,6 +61,29 @@ class TestBucket(OssTestCase):
         wait_meta_sync()
         self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.delete_bucket)
 
+    def test_bucket_with_data_redundancy_type(self):
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket_name = OSS_BUCKET + "-test-redundancy-type"
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
+
+        # LRS
+        bucketConfig = oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_IA, oss2.BUCKET_DATA_REDUNDANCY_TYPE_LRS)
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE, bucketConfig)
+        wait_meta_sync()
+        
+        result = bucket.get_bucket_info()
+        self.assertEqual(oss2.BUCKET_DATA_REDUNDANCY_TYPE_LRS, result.data_redundancy_type)
+        bucket.delete_bucket()
+
+        # ZRS
+        bucketConfig = oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_IA, oss2.BUCKET_DATA_REDUNDANCY_TYPE_ZRS)
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE, bucketConfig)
+        wait_meta_sync()
+        
+        result = bucket.get_bucket_info()
+        self.assertEqual(oss2.BUCKET_DATA_REDUNDANCY_TYPE_ZRS, result.data_redundancy_type)
+        bucket.delete_bucket()
+
     def test_acl(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket_name = OSS_BUCKET + "-test-acl"
@@ -587,6 +610,8 @@ class TestBucket(OssTestCase):
         self.assertTrue(len(result.extranet_endpoint) > 0)
         self.assertTrue(len(result.owner.id) > 0)
         self.assertEqual(result.acl.grant, oss2.BUCKET_ACL_PRIVATE)
+        self.assertIsNotNone(result.data_redundancy_type)
+        self.assertIsNotNone(result.comment)
         self.assertEqual(result.bucket_encryption_rule.sse_algorithm, None)
         self.assertEqual(result.versioning_status, None)
         bucket.delete_bucket()
@@ -689,7 +714,7 @@ class TestBucket(OssTestCase):
 
         # KMS
         rule.sse_algorithm = oss2.SERVER_SIDE_ENCRYPTION_KMS
-        rule.kms_master_keyid = ""
+        rule.kms_master_keyid = "123"
 
         result = self.bucket.put_bucket_encryption(rule)
         self.assertEqual(int(result.status) / 100, 2)
@@ -698,7 +723,7 @@ class TestBucket(OssTestCase):
 
         result = self.bucket.get_bucket_info()
         self.assertEqual(result.bucket_encryption_rule.sse_algorithm, 'KMS')
-        self.assertTrue(result.bucket_encryption_rule.kms_master_keyid is None)
+        self.assertEqual(result.bucket_encryption_rule.kms_master_keyid, '123')
 
         result = self.bucket.delete_bucket_encryption()
         self.assertEqual(int(result.status), 204)
@@ -826,6 +851,33 @@ class TestBucket(OssTestCase):
 
         result = self.bucket.delete_bucket_policy()
         self.assertEqual(int(result.status) // 100, 2)
+        bucket.delete_bucket()
+
+    def test_bucket_storage_capacity(self):
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, random_string(63).lower())
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
+
+        # test default storage capacity
+        result = bucket.get_bucket_storage_capacity()
+        self.assertEqual(result.storage_capacity, -1)
+
+        #test set default capacity value -1
+        user_qos = oss2.models.BucketUserQos(-1)
+        bucket.set_bucket_storage_capacity(user_qos)
+        result = bucket.get_bucket_storage_capacity()
+        self.assertEqual(result.storage_capacity, -1)
+
+        #set neagetive value other than -1
+        user_qos = oss2.models.BucketUserQos(-2)
+        self.assertRaises(oss2.exceptions.InvalidArgument, bucket.set_bucket_storage_capacity, user_qos) 
+
+        #set positive value
+        user_qos = oss2.models.BucketUserQos(100)
+        resp = bucket.set_bucket_storage_capacity(user_qos)
+        result = bucket.get_bucket_storage_capacity()
+        self.assertEqual(result.storage_capacity, 100)
+
         bucket.delete_bucket()
 
     def test_malformed_xml(self):

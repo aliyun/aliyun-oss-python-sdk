@@ -234,6 +234,12 @@ class TestSelectObject(OssTestCase):
         helper.create_meta(self, do_request, head_params)
 
     @patch('oss2.Session.do_request')
+    def test_create_csv_meta_with_invalid_params(self, do_request):
+        head_params = {'InvalidParam':'\n'}
+        helper = SelectCaseHelper()
+        self.assertRaises(SelectOperationClientError, helper.create_meta, self, do_request, head_params)
+
+    @patch('oss2.Session.do_request')
     def test_select_csv(self, do_request):
         sql = "select * from ossobject limit 10"
         resp_content = b'a,b,c,d,e,f,,n,g,l,o,p'
@@ -389,6 +395,12 @@ class TestSelectObject(OssTestCase):
             helper.assertFalse()
         except SelectOperationClientError:
             print("expected error")
+
+    @patch('oss2.Session.do_request')
+    def test_select_json_with_invalid_parameters(self, do_request):
+        head_params = {'Invalid':'\n', 'Json_Type':'LINES'}
+        helper = SelectCaseHelper()
+        self.assertRaises(SelectOperationClientError, helper.create_meta, self, do_request, head_params)
 
     @patch('oss2.Session.do_request')
     def test_create_json_meta_with_params(self, do_request):

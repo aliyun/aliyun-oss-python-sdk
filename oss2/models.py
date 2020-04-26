@@ -301,7 +301,8 @@ class GetObjectResult(HeadObjectResult):
                 self.stream = crypto_provider.make_decrypt_adapter(self.stream, cipher, discard)
         else:
             if OSS_CLIENT_SIDE_ENCRYPTION_KEY in resp.headers or DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY in resp.headers:
-                logger.warn("Using Bucket to get an encrypted object will return raw data, please confirm if you really want to do this")
+                logger.warn(
+                    "Using Bucket to get an encrypted object will return raw data, please confirm if you really want to do this")
 
     @staticmethod
     def _parse_range_str(content_range):
@@ -488,7 +489,7 @@ class SimplifiedBucketInfo(object):
         #: 同区域ECS访问Bucket的内网域名
         self.intranet_endpoint = intranet_endpoint
 
-        #: Bucket存储类型，支持“Standard”、“IA”、“Archive”
+        #: Bucket存储类型，支持“Standard”、“IA”、“Archive”、“ColdArchive”
         self.storage_class = storage_class
 
 
@@ -595,6 +596,10 @@ BUCKET_ACL_PUBLIC_READ_WRITE = 'public-read-write'
 BUCKET_STORAGE_CLASS_STANDARD = 'Standard'
 BUCKET_STORAGE_CLASS_IA = 'IA'
 BUCKET_STORAGE_CLASS_ARCHIVE = 'Archive'
+BUCKET_STORAGE_CLASS_COLD_ARCHIVE = "ColdArchive"
+
+BUCKET_DATA_REDUNDANCY_TYPE_LRS = "LRS"
+BUCKET_DATA_REDUNDANCY_TYPE_ZRS = "ZRS"
 
 REDIRECT_TYPE_MIRROR = 'Mirror'
 REDIRECT_TYPE_EXTERNAL = 'External'
@@ -640,8 +645,9 @@ class GetBucketLoggingResult(RequestResult, BucketLogging):
 
 
 class BucketCreateConfig(object):
-    def __init__(self, storage_class):
+    def __init__(self, storage_class, data_redundancy_type=None):
         self.storage_class = storage_class
+        self.data_redundancy_type = data_redundancy_type
 
 
 class BucketStat(object):
@@ -664,8 +670,8 @@ class Owner(object):
 
 class BucketInfo(object):
     def __init__(self, name=None, owner=None, location=None, storage_class=None, intranet_endpoint=None,
-                 extranet_endpoint=None, creation_date=None, acl=None, bucket_encryption_rule=None,
-                 versioning_status=None):
+                 extranet_endpoint=None, creation_date=None, acl=None, data_redundancy_type=None, comment=None,
+                 bucket_encryption_rule=None, versioning_status=None):
         self.name = name
         self.owner = owner
         self.location = location
@@ -674,6 +680,8 @@ class BucketInfo(object):
         self.extranet_endpoint = extranet_endpoint
         self.creation_date = creation_date
         self.acl = acl
+        self.data_redundancy_type = data_redundancy_type
+        self.comment = comment
 
         self.bucket_encryption_rule = bucket_encryption_rule
         self.versioning_status = versioning_status
@@ -985,14 +993,20 @@ class LifecycleExpiration(object):
     """过期删除操作。
 
     :param days: 表示在文件修改后过了这么多天，就会匹配规则，从而被删除
-    :param date: 表示在该日期之后，规则就一直生效。即每天都会对符合前缀的文件执行删除操作（如，删除），而不管文件是什么时候生成的。
-        *不建议使用*
-    :param created_before_date: delete files if their last modified time earlier than created_before_date
+    :type days: int
 
+    :param date: 表示在该日期之后，规则就一直生效。即每天都会对符合前缀的文件执行删除操作（如，删除），而不管文件是什么时候生成的。*不建议使用*
     :type date: `datetime.date`
+
+    :param created_before_date: delete files if their last modified time earlier than created_before_date
+    :type created_before_date: `datetime.date`
+
+    :param expired_detete_marker: 真实文件删除之后是否自动移除删除标记，适用于多版本场景。
+    :param expired_detete_marker: bool
+
     """
 
-    def __init__(self, days=None, date=None, created_before_date=None):
+    def __init__(self, days=None, date=None, created_before_date=None, expired_detete_marker=None):
         not_none_fields = 0
         if days is not None:
             not_none_fields += 1
@@ -1000,13 +1014,17 @@ class LifecycleExpiration(object):
             not_none_fields += 1
         if created_before_date is not None:
             not_none_fields += 1
+        if expired_detete_marker is not None:
+            not_none_fields += 1
 
         if not_none_fields > 1:
-            raise ClientError('More than one field(days, date and created_before_date) has been specified')
+            raise ClientError(
+                'More than one field(days, date and created_before_date, expired_detete_marker) has been specified')
 
         self.days = days
         self.date = date
         self.created_before_date = created_before_date
+        self.expired_detete_marker = expired_detete_marker
 
 
 class AbortMultipartUpload(object):
@@ -1042,18 +1060,54 @@ class StorageTransition(object):
         self.storage_class = storage_class
 
 
+class NoncurrentVersionExpiration(object):
+    """OSS何时将非当前版本的object删除
+
+    :param noncurrent_days: 指定多少天之后删除
+    :type noncurrent_days: int
+    """
+
+    def __init__(self, noncurrent_days):
+        self.noncurrent_days = noncurrent_days
+
+
+class NoncurrentVersionStorageTransition(object):
+    """生命周期内，OSS何时将指定Object的非当前版本转储为IA或者Archive存储类型。
+
+    :param noncurrent_days: 多少天之后转存储
+    :type noncurrent_days: int
+    """
+
+    def __init__(self, noncurrent_days, storage_class):
+        self.noncurrent_days = noncurrent_days
+        self.storage_class = storage_class
+
+
 class LifecycleRule(object):
     """生命周期规则。
 
     :param id: 规则名
+    :type id: str
+
     :param prefix: 只有文件名匹配该前缀的文件才适用本规则
+    :type prefix: str
+
     :param expiration: 过期删除操作。
     :type expiration: :class:`LifecycleExpiration`
+
     :param status: 启用还是禁止该规则。可选值为 `LifecycleRule.ENABLED` 或 `LifecycleRule.DISABLED`
+
     :param storage_transitions: 存储类型转换规则
-    :type storage_transitions: :class:`StorageTransition`
+    :type storage_transitions: list of class:`StorageTransition <oss2.models.StorageTransition>`
+
     :param tagging: object tagging 规则
-    :type tagging: :class:`Tagging`
+    :type tagging: :class:`Tagging <oss2.models.StorageTransition>`
+    
+    :param noncurrent_version_expiration: 指定Object非当前版本生命周期规则的过期属性。适用于多版本场景。
+    :type noncurrent_version_expiration class:`NoncurrentVersionExpiration <oss2.models.NoncurrentVersionExpiration>`
+
+    :param noncurrent_version_sotrage_transitions: 在有效生命周期中，OSS何时将指定Object的非当前版本转储为IA或者Archive存储类型，适用于多版本场景。
+    :type noncurrent_version_sotrage_transitions: list of class:`NoncurrentVersionStorageTransition <oss2.models.NoncurrentVersionStorageTransition>`
     """
 
     ENABLED = 'Enabled'
@@ -1062,7 +1116,9 @@ class LifecycleRule(object):
     def __init__(self, id, prefix,
                  status=ENABLED, expiration=None,
                  abort_multipart_upload=None,
-                 storage_transitions=None, tagging=None):
+                 storage_transitions=None, tagging=None,
+                 noncurrent_version_expiration=None,
+                 noncurrent_version_sotrage_transitions=None):
         self.id = id
         self.prefix = prefix
         self.status = status
@@ -1070,13 +1126,15 @@ class LifecycleRule(object):
         self.abort_multipart_upload = abort_multipart_upload
         self.storage_transitions = storage_transitions
         self.tagging = tagging
+        self.noncurrent_version_expiration = noncurrent_version_expiration
+        self.noncurrent_version_sotrage_transitions = noncurrent_version_sotrage_transitions
 
 
 class BucketLifecycle(object):
     """Bucket的生命周期配置。
 
     :param rules: 规则列表，
-    :type rules: list of :class:`LifecycleRule`
+    :type rules: list of :class:`LifecycleRule <oss2.models.LifecycleRule>`
     """
 
     def __init__(self, rules=None):
@@ -1368,6 +1426,12 @@ class GetLiveChannelHistoryResult(RequestResult, LiveChannelHistory):
         LiveChannelHistory.__init__(self)
 
 
+class GetVodPlaylistResult(RequestResult):
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        self.playlist = to_string(resp.read())
+
+
 class ProcessObjectResult(RequestResult):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
@@ -1558,3 +1622,447 @@ class GetBucketRequestPaymentResult(RequestResult):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         self.payer = ''
+
+
+class BucketQosInfo(object):
+    """bucket的Qos信息    
+    :以下参数如果设置为0则表示完全禁止指定类型的访问，如果为-1则表示不单独限制
+
+    :param total_upload_bw: 总上传带宽, 单位Gbps
+    :type total_upload_bw: int
+
+    :param intranet_upload_bw: 内网上传带宽, 单位Gbps
+    :type intranet_upload_bw: int
+
+    :param extranet_upload_bw: 外网上传带宽, 单位Gbps
+    :type extranet_upload_bw: int
+
+    :param total_download_bw: 总下载带宽, 单位Gbps
+    :type total_download_bw: int
+
+    :param intranet_download_bw: 内外下载带宽, 单位Gbps
+    :type intranet_download_bw: int
+
+    :param extranet_download_bw: 外网下载带宽, 单位Gbps
+    :type extranet_download_bw: int
+
+    :param total_qps: 总qps, 单位请求数/s
+    :type total_qps: int
+
+    :param intranet_qps: 内网访问qps, 单位请求数/s
+    :type intranet_qps: int
+
+    :param extranet_qps: 外网访问qps, 单位请求数/s
+    :type extranet_qps: int
+    """
+
+    def __init__(self,
+                 total_upload_bw=None,
+                 intranet_upload_bw=None,
+                 extranet_upload_bw=None,
+                 total_download_bw=None,
+                 intranet_download_bw=None,
+                 extranet_download_bw=None,
+                 total_qps=None,
+                 intranet_qps=None,
+                 extranet_qps=None):
+        self.total_upload_bw = total_upload_bw
+        self.intranet_upload_bw = intranet_upload_bw
+        self.extranet_upload_bw = extranet_upload_bw
+        self.total_download_bw = total_download_bw
+        self.intranet_download_bw = intranet_download_bw
+        self.extranet_download_bw = extranet_download_bw
+        self.total_qps = total_qps
+        self.intranet_qps = intranet_qps
+        self.extranet_qps = extranet_qps
+
+
+class UserQosInfo(object):
+    """User的Qos信息    
+
+    :param region: 查询的qos配置生效的区域
+    :type region: str
+
+    :以下参数如果为0则表示完全禁止指定类型的访问，如果为-1表示不单独限制
+
+    :param total_upload_bw: 总上传带宽, 单位Gbps
+    :type total_upload_bw: int
+
+    :param intranet_upload_bw: 内网上传带宽, 单位:Gbps
+    :type intranet_upload_bw: int
+
+    :param extranet_upload_bw: 外网上传带宽, 单位:Gbps
+    :type extranet_upload_bw: int
+
+    :param total_download_bw: 总下载带宽, 单位:Gbps
+    :type total_download_bw: int
+
+    :param intranet_download_bw: 内外下载带宽, 单位:Gbps
+    :type intranet_download_bw: int
+
+    :param extranet_download_bw: 外网下载带宽, 单位:Gbps
+    :type extranet_download_bw: int
+
+    :param total_qps: 总qps限制
+    :type total_qps: int
+
+    :param intranet_qps: 内网访问qps
+    :type intranet_qps: int
+
+    :param extranet_qps: 外网访问qps
+    :type extranet_qps: int
+    """
+
+    def __init__(self,
+                 region=None,
+                 total_upload_bw=None,
+                 intranet_upload_bw=None,
+                 extranet_upload_bw=None,
+                 total_download_bw=None,
+                 intranet_download_bw=None,
+                 extranet_download_bw=None,
+                 total_qps=None,
+                 intranet_qps=None,
+                 extranet_qps=None):
+        self.region = region
+        self.total_upload_bw = total_upload_bw
+        self.intranet_upload_bw = intranet_upload_bw
+        self.extranet_upload_bw = extranet_upload_bw
+        self.total_download_bw = total_download_bw
+        self.intranet_download_bw = intranet_download_bw
+        self.extranet_download_bw = extranet_download_bw
+        self.total_qps = total_qps
+        self.intranet_qps = intranet_qps
+        self.extranet_qps = extranet_qps
+
+
+class GetUserQosInfoResult(RequestResult, UserQosInfo):
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        UserQosInfo.__init__(self)
+
+
+class GetBucketQosInfoResult(RequestResult, BucketQosInfo):
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        BucketQosInfo.__init__(self)
+
+
+class BucketUserQos(object):
+    """用户服务质量。
+    :param int storage_capacity: 容量大小，单位GB
+    """
+
+    def __init__(self, storage_capacity=None):
+        self.storage_capacity = storage_capacity
+
+
+class GetBucketUserQosResult(RequestResult, BucketUserQos):
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        BucketUserQos.__init__(self)
+
+
+ASYNC_FETCH_TASK_STATE_RUNNING = 'Running'
+ASYNC_FETCH_TASK_STATE_RETRY = 'Retry'
+ASYNC_FETCH_TASK_STATE_FETCH_SUCCESS_CALLBACK_FAILED = 'FetchSuccessCallbackFailed'
+ASYNC_FETCH_TASK_STATE_FAILED = 'Failed'
+ASYNC_FETCH_TASK_STATE_SUCCESS = 'Success'
+
+
+class AsyncFetchTaskConfiguration(object):
+    """异步获取文件到bucket到任务配置项
+
+    :param url: 源文件url
+    :type url: str
+
+    :param object_name: 文件的名称。
+    :type task_state: str
+
+    :param host: 文件所在服务器的host，如果不指定则会根据url解析填充。
+    :type host: str
+
+    :param content_md5: 指定校验源文件的md5
+    :type content_md5: str
+
+    :param callback: 指定fetch成功知乎回调给用户的引用服务器，如果不指定则不回调。
+            callback格式与OSS上传回调的请求头callback一致，详情见官网。
+    :type callback: str
+
+    :param ignore_same_key: 默认为True表示如果文件已存在则忽略本次任务，api调用将会报错。如果为False，则会覆盖已存在的object。
+    :type ignore_same_key: bool
+    """
+
+    def __init__(self,
+                 url,
+                 object_name,
+                 host=None,
+                 content_md5=None,
+                 callback=None,
+                 ignore_same_key=None):
+        self.url = url
+        self.object_name = object_name
+        self.host = host
+        self.content_md5 = content_md5
+        self.callback = callback
+        self.ignore_same_key = ignore_same_key
+
+
+class PutAsyncFetchTaskResult(RequestResult):
+    def __init__(self, resp, task_id=None):
+        RequestResult.__init__(self, resp)
+        self.task_id = task_id
+
+
+class GetAsyncFetchTaskResult(RequestResult):
+    """获取异步获取文件到bucket的任务的返回结果
+
+    :param task_id: 任务id
+    :type task_id: str
+
+    :param task_state: 取值范围：oss2.models.ASYNC_FETCH_TASK_STATE_RUNNING, oss2.models.ASYNC_FETCH_TASK_STATE_RETRY, 
+            oss2.models.ASYNC_FETCH_TASK_STATE_FETCH_SUCCESS_CALLBACK_FAILED, oss2.models.ASYNC_FETCH_TASK_STATE_FAILED, 
+            oss2.models.ASYNC_FETCH_TASK_STATE_SUCCESS。
+    :type task_state: str
+
+    :param error_msg: 错误信息
+    :type error_msg: str
+
+    :param task_config: 任务配置信息
+    :type task_config: class:`AsyncFetchTaskConfiguration <oss2.models.AsyncFetchTaskConfiguration>`
+    """
+
+    def __init__(self, resp,
+                 task_id=None,
+                 task_state=None,
+                 error_msg=None,
+                 task_config=None):
+        RequestResult.__init__(self, resp)
+        self.task_id = task_id
+        self.task_state = task_state
+        self.error_msg = error_msg
+        self.task_config = task_config
+
+
+INVENTORY_INCLUDED_OBJECT_VERSIONS_CURRENT = "Current"
+INVENTORY_INCLUDED_OBJECT_VERSIONS_ALL = "All"
+
+INVENTORY_FREQUENCY_DAILY = "Daily"
+INVENTORY_FREQUENCY_WEEKLY = "Weekly"
+
+INVENTORY_FORMAT_CSV = "CSV"
+
+FIELD_SIZE = "Size"
+FIELD_LAST_MODIFIED_DATE = "LastModifiedDate"
+FIELD_STORAG_CLASS = "StorageClass"
+FIELD_ETAG = "ETag"
+FIELD_IS_MULTIPART_UPLOADED = "IsMultipartUploaded"
+FIELD_ENCRYPTION_STATUS = "EncryptionStatus"
+
+
+class InventoryConfiguration(object):
+    """清单配置    
+
+    :param str inventory_id: 清单的识别id
+    :type inventory_id: str
+
+    :param is_enabled: 是否生效
+    :type is_enabled: bool
+
+    :param include_object_versions: 包含的对象版本，
+        取值可以是 INVENTORY_INCLUDE_OBJECT_VERSIONS_CURRENT 或者 INVENTORY_INCLUDE_OBJECT_VERSIONS_ALL.
+    :type include_object_versions: str
+
+    :param inventory_filter: 清单的过滤器
+    :type inventory_filter: class:`InventoryFilter <oss2.models.InventoryFilter>`
+
+    :param inventory_destination: 清单的目标地址
+    :type inventory_destination: class:`InventoryDestination <oss2.models.InventoryDestination>`
+    
+    :param inventory_schedule: 清单的生成周期
+    :type inventory_schedule: class:`InventoryDestination <oss2.models.InventorySchedule>`
+
+    :param optional_fields: 清单中包含的字段
+    :type optional_fields: str
+    """
+
+    def __init__(self,
+                 inventory_id=None,
+                 is_enabled=None,
+                 included_object_versions=None,
+                 inventory_filter=None,
+                 inventory_destination=None,
+                 inventory_schedule=None,
+                 optional_fields=None):
+        self.inventory_id = inventory_id
+        self.is_enabled = is_enabled
+        self.included_object_versions = included_object_versions
+        self.inventory_filter = inventory_filter
+        self.inventory_destination = inventory_destination
+        self.inventory_schedule = inventory_schedule
+        self.optional_fields = optional_fields or []
+
+
+class InventoryFilter(object):
+    """清单过滤器   
+
+    :param prefix: 清单筛选的前缀, 指定前缀后，清单将筛选出符合前缀设置的对象。
+    :type prefix: str
+    """
+
+    def __init__(self, prefix=None):
+        self.prefix = prefix
+
+
+class InventorySchedule(object):
+    """清单的生成周期
+
+    :param frequency: 清单的生成周期，可以是oss2.models.INVENTORY_FREQUENCY_DAILY 或者 oss2.models.INVENTORY_FREQUENCY_WEEKLY
+    :type frequency: str
+    """
+
+    def __init__(self, frequency):
+        self.frequency = frequency
+
+
+class InventoryDestination(object):
+    """清单的接收目的地址
+
+    :param bucket_destination: OSS Bucket作为目的地，需要配置的OSS Bucket信息。
+    :type bucket_destination: class:`InventoryBucketDestination <oss2.models.InventoryBucketDestination>`
+    """
+
+    def __init__(self, bucket_destination=None):
+        self.bucket_destination = bucket_destination
+
+
+class InventoryBucketDestination(object):
+    """OSS Bucket作为清单目的地的配置
+
+    :param account_id: 接收方的account id
+    :type account_id: class:`InventoryBucketDestination <oss2.models.InventoryBucketDestination>`
+    
+    :param role_arn: 接收方的ram role arn
+    :type role_arn: str
+    
+    :param bucket: OSS Bucket名称
+    :type bucket: str
+
+    :param inventory_format: 清单格式，可以是 oss2.models.INVENTORY_FORMAT_CSV。
+    :type inventory_format: str
+    
+    :param prefix: 清单文件的存储路径前缀
+    :type prefix: str
+    
+    :param sse_kms_encryption: 服务端使用kms作为清单的加密项
+    :type sse_kms_encryption: class:`InventoryServerSideEncryptionKMS <oss2.models.InventoryServerSideEncryptionKMS>`
+
+    :param sse_oss_encryption: OSS服务端为清单提供加密支持。
+    :type sse_oss_encryption: class:`InventoryServerSideEncryptionOSS <oss2.models.InventoryServerSideEncryptionOSS>`
+    """
+
+    def __init__(self,
+                 account_id=None,
+                 role_arn=None,
+                 bucket=None,
+                 inventory_format=None,
+                 prefix=None,
+                 sse_kms_encryption=None,
+                 sse_oss_encryption=None):
+        if all((sse_kms_encryption, sse_oss_encryption)):
+            raise ClientError(
+                'only one encryption method between sse_kms_encryption and sse_oss_encryption can be chosen.')
+
+        self.account_id = account_id
+        self.role_arn = role_arn
+        self.bucket = bucket
+        self.inventory_format = inventory_format
+        self.prefix = prefix
+        self.sse_kms_encryption = sse_kms_encryption
+        self.sse_oss_encryption = sse_oss_encryption
+
+
+class InventoryServerSideEncryptionKMS(object):
+    """服务端使用kms加密清单的加密项。
+
+    :param key_id: kms key id
+    :type key_id: str
+    """
+
+    def __init__(self, key_id):
+        self.key_id = key_id
+
+
+class InventoryServerSideEncryptionOSS(object):
+    """OSS服务端加密清单的加密项。
+
+    """
+    pass
+
+
+class GetInventoryConfigurationResult(RequestResult, InventoryConfiguration):
+    """获取清单配置的操作返回结果
+    """
+
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        InventoryConfiguration.__init__(self)
+
+
+class ListInventoryConfigurationsResult(RequestResult):
+    """列出清单配置的操作返回结果
+
+    :param inventory_configurations: list of class:`InventoryConfiguration <oss2.models.InventoryConfiguration>`
+    :type inventory_configurations: list 
+
+    :param is_truncated: 罗列结果是否是截断的， true: 本地罗列结果并不完整, False: 所有清单配置项已经罗列完毕。
+    :type is_truncated: bool 
+
+    :param continuaiton_token: 本地罗列操作所携带的continuaiton_token
+    :type continuaiton_token: str
+
+    :param next_continuation_token: 下一个罗列操作携带的token
+    :type next_continuation_token: str
+    """
+
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        self.inventory_configurations = []
+        self.is_truncated = None
+        self.continuaiton_token = None
+        self.next_continuation_token = None
+
+
+RESTORE_TIER_EXPEDITED = 'Expedited'
+RESTORE_TIER_STANDARD = 'Standard'
+RESTORE_TIER_BULK = 'Bulk'
+
+
+class ResotreJobParameters(object):
+    """冷归档类型（ColdArchive）文件的解冻优先级配置。
+
+    :param tier: 解冻优先级, 取值范围: 
+        oss2.models.RESTORE_TIER_EXPEDITED: 1个小时之内解冻完成。
+        oss2.models.RESTORE_TIER_STANDARD: 5小时之内解冻完成。
+        oss2.models.RESTORE_TIER_BULK: 10小时之内解冻完成。
+    :type tier: str
+    """
+
+    def __init__(self, tier):
+        self.tier = tier
+
+
+class RestoreConfiguration(object):
+    """Archive, ColdArchive类型文件的解冻配置
+
+    :param days: 解冻之后保持解冻状态的天数。
+    :type days: int
+
+    :param job_parameters: 解冻优先级配置, 解冻冷归档（ColdArchive）类型的文件才需要此配置。如果不配置此项，
+            解冻优先级默认为 oss2.models.RESTORE_TIER_STANDARD: 5小时之内解冻完成。
+    :type job_parameters: class:`ResotreJobParameters <oss2.models.ResotreJobParameters>`
+    """
+
+    def __init__(self, days, job_parameters=None):
+        self.days = days
+        self.job_parameters = job_parameters

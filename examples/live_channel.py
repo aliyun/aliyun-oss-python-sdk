@@ -103,5 +103,9 @@ bucket.post_vod_playlist(channel_name,
                          start_time = start_time,
                          end_time = end_time)
 
+# 如果想查看指定时间段内的播放列表，可以使用get_vod_playlist
+result = bucket.get_vod_playlist(channel_name, start_time=start_time, end_time=end_time)
+print("playlist:", result.playlist)
+
 # 如果一个直播频道已经不打算再使用了，那么可以调用delete_live_channel来删除频道。
 bucket.delete_live_channel(channel_name)
