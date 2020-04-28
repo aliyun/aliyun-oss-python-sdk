@@ -152,20 +152,16 @@ def resumable_download(bucket, key, filename,
                                                            multiget_threshold, part_size, num_threads))
     multiget_threshold = defaults.get(multiget_threshold, defaults.multiget_threshold)
 
-    valid_headers = _populate_valid_headers(headers, [OSS_REQUEST_PAYER])
+    valid_headers = _populate_valid_headers(headers, [OSS_REQUEST_PAYER, OSS_TRAFFIC_LIMIT])
     result = bucket.head_object(key, params=params, headers=valid_headers)
     logger.debug("The size of object to download is: {0}, multiget_threshold: {1}".format(result.content_length,
                                                                                           multiget_threshold))
     if result.content_length >= multiget_threshold:
-        downloader = _ResumableDownloader(bucket, key, filename, _ObjectInfo.make(result),
-                                          part_size=part_size,
-                                          progress_callback=progress_callback,
-                                          num_threads=num_threads,
-                                          store=store,
-                                          params=params)
+        downloader = _ResumableDownloader(bucket, key, filename, _ObjectInfo.make(result), part_size=part_size,
+                                          progress_callback=progress_callback, num_threads=num_threads, store=store,
+                                          params=params, headers=valid_headers)
         downloader.download(result.server_crc)
     else:
-        valid_headers = _populate_valid_headers(headers, [OSS_REQUEST_PAYER, OSS_TRAFFIC_LIMIT])
         bucket.get_object_to_file(key, filename, progress_callback=progress_callback, params=params,
                                   headers=valid_headers)
 
@@ -281,9 +277,9 @@ class _ResumableOperation(object):
         self.__store = store
 
         if versionid is None:
-            self.__record_key = make_store_key(bucket.bucket_name, self.key, self._abspath)
+            self.__record_key = self.__store.make_store_key(bucket.bucket_name, self.key, self._abspath)
         else:
-            self.__record_key = make_store_key(bucket.bucket_name, self.key, self._abspath, versionid)
+            self.__record_key = self.__store.make_store_key(bucket.bucket_name, self.key, self._abspath, versionid)
 
         logger.debug("Init _ResumableOperation, record_key: {0}".format(self.__record_key))
 
@@ -646,7 +642,7 @@ class _ResumableUploader(_ResumableOperation):
                                        'encrypted_iv': b64encode_as_string(material.encrypted_iv),
                                        'mat_desc': material.mat_desc}
             else:
-                upload_id = self.bucket.init_multipart_upload(self.key, headers=self.__headers).upload_id
+                upload_id = self.bucket.init_multipart_upload(self.key, self.__headers, params).upload_id
 
             record = {'op_type': self.__op, 'upload_id': upload_id, 'file_path': self._abspath, 'size': self.size,
                       'mtime': self.__mtime, 'bucket': self.bucket.bucket_name, 'key': self.key, 'part_size': part_size}
@@ -692,68 +688,63 @@ class _ResumableUploader(_ResumableOperation):
         self.__finished_parts = self.__get_finished_parts()
         self.__finished_size = sum(p.size for p in self.__finished_parts)
 
+    def __get_finished_parts(self):
+        parts = []
+        for part in PartIterator(self.bucket, self.key, self.__upload_id, headers=self.__headers):
+            parts.append(part)
 
-def __get_finished_parts(self):
-    parts = []
-    for part in PartIterator(self.bucket, self.key, self.__upload_id):
-        parts.append(part)
+        return parts
 
-    return parts
+    def __upload_exists(self, upload_id):
+        try:
+            list(iterators.PartIterator(self.bucket, self.key, upload_id, '0', max_parts=1, headers=self.__headers))
+        except exceptions.NoSuchUpload:
+            return False
+        else:
+            return True
 
+    def __file_changed(self, record):
+        return record['mtime'] != self.__mtime or record['size'] != self.size
 
-def __upload_exists(self, upload_id):
-    try:
-        list(iterators.PartIterator(self.bucket, self.key, upload_id, '0', max_parts=1))
-    except exceptions.NoSuchUpload:
-        return False
-    else:
+    def __get_parts_to_upload(self, parts_uploaded):
+        all_parts = _split_to_parts(self.size, self.__part_size)
+        if not parts_uploaded:
+            return all_parts
+
+        all_parts_map = dict((p.part_number, p) for p in all_parts)
+
+        for uploaded in parts_uploaded:
+            if uploaded.part_number in all_parts_map:
+                del all_parts_map[uploaded.part_number]
+
+        return all_parts_map.values()
+
+    def __is_record_sane(self, record):
+        try:
+            if record['op_type'] != self.__op:
+                logger.error('op_type invalid, op_type in record:{0} is invalid'.format(record['op_type']))
+                return False
+
+            for key in ('upload_id', 'file_path', 'bucket', 'key'):
+                if not isinstance(record[key], str):
+                    logger.error('Type Error, {0} in record is not a string type: {1}'.format(key, record[key]))
+                    return False
+
+            for key in ('size', 'part_size'):
+                if not isinstance(record[key], int):
+                    logger.error('Type Error, {0} in record is not an integer type: {1}'.format(key, record[key]))
+                    return False
+
+            if not isinstance(record['mtime'], int) and not isinstance(record['mtime'], float):
+                logger.error(
+                    'Type Error, mtime in record is not a float or an integer type: {0}'.format(record['mtime']))
+                return False
+
+        except KeyError as e:
+            logger.error('Key not found: {0}'.format(e.args))
+            return False
+
         return True
-
-
-def __file_changed(self, record):
-    return record['mtime'] != self.__mtime or record['size'] != self.size
-
-
-def __get_parts_to_upload(self, parts_uploaded):
-    all_parts = _split_to_parts(self.size, self.__part_size)
-    if not parts_uploaded:
-        return all_parts
-
-    all_parts_map = dict((p.part_number, p) for p in all_parts)
-
-    for uploaded in parts_uploaded:
-        if uploaded.part_number in all_parts_map:
-            del all_parts_map[uploaded.part_number]
-
-    return all_parts_map.values()
-
-
-def __is_record_sane(self, record):
-    try:
-        if record['op_type'] != self.__op:
-            logger.error('op_type invalid, op_type in record:{0} is invalid'.format(record['op_type']))
-            return False
-
-        for key in ('upload_id', 'file_path', 'bucket', 'key'):
-            if not isinstance(record[key], str):
-                logger.error('Type Error, {0} in record is not a string type: {1}'.format(key, record[key]))
-                return False
-
-        for key in ('size', 'part_size'):
-            if not isinstance(record[key], int):
-                logger.error('Type Error, {0} in record is not an integer type: {1}'.format(key, record[key]))
-                return False
-
-        if not isinstance(record['mtime'], int) and not isinstance(record['mtime'], float):
-            logger.error(
-                'Type Error, mtime in record is not a float or an integer type: {0}'.format(record['mtime']))
-            return False
-
-    except KeyError as e:
-        logger.error('Key not found: {0}'.format(e.args))
-        return False
-
-    return True
 
 
 _UPLOAD_TEMP_DIR = '.py-oss-upload'
@@ -845,16 +836,15 @@ class ResumableDownloadStore(_ResumableStoreBase):
     def __init__(self, root=None, dir=None):
         super(ResumableDownloadStore, self).__init__(root or os.path.expanduser('~'), dir or _DOWNLOAD_TEMP_DIR)
 
+    @staticmethod
+    def make_store_key(bucket_name, key, filename, version_id=None):
+        filepath = _normalize_path(filename)
 
-def make_store_key(bucket_name, key, filename, version_id=None):
-    filepath = _normalize_path(filename)
-    oss_pathname = None
-
-    if version_id is None:
-        oss_pathname = 'oss://{0}/{1}'.format(bucket_name, key)
-    else:
-        oss_pathname = 'oss://{0}/{1}?versionid={2}'.format(bucket_name, key, version_id)
-    return utils.md5_string(oss_pathname) + '--' + utils.md5_string(filepath)
+        if version_id is None:
+            oss_pathname = 'oss://{0}/{1}'.format(bucket_name, key)
+        else:
+            oss_pathname = 'oss://{0}/{1}?versionid={2}'.format(bucket_name, key, version_id)
+        return utils.md5_string(oss_pathname) + '--' + utils.md5_string(filepath)
 
 
 def make_upload_store(root=None, dir=None):

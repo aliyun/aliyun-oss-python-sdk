@@ -263,6 +263,7 @@ def make_crc_adapter(data, init_crc=0, discard=0):
     elif hasattr(data, '__iter__'):
         if discard:
             raise ClientError('Iterator adapter does not support discard bytes')
+        return _IterableAdapter(data, crc_callback=Crc64(init_crc))
     else:
         raise ClientError('{0} is not a file object, nor an iterator'.format(data.__class__.__name__))
 
@@ -352,9 +353,8 @@ class _IterableAdapter(object):
         content = next(self.iter)
         self.offset += len(content)
 
-        content = _invoke_cipher_callback(self.cipher_callback, content)
-
         _invoke_crc_callback(self.crc_callback, content)
+        content = _invoke_cipher_callback(self.cipher_callback, content)
 
         return content
 
@@ -496,9 +496,8 @@ class _BytesAndFileAdapter(object):
 
         _invoke_progress_callback(self.progress_callback, min(self.offset, self.size), self.size)
 
-        content = _invoke_cipher_callback(self.cipher_callback, content)
-
         _invoke_crc_callback(self.crc_callback, content)
+        content = _invoke_cipher_callback(self.cipher_callback, content)
 
         return content
 

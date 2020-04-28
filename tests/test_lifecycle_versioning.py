@@ -62,6 +62,8 @@ class TestLifecycleVersioning(OssTestCase):
         bucket.put_bucket_lifecycle(lifecycle)
 
         lifecycle = bucket.get_bucket_lifecycle()
+        for rule in lifecycle.rules:
+            print rule.__dict__
         self.assertEquals(5, len(lifecycle.rules))
 
         bucket.delete_bucket()

@@ -181,7 +181,11 @@ class TestCryptoObject(OssTestCase):
         result = crypto_bucket.put_object(key, content)
         self.assertTrue(result.status == 200)
 
-        self.assertRaises(ClientError, self.bucket.get_object, key)
+        # self.assertRaises(ClientError, self.bucket.get_object, key)
+        result = self.bucket.get_object(key)
+        content_raw = result.read()
+        self.assertEqual(len(content), len(content_raw))
+        self.assertNotEqual(content, content_raw)
 
     # 测试使用CryptoBucket类读取Bucket类实例上传的对象
     def test_get_normal_object_by_crypto_bucket(self):

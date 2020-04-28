@@ -79,7 +79,7 @@ class TestObject(OssTestCase):
         bucket.delete_bucket()
 
     def test_restore_object_with_config(self):
-        from oss2.models import (ResotreJobParameters, RestoreConfiguration, RESTORE_TIER_EXPEDITED,  
+        from oss2.models import (ResotreJobParameters, RestoreConfiguration, RESTORE_TIER_EXPEDITED,
                                  RESTORE_TIER_STANDARD, RESTORE_TIER_BULK)
 
         endpoint = "http://oss-ap-southeast-2.aliyuncs.com"
@@ -92,13 +92,14 @@ class TestObject(OssTestCase):
 
         for index in range(0, len(tiers)):
             object_name = prefix + str(index) + ".txt"
-            bucket.put_object(object_name, '123', headers={"x-oss-storage-class": oss2.BUCKET_STORAGE_CLASS_COLD_ARCHIVE})
+            bucket.put_object(object_name, '123',
+                              headers={"x-oss-storage-class": oss2.BUCKET_STORAGE_CLASS_COLD_ARCHIVE})
 
             meta = bucket.head_object(object_name)
             self.assertEqual(oss2.BUCKET_STORAGE_CLASS_COLD_ARCHIVE, meta.resp.headers['x-oss-storage-class'])
 
             job_parameters = ResotreJobParameters(tiers[index])
-            restore_config= oss2.models.RestoreConfiguration(days=5, job_parameters=job_parameters)
+            restore_config = oss2.models.RestoreConfiguration(days=5, job_parameters=job_parameters)
             result = bucket.restore_object(object_name, input=restore_config)
             self.assertEqual(tiers[index], result.resp.headers.get('x-oss-object-restore-priority'))
 
@@ -110,7 +111,7 @@ class TestObject(OssTestCase):
         bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), endpoint, bucket_name)
         bucket.create_bucket()
 
-        object_name =  "test_restore_object_with_wrong_configuration.txt"
+        object_name = "test_restore_object_with_wrong_configuration.txt"
         bucket.put_object(object_name, '123', headers={"x-oss-storage-class": oss2.BUCKET_STORAGE_CLASS_COLD_ARCHIVE})
         meta = bucket.head_object(object_name)
         self.assertEqual(oss2.BUCKET_STORAGE_CLASS_COLD_ARCHIVE, meta.resp.headers['x-oss-storage-class'])
@@ -123,14 +124,19 @@ class TestObject(OssTestCase):
     def test_restore_archive_object_with_job_parameters(self):
         from oss2.models import ResotreJobParameters, RestoreConfiguration, RESTORE_TIER_BULK
 
+        endpoint = "http://oss-ap-southeast-2.aliyuncs.com"
+        bucket_name = OSS_BUCKET + "-test-restore-3"
+        bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), endpoint, bucket_name)
+        bucket.create_bucket()
+
         object_name = "test_restore_archive_object_with_job_parameters.txt"
-        self.bucket.put_object(object_name, '123', headers={"x-oss-storage-class": oss2.BUCKET_STORAGE_CLASS_ARCHIVE})
-        meta = self.bucket.head_object(object_name)
+        bucket.put_object(object_name, '123', headers={"x-oss-storage-class": oss2.BUCKET_STORAGE_CLASS_ARCHIVE})
+        meta = bucket.head_object(object_name)
         self.assertEqual(oss2.BUCKET_STORAGE_CLASS_ARCHIVE, meta.resp.headers['x-oss-storage-class'])
 
         job_parameters = ResotreJobParameters(RESTORE_TIER_BULK)
         restore_config = oss2.models.RestoreConfiguration(days=5, job_parameters=job_parameters)
-        self.assertRaises(oss2.exceptions.MalformedXml, self.bucket.restore_object, object_name, input=restore_config)
+        self.assertRaises(oss2.exceptions.MalformedXml, bucket.restore_object, object_name, input=restore_config)
 
     def test_last_modified_time(self):
         key = self.random_key()
@@ -579,7 +585,7 @@ class TestObject(OssTestCase):
         self.assertEqual(result.status, 200)
 
         self.bucket.delete_object(key)
-    
+
     def test_put_object_with_sign_url_slash_safe(self):
         key = 'url上传测试斜杠保护+/二层目录+/测+试斜杠保护.object'
         slash_safe_key = urlquote('url上传测试斜杠保护+') + '/' + urlquote('二层目录+') + '/' + urlquote('测+试斜杠保护.object')
@@ -611,7 +617,7 @@ class TestObject(OssTestCase):
 
         result = self.bucket.head_object(key)
         self.assertEqual(result.content_length, 1024)
-        
+
         result = self.bucket.delete_object(key)
         self.assertEqual(result.status, 204)
 
@@ -740,7 +746,7 @@ class TestObject(OssTestCase):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket_name = OSS_BUCKET + "-test-get-object-meta"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
-        
+
         self.assertRaises(NoSuchBucket, bucket.get_object_meta, key)
 
         # object no exist
@@ -940,7 +946,7 @@ class TestObject(OssTestCase):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket_name = OSS_BUCKET + "-test-get-symlink"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
-        
+
         self.assertRaises(NoSuchBucket, bucket.get_symlink, symlink)
 
         # object no exist
@@ -1201,7 +1207,7 @@ class TestObject(OssTestCase):
         rule.add(128 * 'a', 256 * 'b')
         rule.add('+-/', ':+:')
         self.assertEqual('key1=value1' in rule.to_query_string(), True)
-        self.assertEqual((128*'a' + '=' + 256*'b') in rule.to_query_string(), True)
+        self.assertEqual((128 * 'a' + '=' + 256 * 'b') in rule.to_query_string(), True)
         self.assertEqual('%2B-/=%3A%2B%3A' in rule.to_query_string(), True)
 
         headers = dict()
@@ -1399,7 +1405,7 @@ class TestObject(OssTestCase):
         key = self.random_key()
         value = '测试'
         byte = to_bytes(value)
-        headers={'x-oss-meta-unicode': byte}
+        headers = {'x-oss-meta-unicode': byte}
         self.bucket.put_object(key, 'a novel', headers=headers)
         result = self.bucket.head_object(key)
         self.assertEqual(result.status, 200)
@@ -1410,7 +1416,7 @@ class TestObject(OssTestCase):
             b_str = newstr.encode('iso-8859-1')
         self.assertEqual(to_string(b_str), value)
 
-    
+
 class TestSign(TestObject):
     """
         这个类主要是用来增加测试覆盖率，当环境变量为oss2.AUTH_VERSION_2，则重新设置为oss2.AUTH_VERSION_1再运行TestObject，反之亦然

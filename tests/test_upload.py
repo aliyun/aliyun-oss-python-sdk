@@ -357,13 +357,15 @@ class TestUpload(OssTestCase):
         result = bucket.get_object(key)
         self.assertIsNone(result.resp.headers.get('Content-MD5'))
 
-        params={'sequential' : ''}
-        oss2.resumable_upload(bucket, key, pathname, multipart_threshold=200 * 1024, part_size=None, params=params)
+        params = {'sequential': ''}
+        oss2.resumable_upload(bucket, key, pathname, multipart_threshold=200 * 1024, part_size=None, num_threads=1,
+                              params=params)
         result = bucket.get_object(key)
         self.assertIsNotNone(result.resp.headers.get('Content-MD5'))
 
         bucket.delete_object(key)
         bucket.delete_bucket()
+
 
 if __name__ == '__main__':
     unittest.main()

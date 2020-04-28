@@ -444,12 +444,6 @@ class OssTestCase(unittest.TestCase):
         self.previous = -1
         self.temp_files = []
 
-        dest = os.path.join(os.path.expanduser('~'), oss2.crypto._LOCAL_RSA_TMP_DIR)
-
-        oss2.utils.makedir_p(dest)
-        shutil.copy('tests/oss-test.private_key.pem', dest)
-        shutil.copy('tests/oss-test.public_key.pem', dest)
-
     def tearDown(self):
         for temp_file in self.temp_files:
             os.remove(temp_file)

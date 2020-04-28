@@ -730,7 +730,7 @@ def parse_get_bucket_lifecycle(result, body):
             noncurrent_version_expiration=noncurrent_version_expiration,
             noncurrent_version_sotrage_transitions=noncurrent_version_sotrage_transitions
         )
-    result.rules.append(rule)
+        result.rules.append(rule)
 
     return result
 
