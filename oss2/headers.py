@@ -30,6 +30,24 @@ OSS_SYMLINK_TARGET = "x-oss-symlink-target"
 OSS_SERVER_SIDE_ENCRYPTION = "x-oss-server-side-encryption"
 OSS_SERVER_SIDE_ENCRYPTION_KEY_ID = "x-oss-server-side-encryption-key-id"
 
+OSS_CLIENT_SIDE_ENCRYPTION_KEY = "x-oss-meta-client-side-encryption-key"
+OSS_CLIENT_SIDE_ENCRYPTION_START = "x-oss-meta-client-side-encryption-start"
+OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG = "x-oss-meta-client-side-encryption-cek-alg"
+OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG = "x-oss-meta-client-side-encryption-wrap-alg"
+OSS_CLIENT_SIDE_ENCRYTPION_MATDESC = "x-oss-meta-client-side-encryption-matdesc"
+OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_LENGTH = "x-oss-meta-client-side-encryption-unencrypted-content-length"
+OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_MD5 = "x-oss-meta-client-side-encryption-unencrypted-content-md5"
+OSS_CLIENT_SIDE_ENCRYPTION_DATA_SIZE = "x-oss-meta-client-side-encryption-data-size"
+OSS_CLIENT_SIDE_ENCRYPTION_PART_SIZE = "x-oss-meta-client-side-encryption-part-size"
+
+DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY = "x-oss-meta-oss-crypto-key"
+DEPRECATED_CLIENT_SIDE_ENCRYPTION_START = "x-oss-meta-oss-crypto-start"
+DEPRECATED_CLIENT_SIDE_ENCRYPTION_CEK_ALG = "x-oss-meta-oss-cek-alg"
+DEPRECATED_CLIENT_SIDE_ENCRYPTION_WRAP_ALG = "x-oss-meta-oss-wrap-alg"
+DEPRECATED_CLIENT_SIDE_ENCRYTPION_MATDESC = "x-oss-meta-oss-crypto-matdesc"
+DEPRECATED_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_LENGTH = "x-oss-meta-oss-crypto-unencrypted-content-length"
+DEPRECATED_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_MD5 = "x-oss-meta-oss-crypto-unencrypted-content-md5"
+
 OSS_OBJECT_TAGGING = "x-oss-tagging"
 OSS_OBJECT_TAGGING_COPY_DIRECTIVE = "x-oss-tagging-directive"
 
@@ -37,10 +55,14 @@ OSS_REQUEST_PAYER = 'x-oss-request-payer'
 
 OSS_TRAFFIC_LIMIT = 'x-oss-traffic-limit'
 
+RSA_NONE_PKCS1Padding_WRAP_ALGORITHM = 'RSA/NONE/PKCS1Padding'
+RSA_NONE_OAEPWithSHA1AndMGF1Padding = 'RSA/NONE/OAEPWithSHA-1AndMGF1Padding'
+KMS_ALI_WRAP_ALGORITHM = 'KMS/ALICLOUD'
+OSS_ENCRYPTION_CLIENT = 'OssEncryptionClient'
 OSS_TASK_ID = 'x-oss-task-id'
 
 class RequestHeader(dict):
-    def __init__(self, *arg, **kw): 
+    def __init__(self, *arg, **kw):
         super(RequestHeader, self).__init__(*arg, **kw)
 
     def set_server_side_encryption(self, algorithm=None, cmk_id=None):

@@ -23,7 +23,6 @@ try:
 except NameError:
     xrange = range
 
-
 is_py2 = (sys.version_info[0] == 2)
 is_py3 = (sys.version_info[0] == 3)
 
@@ -59,8 +58,8 @@ class TestUtils(OssTestCase):
         bucket = oss2.Bucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name)
 
         bucket_name = "hello-"
-        self.assertRaises(oss2.exceptions.ClientError, oss2.Bucket, oss2.Auth(access_key_id, access_key_secret), 
-            endpoint, bucket_name)
+        self.assertRaises(oss2.exceptions.ClientError, oss2.Bucket, oss2.Auth(access_key_id, access_key_secret),
+                          endpoint, bucket_name)
 
     def test_compat(self):
         # from unicode
@@ -135,27 +134,6 @@ class TestUtils(OssTestCase):
         progress_adapter = oss2.utils.make_progress_adapter(crc_adapter, progress_callback)
 
         self.assertEqual(progress_adapter.len, 3)
-
-    def test_crc_and_cipher_adapter(self):
-
-        crc_adapter = oss2.utils.make_crc_adapter('sss')
-        cipher_adapter = oss2.utils.make_cipher_adapter(crc_adapter,
-                    partial(oss2.utils.AESCipher.encrypt ,oss2.utils.AESCipher(b'1' * 32, 1)))
-
-        content = cipher_adapter.read()
-
-        self.assertEqual(cipher_adapter.crc, 10301458956098309249)
-
-        with io.BytesIO(oss2.to_bytes('sss')) as f:
-            crc_adapter = oss2.utils.make_crc_adapter(f)
-            cipher_adapter = oss2.utils.make_cipher_adapter(crc_adapter,
-                     partial(oss2.utils.AESCipher.encrypt, oss2.utils.AESCipher(b'1' * 32, 1)))
-
-            content = cipher_adapter.read()
-
-            self.assertEqual(cipher_adapter.crc, 10301458956098309249)
-
-
 
     def test_default_logger_basic(self):
         # verify default logger
@@ -288,7 +266,7 @@ class TestUtils(OssTestCase):
         time_val = 1518138061
 
         saved_locale = locale.setlocale(locale.LC_TIME)
-        
+
         if os.name == 'nt':
             locale.setlocale(locale.LC_TIME, '')
         else:

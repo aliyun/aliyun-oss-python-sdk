@@ -12,13 +12,10 @@ import re
 import xml.etree.ElementTree as ElementTree
 from xml.parsers import expat
 
-
 from .compat import to_string
 from .headers import *
 
-
 _OSS_ERROR_TO_EXCEPTION = {}  # populated at end of module
-
 
 OSS_CLIENT_ERROR_STATUS = -1
 OSS_REQUEST_ERROR_STATUS = -2
@@ -49,13 +46,13 @@ class OssError(Exception):
 
     def __str__(self):
         error = {'status': self.status,
-                 OSS_REQUEST_ID : self.request_id,
+                 OSS_REQUEST_ID: self.request_id,
                  'details': self.details}
         return str(error)
 
     def _str_with_body(self):
         error = {'status': self.status,
-                 OSS_REQUEST_ID : self.request_id,
+                 OSS_REQUEST_ID: self.request_id,
                  'details': self.body}
         return str(error)
 
@@ -79,7 +76,8 @@ class RequestError(OssError):
 
 class InconsistentError(OssError):
     def __init__(self, message, request_id=''):
-        OssError.__init__(self, OSS_INCONSISTENT_ERROR_STATUS, {OSS_REQUEST_ID : request_id}, 'InconsistentError: ' + message, {})
+        OssError.__init__(self, OSS_INCONSISTENT_ERROR_STATUS, {OSS_REQUEST_ID: request_id},
+                          'InconsistentError: ' + message, {})
 
     def __str__(self):
         return self._str_with_body()
@@ -95,7 +93,7 @@ class OpenApiFormatError(OssError):
 
 class OpenApiServerError(OssError):
     def __init__(self, status, request_id, message, error_code):
-        OssError.__init__(self, status, {OSS_REQUEST_ID : request_id}, '', {'Code': error_code, 'Message': message})
+        OssError.__init__(self, status, {OSS_REQUEST_ID: request_id}, '', {'Code': error_code, 'Message': message})
 
 
 class ServerError(OssError):
@@ -145,6 +143,16 @@ class InvalidDigest(ServerError):
 class InvalidObjectName(ServerError):
     status = 400
     code = 'InvalidObjectName'
+
+
+class NotImplemented(ServerError):
+    status = 400
+    code = 'NotImplemented'
+
+
+class InvalidEncryptionRequest(ServerError):
+    status = 400
+    code = 'InvalidEncryptionRequest'
 
 
 class NoSuchBucket(NotFound):
@@ -238,16 +246,20 @@ class AccessDenied(ServerError):
     status = 403
     code = 'AccessDenied'
 
+
 class NoSuchServerSideEncryptionRule(NotFound):
     status = 404
     code = 'NoSuchServerSideEncryptionRule'
 
+
 class InvalidEncryptionAlgorithmError(ServerError):
     status = 400
-    code = 'InvalidEncryptionAlgorithmError' 
+    code = 'InvalidEncryptionAlgorithmError'
+
 
 class SelectOperationFailed(ServerError):
     code = 'SelectOperationFailed'
+
     def __init__(self, status, code, message):
         self.status = status
         self.code = code
@@ -259,14 +271,17 @@ class SelectOperationFailed(ServerError):
                  'details': self.message}
         return str(error)
 
+
 class SelectOperationClientError(OssError):
     def __init__(self, message, request_id):
-        OssError.__init__(self, OSS_SELECT_CLIENT_ERROR_STATUS, {'x-oss-request-id': request_id}, 'SelectOperationClientError: ' + message, {})
-        
+        OssError.__init__(self, OSS_SELECT_CLIENT_ERROR_STATUS, {'x-oss-request-id': request_id},
+                          'SelectOperationClientError: ' + message, {})
+
     def __str__(self):
-        error = {'x-oss-request-id':self.request_id,
-                'message': self.message}
+        error = {'x-oss-request-id': self.request_id,
+                 'message': self.message}
         return str(error)
+
 
 class SignatureDoesNotMatch(ServerError):
     status = 403
@@ -303,7 +318,6 @@ for klass in _walk_subclasses(ServerError):
 
     if status is not None and code is not None:
         _OSS_ERROR_TO_EXCEPTION[(status, code)] = klass
-
 
 # XML parsing exceptions have changed in Python2.7 and ElementTree 1.3
 if hasattr(ElementTree, 'ParseError'):

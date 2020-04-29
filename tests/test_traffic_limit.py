@@ -176,7 +176,7 @@ class TestTrafficLimit(OssTestCase):
         self.bucket.put_object(key, content)
 
         headers = dict()
-        headers[OSS_TRAFFIC_LIMIT] = str(LIMIT_100KB);  
+        headers[OSS_TRAFFIC_LIMIT] = str(LIMIT_100KB)
 
         # Resumable download object smaller than multiget_threshold with traffic limit setting.
         start_time_sec = int(time.time())

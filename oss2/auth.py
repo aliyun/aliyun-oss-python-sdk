@@ -253,8 +253,7 @@ def v2_uri_encode(raw_text):
         else:
             c = b
 
-        if (c >= 'A' and c <= 'Z') or (c >= 'a' and c <= 'z')\
-            or (c >= '0' and c <= '9') or c in ['_', '-', '~', '.']:
+        if c.isalnum() or c in ['_', '-', '~', '.']:
             res += c
         else:
             res += "%{0:02X}".format(ord(c))

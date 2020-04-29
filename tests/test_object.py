@@ -7,7 +7,7 @@ import json
 import base64
 
 from oss2.exceptions import (ClientError, RequestError, NoSuchBucket, OpenApiServerError,
-        NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable)
+                             NotFound, NoSuchKey, Conflict, PositionNotEqualToLength, ObjectNotAppendable)
 
 from oss2.compat import is_py2, is_py33
 from oss2.models import Tagging, TaggingRule
@@ -60,66 +60,6 @@ class TestObject(OssTestCase):
 
         self.assertRaises(NoSuchKey, self.bucket.get_object, key)
 
-    def test_rsa_crypto_object(self):
-        key = self.random_key('.js')
-        content = random_bytes(1024)
-
-        self.assertRaises(NotFound, self.bucket.head_object, key)
-
-        lower_bound = now() - 60 * 16
-        upper_bound = now() + 60 * 16
-
-        def assert_result(result):
-            self.assertEqual(result.content_length, len(content))
-            self.assertEqual(result.content_type, 'application/javascript')
-            self.assertEqual(result.object_type, 'Normal')
-
-            self.assertTrue(result.last_modified > lower_bound)
-            self.assertTrue(result.last_modified < upper_bound)
-
-            self.assertTrue(result.etag)
-
-        self.rsa_crypto_bucket.put_object(key, content)
-
-        get_result = self.rsa_crypto_bucket.get_object(key)
-        self.assertEqual(get_result.read(), content)
-        assert_result(get_result)
-        self.assertTrue(get_result.client_crc is not None)
-        self.assertTrue(get_result.server_crc is not None)
-        self.assertTrue(get_result.client_crc == get_result.server_crc)
-
-    def test_kms_crypto_object(self):
-        if is_py33:
-            return
-
-        key = self.random_key('.js')
-        content = random_bytes(1024)
-
-        self.assertRaises(NotFound, self.bucket.head_object, key)
-
-        lower_bound = now() - 60 * 16
-        upper_bound = now() + 60 * 16
-
-        def assert_result(result):
-            self.assertEqual(result.content_length, len(content))
-            self.assertEqual(result.content_type, 'application/javascript')
-            self.assertEqual(result.object_type, 'Normal')
-
-            self.assertTrue(result.last_modified > lower_bound)
-            self.assertTrue(result.last_modified < upper_bound)
-
-            self.assertTrue(result.etag)
-
-        self.kms_crypto_bucket.put_object(key, content, headers={'content-md5': oss2.utils.md5_string(content),
-                                                                        'content-length': str(len(content))})
-
-        get_result = self.kms_crypto_bucket.get_object(key)
-        self.assertEqual(get_result.read(), content)
-        assert_result(get_result)
-        self.assertTrue(get_result.client_crc is not None)
-        self.assertTrue(get_result.server_crc is not None)
-        self.assertTrue(get_result.client_crc == get_result.server_crc)
-
     def test_restore_object(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket_name = OSS_BUCKET + "-test-restore-object"
@@ -139,7 +79,7 @@ class TestObject(OssTestCase):
         bucket.delete_bucket()
 
     def test_restore_object_with_config(self):
-        from oss2.models import (ResotreJobParameters, RestoreConfiguration, RESTORE_TIER_EXPEDITED,  
+        from oss2.models import (ResotreJobParameters, RestoreConfiguration, RESTORE_TIER_EXPEDITED,
                                  RESTORE_TIER_STANDARD, RESTORE_TIER_BULK)
 
         endpoint = "http://oss-ap-southeast-2.aliyuncs.com"
@@ -152,13 +92,14 @@ class TestObject(OssTestCase):
 
         for index in range(0, len(tiers)):
             object_name = prefix + str(index) + ".txt"
-            bucket.put_object(object_name, '123', headers={"x-oss-storage-class": oss2.BUCKET_STORAGE_CLASS_COLD_ARCHIVE})
+            bucket.put_object(object_name, '123',
+                              headers={"x-oss-storage-class": oss2.BUCKET_STORAGE_CLASS_COLD_ARCHIVE})
 
             meta = bucket.head_object(object_name)
             self.assertEqual(oss2.BUCKET_STORAGE_CLASS_COLD_ARCHIVE, meta.resp.headers['x-oss-storage-class'])
 
             job_parameters = ResotreJobParameters(tiers[index])
-            restore_config= oss2.models.RestoreConfiguration(days=5, job_parameters=job_parameters)
+            restore_config = oss2.models.RestoreConfiguration(days=5, job_parameters=job_parameters)
             result = bucket.restore_object(object_name, input=restore_config)
             self.assertEqual(tiers[index], result.resp.headers.get('x-oss-object-restore-priority'))
 
@@ -170,7 +111,7 @@ class TestObject(OssTestCase):
         bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), endpoint, bucket_name)
         bucket.create_bucket()
 
-        object_name =  "test_restore_object_with_wrong_configuration.txt"
+        object_name = "test_restore_object_with_wrong_configuration.txt"
         bucket.put_object(object_name, '123', headers={"x-oss-storage-class": oss2.BUCKET_STORAGE_CLASS_COLD_ARCHIVE})
         meta = bucket.head_object(object_name)
         self.assertEqual(oss2.BUCKET_STORAGE_CLASS_COLD_ARCHIVE, meta.resp.headers['x-oss-storage-class'])
@@ -183,14 +124,19 @@ class TestObject(OssTestCase):
     def test_restore_archive_object_with_job_parameters(self):
         from oss2.models import ResotreJobParameters, RestoreConfiguration, RESTORE_TIER_BULK
 
+        endpoint = "http://oss-ap-southeast-2.aliyuncs.com"
+        bucket_name = OSS_BUCKET + "-test-restore-3"
+        bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), endpoint, bucket_name)
+        bucket.create_bucket()
+
         object_name = "test_restore_archive_object_with_job_parameters.txt"
-        self.bucket.put_object(object_name, '123', headers={"x-oss-storage-class": oss2.BUCKET_STORAGE_CLASS_ARCHIVE})
-        meta = self.bucket.head_object(object_name)
+        bucket.put_object(object_name, '123', headers={"x-oss-storage-class": oss2.BUCKET_STORAGE_CLASS_ARCHIVE})
+        meta = bucket.head_object(object_name)
         self.assertEqual(oss2.BUCKET_STORAGE_CLASS_ARCHIVE, meta.resp.headers['x-oss-storage-class'])
 
         job_parameters = ResotreJobParameters(RESTORE_TIER_BULK)
         restore_config = oss2.models.RestoreConfiguration(days=5, job_parameters=job_parameters)
-        self.assertRaises(oss2.exceptions.MalformedXml, self.bucket.restore_object, object_name, input=restore_config)
+        self.assertRaises(oss2.exceptions.MalformedXml, bucket.restore_object, object_name, input=restore_config)
 
     def test_last_modified_time(self):
         key = self.random_key()
@@ -282,9 +228,9 @@ class TestObject(OssTestCase):
         src = self.bucket.get_object(src_key)
         result = self.bucket.put_object(dst_key, src)
 
-        # verify        
+        # verify
         self.assertTrue(src.client_crc is not None)
-        self.assertTrue(src.server_crc is not None)  
+        self.assertTrue(src.server_crc is not None)
         self.assertEqual(src.client_crc, src.server_crc)
         self.assertEqual(result.crc, src.server_crc)
         self.assertEqual(self.bucket.get_object(src_key).read(), self.bucket.get_object(dst_key).read())
@@ -294,7 +240,7 @@ class TestObject(OssTestCase):
             offset = 0
             while offset < len(content):
                 n = min(chunk_size, len(content) - offset)
-                yield content[offset:offset+n]
+                yield content[offset:offset + n]
 
                 offset += n
 
@@ -391,7 +337,7 @@ class TestObject(OssTestCase):
         self.assertEqual(result.read(), content)
 
         # 测试sign_url
-        url = b.sign_url('GET', key, 100, params={'para1':'test'})
+        url = b.sign_url('GET', key, 100, params={'para1': 'test'})
         resp = requests.get(url)
         self.assertEqual(content, resp.content)
 
@@ -468,7 +414,7 @@ class TestObject(OssTestCase):
             self.assertEqual(e.next_position, len(content1))
         else:
             self.assertTrue(False)
-        
+
         result = self.bucket.append_object(key, len(content1), content2, init_crc=result.crc)
         self.assertEqual(result.next_position, len(content1) + len(content2))
         self.assertTrue(result.crc is not None)
@@ -484,24 +430,25 @@ class TestObject(OssTestCase):
 
             resp = requests.get(url)
             self.assertEqual(content, resp.content)
-            
+
     def test_sign_url_with_callback(self):
         key = self.random_key()
-        
+
         def encode_callback(cb_dict):
             cb_str = json.dumps(callback_params).strip()
-            return oss2.compat.to_string(base64.b64encode(oss2.compat.to_bytes(cb_str))) 
-        
-        # callback
+            return oss2.compat.to_string(base64.b64encode(oss2.compat.to_bytes(cb_str)))
+
+            # callback
+
         callback_params = {}
         callback_params['callbackUrl'] = 'http://cbsrv.oss.demo.com'
-        callback_params['callbackBody'] = 'bucket=${bucket}&object=${object}' 
+        callback_params['callbackBody'] = 'bucket=${bucket}&object=${object}'
         encoded_callback = encode_callback(callback_params)
-        
+
         # callback vars
         callback_var_params = {'x:my_var1': 'my_val1', 'x:my_var2': 'my_val2'}
         encoded_callback_var = encode_callback(callback_var_params)
-        
+
         # put with callback
         params = {'callback': encoded_callback, 'callback-var': encoded_callback_var}
         url = self.bucket.sign_url('PUT', key, 60, params=params)
@@ -539,7 +486,8 @@ class TestObject(OssTestCase):
         self.assertEqual(result.content_type, "application/octet-stream")
 
         headers = {'Content-Type': "image/jpeg"}
-        self.assertRaises(oss2.exceptions.SignatureDoesNotMatch, self.bucket.put_object_with_url, url, data, headers=headers)
+        self.assertRaises(oss2.exceptions.SignatureDoesNotMatch, self.bucket.put_object_with_url, url, data,
+                          headers=headers)
 
         url = self.bucket.sign_url('PUT', key, 3600, headers=headers)
         self.assertRaises(oss2.exceptions.SignatureDoesNotMatch, self.bucket.put_object_with_url, url, data)
@@ -637,7 +585,7 @@ class TestObject(OssTestCase):
         self.assertEqual(result.status, 200)
 
         self.bucket.delete_object(key)
-    
+
     def test_put_object_with_sign_url_slash_safe(self):
         key = 'url上传测试斜杠保护+/二层目录+/测+试斜杠保护.object'
         slash_safe_key = urlquote('url上传测试斜杠保护+') + '/' + urlquote('二层目录+') + '/' + urlquote('测+试斜杠保护.object')
@@ -669,7 +617,7 @@ class TestObject(OssTestCase):
 
         result = self.bucket.head_object(key)
         self.assertEqual(result.content_length, 1024)
-        
+
         result = self.bucket.delete_object(key)
         self.assertEqual(result.status, 204)
 
@@ -747,7 +695,7 @@ class TestObject(OssTestCase):
 
         # 更改Content-Type，增加用户自定义元数据
         self.bucket.update_object_meta(key, {'Content-Type': 'whatever',
-                                                     'x-oss-meta-category': 'novel'})
+                                             'x-oss-meta-category': 'novel'})
 
         result = self.bucket.head_object(key)
         self.assertEqual(result.headers['content-type'], 'whatever')
@@ -769,7 +717,7 @@ class TestObject(OssTestCase):
 
     def test_object_exists(self):
         key = self.random_key()
-        
+
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket_name = OSS_BUCKET + "-test-object-exists"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
@@ -789,23 +737,23 @@ class TestObject(OssTestCase):
         headers = self.bucket.get_object(key).headers
         self.assertEqual(headers['x-oss-meta-key1'], 'value1')
         self.assertEqual(headers['x-oss-meta-key2'], 'value2')
-        
+
     def test_get_object_meta(self):
         key = self.random_key()
         content = 'hello'
-        
+
         # bucket no exist
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket_name = OSS_BUCKET + "-test-get-object-meta"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
-        
+
         self.assertRaises(NoSuchBucket, bucket.get_object_meta, key)
-        
+
         # object no exist
         self.assertRaises(NoSuchKey, self.bucket.get_object_meta, key)
 
         self.bucket.put_object(key, content)
-        
+
         # get meta normal
         result = self.bucket.get_object_meta(key)
 
@@ -863,60 +811,6 @@ class TestObject(OssTestCase):
 
         os.remove(filename)
 
-    def test_crypto_progress(self):
-        stats = {'previous': -1}
-
-        def progress_callback(bytes_consumed, total_bytes):
-            self.assertTrue(bytes_consumed <= total_bytes)
-            self.assertTrue(bytes_consumed > stats['previous'])
-
-            stats['previous'] = bytes_consumed
-
-        key = self.random_key()
-        content = random_bytes(2 * 1024 * 1024)
-
-        # 上传内存中的内容
-        stats = {'previous': -1}
-        self.rsa_crypto_bucket.put_object(key, content, progress_callback=progress_callback)
-        self.assertEqual(stats['previous'], len(content))
-
-        # 下载到文件
-        stats = {'previous': -1}
-        filename = random_string(12) + '.txt'
-        self.rsa_crypto_bucket.get_object_to_file(key, filename, progress_callback=progress_callback)
-        self.assertEqual(stats['previous'], len(content))
-
-        # 上传本地文件
-        stats = {'previous': -1}
-        self.rsa_crypto_bucket.put_object_from_file(key, filename, progress_callback=progress_callback)
-        self.assertEqual(stats['previous'], len(content))
-
-        # 下载到本地，采用iterator语法
-        stats = {'previous': -1}
-        result = self.rsa_crypto_bucket.get_object(key, progress_callback=progress_callback)
-        content_got = b''
-        for chunk in result:
-            content_got += chunk
-        self.assertEqual(stats['previous'], len(content))
-        self.assertEqual(content, content_got)
-
-        os.remove(filename)
-
-    def test_rsa_crypto_get_object_to_file_chunked(self):
-        # object后缀为txt, length >= 1024, 指定Accept-Encoding接收，服务器将会以chunked模式传输数据
-        key = 'test_rsa_crypto_get_object_to_file_chunked.txt'
-        content = b'a' * 1024
-
-        self.rsa_crypto_bucket.put_object(key, content)
-
-        filename =  key + '-local.txt'
-        result = self.rsa_crypto_bucket.get_object_to_file(key, filename, headers={'Accept-Encoding': 'gzip'})
-        self.assertEqual(result.headers['Transfer-Encoding'], 'chunked')
-        self.assertFileContent(filename, content)
-
-        os.remove(filename)
-        self.bucket.delete_object(key)
-
     def test_exceptions(self):
         key = self.random_key()
         content = random_bytes(16)
@@ -930,10 +824,10 @@ class TestObject(OssTestCase):
         self.assertRaises(ObjectNotAppendable, self.bucket.append_object, key, len(content), b'more content')
 
     def test_gzip_get(self):
-        #"""OSS supports HTTP Compression, see https://en.wikipedia.org/wiki/HTTP_compression for details.
-        #"""
-        key = self.random_key('.txt')       # ensure our content-type is text/plain, which could be compressed
-        content = random_bytes(1024 * 1024) # ensure our content-length is larger than 1024 to trigger compression
+        """OSS supports HTTP Compression, see https://en.wikipedia.org/wiki/HTTP_compression for details.
+        """
+        key = self.random_key('.txt')  # ensure our content-type is text/plain, which could be compressed
+        content = random_bytes(1024 * 1024)  # ensure our content-length is larger than 1024 to trigger compression
 
         self.bucket.put_object(key, content)
 
@@ -965,36 +859,36 @@ class TestObject(OssTestCase):
 
         self.assertRaises(oss2.exceptions.InvalidObjectName, self.bucket.put_object, key, content)
 
-    def test_disable_crc(self): 
+    def test_disable_crc(self):
         key = self.random_key('.txt')
         content = random_bytes(1024 * 100)
-        
+
         bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET, enable_crc=False)
-        
+
         # put
         put_result = bucket.put_object(key, content)
         self.assertFalse(hasattr(put_result, 'get_crc'))
         self.assertTrue(put_result.crc is not None)
-        
-        # get 
+
+        # get
         get_result = bucket.get_object(key)
         self.assertEqual(get_result.read(), content)
         self.assertTrue(get_result.client_crc is None)
         self.assertTrue(get_result.server_crc)
-        
+
         bucket.delete_object(key)
-        
+
         # append
         append_result = bucket.append_object(key, 0, content)
         self.assertFalse(hasattr(append_result, 'get_crc'))
         self.assertTrue(append_result.crc is not None)
-        
+
         append_result = bucket.append_object(key, len(content), content)
         self.assertFalse(hasattr(append_result, 'get_crc'))
         self.assertTrue(append_result.crc is not None)
-        
+
         bucket.delete_object(key)
-        
+
         # multipart
         upload_id = bucket.init_multipart_upload(key).upload_id
 
@@ -1019,24 +913,24 @@ class TestObject(OssTestCase):
             self.assertTrue(False)
 
     def test_put_symlink(self):
-        key  = self.random_key()
+        key = self.random_key()
         symlink = self.random_key()
         content = 'hello'
-        
+
         self.bucket.put_object(key, content)
-        
+
         # put symlink normal
         self.bucket.put_symlink(key, symlink)
-        
+
         head_result = self.bucket.head_object(symlink)
         self.assertEqual(head_result.content_length, len(content))
         self.assertEqual(head_result.etag, '5D41402ABC4B2A76B9719D911017C592')
 
         self.bucket.put_object(key, content)
-        
+
         # put symlink with meta
         self.bucket.put_symlink(key, symlink, headers={'x-oss-meta-key1': 'value1',
-                                                              'X-Oss-Meta-Key2': 'value2'})
+                                                       'X-Oss-Meta-Key2': 'value2'})
         head_result = self.bucket.head_object(symlink)
         self.assertEqual(head_result.content_length, len(content))
         self.assertEqual(head_result.etag, '5D41402ABC4B2A76B9719D911017C592')
@@ -1047,20 +941,20 @@ class TestObject(OssTestCase):
         key = self.random_key()
         symlink = self.random_key()
         content = 'hello'
-        
+
         # bucket no exist
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket_name = OSS_BUCKET + "-test-get-symlink"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
-        
+
         self.assertRaises(NoSuchBucket, bucket.get_symlink, symlink)
-        
+
         # object no exist
         self.assertRaises(NoSuchKey, self.bucket.get_symlink, symlink)
-        
+
         self.bucket.put_object(key, content)
         self.bucket.put_symlink(key, symlink)
-        
+
         # get symlink normal
         result = self.bucket.get_symlink(symlink)
         self.assertEqual(result.target_key, key)
@@ -1081,7 +975,6 @@ class TestObject(OssTestCase):
         result = self.bucket.object_exists(dest_key)
         self.assertEqual(result, True)
 
-
         # If bucket-name not specified, it is saved to the current bucket by default.
         dest_key = self.random_key(".jpg")
         process = "image/resize,w_100|sys/saveas,o_{0}".format(
@@ -1092,21 +985,21 @@ class TestObject(OssTestCase):
         self.assertEqual(result.object, dest_key)
         result = self.bucket.object_exists(dest_key)
         self.assertEqual(result, True)
-    
+
     def test_object_tagging_client_error(self):
 
         rule = TaggingRule()
-        self.assertRaises(oss2.exceptions.ClientError, rule.add, 129*'a', 'test')
-        self.assertRaises(oss2.exceptions.ClientError, rule.add, 'test', 257*'a')
+        self.assertRaises(oss2.exceptions.ClientError, rule.add, 129 * 'a', 'test')
+        self.assertRaises(oss2.exceptions.ClientError, rule.add, 'test', 257 * 'a')
         self.assertRaises(oss2.exceptions.ClientError, rule.add, None, 'test')
         self.assertRaises(oss2.exceptions.ClientError, rule.add, '', 'test')
         self.assertRaises(KeyError, rule.delete, 'not_exist')
 
     def test_object_tagging_wrong_key(self):
-       
+
         tagging = Tagging()
-        tagging.tag_set.tagging_rule[129*'a'] = 'test'
-        
+        tagging.tag_set.tagging_rule[129 * 'a'] = 'test'
+
         key = self.random_key('.dat')
         result = self.bucket.put_object(key, "test")
 
@@ -1116,9 +1009,9 @@ class TestObject(OssTestCase):
         except oss2.exceptions.OssError:
             pass
 
-        tagging.tag_set.delete(129*'a')
+        tagging.tag_set.delete(129 * 'a')
 
-        self.assertTrue( 129*'a' not in tagging.tag_set.tagging_rule )
+        self.assertTrue(129 * 'a' not in tagging.tag_set.tagging_rule)
 
         tagging.tag_set.tagging_rule['%@abc'] = 'abc'
 
@@ -1130,7 +1023,7 @@ class TestObject(OssTestCase):
 
         tagging.tag_set.delete('%@abc')
 
-        self.assertTrue( '%@abc' not in tagging.tag_set.tagging_rule )
+        self.assertTrue('%@abc' not in tagging.tag_set.tagging_rule)
 
         tagging.tag_set.tagging_rule[''] = 'abc'
 
@@ -1140,12 +1033,11 @@ class TestObject(OssTestCase):
         except oss2.exceptions.OssError:
             pass
 
-
     def test_object_tagging_wrong_value(self):
-       
+
         tagging = Tagging()
 
-        tagging.tag_set.tagging_rule['test'] = 257*'a'
+        tagging.tag_set.tagging_rule['test'] = 257 * 'a'
 
         key = self.random_key('.dat')
 
@@ -1157,7 +1049,7 @@ class TestObject(OssTestCase):
         except oss2.exceptions.OssError:
             pass
 
-        tagging.tag_set.tagging_rule['test']= '%abc'
+        tagging.tag_set.tagging_rule['test'] = '%abc'
 
         try:
             result = self.bucket.put_object_tagging(key, tagging)
@@ -1165,7 +1057,7 @@ class TestObject(OssTestCase):
         except oss2.exceptions.OssError:
             pass
 
-        tagging.tag_set.tagging_rule['test']= ''
+        tagging.tag_set.tagging_rule['test'] = ''
 
         try:
             result = self.bucket.put_object_tagging(key, tagging)
@@ -1173,14 +1065,14 @@ class TestObject(OssTestCase):
             self.assertFalse(True, 'should get exception')
 
     def test_object_tagging_wrong_rule_num(self):
-        
+
         key = self.random_key('.dat')
         result = self.bucket.put_object(key, "test")
 
         tagging = Tagging(None)
-        for i in range(0,12):
-            key='test_'+str(i)
-            value='test_'+str(i)
+        for i in range(0, 12):
+            key = 'test_' + str(i)
+            value = 'test_' + str(i)
             tagging.tag_set.add(key, value)
 
         try:
@@ -1195,39 +1087,39 @@ class TestObject(OssTestCase):
         result = self.bucket.put_object(key, "test")
 
         try:
-            result=self.bucket.get_object_tagging(key)
+            result = self.bucket.get_object_tagging(key)
             self.assertEqual(0, result.tag_set.len())
         except oss2.exceptions.OssError:
             self.assertFalse(True, "should get exception")
 
         rule = TaggingRule()
-        key1=128*'a'
-        value1=256*'a'
+        key1 = 128 * 'a'
+        value1 = 256 * 'a'
         rule.add(key1, value1)
 
-        key2='+-.:'
-        value2='_/'
+        key2 = '+-.:'
+        value2 = '_/'
         rule.add(key2, value2)
 
-        tagging = Tagging(rule) 
+        tagging = Tagging(rule)
         result = self.bucket.put_object_tagging(key, tagging)
         self.assertTrue(200, result.status)
 
         result = self.bucket.get_object_tagging(key)
 
         self.assertEqual(2, result.tag_set.len())
-        self.assertEqual(256*'a', result.tag_set.tagging_rule[128*'a'])
+        self.assertEqual(256 * 'a', result.tag_set.tagging_rule[128 * 'a'])
         self.assertEqual('_/', result.tag_set.tagging_rule['+-.:'])
 
     def test_put_object_with_tagging(self):
-    
+
         key = self.random_key('.dat')
         headers = dict()
         headers[OSS_OBJECT_TAGGING] = "k1=v1&k2=v2&k3=v3"
 
         result = self.bucket.put_object(key, 'test', headers=headers)
         self.assertEqual(200, result.status)
-        
+
         result = self.bucket.get_object_tagging(key)
         self.assertEqual(3, result.tag_set.len())
         self.assertEqual('v1', result.tag_set.tagging_rule['k1'])
@@ -1242,9 +1134,9 @@ class TestObject(OssTestCase):
         self.assertEqual(0, result.tag_set.len())
 
     def test_copy_object_with_tagging(self):
-    
-        #key = self.random_key('.dat')
-        key = 'aaaaaaaaaaaaaa' 
+
+        # key = self.random_key('.dat')
+        key = 'aaaaaaaaaaaaaa'
         headers = dict()
         headers[OSS_OBJECT_TAGGING] = "k1=v1&k2=v2&k3=v3"
 
@@ -1257,11 +1149,11 @@ class TestObject(OssTestCase):
         self.assertEqual('v2', result.tag_set.tagging_rule['k2'])
         self.assertEqual('v3', result.tag_set.tagging_rule['k3'])
 
-        headers=dict()
+        headers = dict()
         headers[OSS_OBJECT_TAGGING_COPY_DIRECTIVE] = 'COPY'
-        result = self.bucket.copy_object(self.bucket.bucket_name, key, key+'_test', headers=headers)
+        result = self.bucket.copy_object(self.bucket.bucket_name, key, key + '_test', headers=headers)
 
-        result = self.bucket.get_object_tagging(key+'_test')
+        result = self.bucket.get_object_tagging(key + '_test')
         self.assertEqual(3, result.tag_set.len())
         self.assertEqual('v1', result.tag_set.tagging_rule['k1'])
         self.assertEqual('v2', result.tag_set.tagging_rule['k2'])
@@ -1277,9 +1169,9 @@ class TestObject(OssTestCase):
 
         headers[OSS_OBJECT_TAGGING] = tag_str
         headers[OSS_OBJECT_TAGGING_COPY_DIRECTIVE] = 'REPLACE'
-        result = self.bucket.copy_object(self.bucket.bucket_name, key, key+'_test', headers=headers)
+        result = self.bucket.copy_object(self.bucket.bucket_name, key, key + '_test', headers=headers)
 
-        result = self.bucket.get_object_tagging(key+'_test')
+        result = self.bucket.get_object_tagging(key + '_test')
         self.assertEqual(2, result.tag_set.len())
         self.assertEqual('中文', result.tag_set.tagging_rule[' +/ '])
         self.assertEqual('test++/', result.tag_set.tagging_rule['中文'])
@@ -1299,7 +1191,7 @@ class TestObject(OssTestCase):
             self.assertEqual(e.next_position, len(content1))
         else:
             self.assertTrue(False)
-        
+
         result = self.bucket.append_object(key, len(content1), content2, init_crc=result.crc)
         self.assertEqual(result.next_position, len(content1) + len(content2))
         self.assertTrue(result.crc is not None)
@@ -1312,10 +1204,10 @@ class TestObject(OssTestCase):
         rule.add('key1', 'value1')
         self.assertEqual(rule.to_query_string(), 'key1=value1')
 
-        rule.add(128*'a', 256*'b')
+        rule.add(128 * 'a', 256 * 'b')
         rule.add('+-/', ':+:')
         self.assertEqual('key1=value1' in rule.to_query_string(), True)
-        self.assertEqual((128*'a' + '=' + 256*'b') in rule.to_query_string(), True)
+        self.assertEqual((128 * 'a' + '=' + 256 * 'b') in rule.to_query_string(), True)
         self.assertEqual('%2B-/=%3A%2B%3A' in rule.to_query_string(), True)
 
         headers = dict()
@@ -1334,7 +1226,7 @@ class TestObject(OssTestCase):
 
         tagging_rule = result.tag_set.tagging_rule
         self.assertEqual('value1', tagging_rule['key1'])
-        self.assertEqual(256*'b', tagging_rule[128*'a'])
+        self.assertEqual(256 * 'b', tagging_rule[128 * 'a'])
         self.assertEqual(':+:', tagging_rule['+-/'])
 
     def test_append_object_with_tagging_wrong_num(self):
@@ -1352,14 +1244,14 @@ class TestObject(OssTestCase):
             self.assertEqual(e.next_position, len(content1))
         else:
             self.assertTrue(False)
-        
+
         result = self.bucket.append_object(key, len(content1), content2, init_crc=result.crc)
         self.assertEqual(result.next_position, len(content1) + len(content2))
         self.assertTrue(result.crc is not None)
 
         self.bucket.delete_object(key)
-        
-        # append object with wrong tagging kv num, but not in 
+
+        # append object with wrong tagging kv num, but not in
         # first call, it will be ignored
         rule = TaggingRule()
         self.assertEqual('', rule.to_query_string())
@@ -1372,7 +1264,6 @@ class TestObject(OssTestCase):
         headers = dict()
         headers[OSS_OBJECT_TAGGING] = rule.to_query_string()
 
-
         result = self.bucket.append_object(key, 0, content1, init_crc=0)
         self.assertEqual(result.next_position, len(content1))
         self.assertTrue(result.crc is not None)
@@ -1381,7 +1272,7 @@ class TestObject(OssTestCase):
 
         result_tagging = self.bucket.get_object_tagging(key)
         self.assertEqual(0, result_tagging.tag_set.len())
-        
+
         rule.delete('key1')
         rule.delete('key2')
         rule.delete('key3')
@@ -1394,8 +1285,8 @@ class TestObject(OssTestCase):
         headers[OSS_OBJECT_TAGGING] = rule.to_query_string()
 
         try:
-            result = self.bucket.append_object(key, len(content1)+len(content2), 
-                    content2, init_crc=result.crc, headers=headers)
+            result = self.bucket.append_object(key, len(content1) + len(content2),
+                                               content2, init_crc=result.crc, headers=headers)
         except oss2.exceptions.OssError:
             self.assertFalse(True, 'should not get exception')
 
@@ -1426,19 +1317,19 @@ class TestObject(OssTestCase):
             pass
 
     def test_put_symlink_with_tagging(self):
-        key  = self.random_key()
+        key = self.random_key()
         symlink = self.random_key()
         content = 'hello'
-        
+
         self.bucket.put_object(key, content)
-        
+
         rule = TaggingRule()
         self.assertEqual('', rule.to_query_string())
 
         rule.add('key1', 'value1')
         self.assertTrue(rule.to_query_string() != '')
 
-        rule.add(128*'a', 256*'b')
+        rule.add(128 * 'a', 256 * 'b')
         rule.add('+-/', ':+:')
 
         headers = dict()
@@ -1452,18 +1343,19 @@ class TestObject(OssTestCase):
 
         tagging_rule = result.tag_set.tagging_rule
         self.assertEqual('value1', tagging_rule['key1'])
-        self.assertEqual(256*'b', tagging_rule[128*'a'])
+        self.assertEqual(256 * 'b', tagging_rule[128 * 'a'])
         self.assertEqual(':+:', tagging_rule['+-/'])
 
         result = self.bucket.delete_object(symlink)
+        self.assertEqual(2, int(result.status) / 100)
         self.assertEqual(204, int(result.status))
 
     def test_put_symlink_with_tagging_with_wrong_num(self):
-        key  = self.random_key()
+        key = self.random_key()
         symlink = self.random_key()
         content = 'hello'
         self.bucket.put_object(key, content)
-        
+
         rule = TaggingRule()
         self.assertEqual('', rule.to_query_string())
 
@@ -1474,13 +1366,13 @@ class TestObject(OssTestCase):
 
         headers = dict()
         headers[OSS_OBJECT_TAGGING] = rule.to_query_string()
-        
+
         try:
             self.bucket.put_symlink(key, symlink, headers=headers)
             self.assertFalse(True, 'should get exception')
         except:
             pass
-       
+
         rule.delete('key1')
         rule.delete('key2')
         rule.delete('key3')
@@ -1501,7 +1393,7 @@ class TestObject(OssTestCase):
 
         # put symlink with meta
         self.bucket.put_symlink(key, symlink, headers={'x-oss-meta-key1': 'value1',
-                'x-oss-meta-KEY2': 'value2'})
+                                                       'x-oss-meta-KEY2': 'value2'})
 
         head_result = self.bucket.head_object(symlink)
         self.assertEqual(head_result.content_length, len(content))
@@ -1513,7 +1405,7 @@ class TestObject(OssTestCase):
         key = self.random_key()
         value = '测试'
         byte = to_bytes(value)
-        headers={'x-oss-meta-unicode': byte}
+        headers = {'x-oss-meta-unicode': byte}
         self.bucket.put_object(key, 'a novel', headers=headers)
         result = self.bucket.head_object(key)
         self.assertEqual(result.status, 200)
@@ -1524,11 +1416,12 @@ class TestObject(OssTestCase):
             b_str = newstr.encode('iso-8859-1')
         self.assertEqual(to_string(b_str), value)
 
-    
+
 class TestSign(TestObject):
     """
         这个类主要是用来增加测试覆盖率，当环境变量为oss2.AUTH_VERSION_2，则重新设置为oss2.AUTH_VERSION_1再运行TestObject，反之亦然
     """
+
     def __init__(self, *args, **kwargs):
         super(TestSign, self).__init__(*args, **kwargs)
 

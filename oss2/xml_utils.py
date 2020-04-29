@@ -52,10 +52,10 @@ from .models import (SimplifiedObjectInfo,
                      NoncurrentVersionExpiration,
                      AsyncFetchTaskConfiguration,
                      InventoryConfiguration,
-                     InventoryFilter, 
-                     InventorySchedule, 
-                     InventoryDestination, 
-                     InventoryBucketDestination, 
+                     InventoryFilter,
+                     InventorySchedule,
+                     InventoryDestination,
+                     InventoryBucketDestination,
                      InventoryServerSideEncryptionKMS,
                      InventoryServerSideEncryptionOSS)
 
@@ -65,9 +65,10 @@ from .compat import urlunquote, to_unicode, to_string
 from .utils import iso8601_to_unixtime, date_to_iso8601, iso8601_to_date
 from . import utils
 import base64
-from .exceptions import SelectOperationClientError
+from .exceptions import SelectOperationClientError, ClientError
 
 logger = logging.getLogger(__name__)
+
 
 def _find_tag(parent, path):
     child = parent.find(path)
@@ -79,6 +80,7 @@ def _find_tag(parent, path):
 
     return to_string(child.text)
 
+
 def _find_tag_with_default(parent, path, default_value):
     child = parent.find(path)
     if child is None:
@@ -88,6 +90,7 @@ def _find_tag_with_default(parent, path, default_value):
         return ''
 
     return to_string(child.text)
+
 
 def _find_bool(parent, path):
     text = _find_tag(parent, path)
@@ -135,8 +138,10 @@ def _add_node_list(parent, tag, entries):
 def _add_text_child(parent, tag, text):
     ElementTree.SubElement(parent, tag).text = to_unicode(text)
 
+
 def _add_node_child(parent, tag):
     return ElementTree.SubElement(parent, tag)
+
 
 def parse_list_objects(result, body):
     root = ElementTree.fromstring(body)
@@ -217,8 +222,30 @@ def parse_list_multipart_uploads(result, body):
 def parse_list_parts(result, body):
     root = ElementTree.fromstring(body)
 
+    result.bucket = _find_tag(root, 'Bucket')
+    result.key = _find_tag(root, 'Key')
+    result.upload_id = _find_tag(root, 'UploadId')
+    result.max_parts = _find_int(root, 'MaxParts')
+
     result.is_truncated = _find_bool(root, 'IsTruncated')
     result.next_marker = _find_tag(root, 'NextPartNumberMarker')
+
+    client_encryption_key = root.find('ClientEncryptionKey')
+    if client_encryption_key is not None:
+        try:
+            result.client_encryption_key = to_string(client_encryption_key.text)
+            result.client_encryption_start = _find_tag(root, 'ClientEncryptionStart')
+            result.client_encryption_wrap_alg = _find_tag(root, 'ClientEncryptionWrapAlg')
+            result.client_encryption_cek_alg = _find_tag(root, 'ClientEncryptionCekAlg')
+            result.client_encryption_key = utils.b64decode_from_string(result.client_encryption_key)
+            result.client_encryption_start = utils.b64decode_from_string(result.client_encryption_start)
+            if result.client_encryption_cek_alg == 'AES/CTR/NoPadding':
+                result.client_encryption_data_size = _find_int(root, 'ClientEncryptionDataSize')
+                result.client_encryption_part_size = _find_int(root, 'ClientEncryptionPartSize')
+
+        except RuntimeError as e:
+            raise ClientError('Invalid response of list_parts, exception: ' + str(e))
+
     for part_node in root.findall('Part'):
         result.parts.append(PartInfo(
             _find_int(part_node, 'PartNumber'),
@@ -232,7 +259,7 @@ def parse_list_parts(result, body):
 
 def parse_batch_delete_objects(result, body):
     if not body:
-        return result 
+        return result
     root = ElementTree.fromstring(body)
     url_encoded = _is_url_encoding(root)
 
@@ -255,7 +282,8 @@ def parse_batch_delete_objects(result, body):
         delete_marker_versionid = ''
         if marker_versionid_node is not None:
             delete_marker_versionid = _find_tag(deleted_node, 'DeleteMarkerVersionId')
-        result.delete_versions.append(BatchDeleteObjectVersionResult(key, versionid, delete_marker, delete_marker_versionid))
+        result.delete_versions.append(
+            BatchDeleteObjectVersionResult(key, versionid, delete_marker, delete_marker_versionid))
 
     return result
 
@@ -324,12 +352,12 @@ def parse_get_bucket_info(result, body):
 
     return result
 
-def _parse_bucket_encryption_info(node):
 
+def _parse_bucket_encryption_info(node):
     rule = ServerSideEncryptionRule()
 
-    rule.sse_algorithm = _find_tag(node,"SSEAlgorithm")
-    
+    rule.sse_algorithm = _find_tag(node, "SSEAlgorithm")
+
     if rule.sse_algorithm == "None":
         rule.kms_master_keyid = None
         rule.sse_algorithm = None
@@ -337,11 +365,12 @@ def _parse_bucket_encryption_info(node):
 
     kmsnode = node.find("KMSMasterKeyID")
     if kmsnode is None or kmsnode.text is None:
-        rule.kms_master_keyid = None 
+        rule.kms_master_keyid = None
     else:
         rule.kms_master_keyid = to_string(kmsnode.text)
 
     return rule
+
 
 def parse_get_bucket_referer(result, body):
     root = ElementTree.fromstring(body)
@@ -351,6 +380,7 @@ def parse_get_bucket_referer(result, body):
 
     return result
 
+
 def parse_condition_include_header(include_header_node):
     key = _find_tag(include_header_node, 'Key')
     equals = _find_tag(include_header_node, 'Equals')
@@ -358,12 +388,13 @@ def parse_condition_include_header(include_header_node):
 
     return include_header
 
+
 def parse_routing_rule_condition(condition_node):
     if condition_node.find('KeyPrefixEquals') is not None:
         key_prefix_equals = _find_tag(condition_node, 'KeyPrefixEquals')
     if condition_node.find('HttpErrorCodeReturnedEquals') is not None:
         http_err_code_return_equals = _find_int(condition_node, 'HttpErrorCodeReturnedEquals');
-        
+
     include_header_list = []
     if condition_node.find('IncludeHeader') is not None:
         for include_header_node in condition_node.findall('IncludeHeader'):
@@ -374,14 +405,15 @@ def parse_routing_rule_condition(condition_node):
 
     return condition
 
+
 def parse_mirror_headers(mirror_headers_node):
     if mirror_headers_node is None:
         return None
-    
+
     pass_all = None
     if mirror_headers_node.find('PassAll') is not None:
         pass_all = _find_bool(mirror_headers_node, 'PassAll')
-    
+
     pass_list = _find_all_tags(mirror_headers_node, 'Pass')
     remove_list = _find_all_tags(mirror_headers_node, 'Remove')
     set_list = []
@@ -394,6 +426,7 @@ def parse_mirror_headers(mirror_headers_node):
     redirect_mirror_headers = RedirectMirrorHeaders(pass_all, pass_list, remove_list, set_list)
 
     return redirect_mirror_headers
+
 
 def parse_routing_rule_redirect(redirect_node):
     redirect_type = None
@@ -457,14 +490,16 @@ def parse_routing_rule_redirect(redirect_node):
 
         mirror_headers = parse_mirror_headers(redirect_node.find('MirrorHeaders'))
 
-    redirect = Redirect(redirect_type=redirect_type, proto=proto, host_name=host_name, replace_key_with=replace_key_with, 
-                    replace_key_prefix_with=replace_key_prefix_with, http_redirect_code=http_redirect_code, 
-                    pass_query_string=pass_query_string, mirror_url=mirror_url,mirror_url_slave=mirror_url_slave, 
-                    mirror_url_probe=mirror_url_probe, mirror_pass_query_string=mirror_pass_query_string, 
-                    mirror_follow_redirect=mirror_follow_redirect, mirror_check_md5=mirror_check_md5, 
-                    mirror_headers=mirror_headers)
+    redirect = Redirect(redirect_type=redirect_type, proto=proto, host_name=host_name,
+                        replace_key_with=replace_key_with,
+                        replace_key_prefix_with=replace_key_prefix_with, http_redirect_code=http_redirect_code,
+                        pass_query_string=pass_query_string, mirror_url=mirror_url, mirror_url_slave=mirror_url_slave,
+                        mirror_url_probe=mirror_url_probe, mirror_pass_query_string=mirror_pass_query_string,
+                        mirror_follow_redirect=mirror_follow_redirect, mirror_check_md5=mirror_check_md5,
+                        mirror_headers=mirror_headers)
 
     return redirect
+
 
 def parse_get_bucket_website(result, body):
     root = ElementTree.fromstring(body)
@@ -519,7 +554,7 @@ def parse_list_live_channel(result, body):
     result.marker = _find_tag(root, 'Marker')
     result.max_keys = _find_int(root, 'MaxKeys')
     result.is_truncated = _find_bool(root, 'IsTruncated')
-    
+
     if result.is_truncated:
         result.next_marker = _find_tag(root, 'NextMarker')
 
@@ -634,12 +669,12 @@ def parse_lifecycle_storage_transitions(storage_transition_nodes):
 
     return storage_transitions
 
+
 def parse_lifecycle_object_taggings(lifecycle_tagging_nodes):
-    
     if lifecycle_tagging_nodes is None or \
-        len(lifecycle_tagging_nodes) == 0: 
-        return None 
-    
+            len(lifecycle_tagging_nodes) == 0:
+        return None
+
     tagging_rule = TaggingRule()
     for tag_node in lifecycle_tagging_nodes:
         key = _find_tag(tag_node, 'Key')
@@ -647,6 +682,7 @@ def parse_lifecycle_object_taggings(lifecycle_tagging_nodes):
         tagging_rule.add(key, value)
 
     return Tagging(tagging_rule)
+
 
 def parse_lifecycle_version_expiration(version_expiration_node):
     if version_expiration_node is None:
@@ -656,6 +692,7 @@ def parse_lifecycle_version_expiration(version_expiration_node):
     expiration = NoncurrentVersionExpiration(noncurrent_days)
 
     return expiration
+
 
 def parse_lifecycle_verison_storage_transitions(version_storage_transition_nodes):
     version_storage_transitions = []
@@ -667,8 +704,8 @@ def parse_lifecycle_verison_storage_transitions(version_storage_transition_nodes
 
     return version_storage_transitions
 
-def parse_get_bucket_lifecycle(result, body):
 
+def parse_get_bucket_lifecycle(result, body):
     root = ElementTree.fromstring(body)
     url_encoded = _is_url_encoding(root)
 
@@ -677,8 +714,10 @@ def parse_get_bucket_lifecycle(result, body):
         abort_multipart_upload = parse_lifecycle_abort_multipart_upload(rule_node.find('AbortMultipartUpload'))
         storage_transitions = parse_lifecycle_storage_transitions(rule_node.findall('Transition'))
         tagging = parse_lifecycle_object_taggings(rule_node.findall('Tag'))
-        noncurrent_version_expiration = parse_lifecycle_version_expiration(rule_node.find('NoncurrentVersionExpiration'))
-        noncurrent_version_sotrage_transitions = parse_lifecycle_verison_storage_transitions(rule_node.findall('NoncurrentVersionTransition'))
+        noncurrent_version_expiration = parse_lifecycle_version_expiration(
+            rule_node.find('NoncurrentVersionExpiration'))
+        noncurrent_version_sotrage_transitions = parse_lifecycle_verison_storage_transitions(
+            rule_node.findall('NoncurrentVersionTransition'))
 
         rule = LifecycleRule(
             _find_tag(rule_node, 'ID'),
@@ -688,9 +727,9 @@ def parse_get_bucket_lifecycle(result, body):
             abort_multipart_upload=abort_multipart_upload,
             storage_transitions=storage_transitions,
             tagging=tagging,
-            noncurrent_version_expiration = noncurrent_version_expiration,
-            noncurrent_version_sotrage_transitions = noncurrent_version_sotrage_transitions
-            )
+            noncurrent_version_expiration=noncurrent_version_expiration,
+            noncurrent_version_sotrage_transitions=noncurrent_version_sotrage_transitions
+        )
         result.rules.append(rule)
 
     return result
@@ -736,8 +775,8 @@ def to_batch_delete_objects_request(keys, quiet):
 
     return _node_to_string(root_node)
 
-def to_batch_delete_objects_version_request(objectVersions, quiet):
 
+def to_batch_delete_objects_version_request(objectVersions, quiet):
     root_node = ElementTree.Element('Delete')
 
     _add_text_child(root_node, 'Quiet', str(quiet).lower())
@@ -806,28 +845,28 @@ def to_put_bucket_website(bucket_website):
         _add_text_child(rule_node, 'RuleNumber', str(rule.rule_num))
 
         condition_node = ElementTree.SubElement(rule_node, 'Condition')
-        
+
         if rule.condition.key_prefix_equals is not None:
             _add_text_child(condition_node, 'KeyPrefixEquals', rule.condition.key_prefix_equals)
-        if rule.condition.http_err_code_return_equals is not None:    
-            _add_text_child(condition_node, 'HttpErrorCodeReturnedEquals', 
-                str(rule.condition.http_err_code_return_equals))
-       
+        if rule.condition.http_err_code_return_equals is not None:
+            _add_text_child(condition_node, 'HttpErrorCodeReturnedEquals',
+                            str(rule.condition.http_err_code_return_equals))
+
         for header in rule.condition.include_header_list:
             include_header_node = ElementTree.SubElement(condition_node, 'IncludeHeader')
             _add_text_child(include_header_node, 'Key', header.key)
             _add_text_child(include_header_node, 'Equals', header.equals)
 
-        if rule.redirect is not None:    
+        if rule.redirect is not None:
             redirect_node = ElementTree.SubElement(rule_node, 'Redirect')
 
             # common
             _add_text_child(redirect_node, 'RedirectType', rule.redirect.redirect_type)
-            
-            if rule.redirect.pass_query_string is not None:
-                _add_text_child(redirect_node, 'PassQueryString', str(rule.redirect.pass_query_string))          
 
-            # External, AliCDN
+            if rule.redirect.pass_query_string is not None:
+                _add_text_child(redirect_node, 'PassQueryString', str(rule.redirect.pass_query_string))
+
+                # External, AliCDN
             if rule.redirect.redirect_type in [REDIRECT_TYPE_EXTERNAL, REDIRECT_TYPE_ALICDN]:
                 if rule.redirect.proto is not None:
                     _add_text_child(redirect_node, 'Protocol', rule.redirect.proto)
@@ -841,10 +880,10 @@ def to_put_bucket_website(bucket_website):
                 if rule.redirect.replace_key_with is not None:
                     _add_text_child(redirect_node, 'ReplaceKeyWith', rule.redirect.replace_key_with)
                 if rule.redirect.replace_key_prefix_with is not None:
-                    _add_text_child(redirect_node, 'ReplaceKeyPrefixWith', rule.redirect.replace_key_prefix_with)  
+                    _add_text_child(redirect_node, 'ReplaceKeyPrefixWith', rule.redirect.replace_key_prefix_with)
 
-            # Mirror
-            elif rule.redirect.redirect_type == REDIRECT_TYPE_MIRROR: 
+                    # Mirror
+            elif rule.redirect.redirect_type == REDIRECT_TYPE_MIRROR:
                 if rule.redirect.mirror_url is not None:
                     _add_text_child(redirect_node, 'MirrorURL', rule.redirect.mirror_url)
                 if rule.redirect.mirror_url_slave is not None:
@@ -865,7 +904,7 @@ def to_put_bucket_website(bucket_website):
                         _add_text_child(mirror_headers_node, 'PassAll', str(rule.redirect.mirror_headers.pass_all))
 
                     for pass_param in rule.redirect.mirror_headers.pass_list:
-                        _add_text_child(mirror_headers_node, 'Pass', pass_param)   
+                        _add_text_child(mirror_headers_node, 'Pass', pass_param)
                     for remove_param in rule.redirect.mirror_headers.remove_list:
                         _add_text_child(mirror_headers_node, 'Remove', remove_param)
                     for set_param in rule.redirect.mirror_headers.set_list:
@@ -929,14 +968,17 @@ def to_put_bucket_lifecycle(bucket_lifecycle):
         noncurrent_version_expiration = rule.noncurrent_version_expiration
         if noncurrent_version_expiration is not None:
             version_expiration_node = ElementTree.SubElement(rule_node, 'NoncurrentVersionExpiration')
-            _add_text_child(version_expiration_node, 'NoncurrentDays', str(noncurrent_version_expiration.noncurrent_days))
+            _add_text_child(version_expiration_node, 'NoncurrentDays',
+                            str(noncurrent_version_expiration.noncurrent_days))
 
         noncurrent_version_sotrage_transitions = rule.noncurrent_version_sotrage_transitions
         if noncurrent_version_sotrage_transitions is not None:
             for noncurrent_version_sotrage_transition in noncurrent_version_sotrage_transitions:
                 version_transition_node = ElementTree.SubElement(rule_node, 'NoncurrentVersionTransition')
-                _add_text_child(version_transition_node, 'NoncurrentDays', str(noncurrent_version_sotrage_transition.noncurrent_days))
-                _add_text_child(version_transition_node, 'StorageClass', str(noncurrent_version_sotrage_transition.storage_class))
+                _add_text_child(version_transition_node, 'NoncurrentDays',
+                                str(noncurrent_version_sotrage_transition.noncurrent_days))
+                _add_text_child(version_transition_node, 'StorageClass',
+                                str(noncurrent_version_sotrage_transition.storage_class))
 
     return _node_to_string(root)
 
@@ -956,6 +998,7 @@ def to_put_bucket_cors(bucket_cors):
 
     return _node_to_string(root)
 
+
 def to_create_live_channel(live_channel):
     root = ElementTree.Element('LiveChannelConfiguration')
 
@@ -970,11 +1013,13 @@ def to_create_live_channel(live_channel):
 
     return _node_to_string(root)
 
+
 def to_select_object(sql, select_params):
     if (select_params is not None and 'Json_Type' in select_params):
         return to_select_json_object(sql, select_params)
     else:
         return to_select_csv_object(sql, select_params)
+
 
 def to_select_csv_object(sql, select_params):
     root = ElementTree.Element('SelectRequest')
@@ -984,10 +1029,10 @@ def to_select_csv_object(sql, select_params):
     csv = ElementTree.SubElement(input_ser, 'CSV')
     out_csv = ElementTree.SubElement(output_ser, 'CSV')
     options = ElementTree.SubElement(root, 'Options')
-   
+
     if (select_params is None):
         return _node_to_string(root)
-    
+
     for key, value in select_params.items():
         if SelectParameters.CsvHeaderInfo == key:
             _add_text_child(csv, 'FileHeaderInfo', value)
@@ -1028,6 +1073,7 @@ def to_select_csv_object(sql, select_params):
 
     return _node_to_string(root)
 
+
 def to_select_json_object(sql, select_params):
     root = ElementTree.Element('SelectRequest')
     _add_text_child(root, 'Expression', base64.b64encode(str.encode(sql)))
@@ -1039,7 +1085,7 @@ def to_select_json_object(sql, select_params):
     is_doc = select_params[SelectParameters.Json_Type] == SelectJsonTypes.DOCUMENT
     _add_text_child(json, 'Type', select_params[SelectParameters.Json_Type])
 
-    for key, value in select_params.items(): 
+    for key, value in select_params.items():
         if SelectParameters.SplitRange == key and is_doc == False:
             _add_text_child(json, 'Range', utils._make_split_range_string(value))
         elif SelectParameters.LineRange == key and is_doc == False:
@@ -1064,6 +1110,7 @@ def to_select_json_object(sql, select_params):
 
     return _node_to_string(root)
 
+
 def to_get_select_object_meta(meta_param):
     if meta_param is not None and SelectParameters.Json_Type in meta_param:
         if meta_param[SelectParameters.Json_Type] != SelectJsonTypes.LINES:
@@ -1073,13 +1120,14 @@ def to_get_select_object_meta(meta_param):
     else:
         return to_get_select_csv_object_meta(meta_param)
 
+
 def to_get_select_csv_object_meta(csv_meta_param):
     root = ElementTree.Element('CsvMetaRequest')
     input_ser = ElementTree.SubElement(root, 'InputSerialization')
     csv = ElementTree.SubElement(input_ser, 'CSV')
     if (csv_meta_param is None):
         return _node_to_string(root)
-    
+
     for key, value in csv_meta_param.items():
         if SelectParameters.RecordDelimiter == key:
             _add_text_child(csv, SelectParameters.RecordDelimiter, base64.b64encode(str.encode(value)))
@@ -1092,26 +1140,28 @@ def to_get_select_csv_object_meta(csv_meta_param):
         elif SelectParameters.OverwriteIfExists == key:
             _add_text_child(root, SelectParameters.OverwriteIfExists, str(value))
         else:
-           raise SelectOperationClientError("The csv_meta_param contains unsupported key " + key, "") 
+            raise SelectOperationClientError("The csv_meta_param contains unsupported key " + key, "")
 
     return _node_to_string(root)
+
 
 def to_get_select_json_object_meta(json_meta_param):
     root = ElementTree.Element('JsonMetaRequest')
     input_ser = ElementTree.SubElement(root, 'InputSerialization')
     json = ElementTree.SubElement(input_ser, 'JSON')
-    _add_text_child(json, 'Type', json_meta_param[SelectParameters.Json_Type]) # Json_Type是必须的
-  
+    _add_text_child(json, 'Type', json_meta_param[SelectParameters.Json_Type])  # Json_Type是必须的
+
     for key, value in json_meta_param.items():
         if SelectParameters.OverwriteIfExists == key:
             _add_text_child(root, SelectParameters.OverwriteIfExists, str(value))
         elif SelectParameters.CompressionType == key:
-             _add_text_child(input_ser, SelectParameters.CompressionType, base64.b64encode(str.encode(value)))
+            _add_text_child(input_ser, SelectParameters.CompressionType, base64.b64encode(str.encode(value)))
         else:
             if SelectParameters.Json_Type != key:
                 raise SelectOperationClientError("The json_meta_param contains unsupported key " + key, "")
-            
+
     return _node_to_string(root)
+
 
 def to_put_tagging(object_tagging):
     root = ElementTree.Element("Tagging")
@@ -1123,6 +1173,7 @@ def to_put_tagging(object_tagging):
         _add_text_child(tag_xml, 'Value', object_tagging.tag_set.tagging_rule[item])
 
     return _node_to_string(root)
+
 
 def parse_get_tagging(result, body):
     root = ElementTree.fromstring(body)
@@ -1137,9 +1188,10 @@ def parse_get_tagging(result, body):
         key = _find_object(tag_node, 'Key', url_encoded)
         value = _find_object(tag_node, 'Value', url_encoded)
         tagging_rules.add(key, value)
-    
+
     result.tag_set = tagging_rules
     return result
+
 
 def to_put_bucket_encryption(rule):
     root = ElementTree.Element("ServerSideEncryptionRule")
@@ -1152,6 +1204,7 @@ def to_put_bucket_encryption(rule):
 
     return _node_to_string(root)
 
+
 def parse_get_bucket_encryption(result, body):
     root = ElementTree.fromstring(body)
     apply_node = root.find('ApplyServerSideEncryptionByDefault')
@@ -1160,11 +1213,12 @@ def parse_get_bucket_encryption(result, body):
 
     kmsnode = apply_node.find('KMSMasterKeyID')
     if kmsnode is None or kmsnode.text is None:
-        result.kms_master_keyid = None 
+        result.kms_master_keyid = None
     else:
         result.kms_master_keyid = to_string(kmsnode.text)
 
     return result
+
 
 def parse_list_object_versions(result, body):
     root = ElementTree.fromstring(body)
@@ -1211,12 +1265,14 @@ def parse_list_object_versions(result, body):
 
     return result
 
+
 def to_put_bucket_versioning(bucket_version_config):
     root = ElementTree.Element('VersioningConfiguration')
 
     _add_text_child(root, 'Status', str(bucket_version_config.status))
 
     return _node_to_string(root)
+
 
 def parse_get_bucket_versioning(result, body):
     root = ElementTree.fromstring(body)
@@ -1229,6 +1285,7 @@ def parse_get_bucket_versioning(result, body):
 
     return result
 
+
 def to_put_bucket_request_payment(payer):
     root = ElementTree.Element('RequestPaymentConfiguration')
 
@@ -1236,12 +1293,14 @@ def to_put_bucket_request_payment(payer):
 
     return _node_to_string(root)
 
+
 def parse_get_bucket_request_payment(result, body):
     root = ElementTree.fromstring(body)
 
     result.payer = _find_tag(root, 'Payer')
-   
+
     return result
+
 
 def to_put_qos_info(qos_info):
     root = ElementTree.Element("QoSConfiguration")
@@ -1267,6 +1326,7 @@ def to_put_qos_info(qos_info):
 
     return _node_to_string(root)
 
+
 def parse_get_qos_info(result, body):
     """解析UserQosInfo 或者BucketQosInfo
 
@@ -1289,12 +1349,14 @@ def parse_get_qos_info(result, body):
 
     return result
 
+
 def parse_get_bucket_user_qos(result, body):
     root = ElementTree.fromstring(body)
 
     result.storage_capacity = _find_int(root, 'StorageCapacity')
 
     return result
+
 
 def to_put_bucket_user_qos(user_qos):
     root = ElementTree.Element('BucketUserQos')
@@ -1310,7 +1372,7 @@ def to_put_async_fetch_task(task_config):
     _add_text_child(root, 'Url', task_config.url)
     _add_text_child(root, 'Object', task_config.object_name)
 
-    if task_config.host is not None:    
+    if task_config.host is not None:
         _add_text_child(root, 'Host', task_config.host)
     if task_config.content_md5 is not None:
         _add_text_child(root, 'ContentMD5', task_config.content_md5)
@@ -1321,12 +1383,14 @@ def to_put_async_fetch_task(task_config):
 
     return _node_to_string(root)
 
+
 def parse_put_async_fetch_task_result(result, body):
     root = ElementTree.fromstring(body)
 
     result.task_id = _find_tag(root, 'TaskId')
 
     return result
+
 
 def _parse_async_fetch_task_configuration(task_info_node):
     url = _find_tag(task_info_node, 'Url')
@@ -1338,6 +1402,7 @@ def _parse_async_fetch_task_configuration(task_info_node):
 
     return AsyncFetchTaskConfiguration(url, object_name, host, content_md5, callback, ignore_same_key)
 
+
 def parse_get_async_fetch_task_result(result, body):
     root = ElementTree.fromstring(body)
 
@@ -1348,6 +1413,7 @@ def parse_get_async_fetch_task_result(result, body):
 
     return result
 
+
 def to_put_inventory_configuration(inventory_config):
     root = ElementTree.Element("InventoryConfiguration")
     _add_text_child(root, "Id", inventory_config.inventory_id)
@@ -1357,11 +1423,11 @@ def to_put_inventory_configuration(inventory_config):
 
     if inventory_config.included_object_versions is not None:
         _add_text_child(root, "IncludedObjectVersions", inventory_config.included_object_versions)
-    
+
     if inventory_config.inventory_filter is not None and inventory_config.inventory_filter.prefix is not None:
         filter_node = ElementTree.SubElement(root, 'Filter')
         _add_text_child(filter_node, "Prefix", inventory_config.inventory_filter.prefix)
-    
+
     if inventory_config.inventory_schedule is not None and inventory_config.inventory_schedule.frequency is not None:
         schedule_node = ElementTree.SubElement(root, 'Schedule')
         _add_text_child(schedule_node, "Frequency", inventory_config.inventory_schedule.frequency)
@@ -1392,14 +1458,15 @@ def to_put_inventory_configuration(inventory_config):
             _add_text_child(bucket_destin_node, "Prefix", bucket_destin.prefix)
 
         if bucket_destin.sse_kms_encryption is not None:
-            encryption_node =  ElementTree.SubElement(bucket_destin_node, 'Encryption')
-            sse_kms_node =  ElementTree.SubElement(encryption_node, 'SSE-KMS')
+            encryption_node = ElementTree.SubElement(bucket_destin_node, 'Encryption')
+            sse_kms_node = ElementTree.SubElement(encryption_node, 'SSE-KMS')
             _add_text_child(sse_kms_node, "KeyId", bucket_destin.sse_kms_encryption.key_id)
         elif bucket_destin.sse_oss_encryption is not None:
-            encryption_node =  ElementTree.SubElement(bucket_destin_node, 'Encryption')
+            encryption_node = ElementTree.SubElement(bucket_destin_node, 'Encryption')
             _add_node_child(encryption_node, 'SSE-OSS')
 
     return _node_to_string(root)
+
 
 def get_Inventory_configuration_from_element(elem):
     root = elem
@@ -1411,11 +1478,11 @@ def get_Inventory_configuration_from_element(elem):
 
     if root.find("Filter/Prefix") is not None:
         result.inventory_filter = InventoryFilter(_find_tag(root, 'Filter/Prefix'))
-    
+
     if root.find("Schedule/Frequency") is not None:
         result.inventory_schedule = InventorySchedule(_find_tag(root, 'Schedule/Frequency'))
 
-    result.optional_fields =  _find_all_tags(root, "OptionalFields/Field")
+    result.optional_fields = _find_all_tags(root, "OptionalFields/Field")
 
     if root.find("Destination/OSSBucketDestination") is not None:
         bucket_distin_node = root.find("Destination/OSSBucketDestination")
@@ -1447,13 +1514,15 @@ def get_Inventory_configuration_from_element(elem):
         elif bucket_distin_node.find("Encryption/SSE-OSS") is not None:
             sse_oss_encryption = InventoryServerSideEncryptionOSS()
 
-        bucket_destination = InventoryBucketDestination(account_id=account_id, role_arn=role_arn, 
-                bucket=bucket, inventory_format=inventory_format, prefix=prefix, 
-                sse_kms_encryption=sse_kms_encryption, sse_oss_encryption=sse_oss_encryption)
- 
+        bucket_destination = InventoryBucketDestination(account_id=account_id, role_arn=role_arn,
+                                                        bucket=bucket, inventory_format=inventory_format, prefix=prefix,
+                                                        sse_kms_encryption=sse_kms_encryption,
+                                                        sse_oss_encryption=sse_oss_encryption)
+
         result.inventory_destination = InventoryDestination(bucket_destination)
 
     return result
+
 
 def parse_get_bucket_inventory_configuration(result, body):
     root = ElementTree.fromstring(body)
@@ -1468,6 +1537,7 @@ def parse_get_bucket_inventory_configuration(result, body):
     result.inventory_destination = inventory_config.inventory_destination
 
     return result
+
 
 def parse_list_bucket_inventory_configurations(result, body):
     root = ElementTree.fromstring(body)
@@ -1486,6 +1556,7 @@ def parse_list_bucket_inventory_configurations(result, body):
         result.next_continuation_token = _find_tag(root, "NextContinuationToken")
 
     return result
+
 
 def to_put_restore_config(restore_config):
     root = ElementTree.Element('RestoreRequest')

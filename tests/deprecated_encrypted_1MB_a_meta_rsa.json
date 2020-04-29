@@ -1,0 +1,6 @@
+{
+    "x-oss-meta-oss-cek-alg": "AES/GCM/NoPadding",
+    "x-oss-meta-oss-crypto-key": "Jmurs0ZAUEhIjMr+MNZnKdQR4llzdpD6sn2ijnSrJG+W7ht2TjIYXT3XWhBIlmWtkrEY1y2l0yDGAEgpRfWtH3km8Z44VEu4G7MLo0kaikoJ/d47+7/a0tSNgd968kkrvKGPpk7sl6ad2seObc+SIcCdvlI+ojXr65Trhk5OYXA=",
+    "x-oss-meta-oss-crypto-start": "IyhJvxPZodkceJe+ISTug0rUBS/QDOnn67sc3PSOqPikEQq4mDxP8SqvSdYcoytDcloFY/GOgKWeL4kS2ga9FJKXcsVneCrla3q1KTtl45NSNn7np6tOXBkqv3TIU0ZZ58Y1XdSPmr+8TIkjtNlBtg+48fclXoAxqcTq++u2SIc=",
+    "x-oss-meta-oss-wrap-alg": "rsa"
+}
