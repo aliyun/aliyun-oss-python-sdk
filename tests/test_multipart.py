@@ -53,8 +53,7 @@ class TestMultipart(OssTestCase):
         # construct a bad Content-Md5 by using 'content + content's Content-Md5
         headers = {'Content-Md5': oss2.utils.content_md5(content + content)}
 
-        self.assertRaises(oss2.exceptions.InvalidDigest, self.bucket.upload_part, key, upload_id, 1, content,
-                          headers=headers)
+        self.assertRaises(oss2.exceptions.InvalidDigest, self.bucket.upload_part, key, upload_id, 1, content, headers=headers)
 
     def test_progress(self):
         stats = {'previous': -1}
@@ -92,7 +91,7 @@ class TestMultipart(OssTestCase):
         parts.append(oss2.models.PartInfo(1, result.etag))
 
         result = self.bucket.upload_part_copy(self.bucket.bucket_name, src_object,
-                                              (100 * 1024, None), dst_object, upload_id, 2)
+                                              (100*1024, None), dst_object, upload_id, 2)
         parts.append(oss2.models.PartInfo(2, result.etag))
 
         self.bucket.complete_multipart_upload(dst_object, upload_id, parts)
@@ -103,11 +102,12 @@ class TestMultipart(OssTestCase):
         self.assertEqual(content_got, content)
 
     def test_init_multipart_with_object_tagging_exceptions(self):
+
         key = self.random_key()
 
-        headers = dict()
+        headers=dict()
         # wrong key
-        tag_str = '=a&b=a'
+        tag_str='=a&b=a'
         headers[OSS_OBJECT_TAGGING] = tag_str
         try:
             resp = self.bucket.init_multipart_upload(key, headers=headers)
@@ -116,35 +116,38 @@ class TestMultipart(OssTestCase):
             pass
 
         # wrong key
-        long_str = 129 * 'a'
-        tag_str = long_str + '=b&b=a'
+        long_str=129*'a'
+        tag_str=long_str+'=b&b=a'
         headers[OSS_OBJECT_TAGGING] = tag_str
         try:
             resp = self.bucket.init_multipart_upload(key, headers=headers)
             self.assertFalse(True, 'should get a exception')
         except oss2.exceptions.OssError:
             pass
+
 
         # wrong value
-        tag_str = 'a=&b=c'
+        tag_str='a=&b=c'
         headers[OSS_OBJECT_TAGGING] = tag_str
         try:
             resp = self.bucket.init_multipart_upload(key, headers=headers)
         except oss2.exceptions.OssError:
             self.assertFalse(True, 'should get a exception')
 
+
         # wrong value
-        long_str = 257 * 'a'
-        tag_str = 'a=' + long_str + '&b=a'
+        long_str=257*'a'
+        tag_str = 'a='+long_str+'&b=a'
         headers[OSS_OBJECT_TAGGING] = tag_str
         try:
             resp = self.bucket.init_multipart_upload(key, headers=headers)
             self.assertFalse(True, 'should get a exception')
         except oss2.exceptions.OssError:
             pass
+
 
         # dup kv
-        tag_str = 'a=b&a=b&a=b'
+        tag_str='a=b&a=b&a=b'
         headers[OSS_OBJECT_TAGGING] = tag_str
         try:
             resp = self.bucket.init_multipart_upload(key, headers=headers)
@@ -152,8 +155,9 @@ class TestMultipart(OssTestCase):
         except oss2.exceptions.OssError:
             pass
 
+
         # max+1 kv pairs
-        tag_str = 'a1=b1&a2=b2&a3=b4&a4=b4&a5=b5&a6=b6&a7=b7&a8=b8&a9=b9&a10=b10&a11=b11&a12=b12'
+        tag_str='a1=b1&a2=b2&a3=b4&a4=b4&a5=b5&a6=b6&a7=b7&a8=b8&a9=b9&a10=b10&a11=b11&a12=b12'
         headers[OSS_OBJECT_TAGGING] = tag_str
         try:
             resp = self.bucket.init_multipart_upload(key, headers=headers)
@@ -166,17 +170,17 @@ class TestMultipart(OssTestCase):
         key = self.random_key()
         content = random_bytes(128 * 1024)
 
-        tag_str = ''
+        tag_str=''
 
-        tag_key1 = urlquote('+:/')
-        tag_value1 = urlquote('.-')
-        tag_str = tag_key1 + '=' + tag_value1
+        tag_key1=urlquote('+:/')
+        tag_value1=urlquote('.-')
+        tag_str = tag_key1+'='+tag_value1
 
-        tag_ke2 = urlquote(' + ')
-        tag_value2 = urlquote(u'中文'.encode('UTF-8'))
-        tag_str += '&' + tag_ke2 + '=' + tag_value2
+        tag_ke2=urlquote(' + ')
+        tag_value2=urlquote(u'中文'.encode('UTF-8'))
+        tag_str += '&'+tag_ke2+'='+tag_value2
 
-        headers = dict()
+        headers=dict()
         headers[OSS_OBJECT_TAGGING] = tag_str
 
         parts = []

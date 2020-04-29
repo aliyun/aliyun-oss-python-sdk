@@ -33,7 +33,6 @@ class PartInfo(object):
     :param int last_modified: 该分片最后修改的时间戳，类型为int。参考 :ref:`unix_time`
     :param int part_crc: 该分片的crc64值
     """
-
     def __init__(self, part_number, etag, size=None, last_modified=None, part_crc=None):
         self.part_number = part_number
         self.etag = etag
@@ -176,7 +175,6 @@ class RequestResult(object):
 
         self.delete_marker = _hget(self.headers, 'x-oss-delete-marker', bool)
 
-
 class HeadObjectResult(RequestResult):
     def __init__(self, resp):
         super(HeadObjectResult, self).__init__(resp)
@@ -210,12 +208,12 @@ class GetSelectObjectMetaResult(HeadObjectResult):
         super(GetSelectObjectMetaResult, self).__init__(resp)
         self.select_resp = SelectResponseAdapter(resp, None, None, False)
 
-        for data in self.select_resp:  # waiting the response body to finish
+        for data in self.select_resp: # waiting the response body to finish
             pass
 
         self.csv_rows = self.select_resp.rows  # to be compatible with previous version. 
         self.csv_splits = self.select_resp.splits  # to be compatible with previous version. 
-        self.rows = self.csv_rows
+        self.rows = self.csv_rows 
         self.splits = self.csv_splits
 
 
@@ -316,7 +314,7 @@ class GetObjectResult(HeadObjectResult):
 
     def __iter__(self):
         return iter(self.stream)
-
+    
     @property
     def client_crc(self):
         if self.__crc_enabled:
@@ -324,22 +322,20 @@ class GetObjectResult(HeadObjectResult):
         else:
             return None
 
-
 class SelectObjectResult(HeadObjectResult):
     def __init__(self, resp, progress_callback=None, crc_enabled=False):
         super(SelectObjectResult, self).__init__(resp)
         self.__crc_enabled = crc_enabled
-        self.select_resp = SelectResponseAdapter(resp, progress_callback, None, enable_crc=self.__crc_enabled)
+        self.select_resp = SelectResponseAdapter(resp, progress_callback, None, enable_crc = self.__crc_enabled)
 
     def read(self):
         return self.select_resp.read()
-
+        
     def __iter__(self):
         return iter(self.select_resp)
-
+    
     def __next__(self):
         return self.select_resp.next()
-
 
 class PutObjectResult(RequestResult):
     def __init__(self, resp):
@@ -347,7 +343,7 @@ class PutObjectResult(RequestResult):
 
         #: HTTP ETag
         self.etag = _get_etag(self.headers)
-
+        
         #: 文件上传后，OSS上文件的CRC64值
         self.crc = _hget(resp.headers, OSS_HASH_CRC64_ECMA, int)
 
@@ -365,12 +361,10 @@ class AppendObjectResult(RequestResult):
         #: 下次追加写的偏移
         self.next_position = _hget(resp.headers, OSS_NEXT_APPEND_POSITION, int)
 
-
 class BatchDeleteObjectVersion(object):
     def __init__(self, key=None, versionid=None):
         self.key = key or ''
         self.versionid = versionid or ''
-
 
 class BatchDeleteObjectVersionList(object):
     def __init__(self, object_version_list=None):
@@ -382,14 +376,12 @@ class BatchDeleteObjectVersionList(object):
     def len(self):
         return len(self.object_version_list)
 
-
 class BatchDeleteObjectVersionResult(object):
     def __init__(self, key, versionid=None, delete_marker=None, delete_marker_versionid=None):
         self.key = key
         self.versionid = versionid or ''
         self.delete_marker = delete_marker or False
         self.delete_marker_versionid = delete_marker_versionid or ''
-
 
 class BatchDeleteObjectsResult(RequestResult):
     def __init__(self, resp):
@@ -398,7 +390,7 @@ class BatchDeleteObjectsResult(RequestResult):
         #: 已经删除的文件名列表
         self.deleted_keys = []
 
-        # ：已经删除的带版本信息的文件信息列表
+        #：已经删除的带版本信息的文件信息列表
         self.delete_versions = []
 
 
@@ -472,7 +464,6 @@ class GetObjectAclResult(RequestResult):
 
 class SimplifiedBucketInfo(object):
     """:func:`list_buckets <oss2.Service.list_objects>` 结果中的单个元素类型。"""
-
     def __init__(self, name, location, creation_date, extranet_endpoint, intranet_endpoint, storage_class):
         #: Bucket名
         self.name = name
@@ -609,7 +600,6 @@ REDIRECT_TYPE_ALICDN = 'AliCDN'
 PAYER_BUCKETOWNER = 'BucketOwner'
 PAYER_REQUESTER = 'Requester'
 
-
 class GetBucketAclResult(RequestResult):
     def __init__(self, resp):
         super(GetBucketAclResult, self).__init__(resp)
@@ -632,7 +622,6 @@ class BucketLogging(object):
     :param str target_bucket: 存储日志到这个Bucket。
     :param str target_prefix: 生成的日志文件名加上该前缀。
     """
-
     def __init__(self, target_bucket, target_prefix):
         self.target_bucket = target_bucket
         self.target_prefix = target_prefix
@@ -705,7 +694,6 @@ class BucketReferer(object):
     :param bool allow_empty_referer: 是否允许空的Referer。
     :param referers: Referer列表，每个元素是一个str。
     """
-
     def __init__(self, allow_empty_referer, referers):
         self.allow_empty_referer = allow_empty_referer
         self.referers = referers
@@ -715,7 +703,6 @@ class GetBucketRefererResult(RequestResult, BucketReferer):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         BucketReferer.__init__(self, False, [])
-
 
 class Condition(object):
     """ 匹配规则
@@ -730,12 +717,11 @@ class Condition(object):
     :param include_header_list: 匹配指定的header
     :type include_header_list: list of :class:`ConditionInlcudeHeader`
     """
-
     def __init__(self, key_prefix_equals=None, http_err_code_return_equals=None, include_header_list=None):
-        if (include_header_list is not None):
+        if (include_header_list is not None): 
             if not isinstance(include_header_list, list):
                 raise ClientError('class of include_header should be list')
-
+            
             if len(include_header_list) > 5:
                 raise ClientError('capacity of include_header_list should not > 5, please check!')
 
@@ -753,8 +739,7 @@ class ConditionInlcudeHeader(object):
     :param key: header value
     :type key: str
     """
-
-    def __init__(self, key=None, equals=None):
+    def __init__(self, key=None, equals= None):
         self.key = key
         self.equals = equals
 
@@ -814,19 +799,17 @@ class Redirect(object):
     :type mirror_headers: class:`RedirectMirrorHeaders <oss2.models.RedirectMirrorHeaders>`
 
     """
+    def __init__(self, redirect_type=None, pass_query_string= None, replace_key_with=None, replace_key_prefix_with=None, 
+                    proto=None, host_name=None, http_redirect_code=None,  mirror_url=None, mirror_url_slave=None, 
+                    mirror_url_probe=None, mirror_pass_query_string=None, mirror_follow_redirect=None, 
+                    mirror_check_md5=None, mirror_headers=None):
 
-    def __init__(self, redirect_type=None, pass_query_string=None, replace_key_with=None, replace_key_prefix_with=None,
-                 proto=None, host_name=None, http_redirect_code=None, mirror_url=None, mirror_url_slave=None,
-                 mirror_url_probe=None, mirror_pass_query_string=None, mirror_follow_redirect=None,
-                 mirror_check_md5=None, mirror_headers=None):
-
-        if redirect_type not in [REDIRECT_TYPE_MIRROR, REDIRECT_TYPE_EXTERNAL, REDIRECT_TYPE_INTERNAL,
-                                 REDIRECT_TYPE_ALICDN]:
+        if redirect_type not in [REDIRECT_TYPE_MIRROR, REDIRECT_TYPE_EXTERNAL, REDIRECT_TYPE_INTERNAL, REDIRECT_TYPE_ALICDN]:
             raise ClientError('redirect_type must be Internal, External, Mirror or AliCDN.')
 
         if redirect_type == REDIRECT_TYPE_INTERNAL:
             if any((host_name, proto, http_redirect_code)):
-                raise ClientError('host_name, proto, http_redirect_code must be empty when redirect_type is Internal.')
+                 raise ClientError('host_name, proto, http_redirect_code must be empty when redirect_type is Internal.')
 
         if redirect_type in [REDIRECT_TYPE_EXTERNAL, REDIRECT_TYPE_ALICDN]:
             if http_redirect_code is not None:
@@ -837,26 +820,22 @@ class Redirect(object):
             if all((replace_key_with, replace_key_prefix_with)):
                 raise ClientError("replace_key_with or replace_key_prefix_with only choose one.")
 
-        elif redirect_type == REDIRECT_TYPE_MIRROR:
+        elif redirect_type == REDIRECT_TYPE_MIRROR: 
             if any((proto, host_name, replace_key_with, replace_key_prefix_with, http_redirect_code)):
-                raise ClientError(
-                    'host_name, replace_key_with, replace_key_prefix_with, http_redirect_code and proto must be empty when redirect_type is Mirror.')
+                    raise ClientError('host_name, replace_key_with, replace_key_prefix_with, http_redirect_code and proto must be empty when redirect_type is Mirror.') 
 
             if mirror_url is None:
                 raise ClientError('mirror_url should not be None when redirect_type is Mirror.')
 
-            if (not mirror_url.startswith('http://') and not mirror_url.startswith(
-                    'https://')) or not mirror_url.endswith('/'):
+            if (not mirror_url.startswith('http://') and not mirror_url.startswith('https://')) or not mirror_url.endswith('/'):
                 raise ClientError(r'mirror_url is invalid, should startwith "http://" or "https://", and endwith "/"')
 
             if mirror_url_slave is not None:
                 if mirror_url_probe is None:
                     raise ClientError('mirror_url_probe should not be none when mirror_url_slave is indicated')
 
-                if (not mirror_url_slave.startswith('http://') and not mirror_url_slave.startswith(
-                        'https://')) or not mirror_url_slave.endswith('/'):
-                    raise ClientError(
-                        r'mirror_url_salve is invalid, should startwith "http://" or "https://", and endwith "/"')
+                if (not mirror_url_slave.startswith('http://') and not mirror_url_slave.startswith('https://')) or not mirror_url_slave.endswith('/'):
+                    raise ClientError(r'mirror_url_salve is invalid, should startwith "http://" or "https://", and endwith "/"')
 
         self.redirect_type = redirect_type
         self.pass_query_string = pass_query_string
@@ -892,26 +871,25 @@ class RedirectMirrorHeaders(object):
     :type set_list: list of :class:`MirrorHeadersSet <oss2.models.MirrorHeadersSet>`
 
     """
-
-    def __init__(self, pass_all=None, pass_list=None, remove_list=None, set_list=None):
+    def __init__(self,pass_all=None, pass_list=None, remove_list=None, set_list=None):
         if pass_list is not None:
             if not isinstance(pass_list, list):
                 raise ClientError('The type of pass_list should be list.')
-
+            
             if len(pass_list) > 10:
                 raise ClientError('The capacity of pass_list should not > 10!')
-
+        
         if remove_list is not None:
             if not isinstance(remove_list, list):
                 raise ClientError('The type of remove_list should be list.')
-
+            
             if len(remove_list) > 10:
                 raise ClientError('The capacity of remove_list should not > 10!')
-
+        
         if set_list is not None:
             if not isinstance(set_list, list):
                 raise ClientError('The type of set_list should be list.')
-
+            
             if len(set_list) > 10:
                 raise ClientError('The capacity of set_list should not > 10!')
 
@@ -919,7 +897,7 @@ class RedirectMirrorHeaders(object):
         self.pass_list = pass_list or []
         self.remove_list = remove_list or []
         self.set_list = set_list or []
-
+  
 
 class MirrorHeadersSet(object):
     """父节点: class `RedirectMirrorHeaders <oss2.models.RedirectMirrorHeaders>`
@@ -929,7 +907,6 @@ class MirrorHeadersSet(object):
     :param value:设置header的value，最多1024个字节，不能出现”\r\n” 。只有在RedirectType为Mirror时生效。
     :type value: str
     """
-
     def __init__(self, key=None, value=None):
         self.key = key
         self.value = value
@@ -946,21 +923,19 @@ class RoutingRule(object):
     :param redirect: 指定匹配此规则后执行的动作
     :type redirect: class:`Redirect <oss2.models.Redirect>`
     """
-
     def __init__(self, rule_num=None, condition=None, redirect=None):
         if (rule_num is None) or (not isinstance(rule_num, int)) or (rule_num <= 0):
             raise ClientError('rule_num should be positive integer.')
-
-        if (condition is None) or (redirect is None):
+        
+        if(condition is None) or (redirect is None):
             raise ClientError('condition and redirect should be effective.')
-
-        if (redirect.redirect_type == REDIRECT_TYPE_MIRROR) and condition.http_err_code_return_equals != 404:
+        
+        if(redirect.redirect_type == REDIRECT_TYPE_MIRROR) and condition.http_err_code_return_equals != 404:
             raise ClientError('http_err_code not match redirect_type, it should be 404!')
 
         self.rule_num = rule_num
         self.condition = condition
         self.redirect = redirect
-
 
 class BucketWebsite(object):
     """静态网站托管配置。
@@ -970,7 +945,6 @@ class BucketWebsite(object):
     :param rules : list of class:`RoutingRule <oss2.models.RoutingRule>`
     
     """
-
     def __init__(self, index_file, error_file, rules=None):
         if rules is not None:
             if not isinstance(rules, list):
@@ -1005,7 +979,6 @@ class LifecycleExpiration(object):
     :param expired_detete_marker: bool
 
     """
-
     def __init__(self, days=None, date=None, created_before_date=None, expired_detete_marker=None):
         not_none_fields = 0
         if days is not None:
@@ -1018,8 +991,7 @@ class LifecycleExpiration(object):
             not_none_fields += 1
 
         if not_none_fields > 1:
-            raise ClientError(
-                'More than one field(days, date and created_before_date, expired_detete_marker) has been specified')
+            raise ClientError('More than one field(days, date and created_before_date, expired_detete_marker) has been specified')
 
         self.days = days
         self.date = date
@@ -1034,7 +1006,6 @@ class AbortMultipartUpload(object):
     :param created_before_date: 删除最后修改时间早于created_before_date的parts
 
     """
-
     def __init__(self, days=None, created_before_date=None):
         if days is not None and created_before_date is not None:
             raise ClientError('days and created_before_date should not be both specified')
@@ -1050,7 +1021,6 @@ class StorageTransition(object):
     :param created_before_date: 将最后修改时间早于created_before_date的对象转储
     :param storage_class: 对象转储到OSS的目标存储类型
     """
-
     def __init__(self, days=None, created_before_date=None, storage_class=None):
         if days is not None and created_before_date is not None:
             raise ClientError('days and created_before_date should not be both specified')
@@ -1066,7 +1036,6 @@ class NoncurrentVersionExpiration(object):
     :param noncurrent_days: 指定多少天之后删除
     :type noncurrent_days: int
     """
-
     def __init__(self, noncurrent_days):
         self.noncurrent_days = noncurrent_days
 
@@ -1077,7 +1046,6 @@ class NoncurrentVersionStorageTransition(object):
     :param noncurrent_days: 多少天之后转存储
     :type noncurrent_days: int
     """
-
     def __init__(self, noncurrent_days, storage_class):
         self.noncurrent_days = noncurrent_days
         self.storage_class = storage_class
@@ -1136,7 +1104,6 @@ class BucketLifecycle(object):
     :param rules: 规则列表，
     :type rules: list of :class:`LifecycleRule <oss2.models.LifecycleRule>`
     """
-
     def __init__(self, rules=None):
         self.rules = rules or []
 
@@ -1161,7 +1128,6 @@ class CorsRule(object):
 
 
     """
-
     def __init__(self,
                  allowed_origins=None,
                  allowed_methods=None,
@@ -1199,10 +1165,10 @@ class LiveChannelInfoTarget(object):
     :type frag_count: int"""
 
     def __init__(self,
-                 type='HLS',
-                 frag_duration=5,
-                 frag_count=3,
-                 playlist_name=''):
+            type = 'HLS',
+            frag_duration = 5,
+            frag_count = 3,
+            playlist_name = ''):
         self.type = type
         self.frag_duration = frag_duration
         self.frag_count = frag_count
@@ -1232,15 +1198,15 @@ class LiveChannelInfo(object):
         
     :param publish_url: 推流地址。
     :type publish_url: str"""
-
+    
     def __init__(self,
-                 status='enabled',
-                 description='',
-                 target=LiveChannelInfoTarget(),
-                 last_modified=None,
-                 name=None,
-                 play_url=None,
-                 publish_url=None):
+            status = 'enabled',
+            description = '',
+            target = LiveChannelInfoTarget(),
+            last_modified = None,
+            name = None,
+            play_url = None,
+            publish_url = None):
         self.status = status
         self.description = description
         self.target = target
@@ -1272,11 +1238,11 @@ class LiveChannelList(object):
     :type channels: list，类型为 :class:`LiveChannelInfo`"""
 
     def __init__(self,
-                 prefix='',
-                 marker='',
-                 max_keys=100,
-                 is_truncated=False,
-                 next_marker=''):
+            prefix = '',
+            marker = '',
+            max_keys = 100,
+            is_truncated = False,
+            next_marker = ''):
         self.prefix = prefix
         self.marker = marker
         self.max_keys = max_keys
@@ -1304,11 +1270,11 @@ class LiveChannelVideoStat(object):
     :type bandwidth: int"""
 
     def __init__(self,
-                 width=0,
-                 height=0,
-                 frame_rate=0,
-                 codec='',
-                 bandwidth=0):
+            width = 0,
+            height = 0,
+            frame_rate = 0,
+            codec = '',
+            bandwidth = 0):
         self.width = width
         self.height = height
         self.frame_rate = frame_rate
@@ -1329,9 +1295,9 @@ class LiveChannelAudioStat(object):
     :type bandwidth: int"""
 
     def __init__(self,
-                 codec='',
-                 sample_rate=0,
-                 bandwidth=0):
+            codec = '',
+            sample_rate = 0,
+            bandwidth = 0):
         self.codec = codec
         self.sample_rate = sample_rate
         self.bandwidth = bandwidth
@@ -1356,11 +1322,11 @@ class LiveChannelStat(object):
     :type audio: class:`LiveChannelAudioStat <oss2.models.LiveChannelAudioStat>`"""
 
     def __init__(self,
-                 status='',
-                 remote_addr='',
-                 connected_time='',
-                 video=None,
-                 audio=None):
+            status = '',
+            remote_addr = '',
+            connected_time = '',
+            video = None,
+            audio = None):
         self.status = status
         self.remote_addr = remote_addr
         self.connected_time = connected_time
@@ -1381,9 +1347,9 @@ class LiveRecord(object):
     :type remote_addr: str"""
 
     def __init__(self,
-                 start_time='',
-                 end_time='',
-                 remote_addr=''):
+            start_time = '',
+            end_time = '',
+            remote_addr = ''):
         self.start_time = start_time
         self.end_time = end_time
         self.remote_addr = remote_addr
@@ -1410,8 +1376,8 @@ class GetLiveChannelResult(RequestResult, LiveChannelInfo):
 
 class ListLiveChannelResult(RequestResult, LiveChannelList):
     def __init__(self, resp):
-        RequestResult.__init__(self, resp)
-        LiveChannelList.__init__(self)
+       RequestResult.__init__(self, resp)
+       LiveChannelList.__init__(self)
 
 
 class GetLiveChannelStatResult(RequestResult, LiveChannelStat):
@@ -1419,18 +1385,15 @@ class GetLiveChannelStatResult(RequestResult, LiveChannelStat):
         RequestResult.__init__(self, resp)
         LiveChannelStat.__init__(self)
 
-
 class GetLiveChannelHistoryResult(RequestResult, LiveChannelHistory):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         LiveChannelHistory.__init__(self)
 
-
 class GetVodPlaylistResult(RequestResult):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         self.playlist = to_string(resp.read())
-
 
 class ProcessObjectResult(RequestResult):
     def __init__(self, resp):
@@ -1449,19 +1412,19 @@ class ProcessObjectResult(RequestResult):
         if 'status' in result:
             self.process_status = result['status']
 
-
-_MAX_OBJECT_TAGGING_KEY_LENGTH = 128
-_MAX_OBJECT_TAGGING_VALUE_LENGTH = 256
-
+_MAX_OBJECT_TAGGING_KEY_LENGTH=128
+_MAX_OBJECT_TAGGING_VALUE_LENGTH=256
 
 class Tagging(object):
 
     def __init__(self, tagging_rules=None):
-        self.tag_set = tagging_rules or TaggingRule()
+        
+        self.tag_set = tagging_rules or TaggingRule() 
 
     def __str__(self):
-        tag_str = ""
 
+        tag_str = ""
+        
         tagging_rule = self.tag_set.tagging_rule
 
         for key in tagging_rule:
@@ -1469,7 +1432,6 @@ class Tagging(object):
             tag_str += "#" + tagging_rule[key] + " "
 
         return tag_str
-
 
 class TaggingRule(object):
 
@@ -1511,31 +1473,27 @@ class TaggingRule(object):
 
         return query_string
 
-
 class GetTaggingResult(RequestResult, Tagging):
-
+    
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         Tagging.__init__(self)
 
-
 SERVER_SIDE_ENCRYPTION_AES256 = 'AES256'
 SERVER_SIDE_ENCRYPTION_KMS = 'KMS'
-
 
 class ServerSideEncryptionRule(object):
 
     def __init__(self, sse_algorithm=None, kms_master_keyid=None):
+
         self.sse_algorithm = sse_algorithm
         self.kms_master_keyid = kms_master_keyid
 
-
 class GetServerSideEncryptionResult(RequestResult, ServerSideEncryptionRule):
-
+    
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         ServerSideEncryptionRule.__init__(self)
-
 
 class ListObjectVersionsResult(RequestResult):
     def __init__(self, resp):
@@ -1557,7 +1515,7 @@ class ListObjectVersionsResult(RequestResult):
         self.next_versionid_marker = ''
 
         self.name = ''
-
+        
         self.owner = ''
 
         self.prefix = ''
@@ -1574,7 +1532,6 @@ class ListObjectVersionsResult(RequestResult):
 
         self.common_prefix = []
 
-
 class DeleteMarkerInfo(object):
     def __init__(self):
         self.key = ''
@@ -1582,7 +1539,6 @@ class DeleteMarkerInfo(object):
         self.is_latest = False
         self.last_modified = ''
         self.owner = Owner('', '')
-
 
 class ObjectVersionInfo(object):
     def __init__(self):
@@ -1596,33 +1552,27 @@ class ObjectVersionInfo(object):
         self.size = ''
         self.etag = ''
 
-
 BUCKET_VERSIONING_ENABLE = 'Enabled'
 BUCKET_VERSIONING_SUSPEND = 'Suspended'
-
 
 class BucketVersioningConfig(object):
     def __init__(self, status=None):
         self.status = status
 
-
 class GetBucketVersioningResult(RequestResult, BucketVersioningConfig):
     def __init__(self, resp):
-        RequestResult.__init__(self, resp)
-        BucketVersioningConfig.__init__(self)
-
+        RequestResult.__init__(self,resp)
+        BucketVersioningConfig.__init__(self) 
 
 class GetBucketPolicyResult(RequestResult):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         self.policy = to_string(resp.read())
 
-
 class GetBucketRequestPaymentResult(RequestResult):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         self.payer = ''
-
 
 class BucketQosInfo(object):
     """bucket的Qos信息    
@@ -1655,17 +1605,17 @@ class BucketQosInfo(object):
     :param extranet_qps: 外网访问qps, 单位请求数/s
     :type extranet_qps: int
     """
-
     def __init__(self,
-                 total_upload_bw=None,
-                 intranet_upload_bw=None,
-                 extranet_upload_bw=None,
-                 total_download_bw=None,
-                 intranet_download_bw=None,
-                 extranet_download_bw=None,
-                 total_qps=None,
-                 intranet_qps=None,
-                 extranet_qps=None):
+            total_upload_bw = None,
+            intranet_upload_bw = None,
+            extranet_upload_bw = None,
+            total_download_bw = None,
+            intranet_download_bw = None,
+            extranet_download_bw = None,
+            total_qps = None,
+            intranet_qps = None,
+            extranet_qps = None):
+
         self.total_upload_bw = total_upload_bw
         self.intranet_upload_bw = intranet_upload_bw
         self.extranet_upload_bw = extranet_upload_bw
@@ -1675,7 +1625,6 @@ class BucketQosInfo(object):
         self.total_qps = total_qps
         self.intranet_qps = intranet_qps
         self.extranet_qps = extranet_qps
-
 
 class UserQosInfo(object):
     """User的Qos信息    
@@ -1712,18 +1661,18 @@ class UserQosInfo(object):
     :param extranet_qps: 外网访问qps
     :type extranet_qps: int
     """
+    def __init__(self, 
+            region=None,
+            total_upload_bw = None,
+            intranet_upload_bw = None,
+            extranet_upload_bw = None,
+            total_download_bw = None,
+            intranet_download_bw = None,
+            extranet_download_bw = None,
+            total_qps = None,
+            intranet_qps = None,
+            extranet_qps = None):
 
-    def __init__(self,
-                 region=None,
-                 total_upload_bw=None,
-                 intranet_upload_bw=None,
-                 extranet_upload_bw=None,
-                 total_download_bw=None,
-                 intranet_download_bw=None,
-                 extranet_download_bw=None,
-                 total_qps=None,
-                 intranet_qps=None,
-                 extranet_qps=None):
         self.region = region
         self.total_upload_bw = total_upload_bw
         self.intranet_upload_bw = intranet_upload_bw
@@ -1735,27 +1684,22 @@ class UserQosInfo(object):
         self.intranet_qps = intranet_qps
         self.extranet_qps = extranet_qps
 
-
 class GetUserQosInfoResult(RequestResult, UserQosInfo):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         UserQosInfo.__init__(self)
-
 
 class GetBucketQosInfoResult(RequestResult, BucketQosInfo):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         BucketQosInfo.__init__(self)
 
-
 class BucketUserQos(object):
     """用户服务质量。
     :param int storage_capacity: 容量大小，单位GB
     """
-
     def __init__(self, storage_capacity=None):
         self.storage_capacity = storage_capacity
-
 
 class GetBucketUserQosResult(RequestResult, BucketUserQos):
     def __init__(self, resp):
@@ -1766,9 +1710,8 @@ class GetBucketUserQosResult(RequestResult, BucketUserQos):
 ASYNC_FETCH_TASK_STATE_RUNNING = 'Running'
 ASYNC_FETCH_TASK_STATE_RETRY = 'Retry'
 ASYNC_FETCH_TASK_STATE_FETCH_SUCCESS_CALLBACK_FAILED = 'FetchSuccessCallbackFailed'
-ASYNC_FETCH_TASK_STATE_FAILED = 'Failed'
+ASYNC_FETCH_TASK_STATE_FAILED= 'Failed'
 ASYNC_FETCH_TASK_STATE_SUCCESS = 'Success'
-
 
 class AsyncFetchTaskConfiguration(object):
     """异步获取文件到bucket到任务配置项
@@ -1792,14 +1735,14 @@ class AsyncFetchTaskConfiguration(object):
     :param ignore_same_key: 默认为True表示如果文件已存在则忽略本次任务，api调用将会报错。如果为False，则会覆盖已存在的object。
     :type ignore_same_key: bool
     """
+    def __init__(self, 
+            url, 
+            object_name,
+            host = None,
+            content_md5 = None,
+            callback = None,
+            ignore_same_key = None):
 
-    def __init__(self,
-                 url,
-                 object_name,
-                 host=None,
-                 content_md5=None,
-                 callback=None,
-                 ignore_same_key=None):
         self.url = url
         self.object_name = object_name
         self.host = host
@@ -1807,12 +1750,10 @@ class AsyncFetchTaskConfiguration(object):
         self.callback = callback
         self.ignore_same_key = ignore_same_key
 
-
 class PutAsyncFetchTaskResult(RequestResult):
     def __init__(self, resp, task_id=None):
         RequestResult.__init__(self, resp)
         self.task_id = task_id
-
 
 class GetAsyncFetchTaskResult(RequestResult):
     """获取异步获取文件到bucket的任务的返回结果
@@ -1831,18 +1772,17 @@ class GetAsyncFetchTaskResult(RequestResult):
     :param task_config: 任务配置信息
     :type task_config: class:`AsyncFetchTaskConfiguration <oss2.models.AsyncFetchTaskConfiguration>`
     """
+    def __init__(self, resp, 
+            task_id=None, 
+            task_state=None, 
+            error_msg=None, 
+            task_config=None):
 
-    def __init__(self, resp,
-                 task_id=None,
-                 task_state=None,
-                 error_msg=None,
-                 task_config=None):
         RequestResult.__init__(self, resp)
         self.task_id = task_id
         self.task_state = task_state
         self.error_msg = error_msg
         self.task_config = task_config
-
 
 INVENTORY_INCLUDED_OBJECT_VERSIONS_CURRENT = "Current"
 INVENTORY_INCLUDED_OBJECT_VERSIONS_ALL = "All"
@@ -1858,7 +1798,6 @@ FIELD_STORAG_CLASS = "StorageClass"
 FIELD_ETAG = "ETag"
 FIELD_IS_MULTIPART_UPLOADED = "IsMultipartUploaded"
 FIELD_ENCRYPTION_STATUS = "EncryptionStatus"
-
 
 class InventoryConfiguration(object):
     """清单配置    
@@ -1885,15 +1824,15 @@ class InventoryConfiguration(object):
     :param optional_fields: 清单中包含的字段
     :type optional_fields: str
     """
+    def __init__(self, 
+            inventory_id=None, 
+            is_enabled=None,
+            included_object_versions=None,
+            inventory_filter=None, 
+            inventory_destination=None, 
+            inventory_schedule=None,
+            optional_fields=None):
 
-    def __init__(self,
-                 inventory_id=None,
-                 is_enabled=None,
-                 included_object_versions=None,
-                 inventory_filter=None,
-                 inventory_destination=None,
-                 inventory_schedule=None,
-                 optional_fields=None):
         self.inventory_id = inventory_id
         self.is_enabled = is_enabled
         self.included_object_versions = included_object_versions
@@ -1902,17 +1841,14 @@ class InventoryConfiguration(object):
         self.inventory_schedule = inventory_schedule
         self.optional_fields = optional_fields or []
 
-
 class InventoryFilter(object):
     """清单过滤器   
 
     :param prefix: 清单筛选的前缀, 指定前缀后，清单将筛选出符合前缀设置的对象。
     :type prefix: str
     """
-
     def __init__(self, prefix=None):
         self.prefix = prefix
-
 
 class InventorySchedule(object):
     """清单的生成周期
@@ -1920,10 +1856,8 @@ class InventorySchedule(object):
     :param frequency: 清单的生成周期，可以是oss2.models.INVENTORY_FREQUENCY_DAILY 或者 oss2.models.INVENTORY_FREQUENCY_WEEKLY
     :type frequency: str
     """
-
     def __init__(self, frequency):
         self.frequency = frequency
-
 
 class InventoryDestination(object):
     """清单的接收目的地址
@@ -1931,10 +1865,8 @@ class InventoryDestination(object):
     :param bucket_destination: OSS Bucket作为目的地，需要配置的OSS Bucket信息。
     :type bucket_destination: class:`InventoryBucketDestination <oss2.models.InventoryBucketDestination>`
     """
-
     def __init__(self, bucket_destination=None):
         self.bucket_destination = bucket_destination
-
 
 class InventoryBucketDestination(object):
     """OSS Bucket作为清单目的地的配置
@@ -1960,18 +1892,17 @@ class InventoryBucketDestination(object):
     :param sse_oss_encryption: OSS服务端为清单提供加密支持。
     :type sse_oss_encryption: class:`InventoryServerSideEncryptionOSS <oss2.models.InventoryServerSideEncryptionOSS>`
     """
+    def __init__(self, 
+            account_id=None, 
+            role_arn=None,
+            bucket=None,
+            inventory_format=None,
+            prefix=None,
+            sse_kms_encryption=None,
+            sse_oss_encryption=None):
 
-    def __init__(self,
-                 account_id=None,
-                 role_arn=None,
-                 bucket=None,
-                 inventory_format=None,
-                 prefix=None,
-                 sse_kms_encryption=None,
-                 sse_oss_encryption=None):
         if all((sse_kms_encryption, sse_oss_encryption)):
-            raise ClientError(
-                'only one encryption method between sse_kms_encryption and sse_oss_encryption can be chosen.')
+            raise ClientError('only one encryption method between sse_kms_encryption and sse_oss_encryption can be chosen.')
 
         self.account_id = account_id
         self.role_arn = role_arn
@@ -1981,17 +1912,14 @@ class InventoryBucketDestination(object):
         self.sse_kms_encryption = sse_kms_encryption
         self.sse_oss_encryption = sse_oss_encryption
 
-
 class InventoryServerSideEncryptionKMS(object):
     """服务端使用kms加密清单的加密项。
 
     :param key_id: kms key id
     :type key_id: str
     """
-
     def __init__(self, key_id):
         self.key_id = key_id
-
 
 class InventoryServerSideEncryptionOSS(object):
     """OSS服务端加密清单的加密项。
@@ -1999,15 +1927,12 @@ class InventoryServerSideEncryptionOSS(object):
     """
     pass
 
-
 class GetInventoryConfigurationResult(RequestResult, InventoryConfiguration):
     """获取清单配置的操作返回结果
     """
-
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
         InventoryConfiguration.__init__(self)
-
 
 class ListInventoryConfigurationsResult(RequestResult):
     """列出清单配置的操作返回结果
@@ -2024,19 +1949,16 @@ class ListInventoryConfigurationsResult(RequestResult):
     :param next_continuation_token: 下一个罗列操作携带的token
     :type next_continuation_token: str
     """
-
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
-        self.inventory_configurations = []
+        self.inventory_configurations= []
         self.is_truncated = None
         self.continuaiton_token = None
         self.next_continuation_token = None
 
-
 RESTORE_TIER_EXPEDITED = 'Expedited'
 RESTORE_TIER_STANDARD = 'Standard'
 RESTORE_TIER_BULK = 'Bulk'
-
 
 class ResotreJobParameters(object):
     """冷归档类型（ColdArchive）文件的解冻优先级配置。
@@ -2047,10 +1969,8 @@ class ResotreJobParameters(object):
         oss2.models.RESTORE_TIER_BULK: 10小时之内解冻完成。
     :type tier: str
     """
-
     def __init__(self, tier):
         self.tier = tier
-
 
 class RestoreConfiguration(object):
     """Archive, ColdArchive类型文件的解冻配置
@@ -2062,7 +1982,6 @@ class RestoreConfiguration(object):
             解冻优先级默认为 oss2.models.RESTORE_TIER_STANDARD: 5小时之内解冻完成。
     :type job_parameters: class:`ResotreJobParameters <oss2.models.ResotreJobParameters>`
     """
-
     def __init__(self, days, job_parameters=None):
         self.days = days
         self.job_parameters = job_parameters

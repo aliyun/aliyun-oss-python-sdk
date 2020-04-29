@@ -19,8 +19,8 @@ class TestBucket(OssTestCase):
         service = oss2.Service(auth, OSS_ENDPOINT)
         wait_meta_sync()
         self.retry_assert(lambda: bucket.bucket_name in
-                                  (b.name for b in
-                                   service.list_buckets(prefix=bucket.bucket_name).buckets))
+                          (b.name for b in
+                           service.list_buckets(prefix=bucket.bucket_name).buckets))
 
         key = 'a.txt'
         bucket.put_object(key, 'content')
@@ -43,8 +43,8 @@ class TestBucket(OssTestCase):
         service = oss2.Service(auth, OSS_ENDPOINT)
         wait_meta_sync()
         self.retry_assert(lambda: bucket.bucket_name in
-                                  (b.name for b in
-                                   service.list_buckets(prefix=bucket.bucket_name).buckets))
+                          (b.name for b in
+                           service.list_buckets(prefix=bucket.bucket_name).buckets))
 
         key = 'a.txt'
         bucket.put_object(key, 'content')
@@ -268,7 +268,7 @@ class TestBucket(OssTestCase):
         result = self.bucket.get_bucket_lifecycle()
         self.assertEqual(1, len(result.rules))
         self.assertEqual(datetime.date(2016, 12, 20), result.rules[0].abort_multipart_upload.created_before_date)
-
+        
         self.assertTrue(result.rules[0].tagging is None)
 
         self.bucket.delete_bucket_lifecycle()
@@ -359,8 +359,7 @@ class TestBucket(OssTestCase):
         self.bucket.delete_bucket_lifecycle()
 
     def test_lifecycle_object_tagging(self):
-        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition, Tagging, \
-            TaggingRule
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition, Tagging, TaggingRule
 
         rule = LifecycleRule(random_string(10), 'aaaaaaaaaaa/',
                              status=LifecycleRule.ENABLED,
@@ -388,6 +387,7 @@ class TestBucket(OssTestCase):
 
         self.bucket.delete_bucket_lifecycle()
 
+
     def test_lifecycle_all_without_object_expiration(self):
         from oss2.models import LifecycleRule, BucketLifecycle, AbortMultipartUpload, StorageTransition
 
@@ -410,8 +410,7 @@ class TestBucket(OssTestCase):
         self.bucket.delete_bucket_lifecycle()
 
     def test_lifecycle_all(self):
-        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, AbortMultipartUpload, \
-            StorageTransition
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, AbortMultipartUpload, StorageTransition
 
         rule = LifecycleRule(random_string(10), '中文前缀/',
                              status=LifecycleRule.ENABLED,
@@ -443,8 +442,7 @@ class TestBucket(OssTestCase):
 
     def test_lifecycle_object_tagging_exceptions_wrong_key(self):
 
-        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition, Tagging, \
-            TaggingRule
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition, Tagging, TaggingRule
 
         rule = LifecycleRule(random_string(10), '中文前缀/',
                              status=LifecycleRule.ENABLED,
@@ -453,23 +451,23 @@ class TestBucket(OssTestCase):
                                                       storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
 
         tagging = Tagging()
-
-        tagging.tag_set.tagging_rule[129 * 'a'] = 'test'
+        
+        tagging.tag_set.tagging_rule[129*'a'] = 'test'
 
         rule.tagging = tagging
 
         lifecycle = BucketLifecycle([rule])
-
+        
         try:
             # do not return error,but the lifecycle rule doesn't take effect
             result = self.bucket.put_bucket_lifecycle(lifecycle)
         except oss2.exceptions.OssError:
             self.assertFalse(True, "put lifecycle with tagging should fail ,but success")
-
-        del tagging.tag_set.tagging_rule[129 * 'a']
+        
+        del tagging.tag_set.tagging_rule[129*'a']
 
         tagging.tag_set.tagging_rule['%&'] = 'test'
-        lifecycle.rules[0].tagging = tagging
+        lifecycle.rules[0].tagging = tagging 
         try:
             # do not return error,but the lifecycle rule doesn't take effect
             result = self.bucket.put_bucket_lifecycle(lifecycle)
@@ -479,8 +477,7 @@ class TestBucket(OssTestCase):
 
     def test_lifecycle_object_tagging_exceptions_wrong_value(self):
 
-        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition, Tagging, \
-            TaggingRule
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition, Tagging, TaggingRule
 
         rule = LifecycleRule(random_string(10), '中文前缀/',
                              status=LifecycleRule.ENABLED,
@@ -489,13 +486,13 @@ class TestBucket(OssTestCase):
                                                       storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
 
         tagging = Tagging()
-
-        tagging.tag_set.tagging_rule['test'] = 257 * 'a'
+        
+        tagging.tag_set.tagging_rule['test'] = 257*'a'
 
         rule.tagging = tagging
 
         lifecycle = BucketLifecycle([rule])
-
+        
         try:
             # do not return error,but the lifecycle rule doesn't take effect
             result = self.bucket.put_bucket_lifecycle(lifecycle)
@@ -511,11 +508,9 @@ class TestBucket(OssTestCase):
             self.assertFalse(True, "put lifecycle with tagging should fail ,but success")
         except oss2.exceptions.OssError:
             pass
-
     def test_lifecycle_object_tagging_exceptions_too_much_rules(self):
 
-        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition, Tagging, \
-            TaggingRule
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition, Tagging, TaggingRule
 
         rule = LifecycleRule(random_string(10), '中文前缀/',
                              status=LifecycleRule.ENABLED,
@@ -525,14 +520,15 @@ class TestBucket(OssTestCase):
 
         tagging = Tagging()
         for i in range(1, 20):
-            key = 'test_key_' + str(i)
-            value = 'test_value_' + str(i)
-            tagging.tag_set.tagging_rule[key] = value
+            key='test_key_'+str(i)
+            value='test_value_'+str(i)
+            tagging.tag_set.tagging_rule[key]=value
 
+        
         rule.tagging = tagging
 
         lifecycle = BucketLifecycle([rule])
-
+        
         try:
             # do not return error,but the lifecycle rule doesn't take effect
             result = self.bucket.put_bucket_lifecycle(lifecycle)
@@ -646,21 +642,21 @@ class TestBucket(OssTestCase):
         rule.kms_master_keyid = "test"
 
         self.assertRaises(oss2.exceptions.InvalidArgument,
-                          self.bucket.put_bucket_encryption, rule)
+                self.bucket.put_bucket_encryption, rule)
 
         rule.sse_algorithm = "random"
         rule.kms_master_keyid = ""
         self.assertRaises(oss2.exceptions.InvalidEncryptionAlgorithmError,
-                          self.bucket.put_bucket_encryption, rule)
+                self.bucket.put_bucket_encryption, rule)
 
-        rule.sse_algorithm = oss2.SERVER_SIDE_ENCRYPTION_KMS
+        rule.sse_algorithm = oss2.SERVER_SIDE_ENCRYPTION_KMS 
         rule.kms_master_keyid = ""
         result = self.bucket.put_bucket_encryption(rule)
-        self.assertEqual(int(result.status) / 100, 2)
+        self.assertEqual(int(result.status)/100, 2)
 
         rule.kms_master_keyid = None
         result = self.bucket.put_bucket_encryption(rule)
-        self.assertEqual(int(result.status) / 100, 2)
+        self.assertEqual(int(result.status)/100, 2)
 
         result = self.bucket.get_bucket_encryption()
         self.assertEqual(result.sse_algorithm, oss2.SERVER_SIDE_ENCRYPTION_KMS)
@@ -672,7 +668,7 @@ class TestBucket(OssTestCase):
         rule.kms_master_keyid = "test_wrong"
 
         result = self.bucket.put_bucket_encryption(rule)
-        self.assertEqual(int(result.status) / 100, 2)
+        self.assertEqual(int(result.status)/100, 2)
 
         result = self.bucket.get_bucket_encryption()
         self.assertEqual(result.sse_algorithm, oss2.SERVER_SIDE_ENCRYPTION_KMS)
@@ -693,8 +689,8 @@ class TestBucket(OssTestCase):
         rule.kms_master_keyid = ""
 
         result = self.bucket.put_bucket_encryption(rule)
-        self.assertEqual(int(result.status) / 100, 2)
-
+        self.assertEqual(int(result.status)/100, 2)
+    
         wait_meta_sync()
 
         result = self.bucket.get_bucket_info()
@@ -702,10 +698,10 @@ class TestBucket(OssTestCase):
         self.assertTrue(result.bucket_encryption_rule.kms_master_keyid is None)
 
         result = self.bucket.put_object("test", "test")
-        self.assertEqual(int(result.status) / 100, 2)
-
+        self.assertEqual(int(result.status)/100, 2)
+        
         result = self.bucket.get_object("test")
-        self.assertEqual(int(result.status) / 100, 2)
+        self.assertEqual(int(result.status)/100, 2)
 
         self.assertEqual(b'test', result.read())
 
@@ -717,8 +713,8 @@ class TestBucket(OssTestCase):
         rule.kms_master_keyid = "123"
 
         result = self.bucket.put_bucket_encryption(rule)
-        self.assertEqual(int(result.status) / 100, 2)
-
+        self.assertEqual(int(result.status)/100, 2)
+    
         wait_meta_sync()
 
         result = self.bucket.get_bucket_info()
@@ -729,12 +725,12 @@ class TestBucket(OssTestCase):
         self.assertEqual(int(result.status), 204)
 
     def test_bucket_tagging(self):
-
+        
         from oss2.models import Tagging, TaggingRule
 
         rule = TaggingRule()
-        self.assertRaises(oss2.exceptions.ClientError, rule.add, 129 * 'a', 'test')
-        self.assertRaises(oss2.exceptions.ClientError, rule.add, 'test', 257 * 'a')
+        self.assertRaises(oss2.exceptions.ClientError, rule.add, 129*'a', 'test')
+        self.assertRaises(oss2.exceptions.ClientError, rule.add, 'test', 257*'a')
         self.assertRaises(oss2.exceptions.ClientError, rule.add, None, 'test')
         self.assertRaises(oss2.exceptions.ClientError, rule.add, '', 'test')
         self.assertRaises(KeyError, rule.delete, 'not_exist')
@@ -776,7 +772,7 @@ class TestBucket(OssTestCase):
         bucket2 = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name2)
 
         bucket2.create_bucket(oss2.BUCKET_ACL_PRIVATE)
-
+        
         wait_meta_sync()
 
         rule = TaggingRule()
@@ -799,7 +795,7 @@ class TestBucket(OssTestCase):
         except oss2.exceptions.OssError:
             self.assertFalse(True, 'should not get exception')
             pass
-
+        
         params = {}
         params['tag-key'] = 'tagging_key_test_test1'
         params['tag-value'] = 'value1'
@@ -826,7 +822,7 @@ class TestBucket(OssTestCase):
         wait_meta_sync()
         self.assertRaises(oss2.exceptions.NoSuchBucketPolicy, bucket.get_bucket_policy)
 
-        policy = dict()
+        policy=dict()
         policy["Version"] = "1"
         policy["Statement"] = []
         statement = dict()
@@ -834,23 +830,23 @@ class TestBucket(OssTestCase):
         statement["Effect"] = "Allow"
         statement["Resource"] = ["acs:oss:*:*:*/*"]
         policy["Statement"].append(statement)
-
+        
         self.bucket.put_bucket_policy(json.dumps(policy))
         wait_meta_sync()
 
         result = self.bucket.get_bucket_policy()
 
-        policy_json = json.loads(result.policy)
-
+        policy_json = json.loads(result.policy) 
+        
         self.assertEqual(len(policy["Statement"]), len(policy_json["Statement"]))
         self.assertEqual(policy["Version"], policy_json["Version"])
 
         policy_resource = policy["Statement"][0]["Resource"][0]
         policy_json_resource = policy_json["Statement"][0]["Resource"][0]
         self.assertEqual(policy_resource, policy_json_resource)
-
+        
         result = self.bucket.delete_bucket_policy()
-        self.assertEqual(int(result.status) // 100, 2)
+        self.assertEqual(int(result.status)//100, 2)
         bucket.delete_bucket()
 
     def test_bucket_storage_capacity(self):

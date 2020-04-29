@@ -23,6 +23,7 @@ try:
 except NameError:
     xrange = range
 
+
 is_py2 = (sys.version_info[0] == 2)
 is_py3 = (sys.version_info[0] == 3)
 
@@ -58,8 +59,8 @@ class TestUtils(OssTestCase):
         bucket = oss2.Bucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name)
 
         bucket_name = "hello-"
-        self.assertRaises(oss2.exceptions.ClientError, oss2.Bucket, oss2.Auth(access_key_id, access_key_secret),
-                          endpoint, bucket_name)
+        self.assertRaises(oss2.exceptions.ClientError, oss2.Bucket, oss2.Auth(access_key_id, access_key_secret), 
+            endpoint, bucket_name)
 
     def test_compat(self):
         # from unicode
@@ -266,7 +267,7 @@ class TestUtils(OssTestCase):
         time_val = 1518138061
 
         saved_locale = locale.setlocale(locale.LC_TIME)
-
+        
         if os.name == 'nt':
             locale.setlocale(locale.LC_TIME, '')
         else:

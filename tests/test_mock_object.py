@@ -273,7 +273,6 @@ x-oss-hash-crc64ecma: {1}'''.format(position + len(content), unittests.common.ca
 
     return request_text, response_text
 
-
 def make_get_object_tagging():
     request_text = '''GET /sjbhlsgsbecvlpbf?tagging HTTP/1.1
         Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
@@ -315,7 +314,6 @@ x-oss-object-type: Normal
 </Tagging>'''
 
     return request_text, response_text
-
 
 class TestObject(unittests.common.OssTestCase):
     @patch('oss2.Session.do_request')
@@ -389,7 +387,7 @@ Connection: keep-alive
 date: Sat, 12 Dec 2015 00:37:17 GMT
 User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
 Accept: */*
-authorization: OSS ZCDmm7TPZKHtx77j:wopWcmMd/70eNKYOc9M6ZA21yY8='''
+authorization: OSS ZCDmm7TPZKHtx77j:wopWcmMd/70eNKYOc9M6ZA21yY8='''     
 
         response_text = '''HTTP/1.1 404 Not Found
 Server: AliyunOSS
@@ -411,7 +409,7 @@ x-oss-request-id: 566B6C3D6086505A0CFF0F68
         req_info = unittests.common.mock_response(do_request, response_text)
         self.assertTrue(not unittests.common.bucket().object_exists('sbowspxjhmccpmesjqcwagfw'))
         self.assertRequest(req_info, request_text)
-
+    
     @patch('oss2.Session.do_request')
     def test_object_exists_exception(self, do_request):
         request_text = '''GET /sbowspxjhmccpmesjqcwagfw?objectMeta HTTP/1.1
@@ -421,7 +419,7 @@ Connection: keep-alive
 date: Sat, 12 Dec 2015 00:37:17 GMT
 User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
 Accept: */*
-authorization: OSS ZCDmm7TPZKHtx77j:wopWcmMd/70eNKYOc9M6ZA21yY8='''
+authorization: OSS ZCDmm7TPZKHtx77j:wopWcmMd/70eNKYOc9M6ZA21yY8='''     
 
         response_text = '''HTTP/1.1 404 Not Found
 Server: AliyunOSS
@@ -441,9 +439,8 @@ x-oss-request-id: 566B6C3D6086505A0CFF0F68
 </Error>'''
 
         unittests.common.mock_response(do_request, response_text)
-        self.assertRaises(oss2.exceptions.NoSuchBucket, unittests.common.bucket().object_exists,
-                          'sbowspxjhmccpmesjqcwagfw')
-
+        self.assertRaises(oss2.exceptions.NoSuchBucket, unittests.common.bucket().object_exists, 'sbowspxjhmccpmesjqcwagfw')
+    
     @patch('oss2.Session.do_request')
     def test_get_object_meta(self, do_request):
         request_text = '''GET /sbowspxjhmccpmesjqcwagfw?objectMeta HTTP/1.1
@@ -467,7 +464,7 @@ Server: AliyunOSS'''
         req_info = unittests.common.mock_response(do_request, response_text)
 
         result = unittests.common.bucket().get_object_meta('sbowspxjhmccpmesjqcwagfw')
-
+        
         self.assertRequest(req_info, request_text)
 
         self.assertEqual(result.last_modified, 1449880637)
@@ -544,8 +541,7 @@ Server: AliyunOSS'''
         filename = self.tempname()
 
         self.previous = -1
-        unittests.common.bucket().get_object_to_file('sjbhlsgsbecvlpbf', filename,
-                                                     progress_callback=self.progress_callback)
+        unittests.common.bucket().get_object_to_file('sjbhlsgsbecvlpbf', filename, progress_callback=self.progress_callback)
 
         self.assertRequest(req_info, request_text)
 
@@ -668,8 +664,7 @@ ETag: "D80CF0E5BE2436514894D64B2BCFB2AE"'''
 
         self.previous = -1
 
-        result = unittests.common.bucket().append_object('sjbhlsgsbecvlpbf', 0, content,
-                                                         progress_callback=self.progress_callback)
+        result = unittests.common.bucket().append_object('sjbhlsgsbecvlpbf', 0, content, progress_callback=self.progress_callback)
 
         self.assertRequest(req_info, request_text)
         self.assertEqual(self.previous, size)
@@ -700,7 +695,7 @@ Connection: keep-alive
 x-oss-request-id: 566B6C0D1790CF586F72240B
 ETag: "24F7FA10676D816E0D6C6B5600000000"
 x-oss-next-append-position: {0}'''.format(position + len(content), unittests.common.calc_crc(content))
-
+        
         req_info = unittests.common.mock_response(do_request, response_text)
 
         result = unittests.common.bucket().append_object('sjbhlsgsbecvlpbf', position, content, init_crc=0)
@@ -709,7 +704,7 @@ x-oss-next-append-position: {0}'''.format(position + len(content), unittests.com
         self.assertEqual(result.status, 200)
         self.assertEqual(result.next_position, size)
         self.assertEqual(result.etag, '24F7FA10676D816E0D6C6B5600000000')
-
+        
     @patch('oss2.Session.do_request')
     def test_delete(self, do_request):
         request_text = '''DELETE /sjbhlsgsbecvlpbf HTTP/1.1
@@ -854,12 +849,11 @@ ETag: "164F32EF262006C5EE6C8D1AA30DD2CD"
                               (oss2.OBJECT_ACL_PUBLIC_READ_WRITE, 'public-read-write'),
                               (oss2.OBJECT_ACL_DEFAULT, 'default')]:
             do_request.auto_spec = True
-            do_request.side_effect = partial(unittests.common.do4body, body=template.format(acl),
-                                             content_type='application/xml')
+            do_request.side_effect = partial(unittests.common.do4body, body=template.format(acl), content_type='application/xml')
 
             result = unittests.common.bucket().get_object_acl('fake-key')
             self.assertEqual(result.acl, expected)
-
+    
     @patch('oss2.Session.do_request')
     def test_put_symlink(self, do_request):
         request_text = '''PUT /sjbhlsgsbecvlpbf?symlink= HTTP/1.1
@@ -893,7 +887,7 @@ x-oss-server-time: 19'''
         self.assertRequest(req_info, request_text)
         self.assertEqual(result.request_id, '566B6C0D8CDE4E975D730BEF')
         self.assertEqual(result.status, 200)
-
+        
     @patch('oss2.Session.do_request')
     def test_get_symlink(self, do_request):
         request_text = '''GET /sjbhlsgsbecvlpbf?symlink= HTTP/1.1
@@ -1094,6 +1088,7 @@ x-oss-server-time: 39'''
 
     @patch('oss2.Session.do_request')
     def test_get_object_tagging(self, do_request):
+
         request_text, response_text = make_get_object_tagging()
 
         req_info = unittests.common.mock_response(do_request, response_text)
@@ -1115,19 +1110,19 @@ x-oss-server-time: 39'''
             self.assertTrue(False)
         except:
             pass
-
+        
         try:
             oss2.utils.silently_remove('/')
             self.assertTrue(False)
         except:
             pass
-
+        
         try:
             oss2.utils.force_rename('/', '/')
             self.assertTrue(False)
         except:
             pass
-
+        
         oss2.utils.makedir_p('xyz')
         oss2.utils.makedir_p('zyz')
         try:
@@ -1135,7 +1130,7 @@ x-oss-server-time: 39'''
             self.assertTrue(False)
         except:
             pass
-
+            
 
 if __name__ == '__main__':
     unittest.main()

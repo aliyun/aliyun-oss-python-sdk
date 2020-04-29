@@ -148,7 +148,6 @@ def is_valid_bucket_name(name):
 
     return set(name) <= _BUCKET_NAME_CHARS
 
-
 def change_endianness_if_needed(bytes_array):
     if sys.byteorder == 'little':
         bytes_array.reverse();
@@ -156,7 +155,6 @@ def change_endianness_if_needed(bytes_array):
 
 class SizedFileAdapter(object):
     """通过这个适配器（Adapter），可以把原先的 `file_object` 的长度限制到等于 `size`。"""
-
     def __init__(self, file_object, size):
         self.file_object = file_object
         self.size = size
@@ -337,7 +335,7 @@ class _IterableAdapter(object):
         self.iter = iter(data)
         self.progress_callback = progress_callback
         self.offset = 0
-
+        
         self.crc_callback = crc_callback
         self.cipher_callback = cipher_callback
 
@@ -347,17 +345,18 @@ class _IterableAdapter(object):
     def __next__(self):
         return self.next()
 
-    def next(self):
+    def next(self):            
         _invoke_progress_callback(self.progress_callback, self.offset, None)
 
         content = next(self.iter)
         self.offset += len(content)
-
+                
         _invoke_crc_callback(self.crc_callback, content)
+
         content = _invoke_cipher_callback(self.cipher_callback, content)
 
         return content
-
+    
     @property
     def crc(self):
         if self.crc_callback:
@@ -443,13 +442,12 @@ class _BytesAndFileAdapter(object):
         其中bytes_read是已经读取的字节数；total_bytes是总的字节数。
     :param int size: `data` 包含的字节数。
     """
-
     def __init__(self, data, progress_callback=None, size=None, crc_callback=None, cipher_callback=None):
         self.data = to_bytes(data)
         self.progress_callback = progress_callback
         self.size = size
         self.offset = 0
-
+        
         self.crc_callback = crc_callback
         self.cipher_callback = cipher_callback
 
@@ -460,9 +458,8 @@ class _BytesAndFileAdapter(object):
     # for python 2.x
     def __bool__(self):
         return True
-
     # for python 3.x
-    __nonzero__ = __bool__
+    __nonzero__=__bool__
 
     def __iter__(self):
         return self
@@ -488,19 +485,20 @@ class _BytesAndFileAdapter(object):
             bytes_to_read = min(amt, self.size - self.offset)
 
         if isinstance(self.data, bytes):
-            content = self.data[self.offset:self.offset + bytes_to_read]
+            content = self.data[self.offset:self.offset+bytes_to_read]
         else:
             content = self.data.read(bytes_to_read)
 
         self.offset += bytes_to_read
-
+            
         _invoke_progress_callback(self.progress_callback, min(self.offset, self.size), self.size)
 
         _invoke_crc_callback(self.crc_callback, content)
+
         content = _invoke_cipher_callback(self.cipher_callback, content)
 
         return content
-
+    
     @property
     def crc(self):
         if self.crc_callback:
@@ -512,9 +510,10 @@ class _BytesAndFileAdapter(object):
 
 
 class Crc64(object):
+
     _POLY = 0x142F0E1EBA9EA3693
     _XOROUT = 0XFFFFFFFFFFFFFFFF
-
+    
     def __init__(self, init_crc=0):
         self.crc64 = crcmod.Crc(self._POLY, initCrc=init_crc, rev=True, xorOut=self._XOROUT)
 
@@ -522,31 +521,30 @@ class Crc64(object):
 
     def __call__(self, data):
         self.update(data)
-
+    
     def update(self, data):
         self.crc64.update(data)
 
     def combine(self, crc1, crc2, len2):
         return self.crc64_combineFun(crc1, crc2, len2)
-
+    
     @property
     def crc(self):
         return self.crc64.crcValue
 
-
 class Crc32(object):
     _POLY = 0x104C11DB7
     _XOROUT = 0xFFFFFFFF
-
+    
     def __init__(self, init_crc=0):
         self.crc32 = crcmod.Crc(self._POLY, initCrc=init_crc, rev=True, xorOut=self._XOROUT)
 
     def __call__(self, data):
         self.update(data)
-
+    
     def update(self, data):
         self.crc32.update(data)
-
+    
     @property
     def crc(self):
         return self.crc32.crcValue
@@ -832,7 +830,7 @@ def force_rename(src, dst):
 
 
 def copyfileobj_and_verify(fsrc, fdst, expected_len,
-                           chunk_size=16 * 1024,
+                           chunk_size=16*1024,
                            request_id=''):
     """copy data from file-like object fsrc to file-like object fdst, and verify length"""
 
@@ -849,7 +847,6 @@ def copyfileobj_and_verify(fsrc, fdst, expected_len,
     if num_read != expected_len:
         raise InconsistentError("IncompleteRead from source", request_id)
 
-
 def _make_line_range_string(range):
     if range is None:
         return ''
@@ -862,7 +859,6 @@ def _make_line_range_string(range):
 
     return 'line-range=' + _range_internal(start, last)
 
-
 def _make_split_range_string(range):
     if range is None:
         return ''
@@ -874,7 +870,6 @@ def _make_split_range_string(range):
         return ''
 
     return 'split-range=' + _range_internal(start, last)
-
 
 def _range_internal(start, last):
     def to_str(pos):

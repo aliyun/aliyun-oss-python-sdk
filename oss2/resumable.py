@@ -77,10 +77,9 @@ def resumable_upload(bucket, key, filename,
     :type params: dict
     """
     logger.debug("Start to resumable upload, bucket: {0}, key: {1}, filename: {2}, headers: {3}, "
-                 "multipart_threshold: {4}, part_size: {5}, num_threads: {6}".format(bucket.bucket_name, to_string(key),
-                                                                                     filename, headers,
-                                                                                     multipart_threshold,
-                                                                                     part_size, num_threads))
+                "multipart_threshold: {4}, part_size: {5}, num_threads: {6}".format(bucket.bucket_name, to_string(key),
+                                                                                    filename, headers, multipart_threshold,
+                                                                                    part_size, num_threads))
     size = os.path.getsize(filename)
     multipart_threshold = defaults.get(multipart_threshold, defaults.multipart_threshold)
 
@@ -148,8 +147,8 @@ def resumable_download(bucket, key, filename,
     :raises: 如果OSS文件不存在，则抛出 :class:`NotFound <oss2.exceptions.NotFound>` ；也有可能抛出其他因下载文件而产生的异常。
     """
     logger.debug("Start to resumable download, bucket: {0}, key: {1}, filename: {2}, multiget_threshold: {3}, "
-                 "part_size: {4}, num_threads: {5}".format(bucket.bucket_name, to_string(key), filename,
-                                                           multiget_threshold, part_size, num_threads))
+                "part_size: {4}, num_threads: {5}".format(bucket.bucket_name, to_string(key), filename,
+                                                          multiget_threshold, part_size, num_threads))
     multiget_threshold = defaults.get(multiget_threshold, defaults.multiget_threshold)
 
     valid_headers = _populate_valid_headers(headers, [OSS_REQUEST_PAYER, OSS_TRAFFIC_LIMIT])
@@ -210,7 +209,6 @@ def _split_to_parts(total_size, part_size):
 
     return parts
 
-
 def _populate_valid_headers(headers=None, valid_keys=None):
     """构建只包含有效keys的http header
 
@@ -237,7 +235,6 @@ def _populate_valid_headers(headers=None, valid_keys=None):
 
     return valid_headers
 
-
 def _populate_valid_params(params=None, valid_keys=None):
     """构建只包含有效keys的params
 
@@ -262,7 +259,6 @@ def _populate_valid_params(params=None, valid_keys=None):
         valid_params = None
 
     return valid_params
-
 
 class _ResumableOperation(object):
     def __init__(self, bucket, key, filename, size, store,
@@ -331,7 +327,7 @@ class _ResumableDownloader(_ResumableOperation):
             versionid = params.get('versionId')
         super(_ResumableDownloader, self).__init__(bucket, key, filename, objectInfo.size,
                                                    store or ResumableDownloadStore(),
-                                                   progress_callback=progress_callback,
+                                                   progress_callback=progress_callback, 
                                                    versionid=versionid)
         self.objectInfo = objectInfo
         self.__op = 'ResumableDownload'
@@ -351,7 +347,7 @@ class _ResumableDownloader(_ResumableOperation):
         logger.debug("Init _ResumableDownloader, bucket: {0}, key: {1}, part_size: {2}, num_thread: {3}".format(
             bucket.bucket_name, to_string(key), self.__part_size, self.__num_threads))
 
-    def download(self, server_crc=None):
+    def download(self, server_crc = None):
         self.__load_record()
 
         parts_to_download = self.__get_parts_to_download()
@@ -398,8 +394,7 @@ class _ResumableDownloader(_ResumableOperation):
             headers[IF_MATCH] = self.objectInfo.etag
             headers[IF_UNMODIFIED_SINCE] = utils.http_date(self.objectInfo.mtime)
 
-            result = self.bucket.get_object(self.key, byte_range=(part.start, part.end - 1), headers=headers,
-                                            params=self.__params)
+            result = self.bucket.get_object(self.key, byte_range=(part.start, part.end - 1), headers=headers, params=self.__params)
             utils.copyfileobj_and_verify(result, f, part.end - part.start, request_id=result.request_id)
 
         part.part_crc = result.client_crc
@@ -480,8 +475,8 @@ class _ResumableDownloader(_ResumableOperation):
 
     def __is_remote_changed(self, record):
         return (record['mtime'] != self.objectInfo.mtime or
-                record['size'] != self.objectInfo.size or
-                record['etag'] != self.objectInfo.etag)
+            record['size'] != self.objectInfo.size or
+            record['etag'] != self.objectInfo.etag)
 
     def __finish_part(self, part):
         with self.__lock:
@@ -566,8 +561,7 @@ class _ResumableUploader(_ResumableOperation):
         self._report_progress(self.size)
 
         headers = _populate_valid_headers(self.__headers, [OSS_REQUEST_PAYER])
-        result = self.bucket.complete_multipart_upload(self.key, self.__upload_id, self.__finished_parts,
-                                                       headers=headers)
+        result = self.bucket.complete_multipart_upload(self.key, self.__upload_id, self.__finished_parts, headers=headers)
         self._del_record()
 
         return result

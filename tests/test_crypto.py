@@ -12,7 +12,7 @@ from oss2.utils import AESCipher, silently_remove
 from oss2.exceptions import OpenApiServerError, OpenApiFormatError, ClientError
 from mock import patch
 
-from .common import OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK, OSS_STS_ID, OSS_STS_ARN, OSS_STS_KEY, random_string, \
+from .common import OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK_REGION, OSS_CMK, OSS_STS_ID, OSS_STS_ARN, OSS_STS_KEY, random_string, \
     key_pair, key_pair_compact
 from aliyunsdksts.request.v20150401 import AssumeRoleRequest
 from Crypto.PublicKey import RSA
@@ -204,7 +204,7 @@ class TestCrypto(unittests.common.OssTestCase):
 
     # 测试基本key, start加/解密
     def test_ali_kms_provider_basic(self):
-        provider = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK, passphrase=random_string(8))
+        provider = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_CMK_REGION, OSS_CMK, passphrase=random_string(8))
         self.assertEqual(provider.wrap_alg, "KMS/ALICLOUD")
         self.assertEqual(provider.cipher.alg, "AES/CTR/NoPadding")
         plain_key, encrypted_key = provider.get_key()
@@ -221,17 +221,17 @@ class TestCrypto(unittests.common.OssTestCase):
 
     # 测试使用不同的passphrase解析加密key和start抛出异常
     def test_ali_kms_provider_diff_passphrase(self):
-        provider = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK, passphrase=random_string(6))
+        provider = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_CMK_REGION, OSS_CMK, passphrase=random_string(6))
         plain_key, encrypted_key = provider.get_key()
         encrypted_iv = provider.get_iv()
 
-        provider_diff = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK, passphrase=random_string(8))
+        provider_diff = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_CMK_REGION, OSS_CMK, passphrase=random_string(8))
         self.assertRaises(OpenApiServerError, provider_diff.decrypt_encrypted_key, encrypted_key)
         self.assertRaises(OpenApiServerError, provider_diff.decrypt_encrypted_iv, encrypted_iv)
 
     # 测试使用不同的region解析加密key和start时抛出异常
     def test_ali_kms_provider_invalid_region(self):
-        provider = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK)
+        provider = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_CMK_REGION, OSS_CMK)
         plain_key, encrypted_key = provider.get_key()
         encrypted_iv = provider.get_iv()
 
@@ -252,17 +252,17 @@ class TestCrypto(unittests.common.OssTestCase):
 
     # 测试使用不同的ak解析加密key和start的值时抛出异常
     def test_ali_kms_provider_invalid_ak(self):
-        provider = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK)
+        provider = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_CMK_REGION, OSS_CMK)
         plain_key, encrypted_key = provider.get_key()
         encrypted_iv = provider.get_iv()
 
         invalid_secret = random_string(len(OSS_SECRET))
-        provider_invalid = AliKMSProvider(OSS_ID, invalid_secret, OSS_REGION, OSS_CMK)
+        provider_invalid = AliKMSProvider(OSS_ID, invalid_secret, OSS_CMK_REGION, OSS_CMK)
         self.assertRaises(OpenApiServerError, provider_invalid.decrypt_encrypted_key, encrypted_key)
         self.assertRaises(OpenApiServerError, provider_invalid.decrypt_encrypted_key, encrypted_iv)
 
         invald_id = random_string(len(OSS_ID))
-        provider_invalid = AliKMSProvider(invald_id, OSS_SECRET, OSS_REGION, OSS_CMK)
+        provider_invalid = AliKMSProvider(invald_id, OSS_SECRET, OSS_CMK_REGION, OSS_CMK)
         self.assertRaises(OpenApiServerError, provider_invalid.decrypt_encrypted_key, encrypted_key)
         self.assertRaises(OpenApiServerError, provider_invalid.decrypt_encrypted_key, encrypted_iv)
 
@@ -271,7 +271,7 @@ class TestCrypto(unittests.common.OssTestCase):
         if oss2.compat.is_py33:
             return
 
-        kms = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK)
+        kms = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_CMK_REGION, OSS_CMK)
 
         # 模拟返回的数据格式不对，不是正确的json格式字符串
         plain_key = random_string(32)
@@ -281,7 +281,7 @@ class TestCrypto(unittests.common.OssTestCase):
             self.assertRaises(OpenApiFormatError, kms.get_key)
 
     def test_ali_kms_provider_adapter(self):
-        provider = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK)
+        provider = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_CMK_REGION, OSS_CMK)
         content = b'a' * random.randint(1, 100) * 1024
         content_crypto_material = provider.create_content_material()
 

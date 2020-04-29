@@ -15,7 +15,13 @@ class TestResumable(unittest.TestCase):
         n = 10000
         size = (oss2.defaults.part_size + 1) * n
         part_size = oss2.determine_part_size(size)
-        self.assertEqual(part_size, oss2.defaults.part_size*2)
+        self.assertEqual(part_size, oss2.defaults.part_size * 2)
+
+        n = 10000
+        size = (oss2.defaults.part_size * n) + 5
+        part_size = oss2.determine_part_size(size)
+        self.assertTrue((n * part_size) > size)
+        self.assertTrue(oss2.defaults.part_size < part_size)
 
     def test_resumable_store_dir(self):
         root = "./"

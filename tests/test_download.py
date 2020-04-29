@@ -36,12 +36,10 @@ class SizedFileAdapterForMock(object):
     def client_crc(self):
         return None
 
-
 orig_get_object = oss2.Bucket.get_object
 
 
-def mock_get_object(b, k, byte_range=None, headers=None, progress_callback=None, process=None, content_length=None,
-                    params=None):
+def mock_get_object(b, k, byte_range=None, headers=None, progress_callback=None, process=None, content_length=None, params=None):
     res = orig_get_object(b, k, byte_range, headers, progress_callback, process, params)
 
     return SizedFileAdapterForMock(res, 50, content_length)
@@ -83,16 +81,18 @@ class TestDownload(OssTestCase):
 
         self.__test_normal(2 * 1024 * 1024 + 1)
 
-    # """多线程，线程数少于分片数"""
     def test_large_multi_threaded(self):
+        #"""多线程，线程数少于分片数"""
+
         oss2.defaults.multiget_threshold = 1024 * 1024
         oss2.defaults.multiget_part_size = 100 * 1024
         oss2.defaults.multiget_num_threads = 7
 
         self.__test_normal(2 * 1024 * 1024)
 
-    # """线程数多余分片数"""
     def test_large_many_threads(self):
+        #"""线程数多余分片数"""
+
         oss2.defaults.multiget_threshold = 1024 * 1024
         oss2.defaults.multiget_part_size = 100 * 1024
         oss2.defaults.multiget_num_threads = 10
@@ -135,8 +135,9 @@ class TestDownload(OssTestCase):
         self.assertTrue(not os.path.exists(tmp_file))
         self.assertFileContent(filename, content)
 
-    # """第一个part失败"""
     def test_resume_hole_start(self):
+        #"""第一个part失败"""
+
         oss2.defaults.multiget_threshold = 1
         oss2.defaults.multiget_part_size = 500
         oss2.defaults.multiget_num_threads = 3
@@ -145,7 +146,7 @@ class TestDownload(OssTestCase):
         self.__test_resume(500 * 10 + 16, [1])
 
     def test_resume_hole_end(self):
-        # """最后一个part失败"""
+        #"""最后一个part失败"""
 
         oss2.defaults.multiget_threshold = 1
         oss2.defaults.multiget_part_size = 500
@@ -155,7 +156,7 @@ class TestDownload(OssTestCase):
         self.__test_resume(500 * 10 + 16, [11])
 
     def test_resume_hole_mid(self):
-        # """中间part失败"""
+        #"""中间part失败"""
 
         oss2.defaults.multiget_threshold = 1
         oss2.defaults.multiget_part_size = 500

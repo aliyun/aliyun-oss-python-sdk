@@ -19,8 +19,10 @@ OSS_SECRET = os.getenv("OSS_TEST_ACCESS_KEY_SECRET")
 OSS_ENDPOINT = os.getenv("OSS_TEST_ENDPOINT")
 OSS_TEST_BUCKET = os.getenv("OSS_TEST_BUCKET")
 OSS_CNAME = os.getenv("OSS_TEST_CNAME")
-OSS_CMK = os.getenv("OSS_TEST_CMK")
 OSS_REGION = os.getenv("OSS_TEST_REGION", "cn-hangzhou")
+
+OSS_CMK = os.getenv("OSS_TEST_KMS_CMK_ID")
+OSS_CMK_REGION = os.getenv("OSS_TEST_KMS_REGION")
 
 OSS_STS_ID = os.getenv("OSS_TEST_STS_ID")
 OSS_STS_KEY = os.getenv("OSS_TEST_STS_KEY")
@@ -69,13 +71,11 @@ key_pair_compact = {'private_key': private_key_compact, 'public_key': public_key
 def random_string(n):
     return ''.join(random.choice(string.ascii_lowercase) for i in range(n))
 
-
 OSS_BUCKET = ''
 if OSS_TEST_BUCKET is None:
     OSS_BUCKET = 'oss-python-sdk-'+random_string(10)
 else:
     OSS_BUCKET = OSS_TEST_BUCKET + random_string(10)
-
 
 def random_bytes(n):
     return oss2.to_bytes(random_string(n))
@@ -118,7 +118,6 @@ def clean_and_delete_bucket(bucket):
     # delete_bucket
     bucket.delete_bucket()
 
-
 def clean_and_delete_bucket_by_prefix(bucket_prefix):
     service = oss2.Service(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT)
     buckets = service.list_buckets(prefix=bucket_prefix).buckets
@@ -132,7 +131,7 @@ def delete_keys(bucket, key_list):
         return
 
     n = 100
-    grouped = [key_list[i:i + n] for i in range(0, len(key_list), n)]
+    grouped = [key_list[i:i+n] for i in range(0, len(key_list), n)]
     for g in grouped:
         bucket.batch_delete_objects(g)
 
@@ -242,7 +241,7 @@ class OssTestCase(unittest.TestCase):
             if func():
                 return
             else:
-                time.sleep(i + 2)
+                time.sleep(i+2)
 
         self.assertTrue(False)
 
@@ -257,3 +256,4 @@ class OssTestCase(unittest.TestCase):
             read = f.read()
             self.assertNotEqual(len(read), len(content))
             self.assertNotEqual(read, content)
+

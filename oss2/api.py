@@ -322,7 +322,6 @@ class Service(_Base):
         logger.debug("List buckets done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_buckets, ListBucketsResult)
 
-
     def get_user_qos_info(self):
         """获取User的QoSInfo
         :return: :class:`GetUserQosInfoResult <oss2.models.GetUserQosInfoResult>`
@@ -480,8 +479,8 @@ class Bucket(_Base):
                                         'delimiter': delimiter,
                                         'marker': marker,
                                         'max-keys': str(max_keys),
-                                        'encoding-type': 'url'},
-                                headers=headers)
+                                        'encoding-type': 'url'}, 
+                                        headers=headers)
         logger.debug("List objects done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_objects, ListObjectsResult)
 
@@ -688,11 +687,11 @@ class Bucket(_Base):
         return GetObjectResult(resp, progress_callback, self.enable_crc)
 
     def select_object(self, key, sql,
-                      progress_callback=None,
-                      select_params=None,
-                      byte_range=None,
-                      headers=None
-                      ):
+                   progress_callback=None,
+                   select_params=None,
+                   byte_range=None,
+                   headers=None
+                   ):
         """Select一个文件内容，支持(Csv,Json Doc,Json Lines及其GZIP压缩文件).
 
         用法 ::
@@ -727,15 +726,13 @@ class Bucket(_Base):
             headers['range'] = range_string
             range_select = True
 
-        if (range_select == True and
-                (select_params is None or
-                 (SelectParameters.AllowQuotedRecordDelimiter not in select_params or str(
-                     select_params[SelectParameters.AllowQuotedRecordDelimiter]).lower() != 'false'))):
-            raise ClientError(
-                '"AllowQuotedRecordDelimiter" must be specified in select_params as False when "Range" is specified in header.')
+        if (range_select == True and 
+                (select_params is None or 
+                        (SelectParameters.AllowQuotedRecordDelimiter not in select_params or str(select_params[SelectParameters.AllowQuotedRecordDelimiter]).lower() != 'false'))):
+                        raise ClientError('"AllowQuotedRecordDelimiter" must be specified in select_params as False when "Range" is specified in header.')
 
         body = xml_utils.to_select_object(sql, select_params)
-        params = {'x-oss-process': 'csv/select'}
+        params = {'x-oss-process':  'csv/select'}
         if select_params is not None and SelectParameters.Json_Type in select_params:
             params['x-oss-process'] = 'json/select'
 
@@ -839,7 +836,7 @@ class Bucket(_Base):
         """
         logger.debug(
             "Start to get object with url, bucket: {0}, sign_url: {1}, file path: {2}, range: {3}, headers: {4}"
-                .format(self.bucket_name, sign_url, filename, byte_range, headers))
+            .format(self.bucket_name, sign_url, filename, byte_range, headers))
 
         with open(to_unicode(filename), 'wb') as f:
             result = self.get_object_with_url(sign_url, byte_range=byte_range, headers=headers,
@@ -852,10 +849,10 @@ class Bucket(_Base):
             return result
 
     def select_object_to_file(self, key, filename, sql,
-                              progress_callback=None,
-                              select_params=None,
-                              headers=None
-                              ):
+                   progress_callback=None,
+                   select_params=None,
+                   headers=None
+                   ):
         """Select一个文件的内容到本地文件
 
         :param key: OSS文件名
@@ -940,7 +937,7 @@ class Bucket(_Base):
         headers = http.CaseInsensitiveDict(headers)
 
         body = xml_utils.to_get_select_object_meta(select_meta_params)
-        params = {'x-oss-process': 'csv/meta'}
+        params = {'x-oss-process':  'csv/meta'}
         if select_meta_params is not None and 'Json_Type' in select_meta_params:
             params['x-oss-process'] = 'json/meta'
 
@@ -1019,7 +1016,7 @@ class Bucket(_Base):
 
         if params and Bucket.VERSIONID in params:
             headers[OSS_COPY_OBJECT_SOURCE] = '/' + source_bucket_name + \
-                                              '/' + urlquote(source_key, '') + '?versionId=' + params[Bucket.VERSIONID]
+                '/' + urlquote(source_key, '') + '?versionId=' + params[Bucket.VERSIONID]
         else:
             headers[OSS_COPY_OBJECT_SOURCE] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
 
@@ -1057,7 +1054,7 @@ class Bucket(_Base):
 
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
-
+        
         headers = http.CaseInsensitiveDict(headers)
 
         logger.info("Start to delete object, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
@@ -1177,7 +1174,7 @@ class Bucket(_Base):
             raise ClientError('key_list should not be empty')
 
         logger.debug("Start to delete objects, bucket: {0}, keys: {1}".format(self.bucket_name, key_list))
-
+        
         data = xml_utils.to_batch_delete_objects_request(key_list, False)
 
         headers = http.CaseInsensitiveDict(headers)
@@ -1204,7 +1201,7 @@ class Bucket(_Base):
             raise ClientError('keylist_versions should not be empty')
 
         logger.debug("Start to delete object versions, bucket: {0}".format(self.bucket_name))
-
+        
         data = xml_utils.to_batch_delete_objects_version_request(keylist_versions, False)
 
         headers = http.CaseInsensitiveDict(headers)
@@ -1343,7 +1340,7 @@ class Bucket(_Base):
                                delimiter='',
                                key_marker='',
                                upload_id_marker='',
-                               max_uploads=1000,
+                               max_uploads=1000, 
                                headers=None):
         """罗列正在进行中的分片上传。支持分页。
 
@@ -1373,7 +1370,7 @@ class Bucket(_Base):
                                         'upload-id-marker': upload_id_marker,
                                         'max-uploads': str(max_uploads),
                                         'encoding-type': 'url'},
-                                headers=headers)
+                                        headers=headers)
         logger.debug("List multipart uploads done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_multipart_uploads, ListMultipartUploadsResult)
 
@@ -1398,9 +1395,10 @@ class Bucket(_Base):
 
         if params and Bucket.VERSIONID in params:
             headers[OSS_COPY_OBJECT_SOURCE] = '/' + source_bucket_name + \
-                                              '/' + urlquote(source_key, '') + '?versionId=' + params[Bucket.VERSIONID]
+                '/' + urlquote(source_key, '') + '?versionId=' + params[Bucket.VERSIONID]
         else:
             headers[OSS_COPY_OBJECT_SOURCE] = '/' + source_bucket_name + '/' + urlquote(source_key, '')
+
 
         range_string = _make_range_string(byte_range)
         if range_string:
@@ -1408,11 +1406,8 @@ class Bucket(_Base):
 
         logger.debug("Start to upload part copy, source bucket: {0}, source key: {1}, bucket: {2}, key: {3}, range"
                      ": {4}, upload id: {5}, part_number: {6}, headers: {7}".format(source_bucket_name,
-                                                                                    to_string(source_key),
-                                                                                    self.bucket_name,
-                                                                                    to_string(target_key),
-                                                                                    byte_range, target_upload_id,
-                                                                                    target_part_number, headers))
+                    to_string(source_key),self.bucket_name,to_string(target_key),
+                    byte_range, target_upload_id,target_part_number, headers))
 
         if params is None:
             params = dict()
@@ -1421,7 +1416,7 @@ class Bucket(_Base):
         params['partNumber'] = str(target_part_number)
 
         resp = self.__do_object('PUT', target_key,
-                                params=params, headers=headers)
+                                params=params,headers=headers)
         logger.debug("Upload part copy done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return PutObjectResult(resp)
@@ -1446,8 +1441,11 @@ class Bucket(_Base):
 
         headers = http.CaseInsensitiveDict(headers)
 
-        resp = self.__do_object('GET', key, params={'uploadId': upload_id, 'part-number-marker': marker,
-                                                    'max-parts': str(max_parts)}, headers=headers)
+        resp = self.__do_object('GET', key,
+                                params={'uploadId': upload_id,
+                                        'part-number-marker': marker,
+                                        'max-parts': str(max_parts)}, 
+                                        headers=headers)
         logger.debug("List parts done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_parts, ListPartsResult)
 
@@ -1899,7 +1897,7 @@ class Bucket(_Base):
 
         params[Bucket.TAGGING] = ""
 
-        data = self.__convert_data(Tagging, xml_utils.to_put_tagging, tagging)
+        data = self.__convert_data(Tagging, xml_utils.to_put_tagging, tagging) 
         resp = self.__do_object('PUT', key, data=data, params=params, headers=headers)
 
         return RequestResult(resp)
@@ -1916,8 +1914,8 @@ class Bucket(_Base):
         :return: :class:`GetTaggingResult <oss2.models.GetTaggingResult>` 
         """
         logger.debug("Start to get object tagging, bucket: {0}, key: {1} params: {2}".format(
-            self.bucket_name, to_string(key), str(params)))
-
+                    self.bucket_name, to_string(key), str(params)))
+        
         headers = http.CaseInsensitiveDict(headers)
 
         if params is None:
@@ -1940,7 +1938,7 @@ class Bucket(_Base):
         :return: :class:`RequestResult <oss2.models.RequestResult>` 
         """
         logger.debug("Start to delete object tagging, bucket: {0}, key: {1}".format(
-            self.bucket_name, to_string(key)))
+                    self.bucket_name, to_string(key)))
 
         headers = http.CaseInsensitiveDict(headers)
 
@@ -1953,7 +1951,7 @@ class Bucket(_Base):
 
         logger.debug("Delete object tagging done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
-
+    
     def put_bucket_encryption(self, rule):
         """设置bucket加密配置。
 
@@ -1982,8 +1980,7 @@ class Bucket(_Base):
         """删除Bucket加密配置。如果Bucket加密没有设置，也返回成功。"""
         logger.debug("Start to delete bucket encryption, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('DELETE', params={Bucket.ENCRYPTION: ''})
-        logger.debug(
-            "Delete bucket encryption done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Delete bucket encryption done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def put_bucket_tagging(self, tagging, headers=None):
@@ -2001,7 +1998,7 @@ class Bucket(_Base):
 
         headers = http.CaseInsensitiveDict(headers)
 
-        data = self.__convert_data(Tagging, xml_utils.to_put_tagging, tagging)
+        data = self.__convert_data(Tagging, xml_utils.to_put_tagging, tagging) 
         resp = self.__do_bucket('PUT', data=data, params={Bucket.TAGGING: ''}, headers=headers)
 
         logger.debug("Put bucket tagging done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
@@ -2015,8 +2012,8 @@ class Bucket(_Base):
         :return: :class:`GetTaggingResult<oss2.models.GetTaggingResult>` 
         """
         logger.debug("Start to get bucket tagging, bucket: {0}".format(
-            self.bucket_name))
-
+                    self.bucket_name))
+        
         resp = self.__do_bucket('GET', params={Bucket.TAGGING: ''})
 
         logger.debug("Get bucket tagging done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
@@ -2027,16 +2024,16 @@ class Bucket(_Base):
         :return: :class:`RequestResult <oss2.models.RequestResult>` 
         """
         logger.debug("Start to delete bucket tagging, bucket: {0}".format(
-            self.bucket_name))
+                    self.bucket_name))
 
         resp = self.__do_bucket('DELETE', params={Bucket.TAGGING: ''})
 
         logger.debug("Delete bucket tagging done, req_id: {0}, status_code: {1}".format(
-            resp.request_id, resp.status))
+                    resp.request_id, resp.status))
         return RequestResult(resp)
 
     def list_object_versions(self, prefix='', delimiter='', key_marker='',
-                             max_keys=100, versionid_marker='', headers=None):
+            max_keys=100, versionid_marker='', headers=None):
         """根据前缀罗列Bucket里的文件的版本。
 
         :param str prefix: 只罗列文件名为该前缀的文件
@@ -2053,9 +2050,9 @@ class Bucket(_Base):
         """
         logger.debug(
             "Start to List object versions, bucket: {0}, prefix: {1}, delimiter: {2},"
-            + "key_marker: {3}, versionid_marker: {4}, max-keys: {5}".format(
-                self.bucket_name, to_string(prefix), delimiter, to_string(key_marker),
-                to_string(versionid_marker), max_keys))
+            +"key_marker: {3}, versionid_marker: {4}, max-keys: {5}".format(
+            self.bucket_name, to_string(prefix), delimiter, to_string(key_marker),
+            to_string(versionid_marker), max_keys))
 
         headers = http.CaseInsensitiveDict(headers)
 
@@ -2067,9 +2064,9 @@ class Bucket(_Base):
                                         'max-keys': str(max_keys),
                                         'encoding-type': 'url',
                                         Bucket.VERSIONS: ''},
-                                headers=headers)
+                                        headers=headers)
         logger.debug("List object versions done, req_id: {0}, status_code: {1}"
-                     .format(resp.request_id, resp.status))
+                .format(resp.request_id, resp.status))
 
         return self._parse_result(resp, xml_utils.parse_list_object_versions, ListObjectVersionsResult)
 
@@ -2081,7 +2078,7 @@ class Bucket(_Base):
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
         logger.debug("Start to put object versioning, bucket: {0}".format(self.bucket_name))
-        data = self.__convert_data(BucketVersioningConfig, xml_utils.to_put_bucket_versioning, config)
+        data = self.__convert_data(BucketVersioningConfig, xml_utils.to_put_bucket_versioning, config) 
 
         headers = http.CaseInsensitiveDict(headers)
         headers['Content-MD5'] = utils.content_md5(data)
@@ -2095,7 +2092,6 @@ class Bucket(_Base):
         """
         :return: :class:`GetBucketVersioningResult<oss2.models.GetBucketVersioningResult>` 
         """
-
         logger.debug("Start to get bucket versioning, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('GET', params={Bucket.VERSIONING: ''})
         logger.debug("Get bucket versiong done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
@@ -2104,6 +2100,7 @@ class Bucket(_Base):
 
     def put_bucket_policy(self, policy):
         """设置bucket授权策略, 具体policy书写规则请参考官方文档
+
         :param str policy: 授权策略
         """
         logger.debug("Start to put bucket policy, bucket: {0}, policy: {1}".format(self.bucket_name, policy))
@@ -2119,7 +2116,7 @@ class Bucket(_Base):
         """
 
         logger.debug("Start to get bucket policy, bucket: {0}".format(self.bucket_name))
-        resp = self.__do_bucket('GET', params={Bucket.POLICY: ''})
+        resp = self.__do_bucket('GET', params={Bucket.POLICY:''})
         logger.debug("Get bucket policy done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return GetBucketPolicyResult(resp)
 
@@ -2135,17 +2132,15 @@ class Bucket(_Base):
     def put_bucket_request_payment(self, payer):
         """设置付费者。
 
-        :param input: :class: str
+        :param input: :class: str 
         """
         data = xml_utils.to_put_bucket_request_payment(payer)
         logger.debug("Start to put bucket request payment, bucket: {0}, payer: {1}".format(self.bucket_name, payer))
-        resp = self.__do_bucket('PUT', data=data, params={Bucket.REQUESTPAYMENT: ''},
-                                headers={'Content-MD5': utils.content_md5(data)})
-        logger.debug(
-            "Put bucket request payment done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
-
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.REQUESTPAYMENT: ''}, headers={'Content-MD5': utils.content_md5(data)})
+        logger.debug("Put bucket request payment done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        
         return RequestResult(resp)
-
+    
     def get_bucket_request_payment(self):
         """获取付费者设置。
 
@@ -2153,8 +2148,7 @@ class Bucket(_Base):
         """
         logger.debug("Start to get bucket request payment, bucket: {0}.".format(self.bucket_name))
         resp = self.__do_bucket('GET', params={Bucket.REQUESTPAYMENT: ''})
-        logger.debug(
-            "Get bucket request payment done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("Get bucket request payment done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return self._parse_result(resp, xml_utils.parse_get_bucket_request_payment, GetBucketRequestPaymentResult)
 
@@ -2165,7 +2159,7 @@ class Bucket(_Base):
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
         logger.debug("Start to put bucket qos info, bucket: {0}".format(self.bucket_name))
-        data = self.__convert_data(BucketQosInfo, xml_utils.to_put_qos_info, bucket_qos_info)
+        data = self.__convert_data(BucketQosInfo, xml_utils.to_put_qos_info, bucket_qos_info) 
 
         headers = http.CaseInsensitiveDict()
         headers['Content-MD5'] = utils.content_md5(data)
@@ -2223,7 +2217,7 @@ class Bucket(_Base):
         """创建一个异步获取文件到bucket的任务。
 
         :param task_config: 任务配置
-        :type task_config: class:`AsyncFetchTaskConfiguration <oss2.models.AsyncFetchTaskConfiguration>`
+        :type task_config: class:`AsyncFetchTaskConfiguration <oss2.models.AsyncFetchTaskConfiguration>` 
 
         :return: :class:`PutAsyncFetchTaskResult <oss2.models.PutAsyncFetchTaskResult>`
         """
@@ -2255,7 +2249,7 @@ class Bucket(_Base):
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
         logger.debug("Start to put bucket inventory configuration, bucket: {0}".format(self.bucket_name))
-        data = self.__convert_data(InventoryConfiguration, xml_utils.to_put_inventory_configuration, inventory_configuration)
+        data = self.__convert_data(InventoryConfiguration, xml_utils.to_put_inventory_configuration, inventory_configuration) 
 
         headers = http.CaseInsensitiveDict()
         headers['Content-MD5'] = utils.content_md5(data)
