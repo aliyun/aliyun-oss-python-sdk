@@ -123,9 +123,6 @@ class TestUpload(OssTestCase):
         key = 'resume-' + random_string(32)
         content = random_bytes(content_size)
         encryption_flag = isinstance(bucket, oss2.CryptoBucket)
-        record_context_flag = False
-        if encryption_flag:
-            record_context_flag = not bucket.upload_contexts_flag
 
         context = None
         pathname = self._prepare_temp_file(content)
@@ -142,7 +139,7 @@ class TestUpload(OssTestCase):
             else:
                 end = start + part_size
 
-            if record_context_flag:
+            if encryption_flag:
                 bucket.upload_part(key, upload_id, part_number, content[start:end], upload_context=context)
             else:
                 bucket.upload_part(key, upload_id, part_number, content[start:end])

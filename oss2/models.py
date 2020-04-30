@@ -538,14 +538,6 @@ class ListPartsResult(RequestResult):
     def __init__(self, resp):
         super(ListPartsResult, self).__init__(resp)
 
-        # 列出的bucket名称
-        self.bucket = None
-        # 列出的key名称
-        self.key = None
-        # Upload事件的ID
-        self.upload_id = None
-        # 返回请求的最大的Part数目
-        self.max_parts = 0
         # True表示还有更多的Part可以罗列；False表示已经列举完毕。
         self.is_truncated = False
 
@@ -554,30 +546,6 @@ class ListPartsResult(RequestResult):
 
         # 罗列出的Part信息，类型为 `PartInfo` 列表。
         self.parts = []
-
-        # 客户端加密文件密钥
-        self.client_encryption_key = None
-
-        # 客户端加密文件初始向量
-        self.client_encryption_start = None
-
-        # 数据加密采用的算法
-        self.client_encryption_cek_alg = None
-
-        # 加密数据加密密钥的算法
-        self.client_encryption_wrap_alg = None
-
-        # 客户端加密Multipart文件总大小
-        self.client_encryption_data_size = 0
-
-        # 客户端加密Multipart文件块大小
-        self.client_encryption_part_size = 0
-
-    def is_encrypted(self):
-        if self.client_encryption_key and self.client_encryption_start and self.client_encryption_cek_alg and \
-                self.client_encryption_wrap_alg:
-            return True
-        return False
 
 
 BUCKET_ACL_PRIVATE = 'private'

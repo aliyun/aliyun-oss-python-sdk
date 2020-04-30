@@ -69,9 +69,8 @@ class TestCryptoMultipart(OssTestCase):
         self.assertTrue(abort_result.status == 204)
 
     def test_crypto_multipart_upload_basic(self):
-        for upload_contexts_flag in [False, True]:
+        for upload_contexts_flag in [False, False]:
             crypto_bucket = random.choice([self.rsa_crypto_bucket, self.kms_crypto_bucket])
-            crypto_bucket.upload_contexts_flag = upload_contexts_flag
             key = self.random_key()
             content_1 = random_bytes(200 * 1024)
             content_2 = random_bytes(200 * 1024)
@@ -87,9 +86,6 @@ class TestCryptoMultipart(OssTestCase):
             init_result = crypto_bucket.init_multipart_upload(key, upload_context=context)
             self.assertTrue(init_result.status == 200)
             upload_id = init_result.upload_id
-
-            if upload_contexts_flag:
-                context = None
 
             for i in range(3):
                 if do_md5:

@@ -65,7 +65,7 @@ from .compat import urlunquote, to_unicode, to_string
 from .utils import iso8601_to_unixtime, date_to_iso8601, iso8601_to_date
 from . import utils
 import base64
-from .exceptions import SelectOperationClientError, ClientError
+from .exceptions import SelectOperationClientError
 
 logger = logging.getLogger(__name__)
 
@@ -217,30 +217,8 @@ def parse_list_multipart_uploads(result, body):
 def parse_list_parts(result, body):
     root = ElementTree.fromstring(body)
 
-    result.bucket = _find_tag(root, 'Bucket')
-    result.key = _find_tag(root, 'Key')
-    result.upload_id = _find_tag(root, 'UploadId')
-    result.max_parts = _find_int(root, 'MaxParts')
-
     result.is_truncated = _find_bool(root, 'IsTruncated')
     result.next_marker = _find_tag(root, 'NextPartNumberMarker')
-
-    client_encryption_key = root.find('ClientEncryptionKey')
-    if client_encryption_key is not None:
-        try:
-            result.client_encryption_key = to_string(client_encryption_key.text)
-            result.client_encryption_start = _find_tag(root, 'ClientEncryptionStart')
-            result.client_encryption_wrap_alg = _find_tag(root, 'ClientEncryptionWrapAlg')
-            result.client_encryption_cek_alg = _find_tag(root, 'ClientEncryptionCekAlg')
-            result.client_encryption_key = utils.b64decode_from_string(result.client_encryption_key)
-            result.client_encryption_start = utils.b64decode_from_string(result.client_encryption_start)
-            if result.client_encryption_cek_alg == 'AES/CTR/NoPadding':
-                result.client_encryption_data_size = _find_int(root, 'ClientEncryptionDataSize')
-                result.client_encryption_part_size = _find_int(root, 'ClientEncryptionPartSize')
-
-        except RuntimeError as e:
-            raise ClientError('Invalid response of list_parts, exception: ' + str(e))
-
     for part_node in root.findall('Part'):
         result.parts.append(PartInfo(
             _find_int(part_node, 'PartNumber'),
@@ -254,7 +232,7 @@ def parse_list_parts(result, body):
 
 def parse_batch_delete_objects(result, body):
     if not body:
-        return result
+        return result 
     root = ElementTree.fromstring(body)
     url_encoded = _is_url_encoding(root)
 

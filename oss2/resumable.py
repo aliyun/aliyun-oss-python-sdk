@@ -542,7 +542,7 @@ class _ResumableUploader(_ResumableOperation):
 
         if isinstance(self.bucket, CryptoBucket):
             self.__encryption = True
-            self.__record_upload_context = not self.bucket.upload_contexts_flag
+            self.__record_upload_context = True
 
         logger.debug("Init _ResumableUploader, bucket: {0}, key: {1}, part_size: {2}, num_thread: {3}".format(
             bucket.bucket_name, to_string(key), self.__part_size, self.__num_threads))

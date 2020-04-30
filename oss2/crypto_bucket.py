@@ -53,7 +53,6 @@ class CryptoBucket(Bucket):
                  connect_timeout=None,
                  app_name='',
                  enable_crc=True,
-                 upload_contexts_flag=False,
                  ):
 
         if not isinstance(crypto_provider, BaseCryptoProvider):
@@ -64,7 +63,6 @@ class CryptoBucket(Bucket):
                                            enable_crc)
 
         self.crypto_provider = crypto_provider
-        self.upload_contexts_flag = upload_contexts_flag
         self.upload_contexts = {}
         self.upload_contexts_lock = threading.Lock()
 
@@ -288,10 +286,6 @@ class CryptoBucket(Bucket):
 
         resp = super(CryptoBucket, self).init_multipart_upload(key, headers)
 
-        if resp.upload_id and self.upload_contexts_flag:
-            with self.upload_contexts_lock:
-                self.upload_contexts[resp.upload_id] = upload_context
-
         return resp
 
     def upload_part(self, key, upload_id, part_number, data, progress_callback=None, headers=None, upload_context=None):
@@ -314,13 +308,7 @@ class CryptoBucket(Bucket):
                                                                                                    part_number))
         headers = http.CaseInsensitiveDict(headers)
         self._init_user_agent(headers)
-        if self.upload_contexts_flag:
-            with self.upload_contexts_lock:
-                if upload_id in self.upload_contexts:
-                    context = self.upload_contexts[upload_id]
-                else:
-                    raise ClientError("Could not find upload context, please check the upload_id!")
-        elif upload_context:
+        if upload_context:
             context = upload_context
         else:
             raise ClientError("Could not init upload context, upload contexts flag is False and upload context is none")
@@ -368,12 +356,6 @@ class CryptoBucket(Bucket):
         self._init_user_agent(headers)
         try:
             resp = super(CryptoBucket, self).complete_multipart_upload(key, upload_id, parts, headers)
-            if self.upload_contexts_flag:
-                with self.upload_contexts_lock:
-                    if upload_id in self.upload_contexts:
-                        self.upload_contexts.pop(upload_id)
-                    else:
-                        logger.warn("Could not find upload_id in upload contexts")
         except exceptions as e:
             raise e
 
@@ -394,12 +376,6 @@ class CryptoBucket(Bucket):
         self._init_user_agent(headers)
         try:
             resp = super(CryptoBucket, self).abort_multipart_upload(key, upload_id)
-            if self.upload_contexts_flag:
-                with self.upload_contexts_lock:
-                    if upload_id in self.upload_contexts:
-                        self.upload_contexts.pop(upload_id)
-                    else:
-                        logger.warn("Could not find upload_id in upload contexts")
         except exceptions as e:
             raise e
 
@@ -422,46 +398,6 @@ class CryptoBucket(Bucket):
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         raise ClientError("The operation is not support for CryptoBucket now")
-
-    def list_parts(self, key, upload_id, marker='', max_parts=1000, headers=None):
-        """列举已经上传的分片。支持分页。
-
-        :param headers:
-        :param str key: 文件名
-        :param str upload_id: 分片上传ID
-        :param str marker: 分页符
-        :param int max_parts: 一次最多罗列多少分片
-
-        :return: :class:`ListPartsResult <oss2.models.ListPartsResult>`
-        """
-        logger.info("Start to list parts of CryptoBucket, upload_id = {0}".format(upload_id))
-
-        headers = http.CaseInsensitiveDict(headers)
-        self._init_user_agent(headers)
-        try:
-            resp = super(CryptoBucket, self).list_parts(key, upload_id, marker=marker, max_parts=max_parts,
-                                                        headers=headers)
-
-            if self.upload_contexts_flag:
-                if not resp.is_encrypted():
-                    raise ClientError('Could not use CryptoBucket to list an unencrypted upload parts')
-
-                if resp.client_encryption_cek_alg != self.crypto_provider.cipher.alg or resp.client_encryption_wrap_alg != self.crypto_provider.wrap_alg:
-                    err_msg = 'Envelope or data encryption/decryption algorithm is inconsistent'
-                    raise InconsistentError(err_msg, self)
-                if resp.upload_id == upload_id:
-                    content_crypto_material = ContentCryptoMaterial(self.crypto_provider.cipher,
-                                                                    resp.client_encryption_wrap_alg,
-                                                                    resp.client_encryption_key,
-                                                                    resp.client_encryption_start)
-                    context = MultipartUploadCryptoContext(resp.client_encryption_data_size,
-                                                           resp.client_encryption_part_size, content_crypto_material)
-                    with self.upload_contexts_lock:
-                        self.upload_contexts[upload_id] = context
-        except exceptions as e:
-            raise e
-
-        return resp
 
     def process_object(self, key, process):
         raise ClientError("The operation is not support for CryptoBucket")
