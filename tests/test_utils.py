@@ -136,27 +136,6 @@ class TestUtils(OssTestCase):
 
         self.assertEqual(progress_adapter.len, 3)
 
-    def test_crc_and_cipher_adapter(self):
-
-        crc_adapter = oss2.utils.make_crc_adapter('sss')
-        cipher_adapter = oss2.utils.make_cipher_adapter(crc_adapter,
-                    partial(oss2.utils.AESCipher.encrypt ,oss2.utils.AESCipher(b'1' * 32, 1)))
-
-        content = cipher_adapter.read()
-
-        self.assertEqual(cipher_adapter.crc, 10301458956098309249)
-
-        with io.BytesIO(oss2.to_bytes('sss')) as f:
-            crc_adapter = oss2.utils.make_crc_adapter(f)
-            cipher_adapter = oss2.utils.make_cipher_adapter(crc_adapter,
-                     partial(oss2.utils.AESCipher.encrypt, oss2.utils.AESCipher(b'1' * 32, 1)))
-
-            content = cipher_adapter.read()
-
-            self.assertEqual(cipher_adapter.crc, 10301458956098309249)
-
-
-
     def test_default_logger_basic(self):
         # verify default logger
         # self.assertEqual(oss2.defaults.get_logger(), logging.getLogger())

@@ -5,6 +5,8 @@ import oss2
 import os
 import sys
 import time
+from oss2 import models
+from oss2 import utils
 
 from .common import *
 
@@ -13,71 +15,56 @@ from mock import patch
 
 class TestUpload(OssTestCase):
     def test_upload_small(self):
+        bucket = random.choice([self.bucket, self.rsa_crypto_bucket, self.kms_crypto_bucket])
         key = random_string(16)
         content = random_bytes(100)
 
         pathname = self._prepare_temp_file(content)
 
-        result = oss2.resumable_upload(self.bucket, key, pathname)
+        result = oss2.resumable_upload(bucket, key, pathname)
         self.assertTrue(result is not None)
         self.assertTrue(result.etag is not None)
         self.assertTrue(result.request_id is not None)
 
-        result = self.bucket.get_object(key)
+        result = bucket.get_object(key)
         self.assertEqual(content, result.read())
         self.assertEqual(result.headers['x-oss-object-type'], 'Normal')
 
-        self.bucket.delete_object(key)
-
-    def test_crypto_upload_small(self):
-        key = random_string(16)
-        content = random_bytes(100)
-
-        pathname = self._prepare_temp_file(content)
-
-        result = oss2.resumable_upload(self.rsa_crypto_bucket, key, pathname)
-        self.assertTrue(result is not None)
-        self.assertTrue(result.etag is not None)
-        self.assertTrue(result.request_id is not None)
-
-        result = self.rsa_crypto_bucket.get_object(key)
-        self.assertEqual(content, result.read())
-        self.assertEqual(result.headers['x-oss-object-type'], 'Normal')
-
-        self.bucket.delete_object(key)
+        bucket.delete_object(key)
 
     def test_upload_large(self):
+        bucket = random.choice([self.bucket, self.rsa_crypto_bucket, self.kms_crypto_bucket])
         key = random_string(16)
-        content = random_bytes(5 * 100 * 1024)
+        content = random_bytes(500 * 1024)
 
         pathname = self._prepare_temp_file(content)
 
-        result = oss2.resumable_upload(self.bucket, key, pathname, multipart_threshold=200 * 1024, part_size=None)
+        result = oss2.resumable_upload(bucket, key, pathname, multipart_threshold=200 * 1024, part_size=None)
         self.assertTrue(result is not None)
         self.assertTrue(result.etag is not None)
         self.assertTrue(result.request_id is not None)
 
-        result = self.bucket.get_object(key)
+        result = bucket.get_object(key)
         self.assertEqual(content, result.read())
         self.assertEqual(result.headers['x-oss-object-type'], 'Multipart')
 
-        self.bucket.delete_object(key)
+        bucket.delete_object(key)
 
     def test_concurrency(self):
+        bucket = random.choice([self.bucket, self.rsa_crypto_bucket, self.kms_crypto_bucket])
         key = random_string(16)
         content = random_bytes(64 * 100 * 1024)
 
         pathname = self._prepare_temp_file(content)
 
-        oss2.resumable_upload(self.bucket, key, pathname,
-                              multipart_threshold=200 * 1024,
-                              part_size=100*1024,
+        oss2.resumable_upload(bucket, key, pathname, multipart_threshold=200 * 1024, part_size=100 * 1024,
                               num_threads=8)
-        result = self.bucket.get_object(key)
+        result = bucket.get_object(key)
         self.assertEqual(content, result.read())
         self.assertEqual(result.headers['x-oss-object-type'], 'Multipart')
 
     def test_progress(self):
+        bucket = random.choice([self.bucket, self.rsa_crypto_bucket, self.kms_crypto_bucket])
         stats = {'previous': -1, 'ncalled': 0}
 
         def progress_callback(bytes_consumed, total_bytes):
@@ -93,7 +80,7 @@ class TestUpload(OssTestCase):
         pathname = self._prepare_temp_file(content)
 
         part_size = 100 * 1024
-        oss2.resumable_upload(self.bucket, key, pathname,
+        oss2.resumable_upload(bucket, key, pathname,
                               multipart_threshold=200 * 1024,
                               part_size=part_size,
                               progress_callback=progress_callback,
@@ -102,42 +89,70 @@ class TestUpload(OssTestCase):
         self.assertEqual(stats['ncalled'], oss2.utils.how_many(len(content), part_size) + 1)
 
         stats = {'previous': -1, 'ncalled': 0}
-        oss2.resumable_upload(self.bucket, key, pathname,
+        oss2.resumable_upload(bucket, key, pathname,
                               multipart_threshold=len(content) + 100,
                               progress_callback=progress_callback)
         self.assertEqual(stats['previous'], len(content))
 
-        self.bucket.delete_object(key)
+        bucket.delete_object(key)
+
+    def _rebuild_record(self, filename, store, bucket, key, upload_id, part_size=None, upload_context=None):
+        abspath = os.path.abspath(filename)
+        mtime = os.path.getmtime(filename)
+        size = os.path.getsize(filename)
+
+        record = {'op_type': 'ResumableUpload', 'upload_id': upload_id, 'file_path': abspath, 'size': size,
+                  'mtime': mtime, 'bucket': bucket.bucket_name, 'key': key, 'part_size': part_size}
+
+        if upload_context:
+            material = upload_context.content_crypto_material
+            material_record = {'wrap_alg': material.wrap_alg, 'cek_alg': material.cek_alg,
+                               'encrypted_key': utils.b64encode_as_string(material.encrypted_key),
+                               'encrypted_iv': utils.b64encode_as_string(material.encrypted_iv),
+                               'mat_desc': material.mat_desc}
+            record['content_crypto_material'] = material_record
+
+        store_key = store.make_store_key(bucket.bucket_name, key, abspath)
+        store.put(store_key, record)
 
     def __test_resume(self, content_size, uploaded_parts, expected_unfinished=0):
+        bucket = random.choice([self.bucket, self.rsa_crypto_bucket, self.kms_crypto_bucket])
         part_size = 100 * 1024
         num_parts = (content_size + part_size - 1) // part_size
 
         key = 'resume-' + random_string(32)
         content = random_bytes(content_size)
+        encryption_flag = isinstance(bucket, oss2.CryptoBucket)
 
+        context = None
         pathname = self._prepare_temp_file(content)
-
-        upload_id = self.bucket.init_multipart_upload(key).upload_id
+        if encryption_flag:
+            context = models.MultipartUploadCryptoContext(content_size, part_size)
+            upload_id = bucket.init_multipart_upload(key, upload_context=context).upload_id
+        else:
+            upload_id = bucket.init_multipart_upload(key).upload_id
 
         for part_number in uploaded_parts:
-            start = (part_number -1) * part_size
+            start = (part_number - 1) * part_size
             if part_number == num_parts:
                 end = content_size
             else:
                 end = start + part_size
 
-            self.bucket.upload_part(key, upload_id, part_number, content[start:end])
+            if encryption_flag:
+                bucket.upload_part(key, upload_id, part_number, content[start:end], upload_context=context)
+            else:
+                bucket.upload_part(key, upload_id, part_number, content[start:end])
 
-        oss2.resumable._rebuild_record(pathname, oss2.resumable.make_upload_store(), self.bucket, key, upload_id, part_size)
-        oss2.resumable_upload(self.bucket, key, pathname, multipart_threshold=0, part_size=100 * 1024)
+        self._rebuild_record(pathname, oss2.resumable.make_upload_store(), bucket, key, upload_id, part_size, context)
+        oss2.resumable_upload(bucket, key, pathname, multipart_threshold=0, part_size=100 * 1024)
 
-        result = self.bucket.get_object(key)
+        result = bucket.get_object(key)
         self.assertEqual(content, result.read())
 
         self.assertEqual(len(list(oss2.ObjectUploadIterator(self.bucket, key))), expected_unfinished)
 
-        self.bucket.delete_object(key)
+        bucket.delete_object(key)
 
     def test_resume_empty(self):
         self.__test_resume(250 * 1024, [])
@@ -151,51 +166,95 @@ class TestUpload(OssTestCase):
     def test_resume_hole_end(self):
         self.__test_resume(300 * 1024 + 1, [4])
 
-    def __test_interrupt(self, content_size, failed_part_number,
-                         expected_unfinished=0,
-                         modify_record_func=None):
-        orig_upload_part = oss2.Bucket.upload_part
+    def __test_interrupt(self, content_size, failed_part_number, expected_unfinished=0, modify_record_func=None):
+        bucket = random.choice([self.bucket, self.rsa_crypto_bucket, self.kms_crypto_bucket])
+        encryption_flag = isinstance(bucket, oss2.CryptoBucket)
+        orig_upload_part = bucket.upload_part
 
-        def upload_part(self, key, upload_id, part_number, data, headers):
-            if part_number == failed_part_number:
-                raise RuntimeError
-            else:
-                return orig_upload_part(self, key, upload_id, part_number, data, headers)
+        if encryption_flag:
+            def upload_part(self, key, upload_id, part_number, data, progress_callback=None, headers=None,
+                            upload_context=None):
+                if part_number == failed_part_number:
+                    raise RuntimeError
+                else:
+                    return orig_upload_part(key, upload_id, part_number, data, progress_callback, headers,
+                                            upload_context)
+        else:
+            def upload_part(self, key, upload_id, part_number, data, progress_callback=None, headers=None):
+                if part_number == failed_part_number:
+                    raise RuntimeError
+                else:
+                    return orig_upload_part(key, upload_id, part_number, data, progress_callback, headers)
 
-        key = 'resume-' + random_string(32)
+        key = 'ResumableUpload-' + random_string(32)
         content = random_bytes(content_size)
 
         pathname = self._prepare_temp_file(content)
 
-        with patch.object(oss2.Bucket, 'upload_part', side_effect=upload_part, autospec=True) as mock_upload_part:
-            self.assertRaises(RuntimeError, oss2.resumable_upload, self.bucket, key, pathname,
-                              multipart_threshold=0,
-                              part_size=100 * 1024)
+        if encryption_flag:
+            with patch.object(oss2.CryptoBucket, 'upload_part', side_effect=upload_part,
+                              autospec=True) as mock_upload_part:
+                self.assertRaises(RuntimeError, oss2.resumable_upload, bucket, key, pathname, multipart_threshold=0,
+                                  part_size=100 * 1024)
+        else:
+            with patch.object(oss2.Bucket, 'upload_part', side_effect=upload_part, autospec=True) as mock_upload_part:
+                self.assertRaises(RuntimeError, oss2.resumable_upload, bucket, key, pathname, multipart_threshold=0,
+                                  part_size=100 * 1024)
 
         if modify_record_func:
-            modify_record_func(oss2.resumable.make_upload_store(), self.bucket.bucket_name, key, pathname)
+            modify_record_func(oss2.resumable.make_upload_store(), bucket.bucket_name, key, pathname)
 
-        oss2.resumable_upload(self.bucket, key, pathname, multipart_threshold=0, part_size=100 * 1024)
+        oss2.resumable_upload(bucket, key, pathname, multipart_threshold=0, part_size=100 * 1024)
 
         self.assertEqual(len(list(oss2.ObjectUploadIterator(self.bucket, key))), expected_unfinished)
 
-    def test_interrupt_empty(self):
+    def test_interrupt_at_start(self):
         self.__test_interrupt(310 * 1024, 1)
 
-    def test_interrupt_mid(self):
+    def test_interrupt_at_mid(self):
         self.__test_interrupt(510 * 1024, 3)
 
-    def test_interrupt_last(self):
+    def test_interrupt_at_end(self):
         self.__test_interrupt(500 * 1024 - 1, 5)
 
-    def test_record_bad_size(self):
-        self.__test_interrupt(500 * 1024, 3,
-                              modify_record_func=self.__make_corrupt_record('size', 'hello'),
+    def test_record_invalid_op(self):
+        self.__test_interrupt(500 * 1024, 1,
+                              modify_record_func=self.__make_corrupt_record('op_type', 'ResumableDownload'),
                               expected_unfinished=1)
 
-    def test_record_no_such_upload_id(self):
-        self.__test_interrupt(500 * 1024, 3,
-                              modify_record_func=self.__make_corrupt_record('upload_id', 'ABCD1234'),
+    def test_record_invalid_upload_id(self):
+        self.__test_interrupt(500 * 1024, 1,
+                              modify_record_func=self.__make_corrupt_record('upload_id', random.randint(1, 100)),
+                              expected_unfinished=1)
+
+    def test_record_invalid_file_path(self):
+        self.__test_interrupt(500 * 1024, 1,
+                              modify_record_func=self.__make_corrupt_record('file_path', random.randint(1, 100)),
+                              expected_unfinished=1)
+
+    def test_record_invalid_size(self):
+        self.__test_interrupt(500 * 1024, 1,
+                              modify_record_func=self.__make_corrupt_record('size', 'invalid_size_type'),
+                              expected_unfinished=1)
+
+    def test_record_invalid_mtime(self):
+        self.__test_interrupt(500 * 1024, 1,
+                              modify_record_func=self.__make_corrupt_record('mtime', 'invalid_mtime'),
+                              expected_unfinished=1)
+
+    def test_record_invalid_bucket(self):
+        self.__test_interrupt(500 * 1024, 1,
+                              modify_record_func=self.__make_corrupt_record('bucket', random.randint(1, 100)),
+                              expected_unfinished=1)
+
+    def test_record_invalid_key(self):
+        self.__test_interrupt(500 * 1024, 1,
+                              modify_record_func=self.__make_corrupt_record('key', random.randint(1, 100)),
+                              expected_unfinished=1)
+
+    def test_record_invalid_part_size(self):
+        self.__test_interrupt(500 * 1024, 1,
+                              modify_record_func=self.__make_corrupt_record('part_size', 'invalid_part_size'),
                               expected_unfinished=1)
 
     def test_file_changed_mtime(self):
@@ -211,13 +270,12 @@ class TestUpload(OssTestCase):
         def change_size(store, bucket_name, key, pathname):
             mtime = os.path.getmtime(pathname)
 
-            with open(pathname, 'w') as f:
-                f.write('hello world')
+            with open(pathname, 'wb') as f:
+                f.write(random_bytes(500 * 1024 - 1))
 
             os.utime(pathname, (mtime, mtime))
-        self.__test_interrupt(500 * 1024, 3,
-                              modify_record_func=change_size,
-                              expected_unfinished=1)
+
+        self.__test_interrupt(500 * 1024, 3, modify_record_func=change_size, expected_unfinished=1)
 
     def __make_corrupt_record(self, name, value):
         def corrupt_record(store, bucket_name, key, pathname):
@@ -226,37 +284,8 @@ class TestUpload(OssTestCase):
             record = store.get(store_key)
             record[name] = value
             store.put(store_key, record)
+
         return corrupt_record
-
-    def test_is_record_sane(self):
-        record = {
-            'upload_id': 'ABCD',
-            'size': 123,
-            'part_size': 123,
-            'mtime': 12345,
-            'abspath': '/hello',
-            'key': 'hello.txt',
-            'parts': []
-        }
-
-        def check_not_sane(key, value):
-            old = record[key]
-            record[key] = value
-
-            self.assertTrue(not oss2.resumable._is_record_sane(record))
-
-            record[key] = old
-
-        self.assertTrue(oss2.resumable._is_record_sane(record))
-        self.assertTrue(not oss2.resumable._is_record_sane({}))
-
-        check_not_sane('upload_id', 1)
-        check_not_sane('size', '123')
-        check_not_sane('part_size', 'hello')
-        check_not_sane('mtime', 'hello')
-        check_not_sane('abspath', 1)
-        check_not_sane('key', None)
-        check_not_sane('parts', None)
 
     def test_upload_large_with_tagging(self):
         
@@ -325,8 +354,9 @@ class TestUpload(OssTestCase):
         result = bucket.get_object(key)
         self.assertIsNone(result.resp.headers.get('Content-MD5'))
 
-        params={'sequential' : ''}
-        oss2.resumable_upload(bucket, key, pathname, multipart_threshold=200 * 1024, part_size=None, params=params)
+        params = {'sequential': ''}
+        oss2.resumable_upload(bucket, key, pathname, multipart_threshold=200 * 1024, part_size=None, num_threads=1,
+                              params=params)
         result = bucket.get_object(key)
         self.assertIsNotNone(result.resp.headers.get('Content-MD5'))
 

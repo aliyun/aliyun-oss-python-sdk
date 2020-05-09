@@ -8,7 +8,8 @@ import time
 import tempfile
 import errno
 import logging
-
+from Crypto.PublicKey import RSA
+from Crypto.PublicKey.RSA import RsaKey
 import oss2
 
 logging.basicConfig(level=logging.DEBUG)
@@ -18,8 +19,10 @@ OSS_SECRET = os.getenv("OSS_TEST_ACCESS_KEY_SECRET")
 OSS_ENDPOINT = os.getenv("OSS_TEST_ENDPOINT")
 OSS_TEST_BUCKET = os.getenv("OSS_TEST_BUCKET")
 OSS_CNAME = os.getenv("OSS_TEST_CNAME")
-OSS_CMK = os.getenv("OSS_TEST_CMK")
 OSS_REGION = os.getenv("OSS_TEST_REGION", "cn-hangzhou")
+
+OSS_CMK = os.getenv("OSS_TEST_KMS_CMK_ID")
+OSS_CMK_REGION = os.getenv("OSS_TEST_KMS_REGION")
 
 OSS_STS_ID = os.getenv("OSS_TEST_STS_ID")
 OSS_STS_KEY = os.getenv("OSS_TEST_STS_KEY")
@@ -33,6 +36,37 @@ OSS_INVENTORY_BUCKET_DESTINATION_ARN = os.getenv("OSS_TEST_RAM_ROLE_ARN")
 OSS_INVENTORY_BUCKET_DESTINATION_ACCOUNT = os.getenv("OSS_TEST_RAM_UID")
 
 OSS_AUTH_VERSION = None
+
+private_key = RSA.generate(1024)
+public_key = private_key.publickey()
+private_key_str = RsaKey.exportKey(private_key)
+public_key_str = RsaKey.exportKey(public_key)
+key_pair = {'private_key': private_key_str, 'public_key': public_key_str}
+
+private_key_compact = '''-----BEGIN RSA PRIVATE KEY-----
+MIICWwIBAAKBgQCokfiAVXXf5ImFzKDw+XO/UByW6mse2QsIgz3ZwBtMNu59fR5z
+ttSx+8fB7vR4CN3bTztrP9A6bjoN0FFnhlQ3vNJC5MFO1PByrE/MNd5AAfSVba93
+I6sx8NSk5MzUCA4NJzAUqYOEWGtGBcom6kEF6MmR1EKib1Id8hpooY5xaQIDAQAB
+AoGAOPUZgkNeEMinrw31U3b2JS5sepG6oDG2CKpPu8OtdZMaAkzEfVTJiVoJpP2Y
+nPZiADhFW3e0ZAnak9BPsSsySRaSNmR465cG9tbqpXFKh9Rp/sCPo4Jq2n65yood
+JBrnGr6/xhYvNa14sQ6xjjfSgRNBSXD1XXNF4kALwgZyCAECQQDV7t4bTx9FbEs5
+36nAxPsPM6aACXaOkv6d9LXI7A0J8Zf42FeBV6RK0q7QG5iNNd1WJHSXIITUizVF
+6aX5NnvFAkEAybeXNOwUvYtkgxF4s28s6gn11c5HZw4/a8vZm2tXXK/QfTQrJVXp
+VwxmSr0FAajWAlcYN/fGkX1pWA041CKFVQJAG08ozzekeEpAuByTIOaEXgZr5MBQ
+gBbHpgZNBl8Lsw9CJSQI15wGfv6yDiLXsH8FyC9TKs+d5Tv4Cvquk0efOQJAd9OC
+lCKFs48hdyaiz9yEDsc57PdrvRFepVdj/gpGzD14mVerJbOiOF6aSV19ot27u4on
+Td/3aifYs0CveHzFPQJAWb4LCDwqLctfzziG7/S7Z74gyq5qZF4FUElOAZkz718E
+yZvADwuz/4aK0od0lX9c4Jp7Mo5vQ4TvdoBnPuGoyw==
+-----END RSA PRIVATE KEY-----'''
+
+public_key_compact = '''-----BEGIN RSA PUBLIC KEY-----
+MIGJAoGBAKiR+IBVdd/kiYXMoPD5c79QHJbqax7ZCwiDPdnAG0w27n19HnO21LH7
+x8Hu9HgI3dtPO2s/0DpuOg3QUWeGVDe80kLkwU7U8HKsT8w13kAB9JVtr3cjqzHw
+1KTkzNQIDg0nMBSpg4RYa0YFyibqQQXoyZHUQqJvUh3yGmihjnFpAgMBAAE=
+-----END RSA PUBLIC KEY-----'''
+
+key_pair_compact = {'private_key': private_key_compact, 'public_key': public_key_compact}
+
 
 def random_string(n):
     return ''.join(random.choice(string.ascii_lowercase) for i in range(n))
@@ -138,7 +172,7 @@ class OssTestCase(unittest.TestCase):
 
         global OSS_AUTH_VERSION
         OSS_AUTH_VERSION = os.getenv('OSS_TEST_AUTH_VERSION')
-        
+
         self.bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET)
 
         try:
@@ -146,11 +180,12 @@ class OssTestCase(unittest.TestCase):
         except:
             pass
 
-        self.rsa_crypto_bucket = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET,
-                                             crypto_provider=oss2.LocalRsaProvider())
+        self.rsa_crypto_bucket = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT,
+                                                   OSS_BUCKET, crypto_provider=oss2.RsaProvider(key_pair))
 
-        self.kms_crypto_bucket = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET,
-                                             crypto_provider=oss2.AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK))
+        self.kms_crypto_bucket = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT,
+                                                   OSS_BUCKET, crypto_provider=oss2.AliKMSProvider(OSS_ID, OSS_SECRET,
+                                                                                                   OSS_REGION, OSS_CMK))
 
         self.key_list = []
         self.temp_files = []

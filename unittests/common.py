@@ -444,12 +444,6 @@ class OssTestCase(unittest.TestCase):
         self.previous = -1
         self.temp_files = []
 
-        dest = os.path.join(os.path.expanduser('~'), oss2.crypto._LOCAL_RSA_TMP_DIR)
-
-        oss2.utils.makedir_p(dest)
-        shutil.copy('tests/oss-test.private_key.pem', dest)
-        shutil.copy('tests/oss-test.public_key.pem', dest)
-
     def tearDown(self):
         for temp_file in self.temp_files:
             os.remove(temp_file)
@@ -514,8 +508,4 @@ class OssTestCase(unittest.TestCase):
         else:
             self.assertEqual(len(req_info.data), len(expected.body))
             self.assertEqual(req_info.data, expected.body)
-
-
-fixed_aes_key = b'1' * 32
-fixed_aes_start = 1
 

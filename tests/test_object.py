@@ -60,66 +60,6 @@ class TestObject(OssTestCase):
 
         self.assertRaises(NoSuchKey, self.bucket.get_object, key)
 
-    def test_rsa_crypto_object(self):
-        key = self.random_key('.js')
-        content = random_bytes(1024)
-
-        self.assertRaises(NotFound, self.bucket.head_object, key)
-
-        lower_bound = now() - 60 * 16
-        upper_bound = now() + 60 * 16
-
-        def assert_result(result):
-            self.assertEqual(result.content_length, len(content))
-            self.assertEqual(result.content_type, 'application/javascript')
-            self.assertEqual(result.object_type, 'Normal')
-
-            self.assertTrue(result.last_modified > lower_bound)
-            self.assertTrue(result.last_modified < upper_bound)
-
-            self.assertTrue(result.etag)
-
-        self.rsa_crypto_bucket.put_object(key, content)
-
-        get_result = self.rsa_crypto_bucket.get_object(key)
-        self.assertEqual(get_result.read(), content)
-        assert_result(get_result)
-        self.assertTrue(get_result.client_crc is not None)
-        self.assertTrue(get_result.server_crc is not None)
-        self.assertTrue(get_result.client_crc == get_result.server_crc)
-
-    def test_kms_crypto_object(self):
-        if is_py33:
-            return
-
-        key = self.random_key('.js')
-        content = random_bytes(1024)
-
-        self.assertRaises(NotFound, self.bucket.head_object, key)
-
-        lower_bound = now() - 60 * 16
-        upper_bound = now() + 60 * 16
-
-        def assert_result(result):
-            self.assertEqual(result.content_length, len(content))
-            self.assertEqual(result.content_type, 'application/javascript')
-            self.assertEqual(result.object_type, 'Normal')
-
-            self.assertTrue(result.last_modified > lower_bound)
-            self.assertTrue(result.last_modified < upper_bound)
-
-            self.assertTrue(result.etag)
-
-        self.kms_crypto_bucket.put_object(key, content, headers={'content-md5': oss2.utils.md5_string(content),
-                                                                        'content-length': str(len(content))})
-
-        get_result = self.kms_crypto_bucket.get_object(key)
-        self.assertEqual(get_result.read(), content)
-        assert_result(get_result)
-        self.assertTrue(get_result.client_crc is not None)
-        self.assertTrue(get_result.server_crc is not None)
-        self.assertTrue(get_result.client_crc == get_result.server_crc)
-
     def test_restore_object(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket_name = OSS_BUCKET + "-test-restore-object"
@@ -139,7 +79,7 @@ class TestObject(OssTestCase):
         bucket.delete_bucket()
 
     def test_restore_object_with_config(self):
-        from oss2.models import (ResotreJobParameters, RestoreConfiguration, RESTORE_TIER_EXPEDITED,  
+        from oss2.models import (ResotreJobParameters, RestoreConfiguration, RESTORE_TIER_EXPEDITED,
                                  RESTORE_TIER_STANDARD, RESTORE_TIER_BULK)
 
         endpoint = "http://oss-ap-southeast-2.aliyuncs.com"
@@ -170,7 +110,7 @@ class TestObject(OssTestCase):
         bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), endpoint, bucket_name)
         bucket.create_bucket()
 
-        object_name =  "test_restore_object_with_wrong_configuration.txt"
+        object_name = "test_restore_object_with_wrong_configuration.txt"
         bucket.put_object(object_name, '123', headers={"x-oss-storage-class": oss2.BUCKET_STORAGE_CLASS_COLD_ARCHIVE})
         meta = bucket.head_object(object_name)
         self.assertEqual(oss2.BUCKET_STORAGE_CLASS_COLD_ARCHIVE, meta.resp.headers['x-oss-storage-class'])
@@ -183,14 +123,19 @@ class TestObject(OssTestCase):
     def test_restore_archive_object_with_job_parameters(self):
         from oss2.models import ResotreJobParameters, RestoreConfiguration, RESTORE_TIER_BULK
 
+        endpoint = "http://oss-ap-southeast-2.aliyuncs.com"
+        bucket_name = OSS_BUCKET + "-test-restore-3"
+        bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), endpoint, bucket_name)
+        bucket.create_bucket()
+
         object_name = "test_restore_archive_object_with_job_parameters.txt"
-        self.bucket.put_object(object_name, '123', headers={"x-oss-storage-class": oss2.BUCKET_STORAGE_CLASS_ARCHIVE})
-        meta = self.bucket.head_object(object_name)
+        bucket.put_object(object_name, '123', headers={"x-oss-storage-class": oss2.BUCKET_STORAGE_CLASS_ARCHIVE})
+        meta = bucket.head_object(object_name)
         self.assertEqual(oss2.BUCKET_STORAGE_CLASS_ARCHIVE, meta.resp.headers['x-oss-storage-class'])
 
         job_parameters = ResotreJobParameters(RESTORE_TIER_BULK)
         restore_config = oss2.models.RestoreConfiguration(days=5, job_parameters=job_parameters)
-        self.assertRaises(oss2.exceptions.MalformedXml, self.bucket.restore_object, object_name, input=restore_config)
+        self.assertRaises(oss2.exceptions.MalformedXml, bucket.restore_object, object_name, input=restore_config)
 
     def test_last_modified_time(self):
         key = self.random_key()
@@ -250,7 +195,7 @@ class TestObject(OssTestCase):
         self.bucket.put_object(key, content)
         res = self.bucket.get_object(key)
 
-        self.assertEqual(res.read(), b'')
+        self.assertEqual(res.server_crc, 0)
 
     def test_file_empty(self):
         input_filename = random_string(12)
@@ -355,7 +300,7 @@ class TestObject(OssTestCase):
         content_got = b''
 
         for chunk in result:
-            content_got += chunk
+            content_got += oss2.to_bytes(chunk)
 
         self.assertEqual(len(content), len(content_got))
         self.assertEqual(content, content_got)
@@ -364,7 +309,7 @@ class TestObject(OssTestCase):
         content_got = b''
 
         for chunk in result:
-            content_got += chunk
+            content_got += oss2.to_bytes(chunk)
 
         self.assertEqual(len(content), len(content_got))
         self.assertEqual(content, content_got)
@@ -862,60 +807,6 @@ class TestObject(OssTestCase):
         self.assertEqual(content, content_got)
 
         os.remove(filename)
-
-    def test_crypto_progress(self):
-        stats = {'previous': -1}
-
-        def progress_callback(bytes_consumed, total_bytes):
-            self.assertTrue(bytes_consumed <= total_bytes)
-            self.assertTrue(bytes_consumed > stats['previous'])
-
-            stats['previous'] = bytes_consumed
-
-        key = self.random_key()
-        content = random_bytes(2 * 1024 * 1024)
-
-        # 上传内存中的内容
-        stats = {'previous': -1}
-        self.rsa_crypto_bucket.put_object(key, content, progress_callback=progress_callback)
-        self.assertEqual(stats['previous'], len(content))
-
-        # 下载到文件
-        stats = {'previous': -1}
-        filename = random_string(12) + '.txt'
-        self.rsa_crypto_bucket.get_object_to_file(key, filename, progress_callback=progress_callback)
-        self.assertEqual(stats['previous'], len(content))
-
-        # 上传本地文件
-        stats = {'previous': -1}
-        self.rsa_crypto_bucket.put_object_from_file(key, filename, progress_callback=progress_callback)
-        self.assertEqual(stats['previous'], len(content))
-
-        # 下载到本地，采用iterator语法
-        stats = {'previous': -1}
-        result = self.rsa_crypto_bucket.get_object(key, progress_callback=progress_callback)
-        content_got = b''
-        for chunk in result:
-            content_got += chunk
-        self.assertEqual(stats['previous'], len(content))
-        self.assertEqual(content, content_got)
-
-        os.remove(filename)
-
-    def test_rsa_crypto_get_object_to_file_chunked(self):
-        # object后缀为txt, length >= 1024, 指定Accept-Encoding接收，服务器将会以chunked模式传输数据
-        key = 'test_rsa_crypto_get_object_to_file_chunked.txt'
-        content = b'a' * 1024
-
-        self.rsa_crypto_bucket.put_object(key, content)
-
-        filename =  key + '-local.txt'
-        result = self.rsa_crypto_bucket.get_object_to_file(key, filename, headers={'Accept-Encoding': 'gzip'})
-        self.assertEqual(result.headers['Transfer-Encoding'], 'chunked')
-        self.assertFileContent(filename, content)
-
-        os.remove(filename)
-        self.bucket.delete_object(key)
 
     def test_exceptions(self):
         key = self.random_key()

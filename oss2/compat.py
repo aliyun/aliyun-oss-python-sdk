@@ -19,7 +19,7 @@ except (ImportError, SyntaxError):
 
 if is_py2:
     from urllib import quote as urlquote, unquote as urlunquote
-    from urlparse import urlparse
+    from urlparse import urlparse, parse_qs, urlsplit
 
 
     def to_bytes(data):
@@ -57,7 +57,7 @@ if is_py2:
 
 elif is_py3:
     from urllib.parse import quote as urlquote, unquote as urlunquote
-    from urllib.parse import urlparse
+    from urllib.parse import urlparse, parse_qs, urlsplit
 
     def to_bytes(data):
         """若输入为str（即unicode），则转为utf-8编码的bytes；其他则原样返回"""

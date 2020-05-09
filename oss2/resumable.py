@@ -10,11 +10,15 @@ oss2.resumable
 import os
 
 from . import utils
+from .utils import b64encode_as_string, b64decode_from_string
 from . import iterators
 from . import exceptions
 from . import defaults
 from . import http
-from .api import Bucket
+from . import models
+from .crypto_bucket import CryptoBucket
+from . import Bucket
+from .iterators import PartIterator
 
 from .models import PartInfo
 from .compat import json, stringify, to_unicode, to_string
@@ -30,8 +34,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-_MAX_PART_COUNT = 10000
-_MIN_PART_SIZE = 100 * 1024
 
 def resumable_upload(bucket, key, filename,
                      store=None,
@@ -82,7 +84,7 @@ def resumable_upload(bucket, key, filename,
     multipart_threshold = defaults.get(multipart_threshold, defaults.multipart_threshold)
 
     logger.debug("The size of file to upload is: {0}, multipart_threshold: {1}".format(size, multipart_threshold))
-    if isinstance(bucket, Bucket) and size >= multipart_threshold:
+    if size >= multipart_threshold:
         uploader = _ResumableUploader(bucket, key, filename, size, store,
                                       part_size=part_size,
                                       headers=headers,
@@ -149,26 +151,18 @@ def resumable_download(bucket, key, filename,
                                                           multiget_threshold, part_size, num_threads))
     multiget_threshold = defaults.get(multiget_threshold, defaults.multiget_threshold)
 
-    if isinstance(bucket, Bucket):
-        valid_headers = _populate_valid_headers(headers, [OSS_REQUEST_PAYER])
-        result = bucket.head_object(key, params=params, headers=valid_headers)
-        logger.debug("The size of object to download is: {0}, multiget_threshold: {1}".format(result.content_length,
-                     multiget_threshold))
-        if result.content_length >= multiget_threshold:
-            downloader = _ResumableDownloader(bucket, key, filename, _ObjectInfo.make(result),
-                                              part_size=part_size,
-                                              progress_callback=progress_callback,
-                                              num_threads=num_threads,
-                                              store=store,
-                                              params=params,
-                                              headers=headers)
-            downloader.download(result.server_crc)
-        else:
-            valid_headers = _populate_valid_headers(headers, [OSS_REQUEST_PAYER, OSS_TRAFFIC_LIMIT])
-            bucket.get_object_to_file(key, filename, progress_callback=progress_callback, params=params, headers=valid_headers)
+    valid_headers = _populate_valid_headers(headers, [OSS_REQUEST_PAYER, OSS_TRAFFIC_LIMIT])
+    result = bucket.head_object(key, params=params, headers=valid_headers)
+    logger.debug("The size of object to download is: {0}, multiget_threshold: {1}".format(result.content_length,
+                                                                                          multiget_threshold))
+    if result.content_length >= multiget_threshold:
+        downloader = _ResumableDownloader(bucket, key, filename, _ObjectInfo.make(result), part_size=part_size,
+                                          progress_callback=progress_callback, num_threads=num_threads, store=store,
+                                          params=params, headers=valid_headers)
+        downloader.download(result.server_crc)
     else:
-        valid_headers = _populate_valid_headers(headers, [OSS_REQUEST_PAYER, OSS_TRAFFIC_LIMIT])
-        bucket.get_object_to_file(key, filename, progress_callback=progress_callback, params=params, headers=valid_headers)
+        bucket.get_object_to_file(key, filename, progress_callback=progress_callback, params=params,
+                                  headers=valid_headers)
 
 
 _MAX_MULTIGET_PART_COUNT = 100
@@ -186,21 +180,17 @@ def determine_part_size(total_size,
     if not preferred_size:
         preferred_size = defaults.part_size
 
-    return _determine_part_size_internal(total_size, preferred_size, _MAX_PART_COUNT)
+    return _determine_part_size_internal(total_size, preferred_size, defaults.max_part_count)
 
 
 def _determine_part_size_internal(total_size, preferred_size, max_count):
     if total_size < preferred_size:
         return total_size
 
-    if preferred_size * max_count < total_size:
-        if total_size % max_count:
-            # There seems to be problems in this place, the value should be byte alignment.
-            return total_size // max_count + 1
-        else:
-            return total_size // max_count
-    else:
-        return preferred_size
+    while preferred_size * max_count < total_size or preferred_size < defaults.min_part_size:
+        preferred_size = preferred_size * 2
+
+    return preferred_size
 
 
 def _split_to_parts(total_size, part_size):
@@ -340,7 +330,7 @@ class _ResumableDownloader(_ResumableOperation):
                                                    progress_callback=progress_callback, 
                                                    versionid=versionid)
         self.objectInfo = objectInfo
-
+        self.__op = 'ResumableDownload'
         self.__part_size = defaults.get(part_size, defaults.multiget_part_size)
         self.__part_size = _determine_part_size_internal(self.size, self.__part_size, _MAX_MULTIGET_PART_COUNT)
 
@@ -417,7 +407,7 @@ class _ResumableDownloader(_ResumableOperation):
         record = self._get_record()
         logger.debug("Load record return {0}".format(record))
 
-        if record and not self.is_record_sane(record):
+        if record and not self.__is_record_sane(record):
             logger.warn("The content of record is invalid, delete the record")
             self._del_record()
             record = None
@@ -435,9 +425,9 @@ class _ResumableDownloader(_ResumableOperation):
             record = None
 
         if not record:
-            record = {'mtime': self.objectInfo.mtime, 'etag': self.objectInfo.etag, 'size': self.objectInfo.size,
-                      'bucket': self.bucket.bucket_name, 'key': self.key, 'part_size': self.__part_size,
-                      'tmp_suffix': self.__gen_tmp_suffix(), 'abspath': self._abspath,
+            record = {'op_type': self.__op, 'bucket': self.bucket.bucket_name, 'key': self.key,
+                      'size': self.objectInfo.size, 'mtime': self.objectInfo.mtime, 'etag': self.objectInfo.etag,
+                      'part_size': self.__part_size, 'file_path': self._abspath, 'tmp_suffix': self.__gen_tmp_suffix(),
                       'parts': []}
             logger.debug('Add new record, bucket: {0}, key: {1}, part_size: {2}'.format(
                 self.bucket.bucket_name, self.key, self.__part_size))
@@ -445,7 +435,8 @@ class _ResumableDownloader(_ResumableOperation):
 
         self.__tmp_file = self.filename + record['tmp_suffix']
         self.__part_size = record['part_size']
-        self.__finished_parts = list(_PartToProcess(p['part_number'], p['start'], p['end'], p['part_crc']) for p in record['parts'])
+        self.__finished_parts = list(
+            _PartToProcess(p['part_number'], p['start'], p['end'], p['part_crc']) for p in record['parts'])
         self.__finished_size = sum(p.size for p in self.__finished_parts)
         self.__record = record
 
@@ -457,10 +448,13 @@ class _ResumableDownloader(_ResumableOperation):
 
         return sorted(list(all_set - finished_set), key=lambda p: p.part_number)
 
-    @staticmethod
-    def is_record_sane(record):
+    def __is_record_sane(self, record):
         try:
-            for key in ('etag', 'tmp_suffix', 'abspath', 'bucket', 'key'):
+            if record['op_type'] != self.__op:
+                logger.error('op_type invalid, op_type in record:{0} is invalid'.format(record['op_type']))
+                return False
+
+            for key in ('etag', 'tmp_suffix', 'file_path', 'bucket', 'key'):
                 if not isinstance(record[key], str):
                     logger.error('{0} is not a string: {1}'.format(key, record[key]))
                     return False
@@ -512,6 +506,7 @@ class _ResumableUploader(_ResumableOperation):
         分片的大小。
     :param progress_callback: 上传进度回调函数。参见 :ref:`progress_callback` 。
     """
+
     def __init__(self, bucket, key, filename, size,
                  store=None,
                  headers=None,
@@ -523,6 +518,7 @@ class _ResumableUploader(_ResumableOperation):
                                                  store or ResumableStore(),
                                                  progress_callback=progress_callback)
 
+        self.__op = 'ResumableUpload'
         self.__headers = headers
 
         self.__part_size = defaults.get(part_size, defaults.part_size)
@@ -540,6 +536,14 @@ class _ResumableUploader(_ResumableOperation):
         self.__record = None
         self.__finished_size = 0
         self.__finished_parts = None
+        self.__encryption = False
+        self.__record_upload_context = False
+        self.__upload_context = None
+
+        if isinstance(self.bucket, CryptoBucket):
+            self.__encryption = True
+            self.__record_upload_context = True
+
         logger.debug("Init _ResumableUploader, bucket: {0}, key: {1}, part_size: {2}, num_thread: {3}".format(
             bucket.bucket_name, to_string(key), self.__part_size, self.__num_threads))
 
@@ -580,8 +584,13 @@ class _ResumableUploader(_ResumableOperation):
 
             f.seek(part.start, os.SEEK_SET)
             headers = _populate_valid_headers(self.__headers, [OSS_REQUEST_PAYER, OSS_TRAFFIC_LIMIT])
-            result = self.bucket.upload_part(self.key, self.__upload_id, part.part_number,
-                                             utils.SizedFileAdapter(f, part.size), headers=headers)
+            if self.__encryption:
+                result = self.bucket.upload_part(self.key, self.__upload_id, part.part_number,
+                                                 utils.SizedFileAdapter(f, part.size), headers=headers,
+                                                 upload_context=self.__upload_context)
+            else:
+                result = self.bucket.upload_part(self.key, self.__upload_id, part.part_number,
+                                                 utils.SizedFileAdapter(f, part.size), headers=headers)
 
             logger.debug("Upload part success, add part info to record, part_number: {0}, etag: {1}, size: {2}".format(
                 part.part_number, result.etag, part.size))
@@ -592,14 +601,11 @@ class _ResumableUploader(_ResumableOperation):
             self.__finished_parts.append(part_info)
             self.__finished_size += part_info.size
 
-            self.__record['parts'].append({'part_number': part_info.part_number, 'etag': part_info.etag, 'part_crc':part_info.part_crc})
-            self._put_record(self.__record)
-
     def __load_record(self):
         record = self._get_record()
         logger.debug("Load record return {0}".format(record))
 
-        if record and not _is_record_sane(record):
+        if record and not self.__is_record_sane(record):
             logger.warn("The content of record is invalid, delete the record")
             self._del_record()
             record = None
@@ -615,44 +621,77 @@ class _ResumableUploader(_ResumableOperation):
             record = None
 
         if not record:
+            params = _populate_valid_params(self.__params, [Bucket.SEQUENTIAL])
             part_size = determine_part_size(self.size, self.__part_size)
             logger.debug("Upload File size: {0}, User-specify part_size: {1}, Calculated part_size: {2}".format(
                 self.size, self.__part_size, part_size))
-            params = _populate_valid_params(self.__params, [Bucket.SEQUENTIAL])
-            upload_id = self.bucket.init_multipart_upload(self.key, headers=self.__headers, params=params).upload_id
-            record = {'upload_id': upload_id, 'mtime': self.__mtime, 'size': self.size, 'parts': [],
-                      'abspath': self._abspath, 'bucket': self.bucket.bucket_name, 'key': self.key,
-                      'part_size': part_size}
+            if self.__encryption:
+                upload_context = models.MultipartUploadCryptoContext(self.size, part_size)
+                upload_id = self.bucket.init_multipart_upload(self.key, self.__headers, params,
+                                                              upload_context).upload_id
+                if self.__record_upload_context:
+                    material = upload_context.content_crypto_material
+                    material_record = {'wrap_alg': material.wrap_alg, 'cek_alg': material.cek_alg,
+                                       'encrypted_key': b64encode_as_string(material.encrypted_key),
+                                       'encrypted_iv': b64encode_as_string(material.encrypted_iv),
+                                       'mat_desc': material.mat_desc}
+            else:
+                upload_id = self.bucket.init_multipart_upload(self.key, self.__headers, params).upload_id
+
+            record = {'op_type': self.__op, 'upload_id': upload_id, 'file_path': self._abspath, 'size': self.size,
+                      'mtime': self.__mtime, 'bucket': self.bucket.bucket_name, 'key': self.key, 'part_size': part_size}
+
+            if self.__record_upload_context:
+                record['content_crypto_material'] = material_record
 
             logger.debug('Add new record, bucket: {0}, key: {1}, upload_id: {2}, part_size: {3}'.format(
                 self.bucket.bucket_name, self.key, upload_id, part_size))
+
             self._put_record(record)
 
         self.__record = record
         self.__part_size = self.__record['part_size']
         self.__upload_id = self.__record['upload_id']
+        if self.__record_upload_context:
+            if 'content_crypto_material' in self.__record:
+                material_record = self.__record['content_crypto_material']
+                wrap_alg = material_record['wrap_alg']
+                cek_alg = material_record['cek_alg']
+                if cek_alg != self.bucket.crypto_provider.cipher.alg or wrap_alg != self.bucket.crypto_provider.wrap_alg:
+                    err_msg = 'Envelope or data encryption/decryption algorithm is inconsistent'
+                    raise exceptions.InconsistentError(err_msg, self)
+                content_crypto_material = models.ContentCryptoMaterial(self.bucket.crypto_provider.cipher,
+                                                                       material_record['wrap_alg'],
+                                                                       b64decode_from_string(
+                                                                           material_record['encrypted_key']),
+                                                                       b64decode_from_string(
+                                                                           material_record['encrypted_iv']),
+                                                                       material_record['mat_desc'])
+                self.__upload_context = models.MultipartUploadCryptoContext(self.size, self.__part_size,
+                                                                            content_crypto_material)
+
+            else:
+                err_msg = 'If record_upload_context flag is true, content_crypto_material must in the the record'
+                raise exceptions.InconsistentError(err_msg, self)
+
+        else:
+            if 'content_crypto_material' in self.__record:
+                err_msg = 'content_crypto_material must in the the record, but record_upload_context flat is false'
+                raise exceptions.InvalidEncryptionRequest(err_msg, self)
+
         self.__finished_parts = self.__get_finished_parts()
         self.__finished_size = sum(p.size for p in self.__finished_parts)
 
     def __get_finished_parts(self):
-        last_part_number = utils.how_many(self.size, self.__part_size)
-
         parts = []
-
-        for p in self.__record['parts']:
-            part_info = PartInfo(int(p['part_number']), p['etag'], part_crc=p['part_crc'])
-            if part_info.part_number == last_part_number:
-                part_info.size = self.size % self.__part_size
-            else:
-                part_info.size = self.__part_size
-
-            parts.append(part_info)
+        for part in PartIterator(self.bucket, self.key, self.__upload_id, headers=self.__headers):
+            parts.append(part)
 
         return parts
 
     def __upload_exists(self, upload_id):
         try:
-            list(iterators.PartIterator(self.bucket, self.key, upload_id, '0', max_parts=1))
+            list(iterators.PartIterator(self.bucket, self.key, upload_id, '0', max_parts=1, headers=self.__headers))
         except exceptions.NoSuchUpload:
             return False
         else:
@@ -673,6 +712,33 @@ class _ResumableUploader(_ResumableOperation):
                 del all_parts_map[uploaded.part_number]
 
         return all_parts_map.values()
+
+    def __is_record_sane(self, record):
+        try:
+            if record['op_type'] != self.__op:
+                logger.error('op_type invalid, op_type in record:{0} is invalid'.format(record['op_type']))
+                return False
+
+            for key in ('upload_id', 'file_path', 'bucket', 'key'):
+                if not isinstance(record[key], str):
+                    logger.error('Type Error, {0} in record is not a string type: {1}'.format(key, record[key]))
+                    return False
+
+            for key in ('size', 'part_size'):
+                if not isinstance(record[key], int):
+                    logger.error('Type Error, {0} in record is not an integer type: {1}'.format(key, record[key]))
+                    return False
+
+            if not isinstance(record['mtime'], int) and not isinstance(record['mtime'], float):
+                logger.error(
+                    'Type Error, mtime in record is not a float or an integer type: {0}'.format(record['mtime']))
+                return False
+
+        except KeyError as e:
+            logger.error('Key not found: {0}'.format(e.args))
+            return False
+
+        return True
 
 
 _UPLOAD_TEMP_DIR = '.py-oss-upload'
@@ -740,6 +806,7 @@ class ResumableStore(_ResumableStoreBase):
     :param str root: 父目录，缺省为HOME
     :param str dir: 子目录，缺省为 `_UPLOAD_TEMP_DIR`
     """
+
     def __init__(self, root=None, dir=None):
         super(ResumableStore, self).__init__(root or os.path.expanduser('~'), dir or _UPLOAD_TEMP_DIR)
 
@@ -748,7 +815,7 @@ class ResumableStore(_ResumableStoreBase):
         filepath = _normalize_path(filename)
 
         oss_pathname = 'oss://{0}/{1}'.format(bucket_name, key)
-        return utils.md5_string(oss_pathname) + '-' + utils.md5_string(filepath)
+        return utils.md5_string(oss_pathname) + '--' + utils.md5_string(filepath)
 
 
 class ResumableDownloadStore(_ResumableStoreBase):
@@ -759,20 +826,19 @@ class ResumableDownloadStore(_ResumableStoreBase):
     :param str root: 父目录，缺省为HOME
     :param str dir: 子目录，缺省为 `_DOWNLOAD_TEMP_DIR`
     """
+
     def __init__(self, root=None, dir=None):
         super(ResumableDownloadStore, self).__init__(root or os.path.expanduser('~'), dir or _DOWNLOAD_TEMP_DIR)
 
     @staticmethod
-    def make_store_key(bucket_name, key, filename, versionid=None):
+    def make_store_key(bucket_name, key, filename, version_id=None):
         filepath = _normalize_path(filename)
-        oss_pathname = None
 
-        if versionid is None:
+        if version_id is None:
             oss_pathname = 'oss://{0}/{1}'.format(bucket_name, key)
         else:
-            oss_pathname = 'oss://{0}/{1}?versionid={2}'.format(bucket_name, key, versionid)
-        
-        return utils.md5_string(oss_pathname) + '-' + utils.md5_string(filepath) + '-download'
+            oss_pathname = 'oss://{0}/{1}?versionid={2}'.format(bucket_name, key, version_id)
+        return utils.md5_string(oss_pathname) + '--' + utils.md5_string(filepath)
 
 
 def make_upload_store(root=None, dir=None):
@@ -783,55 +849,8 @@ def make_download_store(root=None, dir=None):
     return ResumableDownloadStore(root=root, dir=dir)
 
 
-def _rebuild_record(filename, store, bucket, key, upload_id, part_size=None):
-    abspath = os.path.abspath(filename)
-    mtime = os.path.getmtime(filename)
-    size = os.path.getsize(filename)
-
-    store_key = store.make_store_key(bucket.bucket_name, key, abspath)
-    record = {'upload_id': upload_id, 'mtime': mtime, 'size': size, 'parts': [],
-              'abspath': abspath, 'key': key}
-
-    for p in iterators.PartIterator(bucket, key, upload_id):
-        record['parts'].append({'part_number': p.part_number,
-                                'etag': p.etag, 'part_crc': p.part_crc})
-
-        if not part_size:
-            part_size = p.size
-
-    record['part_size'] = part_size
-
-    store.put(store_key, record)
-
-
-def _is_record_sane(record):
-    try:
-        for key in ('upload_id', 'abspath', 'key'):
-            if not isinstance(record[key], str):
-                logger.error('Type Error, {0} in record is not a string type: {1}'.format(key, record[key]))
-                return False
-
-        for key in ('size', 'part_size'):
-            if not isinstance(record[key], int):
-                logger.error('Type Error, {0} in record is not an integer type: {1}'.format(key, record[key]))
-                return False
-
-        if not isinstance(record['mtime'], int) and not isinstance(record['mtime'], float):
-            logger.error('Type Error, mtime in record is not a float or an integer type: {0}'.format(record['mtime']))
-            return False
-
-        if not isinstance(record['parts'], list):
-            logger.error('Type Error, parts in record is not a list type: {0}'.format(record['parts']))
-            return False
-    except KeyError as e:
-        logger.error('Key not found: {0}'.format(e.args))
-        return False
-
-    return True
-
-
 class _PartToProcess(object):
-    def __init__(self, part_number, start, end, part_crc = None):
+    def __init__(self, part_number, start, end, part_crc=None):
         self.part_number = part_number
         self.start = start
         self.end = end
@@ -842,10 +861,11 @@ class _PartToProcess(object):
         return self.end - self.start
 
     def __hash__(self):
-        return hash(self.__key())
+        return hash(self.__key)
 
     def __eq__(self, other):
-        return self.__key() == other.__key()
+        return self.__key == other.__key
 
+    @property
     def __key(self):
-        return (self.part_number, self.start, self.end)
+        return self.part_number, self.start, self.end

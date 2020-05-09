@@ -26,6 +26,8 @@ import crcmod
 import re
 import sys
 import random
+import abc, six
+import struct
 
 from Crypto.Cipher import AES
 from Crypto import Random
@@ -34,6 +36,7 @@ from Crypto.Util import Counter
 from .crc64_combine import mkCombineFun
 from .compat import to_string, to_bytes
 from .exceptions import ClientError, InconsistentError, RequestError, OpenApiFormatError
+from . import defaults
 
 logger = logging.getLogger(__name__)
 
@@ -118,9 +121,9 @@ def is_ip_or_localhost(netloc):
         if is_ipv6:
             socket.inet_pton(socket.AF_INET6, loc)  # IPv6
         else:
-            socket.inet_aton(loc) #Only IPv4
+            socket.inet_aton(loc)  # Only IPv4
     except socket.error:
-            return False
+        return False
 
     return True
 
@@ -128,6 +131,8 @@ def is_ip_or_localhost(netloc):
 _ALPHA_NUM = 'abcdefghijklmnopqrstuvwxyz0123456789'
 _HYPHEN = '-'
 _BUCKET_NAME_CHARS = set(_ALPHA_NUM + _HYPHEN)
+_MAX_UINT32 = 2 ** 32 - 1
+_MAX_UINT64 = 2 ** 64 - 1
 
 
 def is_valid_bucket_name(name):
@@ -232,9 +237,11 @@ def make_progress_adapter(data, progress_callback, size=None):
         return _BytesAndFileAdapter(data, progress_callback, size)
 
 
-def make_crc_adapter(data, init_crc=0):
+def make_crc_adapter(data, init_crc=0, discard=0):
     """返回一个适配器，从而在读取 `data` ，即调用read或者对其进行迭代的时候，能够计算CRC。
 
+    :param discard:
+    :return:
     :param data: 可以是bytes、file object或iterable
     :param init_crc: 初始CRC值，可选
 
@@ -244,37 +251,39 @@ def make_crc_adapter(data, init_crc=0):
 
     # bytes or file object
     if _has_data_size_attr(data):
-        return _BytesAndFileAdapter(data, 
-                                    size=_get_data_size(data), 
-                                    crc_callback=Crc64(init_crc))
+        if discard:
+            raise ClientError('Bytes of file object adapter does not support discard bytes')
+        return _BytesAndFileAdapter(data, size=_get_data_size(data), crc_callback=Crc64(init_crc))
     # file-like object
-    elif hasattr(data, 'read'): 
-        return _FileLikeAdapter(data, crc_callback=Crc64(init_crc))
+    elif hasattr(data, 'read'):
+        return _FileLikeAdapter(data, crc_callback=Crc64(init_crc), discard=discard)
     # iterator
     elif hasattr(data, '__iter__'):
+        if discard:
+            raise ClientError('Iterator adapter does not support discard bytes')
         return _IterableAdapter(data, crc_callback=Crc64(init_crc))
     else:
         raise ClientError('{0} is not a file object, nor an iterator'.format(data.__class__.__name__))
 
 
-def calc_obj_crc_from_parts(parts, init_crc = 0):
+def calc_obj_crc_from_parts(parts, init_crc=0):
     object_crc = 0
     crc_obj = Crc64(init_crc)
     for part in parts:
-        if part.part_crc is None or part.size <= 0:
+        if not part.part_crc or not part.size:
             return None
         else:
             object_crc = crc_obj.combine(object_crc, part.part_crc, part.size)
     return object_crc
 
 
-def make_cipher_adapter(data, cipher_callback):
+def make_cipher_adapter(data, cipher_callback, discard=0):
     """返回一个适配器，从而在读取 `data` ，即调用read或者对其进行迭代的时候，能够进行加解密操作。
 
+        :param encrypt:
+        :param cipher_callback:
+        :param discard: 读取时需要丢弃的字节
         :param data: 可以是bytes、file object或iterable
-        :param operation: 进行加密或解密操作
-        :param key: 对称加密中的密码，长度必须为16/24/32 bytes
-        :param start: 计数器初始值
 
         :return: 能够客户端加密函数的适配器
         """
@@ -282,17 +291,18 @@ def make_cipher_adapter(data, cipher_callback):
 
     # bytes or file object
     if _has_data_size_attr(data):
-        return _BytesAndFileAdapter(data,
-                                    size=_get_data_size(data),
-                                    cipher_callback=cipher_callback)
-    # file-like object
-    elif hasattr(data, 'read'):
-        return _FileLikeAdapter(data, cipher_callback=cipher_callback)
+        if discard:
+            raise ClientError('Bytes of file object adapter does not support discard bytes')
+        return _BytesAndFileAdapter(data, size=_get_data_size(data), cipher_callback=cipher_callback)
+    if hasattr(data, 'read'):
+        return _FileLikeAdapter(data, cipher_callback=cipher_callback, discard=discard)
     # iterator
     elif hasattr(data, '__iter__'):
+        if discard:
+            raise ClientError('Iterator adapter does not support discard bytes')
         return _IterableAdapter(data, cipher_callback=cipher_callback)
     else:
-        raise ClientError('{0} is not a file object, nor an iterator'.format(data.__class__.__name__))
+        raise ClientError('{0} is not a file object'.format(data.__class__.__name__))
 
 
 def check_crc(operation, client_crc, oss_crc, request_id):
@@ -302,9 +312,10 @@ def check_crc(operation, client_crc, oss_crc, request_id):
         logger.error("Exception: {0}".format(e))
         raise e
 
-def _invoke_crc_callback(crc_callback, content):
+
+def _invoke_crc_callback(crc_callback, content, discard=0):
     if crc_callback:
-        crc_callback(content)
+        crc_callback(content[discard:])
 
 
 def _invoke_progress_callback(progress_callback, consumed_bytes, total_bytes):
@@ -312,9 +323,10 @@ def _invoke_progress_callback(progress_callback, consumed_bytes, total_bytes):
         progress_callback(consumed_bytes, total_bytes)
 
 
-def _invoke_cipher_callback(cipher_callback, content):
+def _invoke_cipher_callback(cipher_callback, content, discard=0):
     if cipher_callback:
         content = cipher_callback(content)
+        return content[discard:]
     return content
 
 
@@ -361,13 +373,16 @@ class _FileLikeAdapter(object):
     :param fileobj: file-like object，只要支持read即可
     :param progress_callback: 进度回调函数
     """
-    def __init__(self, fileobj, progress_callback=None, crc_callback=None, cipher_callback=None):
+
+    def __init__(self, fileobj, progress_callback=None, crc_callback=None, cipher_callback=None, discard=0):
         self.fileobj = fileobj
         self.progress_callback = progress_callback
         self.offset = 0
-        
+
         self.crc_callback = crc_callback
         self.cipher_callback = cipher_callback
+        self.discard = discard
+        self.read_all = False
 
     def __iter__(self):
         return self
@@ -376,28 +391,39 @@ class _FileLikeAdapter(object):
         return self.next()
 
     def next(self):
-        content = self.read(_CHUNK_SIZE)
-
-        if content:
-            return content
-        else:
+        if self.read_all:
             raise StopIteration
 
+        return self.read(_CHUNK_SIZE)
+
     def read(self, amt=None):
+        offset_start = self.offset
+        if offset_start < self.discard and amt and self.cipher_callback:
+            amt += self.discard
+
         content = self.fileobj.read(amt)
         if not content:
-            _invoke_progress_callback(self.progress_callback, self.offset, None) 
+            self.read_all = True
+            _invoke_progress_callback(self.progress_callback, self.offset, None)
+            return ''
         else:
             _invoke_progress_callback(self.progress_callback, self.offset, None)
-                
+
             self.offset += len(content)
-                                   
-            _invoke_crc_callback(self.crc_callback, content)
 
-            content = _invoke_cipher_callback(self.cipher_callback, content)
+            real_discard = 0
+            if offset_start < self.discard:
+                if len(content) <= self.discard:
+                    real_discard = len(content)
+                else:
+                    real_discard = self.discard
 
-        return content
-    
+            _invoke_crc_callback(self.crc_callback, content, real_discard)
+            content = _invoke_cipher_callback(self.cipher_callback, content, real_discard)
+
+            self.discard -= real_discard
+            return content
+
     @property
     def crc(self):
         if self.crc_callback:
@@ -523,23 +549,71 @@ class Crc32(object):
     def crc(self):
         return self.crc32.crcValue
 
-def random_aes256_key():
-    return Random.new().read(_AES_256_KEY_SIZE)
 
-
-def random_counter(begin=1, end=10):
-    return random.randint(begin, end)
-
-
-# aes 256, key always is 32 bytes
 _AES_256_KEY_SIZE = 32
+_AES_BLOCK_LEN = 16
+_AES_BLOCK_BITS_LEN = 8 * 16
 
-_AES_CTR_COUNTER_BITS_LEN = 8 * 16
+AES_GCM = 'AES/GCM/NoPadding'
+AES_CTR = 'AES/CTR/NoPadding'
 
-_AES_GCM = 'AES/GCM/NoPadding'
+
+@six.add_metaclass(abc.ABCMeta)
+class AESCipher(object):
+    """AES256 加密实现。
+            :param str key: 对称加密数据密钥
+            :param str start: 对称加密初始随机值
+        .. note::
+            用户可自行实现对称加密算法，需服务如下规则：
+            1、提供对称加密算法名，ALGORITHM
+            2、提供静态方法，返回加密密钥和初始随机值（若算法不需要初始随机值，也需要提供）
+            3、提供加密解密方法
+    """
+
+    # aes 256, key always is 32 bytes
+    def __init__(self):
+        self.alg = None
+        self.key_len = _AES_256_KEY_SIZE
+        self.block_size_len = _AES_BLOCK_LEN
+        self.block_size_len_in_bits = _AES_BLOCK_BITS_LEN
+
+    @abc.abstractmethod
+    def get_key(self):
+        pass
+
+    @abc.abstractmethod
+    def get_iv(self):
+        pass
+
+    @abc.abstractmethod
+    def initialize(self, key, iv, off=0):
+        pass
+
+    @abc.abstractmethod
+    def encrypt(self, raw):
+        pass
+
+    @abc.abstractmethod
+    def decrypt(self, enc):
+        pass
+
+    @abc.abstractmethod
+    def determine_part_size(self, data_size, excepted_part_size=None):
+        pass
+
+    def adjust_range(self, start, end):
+        return start, end
+
+    def is_block_aligned(self, offset):
+        if offset is None:
+            offset = 0
+        return 0 == offset % self.block_size_len
+
+    def is_valid_part_size(self, part_size, data_size=None):
+        return True
 
 
-class AESCipher:
+class AESCTRCipher(AESCipher):
     """AES256 加密实现。
         :param str key: 对称加密数据密钥
         :param str start: 对称加密初始随机值
@@ -549,86 +623,88 @@ class AESCipher:
         2、提供静态方法，返回加密密钥和初始随机值（若算法不需要初始随机值，也需要提供）
         3、提供加密解密方法
     """
-    ALGORITHM = _AES_GCM
 
-    @staticmethod
-    def get_key():
-        return random_aes256_key()
+    def __init__(self):
+        super(AESCTRCipher, self).__init__()
+        self.alg = AES_CTR
+        self.__cipher = None
 
-    @staticmethod
-    def get_start():
-        return random_counter()
+    def get_key(self):
+        return random_key(self.key_len)
 
-    def __init__(self, key=None, start=None):
-        self.key = key
-        if not self.key:
-            self.key = random_aes256_key()
-        if not start:
-            self.start = random_counter()
-        else:
-            self.start = int(start)
-        ctr = Counter.new(_AES_CTR_COUNTER_BITS_LEN, initial_value=self.start)
-        self.__cipher = AES.new(self.key, AES.MODE_CTR, counter=ctr)
+    def get_iv(self):
+        return random_iv()
 
-    def encrypt(self, raw):
-        return self.__cipher.encrypt(raw)
+    def initialize(self, key, iv, offset=0):
+        counter = iv_to_big_int(iv) + offset
+        self.initial_by_counter(key, counter)
 
-    def decrypt(self, enc):
-        return self.__cipher.decrypt(enc)
-
-
-def random_aes256_key():
-    return Random.new().read(_AES_256_KEY_SIZE)
-
-
-def random_counter(begin=1, end=10):
-    return random.randint(begin, end)
-
-
-# aes 256, key always is 32 bytes
-_AES_256_KEY_SIZE = 32
-
-_AES_CTR_COUNTER_BITS_LEN = 8 * 16
-
-_AES_GCM = 'AES/GCM/NoPadding'
-
-
-class AESCipher:
-    """AES256 加密实现。
-        :param str key: 对称加密数据密钥
-        :param str start: 对称加密初始随机值
-    .. note::
-        用户可自行实现对称加密算法，需服务如下规则：
-        1、提供对称加密算法名，ALGORITHM
-        2、提供静态方法，返回加密密钥和初始随机值（若算法不需要初始随机值，也需要提供）
-        3、提供加密解密方法
-    """
-    ALGORITHM = _AES_GCM
-
-    @staticmethod
-    def get_key():
-        return random_aes256_key()
-
-    @staticmethod
-    def get_start():
-        return random_counter()
-
-    def __init__(self, key=None, start=None):
-        self.key = key
-        if not self.key:
-            self.key = random_aes256_key()
-        if not start:
-            self.start = random_counter()
-        else:
-            self.start = int(start)
-        ctr = Counter.new(_AES_CTR_COUNTER_BITS_LEN, initial_value=self.start)
-        self.__cipher = AES.new(self.key, AES.MODE_CTR, counter=ctr)
+    def initial_by_counter(self, key, counter):
+        ctr = Counter.new(self.block_size_len_in_bits, initial_value=counter)
+        self.__cipher = AES.new(key, AES.MODE_CTR, counter=ctr)
 
     def encrypt(self, raw):
         return self.__cipher.encrypt(raw)
 
     def decrypt(self, enc):
-        return self.__cipher.decrypt(enc)
+        return self.__cipher.encrypt(enc)
+
+    def adjust_range(self, start, end):
+        if start:
+            if end:
+                if start <= end:
+                    start = (start // self.block_size_len) * self.block_size_len
+            else:
+                start = (start // self.block_size_len) * self.block_size_len
+        return start, end
+
+    def is_valid_part_size(self, part_size, data_size):
+        if not self.is_block_aligned(part_size) or part_size < defaults.min_part_size:
+            return False
+
+        if part_size * defaults.max_part_count < data_size:
+            return False
+        return True
+
+    def calc_offset(self, offset):
+        if not self.is_block_aligned(offset):
+            raise ClientError('offset is not align to encrypt block')
+        return offset // self.block_size_len
+
+    def determine_part_size(self, data_size, excepted_part_size=None):
+        if excepted_part_size:
+            if self.is_valid_part_size(excepted_part_size, data_size):
+                return excepted_part_size
+            # excepted_part_size is not aligned
+            elif excepted_part_size * defaults.max_part_count >= data_size:
+                part_size = int(excepted_part_size / self.block_size_len + 1) * self.block_size_len
+                return part_size
+
+        # if excepted_part_size is None or is too small, calculate a correct part_size
+        part_size = defaults.part_size
+        while part_size * defaults.max_part_count < data_size:
+            part_size = part_size * 2
+
+        if not self.is_block_aligned(part_size):
+            part_size = int(part_size / self.block_size_len + 1) * self.block_size_len
+
+        return part_size
+
+
+def random_key(key_len):
+    return Random.new().read(key_len)
+
+
+def random_iv():
+    iv = Random.new().read(16)
+    safe_iv = iv[0:8] + struct.pack(">L", 0) + iv[12:]
+    return safe_iv
+
+
+def iv_to_big_int(iv):
+    iv_high_low_pair = struct.unpack(">QQ", iv)
+    iv_big_int = iv_high_low_pair[0] << 64 | iv_high_low_pair[1]
+    return iv_big_int
 
 
 _STRPTIME_LOCK = threading.Lock()

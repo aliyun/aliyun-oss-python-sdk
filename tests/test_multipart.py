@@ -8,6 +8,8 @@ from .common import *
 from oss2.headers import OSS_OBJECT_TAGGING, OSS_OBJECT_TAGGING_COPY_DIRECTIVE
 from oss2.compat import urlunquote, urlquote
 
+from oss2.compat import is_py2, is_py33
+
 
 class TestMultipart(OssTestCase):
     def do_multipart_internal(self, do_md5):

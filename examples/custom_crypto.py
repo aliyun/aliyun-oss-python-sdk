@@ -5,6 +5,7 @@ import os
 import oss2
 from oss2.crypto import BaseCryptoProvider
 from oss2.utils import b64encode_as_string, b64decode_from_string, to_bytes
+from oss2.headers import *
 
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.PublicKey import RSA
@@ -33,10 +34,10 @@ class FakeCrypto:
         return 'fake_key'
 
     @staticmethod
-    def get_start():
+    def get_iv():
         return 'fake_start'
 
-    def __init__(self, key=None, start=None):
+    def __init__(self, key=None, start=None, count=None):
         pass
 
     def encrypt(self, raw):
@@ -74,25 +75,47 @@ class CustomCryptoProvider(BaseCryptoProvider):
         self.private_key = self.public_key
 
 
-    def build_header(self, headers=None):
+    def build_header(self, headers=None, multipart_context=None):
         if not isinstance(headers, CaseInsensitiveDict):
             headers = CaseInsensitiveDict(headers)
 
         if 'content-md5' in headers:
-            headers['x-oss-meta-unencrypted-content-md5'] = headers['content-md5']
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_MD5] = headers['content-md5']
             del headers['content-md5']
 
         if 'content-length' in headers:
-            headers['x-oss-meta-unencrypted-content-length'] = headers['content-length']
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_LENGTH] = headers['content-length']
             del headers['content-length']
 
-        headers['x-oss-meta-oss-crypto-key'] = b64encode_as_string(self.public_key.encrypt(self.plain_key))
-        headers['x-oss-meta-oss-crypto-start'] = b64encode_as_string(self.public_key.encrypt(to_bytes(str(self.plain_start))))
-        headers['x-oss-meta-oss-cek-alg'] = self.cipher.ALGORITHM
-        headers['x-oss-meta-oss-wrap-alg'] = 'custom'
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_KEY] = b64encode_as_string(self.public_key.encrypt(self.plain_key))
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_START] = b64encode_as_string(self.public_key.encrypt(to_bytes(str(self.plain_iv))))
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG] = self.cipher.ALGORITHM
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG] = 'custom'
+
+        # multipart file build header
+        if multipart_context:
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_DATA_SIZE] = str(multipart_context.data_size)
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_PART_SIZE] = str(multipart_context.part_size)
 
         self.plain_key = None
-        self.plain_start = None
+        self.plain_iv = None
+
+        return headers
+
+    def build_header_for_upload_part(self, headers=None):
+        if not isinstance(headers, CaseInsensitiveDict):
+            headers = CaseInsensitiveDict(headers)
+
+        if 'content-md5' in headers:
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_MD5] = headers['content-md5']
+            del headers['content-md5']
+
+        if 'content-length' in headers:
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_LENGTH] = headers['content-length']
+            del headers['content-length']
+
+        self.plain_key = None
+        self.plain_iv = None
 
         return headers
 
@@ -100,13 +123,19 @@ class CustomCryptoProvider(BaseCryptoProvider):
         self.plain_key = self.cipher.get_key()
         return self.plain_key
 
-    def get_start(self):
-        self.plain_start = self.cipher.get_start()
-        return self.plain_start
+    def get_iv(self):
+        self.plain_iv = self.cipher.get_iv()
+        return self.plain_iv
 
     def decrypt_oss_meta_data(self, headers, key, conv=lambda x:x):
         try:
             return conv(self.private_key.decrypt(b64decode_from_string(headers[key])))
+        except:
+            return None
+
+    def decrypt_from_str(self, key, value, conv=lambda x:x):
+        try:
+            return conv(self.private_key.decrypt(b64decode_from_string(value)))
         except:
             return None
 
@@ -163,3 +192,51 @@ with open(filename, 'rb') as fileobj:
     assert fileobj.read() == content
 
 os.remove(filename)
+
+"""
+分片上传
+"""
+# 初始化上传分片
+part_a = b'a' * 1024 * 100
+part_b = b'b' * 1024 * 100
+part_c = b'c' * 1024 * 100
+multi_content = [part_a, part_b, part_c]
+
+parts = []
+data_size = 100 * 1024 * 3
+part_size = 100 * 1024
+multi_key = "test_crypto_multipart"
+
+res = bucket.init_multipart_upload(multi_key, data_size, part_size)
+upload_id = res.upload_id
+crypto_multipart_context = res.crypto_multipart_context
+
+# 分片上传
+for i in range(3):
+    result = bucket.upload_part(multi_key, upload_id, i+1, multi_content[i], crypto_multipart_context)
+    parts.append(oss2.models.PartInfo(i+1, result.etag, size = part_size, part_crc = result.crc))
+
+## 分片上传时，若意外中断丢失crypto_multipart_context, 利用list_parts找回。
+#for i in range(2):
+#    result = bucket.upload_part(multi_key, upload_id, i+1, multi_content[i], crypto_multipart_context)
+#    parts.append(oss2.models.PartInfo(i+1, result.etag, size = part_size, part_crc = result.crc))
+#
+#res = bucket.list_parts(multi_key, upload_id)
+#crypto_multipart_context_new = res.crypto_multipart_context
+#
+#result = bucket.upload_part(multi_key, upload_id, 3, multi_content[2], crypto_multipart_context_new)
+#parts.append(oss2.models.PartInfo(3, result.etag, size = part_size, part_crc = result.crc))
+
+# 完成上传
+result = bucket.complete_multipart_upload(multi_key, upload_id, parts)
+
+# 下载全部文件
+result =  bucket.get_object(multi_key)
+
+# 验证一下
+content_got = b''
+for chunk in result:
+    content_got += chunk
+assert content_got[0:102400] == part_a
+assert content_got[102400:204800] == part_b
+assert content_got[204800:307200] == part_c

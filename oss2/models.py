@@ -6,13 +6,20 @@ oss2.models
 
 该模块包含Python SDK API接口所需要的输入参数以及返回值类型。
 """
-
-from .utils import http_to_unixtime, make_progress_adapter, make_crc_adapter
+from . import utils
+from .utils import http_to_unixtime, make_progress_adapter, make_crc_adapter, b64encode_as_string, b64decode_from_string
 from .exceptions import ClientError, InconsistentError
 from .compat import urlunquote, to_string, urlquote
 from .select_response import SelectResponseAdapter
 from .headers import *
 import json
+import logging
+import copy
+import struct
+from requests.structures import CaseInsensitiveDict
+
+logger = logging.getLogger(__name__)
+
 
 class PartInfo(object):
     """表示分片信息的文件。
@@ -32,6 +39,111 @@ class PartInfo(object):
         self.size = size
         self.last_modified = last_modified
         self.part_crc = part_crc
+
+
+class ContentCryptoMaterial(object):
+    def __init__(self, cipher, wrap_alg, encrypted_key=None, encrypted_iv=None, mat_desc=None):
+        self.cipher = cipher
+        self.cek_alg = cipher.alg
+        self.wrap_alg = wrap_alg
+        self.encrypted_key = encrypted_key
+        self.encrypted_iv = encrypted_iv
+        self.mat_desc = mat_desc
+        self.deprecated = False
+
+    def to_object_meta(self, headers=None, multipart_upload_context=None):
+        if not isinstance(headers, CaseInsensitiveDict):
+            headers = CaseInsensitiveDict(headers)
+
+        if 'content-md5' in headers:
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_MD5] = headers['content-md5']
+            del headers['content-md5']
+
+        if 'content-length' in headers:
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_UNENCRYPTED_CONTENT_LENGTH] = headers['content-length']
+            del headers['content-length']
+
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_KEY] = b64encode_as_string(self.encrypted_key)
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_START] = b64encode_as_string(self.encrypted_iv)
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG] = self.cek_alg
+        headers[OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG] = self.wrap_alg
+
+        if multipart_upload_context and multipart_upload_context.data_size and multipart_upload_context.part_size:
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_DATA_SIZE] = str(multipart_upload_context.data_size)
+            headers[OSS_CLIENT_SIDE_ENCRYPTION_PART_SIZE] = str(multipart_upload_context.part_size)
+
+        if self.mat_desc:
+            headers[OSS_CLIENT_SIDE_ENCRYTPION_MATDESC] = json.dumps(self.mat_desc)
+
+        return headers
+
+    def from_object_meta(self, headers):
+        if not isinstance(headers, CaseInsensitiveDict):
+            headers = CaseInsensitiveDict(headers)
+
+        if DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY in headers:
+            self.deprecated = True
+
+        if self.deprecated:
+            undecode_encrypted_key = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY)
+            undecode_encrypted_iv = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_START)
+            cek_alg = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_CEK_ALG)
+            wrap_alg = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYPTION_WRAP_ALG)
+            mat_desc = _hget(headers, DEPRECATED_CLIENT_SIDE_ENCRYTPION_MATDESC)
+
+            if wrap_alg == "kms":
+                self.encrypted_key = undecode_encrypted_key
+                self.encrypted_iv = undecode_encrypted_iv
+                wrap_alg = KMS_ALI_WRAP_ALGORITHM
+            else:
+                if undecode_encrypted_key:
+                    self.encrypted_key = b64decode_from_string(undecode_encrypted_key)
+                if undecode_encrypted_iv:
+                    self.encrypted_iv = b64decode_from_string(undecode_encrypted_iv)
+                wrap_alg = RSA_NONE_OAEPWithSHA1AndMGF1Padding
+            if cek_alg == utils.AES_GCM:
+                cek_alg = utils.AES_CTR
+        else:
+            undecode_encrypted_key = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_KEY)
+            undecode_encrypted_iv = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_START)
+            if undecode_encrypted_key:
+                self.encrypted_key = b64decode_from_string(undecode_encrypted_key)
+            if undecode_encrypted_iv:
+                self.encrypted_iv = b64decode_from_string(undecode_encrypted_iv)
+            cek_alg = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_CEK_ALG)
+            wrap_alg = _hget(headers, OSS_CLIENT_SIDE_ENCRYPTION_WRAP_ALG)
+            mat_desc = _hget(headers, OSS_CLIENT_SIDE_ENCRYTPION_MATDESC)
+
+        if mat_desc:
+            self.mat_desc = json.loads(mat_desc)
+
+        if cek_alg and cek_alg != self.cek_alg:
+            logger.error("CEK algorithm or is inconsistent, object meta: cek_alg:{0}, material: cek_alg:{1}".
+                         format(cek_alg, self.cek_alg))
+            err_msg = 'Data encryption/decryption algorithm is inconsistent'
+            raise InconsistentError(err_msg, self)
+
+        if wrap_alg and wrap_alg != self.wrap_alg:
+            logger.error("WRAP algorithm or is inconsistent, object meta: wrap_alg:{0}, material: wrap_alg:{1}".
+                         format(wrap_alg, self.wrap_alg))
+            err_msg = 'Envelope encryption/decryption algorithm is inconsistent'
+            raise InconsistentError(err_msg, self)
+
+        self.cek_alg = cek_alg
+        self.wrap_alg = wrap_alg
+
+    def is_unencrypted(self):
+        if not self.encrypted_key and not self.encrypted_iv and not self.cek_alg and not self.wrap_alg:
+            return True
+        else:
+            return False
+
+
+class MultipartUploadCryptoContext(object):
+    def __init__(self, data_size=None, part_size=None, content_crypto_material=None):
+        self.content_crypto_material = content_crypto_material
+        self.data_size = data_size
+        self.part_size = part_size
 
 
 def _hget(headers, key, converter=lambda x: x):
@@ -125,34 +237,77 @@ class GetSymlinkResult(RequestResult):
 
         #: 符号连接的目标文件
         self.target_key = urlunquote(_hget(self.headers, OSS_SYMLINK_TARGET))
-        
-        
+
+
 class GetObjectResult(HeadObjectResult):
-    def __init__(self, resp, progress_callback=None, crc_enabled=False, crypto_provider=None):
+    def __init__(self, resp, progress_callback=None, crc_enabled=False, crypto_provider=None, discard=0):
         super(GetObjectResult, self).__init__(resp)
         self.__crc_enabled = crc_enabled
         self.__crypto_provider = crypto_provider
 
-        if _hget(resp.headers, 'x-oss-meta-oss-crypto-key') and _hget(resp.headers, 'Content-Range'):
-            raise ClientError('Could not get an encrypted object using byte-range parameter')
+        self.content_range = _hget(resp.headers, 'Content-Range')
+        if self.content_range:
+            byte_range = self._parse_range_str(self.content_range)
 
         if progress_callback:
             self.stream = make_progress_adapter(self.resp, progress_callback, self.content_length)
         else:
             self.stream = self.resp
-        
+
         if self.__crc_enabled:
-            self.stream = make_crc_adapter(self.stream)
+            self.stream = make_crc_adapter(self.stream, discard=discard)
 
         if self.__crypto_provider:
-            key = self.__crypto_provider.decrypt_oss_meta_data(resp.headers, 'x-oss-meta-oss-crypto-key')
-            start = self.__crypto_provider.decrypt_oss_meta_data(resp.headers, 'x-oss-meta-oss-crypto-start')
-            cek_alg = _hget(resp.headers, 'x-oss-meta-oss-cek-alg')
-            if key and start and cek_alg:
-                self.stream = self.__crypto_provider.make_decrypt_adapter(self.stream, key, start)
+            content_crypto_material = ContentCryptoMaterial(self.__crypto_provider.cipher,
+                                                            self.__crypto_provider.wrap_alg)
+            content_crypto_material.from_object_meta(resp.headers)
+
+            if content_crypto_material.is_unencrypted():
+                logger.info("The object is not encrypted, use crypto provider is not recommended")
             else:
-                raise InconsistentError('all metadata keys are required for decryption (x-oss-meta-oss-crypto-key, \
-                                        x-oss-meta-oss-crypto-start, x-oss-meta-oss-cek-alg)', self.request_id)
+                crypto_provider = self.__crypto_provider
+                if content_crypto_material.mat_desc != self.__crypto_provider.mat_desc:
+                    logger.warn("The material description of the object and the provider is inconsistent")
+                    encryption_materials = self.__crypto_provider.get_encryption_materials(
+                        content_crypto_material.mat_desc)
+                    if encryption_materials:
+                        crypto_provider = self.__crypto_provider.reset_encryption_materials(encryption_materials)
+                    else:
+                        raise ClientError(
+                            'There is no encryption materials match the material description of the object')
+
+                plain_key = crypto_provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
+                if content_crypto_material.deprecated:
+                    if content_crypto_material.wrap_alg == KMS_ALI_WRAP_ALGORITHM:
+                        plain_counter = int(
+                            crypto_provider.decrypt_encrypted_iv(content_crypto_material.encrypted_iv, True))
+                    else:
+                        plain_counter = int(crypto_provider.decrypt_encrypted_iv(content_crypto_material.encrypted_iv))
+                else:
+                    plain_iv = crypto_provider.decrypt_encrypted_iv(content_crypto_material.encrypted_iv)
+
+                offset = 0
+                if self.content_range:
+                    start, end = crypto_provider.adjust_range(byte_range[0], byte_range[1])
+                    offset = content_crypto_material.cipher.calc_offset(start)
+
+                cipher = copy.copy(content_crypto_material.cipher)
+                if content_crypto_material.deprecated:
+                    cipher.initial_by_counter(plain_key, plain_counter + offset)
+                else:
+                    cipher.initialize(plain_key, plain_iv, offset)
+                self.stream = crypto_provider.make_decrypt_adapter(self.stream, cipher, discard)
+        else:
+            if OSS_CLIENT_SIDE_ENCRYPTION_KEY in resp.headers or DEPRECATED_CLIENT_SIDE_ENCRYPTION_KEY in resp.headers:
+                logger.warn(
+                    "Using Bucket to get an encrypted object will return raw data, please confirm if you really want to do this")
+
+    @staticmethod
+    def _parse_range_str(content_range):
+        # :param str content_range: sample 'bytes 0-128/1024'
+        range_data = (content_range.split(' ', 2)[1]).split('/', 2)[0]
+        range_start, range_end = range_data.split('-', 2)
+        return int(range_start), int(range_end)
 
     def read(self, amt=None):
         return self.stream.read(amt)
@@ -245,6 +400,9 @@ class InitMultipartUploadResult(RequestResult):
 
         #: 新生成的Upload ID
         self.upload_id = None
+
+        # 客户端加密Bucket关于Multipart文件的context
+        # self.crypto_multipart_context = None
 
 
 class ListObjectsResult(RequestResult):
