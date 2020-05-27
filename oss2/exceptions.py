@@ -286,6 +286,10 @@ class ObjectAlreadyExists(ServerError):
     status = 400
     code = 'ObjectAlreadyExists'
 
+class PartNotSequential(ServerError):
+    status = 400
+    code = 'PartNotSequential'
+
 def make_exception(resp):
     status = resp.status
     headers = resp.headers

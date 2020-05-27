@@ -346,22 +346,30 @@ class TestUpload(OssTestCase):
         bucket = oss2.Bucket(auth, endpoint, bucket_name)
         bucket.create_bucket()
 
-        key = random_string(16)
-        content = random_bytes(5 * 100 * 1024)
+        key = "test-upload_sequential"
+        content = random_bytes(10 * 100 * 1024)
         pathname = self._prepare_temp_file(content)
 
-        oss2.resumable_upload(bucket, key, pathname, multipart_threshold=200 * 1024, part_size=None)
+        oss2.resumable_upload(bucket, key, pathname, multipart_threshold=200 * 1024, part_size=100 * 1024, num_threads=6)
         result = bucket.get_object(key)
         self.assertIsNone(result.resp.headers.get('Content-MD5'))
 
+        # single thread in sequential mode.
         params = {'sequential': ''}
-        oss2.resumable_upload(bucket, key, pathname, multipart_threshold=200 * 1024, part_size=None, num_threads=1,
+        oss2.resumable_upload(bucket, key, pathname, multipart_threshold=200 * 1024, part_size=100 * 1024, num_threads=1,
                               params=params)
         result = bucket.get_object(key)
         self.assertIsNotNone(result.resp.headers.get('Content-MD5'))
 
-        bucket.delete_object(key)
-        bucket.delete_bucket()
+        # sequential mode is confused with multi thread.
+        try:
+            params = {'sequential': ''}
+            oss2.resumable_upload(bucket, key, pathname, multipart_threshold=200 * 1024, part_size=100 * 1024, num_threads=6,
+                              params=params)
+            self.assertFalse(True, 'should be failed here.')
+        except oss2.exceptions.PartNotSequential as e:
+            pass
+
 
 if __name__ == '__main__':
     unittest.main()

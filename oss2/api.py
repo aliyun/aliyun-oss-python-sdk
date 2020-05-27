@@ -484,6 +484,39 @@ class Bucket(_Base):
         logger.debug("List objects done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_objects, ListObjectsResult)
 
+    def list_objects_v2(self, prefix='', delimiter='', continuation_token='', start_after='', fetch_owner=False, encoding_type='url', max_keys=100, headers=None):
+        """根据前缀罗列Bucket里的文件。
+
+        :param str prefix: 只罗列文件名为该前缀的文件
+        :param str delimiter: 分隔符。可以用来模拟目录
+        :param str continuation_token: 分页标志。首次调用传空串，后续使用返回值的next_continuation_token
+        :param str start_after: 起始文件名称，OSS会返回按照字典序排列start_after之后的文件。
+        :param bool fetch_owner: 是否获取文件的owner信息，默认不返回。
+        :param int max_keys: 最多返回文件的个数，文件和目录的和不能超过该值
+
+        :param headers: HTTP头部
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+
+        :return: :class:`ListObjectsV2Result <oss2.models.ListObjectsV2Result>`
+        """
+        headers = http.CaseInsensitiveDict(headers)
+        logger.debug(
+            "Start to List objects, bucket: {0}, prefix: {1}, delimiter: {2}, continuation_token: {3}, "
+            "start-after: {4}, fetch-owner: {5}, encoding_type: {6}, max-keys: {7}".format(
+                self.bucket_name, to_string(prefix), delimiter, continuation_token, start_after, fetch_owner, encoding_type, max_keys))
+        resp = self.__do_object('GET', '',
+                                params={'list-type': '2',
+                                        'prefix': prefix,
+                                        'delimiter': delimiter,
+                                        'continuation-token': continuation_token,
+                                        'start-after': start_after,
+                                        'fetch-owner': str(fetch_owner).lower(),
+                                        'max-keys': str(max_keys),
+                                        'encoding-type': encoding_type},
+                                        headers=headers)
+        logger.debug("List objects V2 done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_list_objects_v2, ListObjectsV2Result)
+
     def put_object(self, key, data,
                    headers=None,
                    progress_callback=None):
