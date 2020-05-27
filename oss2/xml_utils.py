@@ -146,13 +146,44 @@ def parse_list_objects(result, body):
         result.next_marker = _find_object(root, 'NextMarker', url_encoded)
 
     for contents_node in root.findall('Contents'):
+        owner = None
+        if contents_node.find("Owner") is not None:
+            owner = Owner(_find_tag(contents_node, 'Owner/DisplayName'), _find_tag(contents_node, 'Owner/ID'))
         result.object_list.append(SimplifiedObjectInfo(
             _find_object(contents_node, 'Key', url_encoded),
             iso8601_to_unixtime(_find_tag(contents_node, 'LastModified')),
             _find_tag(contents_node, 'ETag').strip('"'),
             _find_tag(contents_node, 'Type'),
             int(_find_tag(contents_node, 'Size')),
-            _find_tag(contents_node, 'StorageClass')
+            _find_tag(contents_node, 'StorageClass'),
+            owner
+        ))
+
+    for prefix_node in root.findall('CommonPrefixes'):
+        result.prefix_list.append(_find_object(prefix_node, 'Prefix', url_encoded))
+
+    return result
+
+
+def parse_list_objects_v2(result, body):
+    root = ElementTree.fromstring(body)
+    url_encoded = _is_url_encoding(root)
+    result.is_truncated = _find_bool(root, 'IsTruncated')
+    if result.is_truncated:
+        result.next_continuation_token = _find_object(root, 'NextContinuationToken', url_encoded)
+
+    for contents_node in root.findall('Contents'):
+        owner = None
+        if contents_node.find("Owner") is not None:
+            owner = Owner(_find_tag(contents_node, 'Owner/DisplayName'), _find_tag(contents_node, 'Owner/ID'))
+        result.object_list.append(SimplifiedObjectInfo(
+            _find_object(contents_node, 'Key', url_encoded),
+            iso8601_to_unixtime(_find_tag(contents_node, 'LastModified')),
+            _find_tag(contents_node, 'ETag').strip('"'),
+            _find_tag(contents_node, 'Type'),
+            int(_find_tag(contents_node, 'Size')),
+            _find_tag(contents_node, 'StorageClass'),
+            owner
         ))
 
     for prefix_node in root.findall('CommonPrefixes'):

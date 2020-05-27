@@ -117,6 +117,49 @@ class ObjectIterator(_BaseIterator):
 
         return result.is_truncated, result.next_marker
 
+class ObjectIteratorV2(_BaseIterator):
+    """遍历Bucket里文件的迭代器。
+
+    每次迭代返回的是 :class:`SimplifiedObjectInfo <oss2.models.SimplifiedObjectInfo>` 对象。
+    当 `SimplifiedObjectInfo.is_prefix()` 返回True时，表明是公共前缀（目录）。
+
+    :param str prefix: 只罗列文件名为该前缀的文件
+    :param str delimiter: 分隔符。可以用来模拟目录
+    :param str continuation_token: 分页标志。首次调用传空串，后续使用返回值的next_continuation_token
+    :param str start_after: 起始文件名称，OSS会按照文件的字典序排列返回start_after之后的文件。
+    :param bool fetch_owner: 是否获取文件的owner信息，默认不返回。
+    :param int max_keys: 最多返回文件的个数，文件和目录的和不能超过该值
+
+    :param headers: HTTP头部
+    :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+    """
+
+    def __init__(self, bucket, prefix='', delimiter='', continuation_token='', start_after='', fetch_owner = False, encoding_type = 'url', max_keys=100, max_retries=None, headers=None):
+        super(ObjectIteratorV2, self).__init__(continuation_token, max_retries)
+
+        self.bucket = bucket
+        self.prefix = prefix
+        self.delimiter = delimiter
+        self.start_after = start_after
+        self.fetch_owner = fetch_owner
+        self.encoding_type = encoding_type
+        self.max_keys = max_keys
+        self.headers = http.CaseInsensitiveDict(headers)
+
+    def _fetch(self):
+        result = self.bucket.list_objects_v2(prefix=self.prefix,
+                                          delimiter=self.delimiter,
+                                          continuation_token=self.next_marker,
+                                          start_after=self.start_after,
+                                          fetch_owner=self.fetch_owner,
+                                          encoding_type=self.encoding_type,
+                                          max_keys=self.max_keys,
+                                          headers=self.headers)
+        self.entries = result.object_list + [SimplifiedObjectInfo(prefix, None, None, None, None, None)
+                                             for prefix in result.prefix_list]
+        self.entries.sort(key=lambda obj: obj.key)
+
+        return result.is_truncated, result.next_continuation_token
 
 class MultipartUploadIterator(_BaseIterator):
     """遍历Bucket里未完成的分片上传。
