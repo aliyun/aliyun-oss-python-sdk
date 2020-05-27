@@ -363,8 +363,16 @@ class TestObject(OssTestCase):
         self.assertEqual(result.read(), content[3:4])
 
     def test_list_objects(self):
+        object_name = 'test-list-objects'
+        self.bucket.put_object(object_name, b'a')
+
         result = self.bucket.list_objects()
         self.assertEqual(result.status, 200)
+        self.assertTrue(len(result.object_list) > 0)
+        for obj in result.object_list:
+            self.assertIsNotNone(obj.owner)
+            self.assertTrue(len(obj.owner.id) > 0)
+            self.assertTrue(len(obj.owner.display_name) > 0)
 
     def test_batch_delete_objects(self):
         object_list = []

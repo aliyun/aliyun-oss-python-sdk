@@ -421,9 +421,25 @@ class ListObjectsResult(RequestResult):
         #: 本次罗列得到的公共前缀列表，类型为str列表。
         self.prefix_list = []
 
+class ListObjectsV2Result(RequestResult):
+    def __init__(self, resp):
+        super(ListObjectsV2Result, self).__init__(resp)
+
+        #: True表示还有更多的文件可以罗列；False表示已经列举完毕。
+        self.is_truncated = False
+
+        #: 下次罗列操作携带的token
+        self.next_continuation_token = ''
+
+        #: 本次罗列得到的文件列表。其中元素的类型为 :class:`SimplifiedObjectInfo` 。
+        self.object_list = []
+
+        #: 本次罗列得到的公共前缀列表，类型为str列表。
+        self.prefix_list = []
+
 
 class SimplifiedObjectInfo(object):
-    def __init__(self, key, last_modified, etag, type, size, storage_class):
+    def __init__(self, key, last_modified, etag, type, size, storage_class, owner=None):
         #: 文件名，或公共前缀名。
         self.key = key
 
@@ -441,6 +457,9 @@ class SimplifiedObjectInfo(object):
 
         #: 文件的存储类别，是一个字符串。
         self.storage_class = storage_class
+
+        #: owner信息, 类型为: class:`Owner <oss2.models.Owner>`
+        self.owner = owner
 
     def is_prefix(self):
         """如果是公共前缀，返回True；是文件，则返回False"""
