@@ -110,7 +110,7 @@ class TestIteratorV2(OssTestCase):
 
     def test_list_object_iterator_v2(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-list-with-error-token"
+        bucket_name = OSS_BUCKET + "-test-list-iterator-v2"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
         bucket.create_bucket()
 

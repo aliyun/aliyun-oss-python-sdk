@@ -61,6 +61,10 @@ KMS_ALI_WRAP_ALGORITHM = 'KMS/ALICLOUD'
 OSS_ENCRYPTION_CLIENT = 'OssEncryptionClient'
 OSS_TASK_ID = 'x-oss-task-id'
 
+OSS_SERVER_SIDE_ENCRYPTION = "x-oss-server-side-encryption"
+OSS_SERVER_SIDE_ENCRYPTION_KEY_ID = "x-oss-server-side-encryption-key-id"
+OSS_SERVER_SIDE_DATA_ENCRYPTION = "x-oss-server-side-data-encryption"
+
 class RequestHeader(dict):
     def __init__(self, *arg, **kw):
         super(RequestHeader, self).__init__(*arg, **kw)
