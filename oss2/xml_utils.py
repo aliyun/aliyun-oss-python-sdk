@@ -372,6 +372,12 @@ def _parse_bucket_encryption_info(node):
     else:
         rule.kms_master_keyid = to_string(kmsnode.text)
 
+    kms_data_encryption_node = node.find("KMSDataEncryption")
+    if kms_data_encryption_node is None or kms_data_encryption_node.text is None:
+        rule.kms_data_encryption = None
+    else:
+        rule.kms_data_encryption = to_string(kms_data_encryption_node.text)
+
     return rule
 
 def parse_get_bucket_referer(result, body):
@@ -1181,6 +1187,9 @@ def to_put_bucket_encryption(rule):
     if rule.kms_master_keyid:
         _add_text_child(apply_node, "KMSMasterKeyID", rule.kms_master_keyid)
 
+    if rule.kms_data_encryption:
+        _add_text_child(apply_node, "KMSDataEncryption", rule.kms_data_encryption)
+
     return _node_to_string(root)
 
 def parse_get_bucket_encryption(result, body):
@@ -1194,6 +1203,12 @@ def parse_get_bucket_encryption(result, body):
         result.kms_master_keyid = None 
     else:
         result.kms_master_keyid = to_string(kmsnode.text)
+
+    kms_data_encryption_node = apply_node.find('KMSDataEncryption')
+    if kms_data_encryption_node is None or kms_data_encryption_node.text is None:
+        result.kms_data_encryption = None
+    else:
+        result.kms_data_encryption = to_string(kms_data_encryption_node.text)
 
     return result
 
