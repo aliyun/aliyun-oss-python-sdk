@@ -235,6 +235,33 @@ def _populate_valid_headers(headers=None, valid_keys=None):
 
     return valid_headers
 
+def _filter_invalid_headers(headers=None, invalid_keys=None):
+    """过滤无效keys的http header
+
+    :param headers: 需要过滤的header
+    :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+
+    :param invalid_keys: 无效的关键key列表
+    :type invalid_keys: list
+
+    :return: 过滤无效header之后的http headers, type: oss2.CaseInsensitiveDict
+    """
+    if headers is None or invalid_keys is None:
+        return None
+
+    headers = http.CaseInsensitiveDict(headers)
+    valid_headers = headers.copy()
+
+    for key in invalid_keys:
+        if valid_headers.get(key) is not None:
+            valid_headers.pop(key)
+
+    if len(valid_headers) == 0:
+        valid_headers = None
+
+    return valid_headers
+
+
 def _populate_valid_params(params=None, valid_keys=None):
     """构建只包含有效keys的params
 
@@ -684,14 +711,20 @@ class _ResumableUploader(_ResumableOperation):
 
     def __get_finished_parts(self):
         parts = []
-        for part in PartIterator(self.bucket, self.key, self.__upload_id, headers=self.__headers):
+
+        valid_headers = _filter_invalid_headers(self.__headers,
+                [OSS_SERVER_SIDE_ENCRYPTION, OSS_SERVER_SIDE_DATA_ENCRYPTION])
+
+        for part in PartIterator(self.bucket, self.key, self.__upload_id, headers=valid_headers):
             parts.append(part)
 
         return parts
 
     def __upload_exists(self, upload_id):
         try:
-            list(iterators.PartIterator(self.bucket, self.key, upload_id, '0', max_parts=1, headers=self.__headers))
+            valid_headers = _filter_invalid_headers(self.__headers,
+                      [OSS_SERVER_SIDE_ENCRYPTION, OSS_SERVER_SIDE_DATA_ENCRYPTION])
+            list(iterators.PartIterator(self.bucket, self.key, upload_id, '0', max_parts=1, headers=valid_headers))
         except exceptions.NoSuchUpload:
             return False
         else:

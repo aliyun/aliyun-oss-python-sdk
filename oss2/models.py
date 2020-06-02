@@ -1468,13 +1468,16 @@ class GetTaggingResult(RequestResult, Tagging):
 
 SERVER_SIDE_ENCRYPTION_AES256 = 'AES256'
 SERVER_SIDE_ENCRYPTION_KMS = 'KMS'
+SERVER_SIDE_ENCRYPTION_SM4 = 'SM4'
+KMS_DATA_ENCRYPTION_SM4 = 'SM4'
 
 class ServerSideEncryptionRule(object):
 
-    def __init__(self, sse_algorithm=None, kms_master_keyid=None):
+    def __init__(self, sse_algorithm=None, kms_master_keyid=None, kms_data_encryption=None):
 
         self.sse_algorithm = sse_algorithm
         self.kms_master_keyid = kms_master_keyid
+        self.kms_data_encryption = kms_data_encryption
 
 class GetServerSideEncryptionResult(RequestResult, ServerSideEncryptionRule):
     
