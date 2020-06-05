@@ -3,7 +3,7 @@
 from mock import patch
 from unittests.common import *
 
-from oss2.models import SimplifiedBucketInfo, SimplifiedObjectInfo
+from oss2.models import SimplifiedBucketInfo, SimplifiedObjectInfo, Owner
 from oss2 import to_string
 
 
@@ -14,6 +14,19 @@ class TestIterator(OssTestCase):
 
         for k, v in adict.items():
             self.assertEqual(adict[k], bdict[k])
+
+    def assertSimpleObjectInfoEqual(self, a, b):
+        self.assertEqual(a.key, b.key)
+        self.assertEqual(a.last_modified, b.last_modified)
+        self.assertEqual(a.etag, b.etag)
+        self.assertEqual(a.type, b.type)
+        self.assertEqual(a.size, b.size)
+        self.assertEqual(a.storage_class, b.storage_class)
+        if a.owner is None:
+            self.assertIsNone(b.owner)
+        else:
+            self.assertEqual(a.owner.display_name, b.owner.display_name)
+            self.assertEqual(a.owner.id, b.owner.id)
 
     @patch('oss2.Session.do_request')
     def test_bucket_iterator_not_truncated(self, do_request):
@@ -253,14 +266,17 @@ class TestIterator(OssTestCase):
 
         got = list(oss2.ObjectIterator(bucket(), max_keys=1000))
 
-        expected = [SimplifiedObjectInfo('object-1', 1422854113, '716AF6FFD529DFEA856FAA4E12D2C5EA', 'Normal', 4308, 'Standard'),
-                    SimplifiedObjectInfo('object-2', 1435053415, '333D74B47CB1B0E275D2AB3CDDA02665-26', 'Multipart', 3389246, 'Standard'),
-                    SimplifiedObjectInfo('object-3', 1421412094, 'B28F7255E6EA777DB0AFB1C58C2CFCFE', 'Normal', 10718416, 'Standard')]
+        expected = [SimplifiedObjectInfo('object-1', 1422854113, '716AF6FFD529DFEA856FAA4E12D2C5EA', 'Normal',
+                                         4308, 'Standard', Owner('1047205513514293', '1047205513514293')),
+                    SimplifiedObjectInfo('object-2', 1435053415, '333D74B47CB1B0E275D2AB3CDDA02665-26', 'Multipart',
+                                         3389246, 'Standard', Owner('1047205513514293', '1047205513514293')),
+                    SimplifiedObjectInfo('object-3', 1421412094, 'B28F7255E6EA777DB0AFB1C58C2CFCFE', 'Normal',
+                                         10718416, 'Standard', Owner('1047205513514293', '1047205513514293'))]
 
         self.assertEqual(len(expected), len(got))
 
         for i in range(len(expected)):
-            self.assertInstanceEqual(expected[i], got[i])
+            self.assertSimpleObjectInfoEqual(expected[i], got[i])
 
         self.assertEqual(req_info.req.params.get('prefix', ''), '')
         self.assertEqual(req_info.req.params.get('marker', ''), '')
@@ -337,9 +353,12 @@ class TestIterator(OssTestCase):
           </Contents>
         </ListBucketResult>''']
 
-        expected = [SimplifiedObjectInfo('a.txt', 1452165000, '5EB63BBBE01EEED093CB22BB8F5ACDC3', 'Normal', 11, 'Standard'),
-                    SimplifiedObjectInfo('中文.txt', 1452164979, 'FC3FF98E8C6A0D3087D515C0473F8677', 'Normal', 12, 'Standard'),
-                    SimplifiedObjectInfo('阿里云.txt', 1452164852, '5D41402ABC4B2A76B9719D911017C592', 'Normal', 5, 'Standard')]
+        expected = [SimplifiedObjectInfo('a.txt', 1452165000, '5EB63BBBE01EEED093CB22BB8F5ACDC3', 'Normal', 11,
+                                         'Standard', Owner('1047205513514293', '1047205513514293')),
+                    SimplifiedObjectInfo('中文.txt', 1452164979, 'FC3FF98E8C6A0D3087D515C0473F8677', 'Normal', 12,
+                                         'Standard', Owner('1047205513514293', '1047205513514293')),
+                    SimplifiedObjectInfo('阿里云.txt', 1452164852, '5D41402ABC4B2A76B9719D911017C592', 'Normal', 5,
+                                         'Standard', Owner('1047205513514293', '1047205513514293'))]
 
         nreq = 3
 
@@ -351,7 +370,7 @@ class TestIterator(OssTestCase):
         got = list(oss2.ObjectIterator(bucket(), max_keys=1))
 
         for i in range(len(expected)):
-            self.assertInstanceEqual(expected[i], got[i])
+            self.assertSimpleObjectInfoEqual(expected[i], got[i])
 
         for i in range(nreq):
             self.assertEqual(req_infos[i].req.params.get('prefix', ''), '')
@@ -391,8 +410,9 @@ class TestIterator(OssTestCase):
           </CommonPrefixes>
         </ListBucketResult>''']
 
-        expected = [SimplifiedObjectInfo('a.txt', 1452165000, '5EB63BBBE01EEED093CB22BB8F5ACDC3', 'Normal', 11, 'Standard'),
-                    SimplifiedObjectInfo('文件/', None, None, None, None, None)]
+        expected = [SimplifiedObjectInfo('a.txt', 1452165000, '5EB63BBBE01EEED093CB22BB8F5ACDC3', 'Normal', 11,
+                        'Standard', Owner('1047205513514293', '1047205513514293')),
+                    SimplifiedObjectInfo('文件/', None, None, None, None, None, None)]
 
         req_info = RequestInfo()
         do_request.auto_spec = True
@@ -401,7 +421,7 @@ class TestIterator(OssTestCase):
         got = list(oss2.ObjectIterator(bucket(), max_keys=1000))
 
         for i in range(len(expected)):
-            self.assertInstanceEqual(expected[i], got[i])
+            self.assertSimpleObjectInfoEqual(expected[i], got[i])
 
     @patch('oss2.Session.do_request')
     def test_upload_iterator_empty(self, do_request):
