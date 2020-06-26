@@ -13,6 +13,7 @@ XML处理相关。
 """
 import logging
 import xml.etree.ElementTree as ElementTree
+import defusedxml.ElementTree as DefusedElementTree
 
 from .models import (SimplifiedObjectInfo,
                      SimplifiedBucketInfo,
@@ -68,6 +69,9 @@ import base64
 from .exceptions import SelectOperationClientError
 
 logger = logging.getLogger(__name__)
+
+def _defused_element_tree_from_string(body):
+    return DefusedElementTree.fromstring(body, forbid_dtd=True)
 
 def _find_tag(parent, path):
     child = parent.find(path)
@@ -139,7 +143,7 @@ def _add_node_child(parent, tag):
     return ElementTree.SubElement(parent, tag)
 
 def parse_list_objects(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
     url_encoded = _is_url_encoding(root)
     result.is_truncated = _find_bool(root, 'IsTruncated')
     if result.is_truncated:
@@ -166,7 +170,7 @@ def parse_list_objects(result, body):
 
 
 def parse_list_objects_v2(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
     url_encoded = _is_url_encoding(root)
     result.is_truncated = _find_bool(root, 'IsTruncated')
     if result.is_truncated:
@@ -193,7 +197,7 @@ def parse_list_objects_v2(result, body):
 
 
 def parse_list_buckets(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
 
     if root.find('IsTruncated') is None:
         result.is_truncated = False
@@ -217,14 +221,14 @@ def parse_list_buckets(result, body):
 
 
 def parse_init_multipart_upload(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
     result.upload_id = _find_tag(root, 'UploadId')
 
     return result
 
 
 def parse_list_multipart_uploads(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
 
     url_encoded = _is_url_encoding(root)
 
@@ -246,7 +250,7 @@ def parse_list_multipart_uploads(result, body):
 
 
 def parse_list_parts(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
 
     result.is_truncated = _find_bool(root, 'IsTruncated')
     result.next_marker = _find_tag(root, 'NextPartNumberMarker')
@@ -264,7 +268,7 @@ def parse_list_parts(result, body):
 def parse_batch_delete_objects(result, body):
     if not body:
         return result 
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
     url_encoded = _is_url_encoding(root)
 
     for deleted_node in root.findall('Deleted'):
@@ -292,26 +296,26 @@ def parse_batch_delete_objects(result, body):
 
 
 def parse_get_bucket_acl(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
     result.acl = _find_tag(root, 'AccessControlList/Grant')
 
     return result
 
 
 def parse_get_object_acl(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
     result.acl = _find_tag(root, 'AccessControlList/Grant')
 
     return result
 
 
 def parse_get_bucket_location(result, body):
-    result.location = to_string(ElementTree.fromstring(body).text)
+    result.location = to_string(_defused_element_tree_from_string(body).text)
     return result
 
 
 def parse_get_bucket_logging(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
 
     if root.find('LoggingEnabled/TargetBucket') is not None:
         result.target_bucket = _find_tag(root, 'LoggingEnabled/TargetBucket')
@@ -323,7 +327,7 @@ def parse_get_bucket_logging(result, body):
 
 
 def parse_get_bucket_stat(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
 
     result.storage_size_in_bytes = _find_int(root, 'Storage')
     result.object_count = _find_int(root, 'ObjectCount')
@@ -333,7 +337,7 @@ def parse_get_bucket_stat(result, body):
 
 
 def parse_get_bucket_info(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
 
     result.name = _find_tag(root, 'Bucket/Name')
     result.creation_date = _find_tag(root, 'Bucket/CreationDate')
@@ -381,7 +385,7 @@ def _parse_bucket_encryption_info(node):
     return rule
 
 def parse_get_bucket_referer(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
 
     result.allow_empty_referer = _find_bool(root, 'AllowEmptyReferer')
     result.referers = _find_all_tags(root, 'RefererList/Referer')
@@ -504,7 +508,7 @@ def parse_routing_rule_redirect(redirect_node):
     return redirect
 
 def parse_get_bucket_website(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
     result.index_file = _find_tag(root, 'IndexDocument/Suffix')
     result.error_file = _find_tag(root, 'ErrorDocument/Key')
 
@@ -524,7 +528,7 @@ def parse_get_bucket_website(result, body):
 
 
 def parse_create_live_channel(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
 
     result.play_url = _find_tag(root, 'PlayUrls/Url')
     result.publish_url = _find_tag(root, 'PublishUrls/Url')
@@ -533,7 +537,7 @@ def parse_create_live_channel(result, body):
 
 
 def parse_get_live_channel(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
 
     result.status = _find_tag(root, 'Status')
     result.description = _find_tag(root, 'Description')
@@ -550,7 +554,7 @@ def parse_get_live_channel(result, body):
 
 
 def parse_list_live_channel(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
 
     result.prefix = _find_tag(root, 'Prefix')
     result.marker = _find_tag(root, 'Marker')
@@ -590,7 +594,7 @@ def parse_stat_audio(audio_node, audio):
 
 
 def parse_live_channel_stat(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
 
     result.status = _find_tag(root, 'Status')
     if root.find('RemoteAddr') is not None:
@@ -612,7 +616,7 @@ def parse_live_channel_stat(result, body):
 
 
 def parse_live_channel_history(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
 
     records = root.findall('LiveRecord')
     for record in records:
@@ -706,7 +710,7 @@ def parse_lifecycle_verison_storage_transitions(version_storage_transition_nodes
 
 def parse_get_bucket_lifecycle(result, body):
 
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
     url_encoded = _is_url_encoding(root)
 
     for rule_node in root.findall('Rule'):
@@ -734,7 +738,7 @@ def parse_get_bucket_lifecycle(result, body):
 
 
 def parse_get_bucket_cors(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
 
     for rule_node in root.findall('CORSRule'):
         rule = CorsRule()
@@ -1162,7 +1166,7 @@ def to_put_tagging(object_tagging):
     return _node_to_string(root)
 
 def parse_get_tagging(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
     url_encoded = _is_url_encoding(root)
     tagset_node = root.find('TagSet')
 
@@ -1193,7 +1197,7 @@ def to_put_bucket_encryption(rule):
     return _node_to_string(root)
 
 def parse_get_bucket_encryption(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
     apply_node = root.find('ApplyServerSideEncryptionByDefault')
 
     result.sse_algorithm = _find_tag(apply_node, "SSEAlgorithm")
@@ -1213,7 +1217,7 @@ def parse_get_bucket_encryption(result, body):
     return result
 
 def parse_list_object_versions(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
     url_encoded = _is_url_encoding(root)
     result.is_truncated = _find_bool(root, 'IsTruncated')
     if result.is_truncated:
@@ -1265,7 +1269,7 @@ def to_put_bucket_versioning(bucket_version_config):
     return _node_to_string(root)
 
 def parse_get_bucket_versioning(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
 
     status_node = root.find("Status")
     if status_node is None:
@@ -1283,7 +1287,7 @@ def to_put_bucket_request_payment(payer):
     return _node_to_string(root)
 
 def parse_get_bucket_request_payment(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
 
     result.payer = _find_tag(root, 'Payer')
    
@@ -1318,7 +1322,7 @@ def parse_get_qos_info(result, body):
 
     :UserQosInfo包含成员region,其他成员同BucketQosInfo
     """
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
 
     if hasattr(result, 'region'):
         result.region = _find_tag(root, 'Region')
@@ -1336,7 +1340,7 @@ def parse_get_qos_info(result, body):
     return result
 
 def parse_get_bucket_user_qos(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
 
     result.storage_capacity = _find_int(root, 'StorageCapacity')
 
@@ -1368,7 +1372,7 @@ def to_put_async_fetch_task(task_config):
     return _node_to_string(root)
 
 def parse_put_async_fetch_task_result(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
 
     result.task_id = _find_tag(root, 'TaskId')
 
@@ -1385,7 +1389,7 @@ def _parse_async_fetch_task_configuration(task_info_node):
     return AsyncFetchTaskConfiguration(url, object_name, host, content_md5, callback, ignore_same_key)
 
 def parse_get_async_fetch_task_result(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
 
     result.task_id = _find_tag(root, 'TaskId')
     result.task_state = _find_tag(root, 'State')
@@ -1502,7 +1506,7 @@ def get_Inventory_configuration_from_element(elem):
     return result
 
 def parse_get_bucket_inventory_configuration(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
     inventory_config = get_Inventory_configuration_from_element(root)
 
     result.inventory_id = inventory_config.inventory_id
@@ -1516,7 +1520,7 @@ def parse_get_bucket_inventory_configuration(result, body):
     return result
 
 def parse_list_bucket_inventory_configurations(result, body):
-    root = ElementTree.fromstring(body)
+    root = _defused_element_tree_from_string(body)
 
     for inventory_config_node in root.findall("InventoryConfiguration"):
         inventory_config = get_Inventory_configuration_from_element(inventory_config_node)

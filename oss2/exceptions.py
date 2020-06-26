@@ -10,6 +10,7 @@ oss2.exceptions
 import re
 
 import xml.etree.ElementTree as ElementTree
+import defusedxml.ElementTree as DefusedElementTree
 from xml.parsers import expat
 
 
@@ -290,6 +291,10 @@ class PartNotSequential(ServerError):
     status = 400
     code = 'PartNotSequential'
 
+class ResponseParseError(ServerError):
+    status = 200
+    code = ''
+
 def make_exception(resp):
     status = resp.status
     headers = resp.headers
@@ -328,7 +333,7 @@ else:
 
 def _parse_error_body(body):
     try:
-        root = ElementTree.fromstring(body)
+        root = DefusedElementTree.fromstring(body, forbid_dtd=True)
         if root.tag != 'Error':
             return {}
 
@@ -337,6 +342,8 @@ def _parse_error_body(body):
             details[child.tag] = child.text
         return details
     except ElementTreeParseError:
+        return _guess_error_details(body)
+    except DefusedElementTree.DTDForbidden:
         return _guess_error_details(body)
 
 

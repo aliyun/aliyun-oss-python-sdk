@@ -198,7 +198,18 @@ from .select_params import *
 import time
 import shutil
 
+import xml.etree.ElementTree as ElementTree
+import defusedxml.ElementTree as DefusedElementTree
+from xml.parsers import expat
+from .exceptions import ResponseParseError
+
 logger = logging.getLogger(__name__)
+
+# XML parsing exceptions have changed in Python2.7 and ElementTree 1.3
+if hasattr(ElementTree, 'ParseError'):
+    ElementTreeParseError = (ElementTree.ParseError, expat.ExpatError)
+else:
+    ElementTreeParseError = (expat.ExpatError)
 
 
 class _Base(object):
@@ -254,9 +265,16 @@ class _Base(object):
 
     @staticmethod
     def _parse_result(resp, parse_func, klass):
-        result = klass(resp)
-        parse_func(result, resp.read())
-        return result
+        try:
+            result = klass(resp)
+            parse_func(result, resp.read())
+            return result
+        except ElementTreeParseError:
+            details = {"Code": "ResponseParseError", "Message": "SDK can not parse the response"}
+            raise ResponseParseError(resp.status, resp.headers, resp.body, details)
+        except DefusedElementTree.DTDForbidden:
+            details = {"Code": "DefusedXmlException", "Message": "SDK disallow XML with a <!DOCTYPE>"}
+            raise ResponseParseError(resp.status, resp.headers, resp.body, details)
 
 
 class Service(_Base):

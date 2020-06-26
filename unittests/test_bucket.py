@@ -7,6 +7,7 @@ from functools import partial
 
 from oss2 import to_string
 from unittests.common import *
+import defusedxml.ElementTree as DefusedElementTree
 
 
 def all_tags(parent, tag):
@@ -517,7 +518,7 @@ x-oss-request-id: 566B6BD7D9816D686F72A86A'''
 
         self.assertRequest(req_info ,request_text)
 
-        root = ElementTree.fromstring(req_info.data)
+        root = DefusedElementTree.fromstring(req_info.data, forbid_dtd=True)
         rule_node = root.find('CORSRule')
 
         self.assertSortedListEqual(rule.allowed_origins, all_tags(rule_node, 'AllowedOrigin'))

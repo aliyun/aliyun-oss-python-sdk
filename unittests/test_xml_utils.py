@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 
 import unittest
-import xml.etree.ElementTree as ElementTree
+import defusedxml.ElementTree as DefusedElementTree
 from oss2.xml_utils import _find_tag, _find_bool
 from oss2.xml_utils import parse_get_bucket_info
-from .common import MockResponse
+from unittests.common import MockResponse
 import oss2
 
 
@@ -15,7 +15,7 @@ class TestXmlUtils(unittest.TestCase):
             <Grant>private</Grant>
         </Test>'''
 
-        root = ElementTree.fromstring(body)
+        root = DefusedElementTree.fromstring(body, forbid_dtd=True)
 
         grant = _find_tag(root, 'Grant')
         self.assertEqual(grant, 'private')
@@ -29,7 +29,7 @@ class TestXmlUtils(unittest.TestCase):
             <BoolTag2>false</BoolTag2>
         </Test>'''
 
-        root = ElementTree.fromstring(body)
+        root = DefusedElementTree.fromstring(body, forbid_dtd=True)
 
         tag1 = _find_bool(root, 'BoolTag1')
         tag2 = _find_bool(root, 'BoolTag2')
