@@ -370,6 +370,32 @@ class TestUpload(OssTestCase):
         except oss2.exceptions.PartNotSequential as e:
             pass
 
+    def test_upload_with_acl(self):
+        key = "test-upload-with-acl"
+        content = random_bytes(5 * 100 * 1024)
+        pathname = self._prepare_temp_file(content)
+
+        # Resumable upload without acl setting, returned result should be "default".
+        oss2.resumable_upload(self.bucket, key, pathname, multipart_threshold=2 * 100 * 1024,
+                              part_size=100 * 1024, num_threads=6)
+        result = self.bucket.get_object_acl(key)
+        self.assertEqual(oss2.OBJECT_ACL_DEFAULT, result.acl)
+
+        # Resumable upload with "private" acl setting, returned result should be "private".
+        headers = {}
+        headers["x-oss-object-acl"] = oss2.OBJECT_ACL_PRIVATE
+        oss2.resumable_upload(self.bucket, key, pathname, multipart_threshold=2 * 100 * 1024,
+                              part_size=100 * 1024, num_threads=6, headers=headers)
+        result = self.bucket.get_object_acl(key)
+        self.assertEqual(oss2.OBJECT_ACL_PRIVATE, result.acl)
+
+        # Test the file's size smaller than the threshold.
+        headers = {}
+        headers["x-oss-object-acl"] = oss2.OBJECT_ACL_PRIVATE
+        oss2.resumable_upload(self.bucket, key, pathname, multipart_threshold=10 * 100 * 1024,
+                              part_size=100 * 1024, num_threads=6, headers=headers)
+        result = self.bucket.get_object_acl(key)
+        self.assertEqual(oss2.OBJECT_ACL_PRIVATE, result.acl)
 
 if __name__ == '__main__':
     unittest.main()
