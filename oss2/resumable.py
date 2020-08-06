@@ -63,7 +63,7 @@ def resumable_upload(bucket, key, filename,
     :param headers: HTTP头部
         # 调用外部函数put_object 或 init_multipart_upload传递完整headers
         # 调用外部函数uplpad_part目前只传递OSS_REQUEST_PAYER, OSS_TRAFFIC_LIMIT
-        # 调用外部函数complete_multipart_upload目前只传递OSS_REQUEST_PAYER
+        # 调用外部函数complete_multipart_upload目前只传递OSS_REQUEST_PAYER, OSS_OBJECT_ACL
     :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
 
     :param multipart_threshold: 文件长度大于该值时，则用分片上传。
@@ -587,7 +587,7 @@ class _ResumableUploader(_ResumableOperation):
 
         self._report_progress(self.size)
 
-        headers = _populate_valid_headers(self.__headers, [OSS_REQUEST_PAYER])
+        headers = _populate_valid_headers(self.__headers, [OSS_REQUEST_PAYER, OSS_OBJECT_ACL])
         result = self.bucket.complete_multipart_upload(self.key, self.__upload_id, self.__finished_parts, headers=headers)
         self._del_record()
 
