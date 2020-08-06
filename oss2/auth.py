@@ -74,7 +74,8 @@ class Auth(AuthBase):
          'live', 'comp', 'status', 'vod', 'startTime', 'endTime', 'x-oss-process',
          'symlink', 'callback', 'callback-var', 'tagging', 'encryption', 'versions',
          'versioning', 'versionId', 'policy', 'requestPayment', 'x-oss-traffic-limit', 'qosInfo', 'asyncFetch',
-         'x-oss-request-payer', 'sequential', 'inventory', 'inventoryId', 'continuation-token']
+         'x-oss-request-payer', 'sequential', 'inventory', 'inventoryId', 'continuation-token', 'callback',
+         'callback-var']
     )
 
     def _sign_request(self, req, bucket_name, key):
