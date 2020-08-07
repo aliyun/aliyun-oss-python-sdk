@@ -79,7 +79,7 @@ class TestObject(OssTestCase):
         bucket.delete_bucket()
 
     def test_restore_object_with_config(self):
-        from oss2.models import (ResotreJobParameters, RestoreConfiguration, RESTORE_TIER_EXPEDITED,
+        from oss2.models import (RestoreJobParameters, RestoreConfiguration, RESTORE_TIER_EXPEDITED,
                                  RESTORE_TIER_STANDARD, RESTORE_TIER_BULK)
 
         endpoint = "http://oss-ap-southeast-2.aliyuncs.com"
@@ -97,13 +97,13 @@ class TestObject(OssTestCase):
             meta = bucket.head_object(object_name)
             self.assertEqual(oss2.BUCKET_STORAGE_CLASS_COLD_ARCHIVE, meta.resp.headers['x-oss-storage-class'])
 
-            job_parameters = ResotreJobParameters(tiers[index])
+            job_parameters = RestoreJobParameters(tiers[index])
             restore_config= oss2.models.RestoreConfiguration(days=5, job_parameters=job_parameters)
             result = bucket.restore_object(object_name, input=restore_config)
             self.assertEqual(tiers[index], result.resp.headers.get('x-oss-object-restore-priority'))
 
     def test_restore_object_with_wrong_request(self):
-        from oss2.models import ResotreJobParameters, RestoreConfiguration
+        from oss2.models import RestoreJobParameters, RestoreConfiguration
 
         endpoint = "http://oss-ap-southeast-2.aliyuncs.com"
         bucket_name = OSS_BUCKET + "-test-restore-2"
@@ -116,12 +116,12 @@ class TestObject(OssTestCase):
         self.assertEqual(oss2.BUCKET_STORAGE_CLASS_COLD_ARCHIVE, meta.resp.headers['x-oss-storage-class'])
 
         # wrong tier
-        job_parameters = ResotreJobParameters('wrong-tier')
+        job_parameters = RestoreJobParameters('wrong-tier')
         restore_config = oss2.models.RestoreConfiguration(days=5, job_parameters=job_parameters)
         self.assertRaises(oss2.exceptions.InvalidArgument, bucket.restore_object, object_name, input=restore_config)
 
     def test_restore_archive_object_with_job_parameters(self):
-        from oss2.models import ResotreJobParameters, RestoreConfiguration, RESTORE_TIER_BULK
+        from oss2.models import RestoreJobParameters, RestoreConfiguration, RESTORE_TIER_BULK
 
         endpoint = "http://oss-ap-southeast-2.aliyuncs.com"
         bucket_name = OSS_BUCKET + "-test-restore-3"
@@ -133,7 +133,7 @@ class TestObject(OssTestCase):
         meta = bucket.head_object(object_name)
         self.assertEqual(oss2.BUCKET_STORAGE_CLASS_ARCHIVE, meta.resp.headers['x-oss-storage-class'])
 
-        job_parameters = ResotreJobParameters(RESTORE_TIER_BULK)
+        job_parameters = RestoreJobParameters(RESTORE_TIER_BULK)
         restore_config = oss2.models.RestoreConfiguration(days=5, job_parameters=job_parameters)
         self.assertRaises(oss2.exceptions.MalformedXml, bucket.restore_object, object_name, input=restore_config)
 
