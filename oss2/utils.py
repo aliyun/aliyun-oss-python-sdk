@@ -148,6 +148,25 @@ def is_valid_bucket_name(name):
 
     return set(name) <= _BUCKET_NAME_CHARS
 
+
+def is_valid_endpoint(endpoint):
+    """判断是否为合法的endpoint"""
+    pattern = '^[a-zA-Z0-9._-]+$'
+
+    if endpoint is None:
+        return False
+
+    index = endpoint.find('://')
+    if index > 0:
+        if re.match(pattern, endpoint[index+len('://'):]):
+            return True
+    else:
+        if re.match(pattern, endpoint):
+            return True
+
+    return False
+
+
 def change_endianness_if_needed(bytes_array):
     if sys.byteorder == 'little':
         bytes_array.reverse();

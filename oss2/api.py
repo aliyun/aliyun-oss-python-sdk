@@ -205,6 +205,9 @@ class _Base(object):
     def __init__(self, auth, endpoint, is_cname, session, connect_timeout,
                  app_name='', enable_crc=True):
         self.auth = auth
+        if utils.is_valid_endpoint(endpoint.strip()) is not True:
+            raise ClientError('The endpoint you has specified is not valid, endpoint: {0} '.format(endpoint))
+
         self.endpoint = _normalize_endpoint(endpoint.strip())
         self.session = session or http.Session()
         self.timeout = defaults.get(connect_timeout, defaults.connect_timeout)
@@ -2378,7 +2381,7 @@ class Bucket(_Base):
         return RequestResult(resp)
 
     def extend_bucket_worm(self, worm_id=None, retention_period_days=None):
-        """延长已经锁定的合规保留策略的object保护天数。
+        """延长已经锁定的合规保留策略的object保留天数。
 
         :param str worm_id : 合规保留策略的id。
         :param int retention_period_days : 指定object的保留天数

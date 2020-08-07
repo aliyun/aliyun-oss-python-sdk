@@ -62,6 +62,20 @@ class TestUtils(OssTestCase):
         self.assertRaises(oss2.exceptions.ClientError, oss2.Bucket, oss2.Auth(access_key_id, access_key_secret), 
             endpoint, bucket_name)
 
+    def test_is_valid_endpoint(self):
+        endpoint = 'oss-cn-shenzhen.aliyuncs.com'
+        self.assertTrue(oss2.is_valid_endpoint(endpoint))
+        self.assertTrue(oss2.is_valid_endpoint('ftp://' + endpoint))
+        self.assertTrue(oss2.is_valid_endpoint('http://' + endpoint))
+        self.assertTrue(oss2.is_valid_endpoint('https://' + endpoint))
+        self.assertTrue(oss2.is_valid_endpoint('11.11.11.11' + endpoint))
+        self.assertTrue(oss2.is_valid_endpoint('http://11.11.11.11' + endpoint))
+        self.assertTrue(oss2.is_valid_endpoint('https://11.11.11.11' + endpoint))
+        self.assertTrue(oss2.is_valid_endpoint(endpoint + '_'))
+        self.assertFalse(oss2.is_valid_endpoint(endpoint + '\\'))
+        self.assertFalse(oss2.is_valid_endpoint(endpoint + '#'))
+        self.assertFalse(oss2.is_valid_endpoint('://' + endpoint))
+
     def test_compat(self):
         # from unicode
         u = u'中文'
