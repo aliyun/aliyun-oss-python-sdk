@@ -1952,8 +1952,21 @@ RESTORE_TIER_BULK = 'Bulk'
 
 class ResotreJobParameters(object):
     """冷归档类型（ColdArchive）文件的解冻优先级配置。
+    请使用class:`RestoreJobParameters <oss2.models.RestoreJobParameters>`代替此类。
 
     :param tier: 解冻优先级, 取值范围: 
+        oss2.models.RESTORE_TIER_EXPEDITED: 1个小时之内解冻完成。
+        oss2.models.RESTORE_TIER_STANDARD: 5小时之内解冻完成。
+        oss2.models.RESTORE_TIER_BULK: 10小时之内解冻完成。
+    :type tier: str
+    """
+    def __init__(self, tier):
+        self.tier = tier
+
+class RestoreJobParameters(object):
+    """冷归档类型（ColdArchive）文件的解冻优先级配置。
+
+    :param tier: 解冻优先级, 取值范围:
         oss2.models.RESTORE_TIER_EXPEDITED: 1个小时之内解冻完成。
         oss2.models.RESTORE_TIER_STANDARD: 5小时之内解冻完成。
         oss2.models.RESTORE_TIER_BULK: 10小时之内解冻完成。
@@ -1970,7 +1983,7 @@ class RestoreConfiguration(object):
 
     :param job_parameters: 解冻优先级配置, 解冻冷归档（ColdArchive）类型的文件才需要此配置。如果不配置此项，
             解冻优先级默认为 oss2.models.RESTORE_TIER_STANDARD: 5小时之内解冻完成。
-    :type job_parameters: class:`ResotreJobParameters <oss2.models.ResotreJobParameters>`
+    :type job_parameters: class:`RestoreJobParameters <oss2.models.RestoreJobParameters>`
     """
     def __init__(self, days, job_parameters=None):
         self.days = days
