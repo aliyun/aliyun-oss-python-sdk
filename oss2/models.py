@@ -1975,3 +1975,29 @@ class RestoreConfiguration(object):
     def __init__(self, days, job_parameters=None):
         self.days = days
         self.job_parameters = job_parameters
+
+
+class InitBucketWormResult(RequestResult):
+    """创建合规保留策略的返回结果
+
+    :param str worm_id: 合规保留策略的id
+    """
+    def __init__(self, resp):
+        super(InitBucketWormResult, self).__init__(resp)
+        self.worm_id = None
+
+class GetBucketWormResult(RequestResult):
+    """获取合规保留策略的返回结果
+
+    :param str worm_id: 合规保留策略的id
+    """
+    def __init__(self, resp):
+        super(GetBucketWormResult, self).__init__(resp)
+        # 合规保留策略的id
+        self.worm_id = None
+        # 合规保留策略的状态
+        self.worm_state = None
+        # object的保留天数
+        self.retention_period_days = None
+        # 合规保留策略的创建日期
+        self.creation_date = None

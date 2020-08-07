@@ -389,6 +389,9 @@ class Bucket(_Base):
     INVENTORY = "inventory"
     INVENTORY_CONFIG_ID = "inventoryId"
     CONTINUATION_TOKEN = "continuation-token"
+    WORM = "worm"
+    WORM_ID = "wormId"
+    WORM_EXTEND = "wormExtend"
 
     def __init__(self, auth, endpoint, bucket_name,
                  is_cname=False,
@@ -2330,6 +2333,77 @@ class Bucket(_Base):
         logger.debug("Delete bucket inventory configuration, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return RequestResult(resp)
+
+
+    def init_bucket_worm(self, retention_period_days=None):
+        """创建一条合规保留策略
+
+        :param int retention_period_days : 指定object的保留天数
+        :return: :class:`InitBucketWormResult <oss2.models.InitBucketWormResult>`
+        """
+        logger.debug("Start to init bucket worm, bucket: {0}, retention_period_days: {1}."
+                     .format(self.bucket_name, retention_period_days))
+        data = xml_utils.to_put_init_bucket_worm(retention_period_days)
+        headers = http.CaseInsensitiveDict()
+        headers['Content-MD5'] = utils.content_md5(data)
+        resp = self.__do_bucket('POST', data=data, params={Bucket.WORM: ''}, headers=headers)
+        logger.debug("init bucket worm done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        result = InitBucketWormResult(resp)
+        result.worm_id = resp.headers.get("x-oss-worm-id")
+        return result
+
+    def abort_bucket_worm(self):
+        """删除一条合规保留策略
+        只有未锁定保留策略的状态下才能删除，一旦锁定bucket数据将处于保护状态。
+
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to abort bucket worm, bucket: {0}.".format(self.bucket_name))
+        resp = self.__do_bucket('DELETE', params={Bucket.WORM: ''})
+        logger.debug("abort bucket worm done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return RequestResult(resp)
+
+    def complete_bucket_worm(self, worm_id=None):
+        """锁定一条合规保留策略
+
+        :param str worm_id : 合规保留策略的id。
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to complete bucket worm, bucket: {0}, worm_id: {1}.".format(self.bucket_name, worm_id))
+        resp = self.__do_bucket('POST', params={Bucket.WORM_ID: worm_id})
+        logger.debug("complete bucket worm done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return RequestResult(resp)
+
+    def extend_bucket_worm(self, worm_id=None, retention_period_days=None):
+        """延长已经锁定的合规保留策略的object保护天数。
+
+        :param str worm_id : 合规保留策略的id。
+        :param int retention_period_days : 指定object的保留天数
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        data = xml_utils.to_put_extend_bucket_worm(retention_period_days)
+        headers = http.CaseInsensitiveDict()
+        headers['Content-MD5'] = utils.content_md5(data)
+        logger.debug("Start to extend bucket worm, bucket: {0}, worm_id: {1}, retention_period_days."
+                     .format(self.bucket_name, worm_id, retention_period_days))
+        resp = self.__do_bucket('POST', data=data, params={Bucket.WORM_ID: worm_id, Bucket.WORM_EXTEND: ''}, headers=headers)
+        logger.debug("extend bucket worm done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return RequestResult(resp)
+
+    def get_bucket_worm(self, ):
+        """获取合规保留策略
+
+        :return: :class:`GetBucketWormResult <oss2.models.GetBucketWormResult>`
+        """
+        logger.debug("Start to get bucket worm, bucket: {0}.".format(self.bucket_name))
+        resp = self.__do_bucket('GET', params={Bucket.WORM: ''})
+        logger.debug("get bucket worm done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_get_bucket_worm_result, GetBucketWormResult)
 
     def _get_bucket_config(self, config):
         """获得Bucket某项配置，具体哪种配置由 `config` 指定。该接口直接返回 `RequestResult` 对象。
