@@ -290,6 +290,19 @@ class PartNotSequential(ServerError):
     status = 400
     code = 'PartNotSequential'
 
+class NoSuchWORMConfiguration(ServerError):
+    status = 404
+    code = 'NoSuchWORMConfiguration'
+
+class WORMConfigurationLocked(ServerError):
+    status = 403
+    code = 'WORMConfigurationLocked'
+
+class InvalidWORMConfiguration(ServerError):
+    status = 400
+    code = 'InvalidWORMConfiguration'
+
+
 def make_exception(resp):
     status = resp.status
     headers = resp.headers
