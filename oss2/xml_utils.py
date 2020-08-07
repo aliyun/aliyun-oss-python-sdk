@@ -1545,3 +1545,20 @@ def to_put_restore_config(restore_config):
             _add_text_child(job_parameters_node, 'Tier', job_parameters.tier)
 
     return _node_to_string(root)
+
+def parse_get_bucket_worm_result(result, body):
+    root = ElementTree.fromstring(body)
+    result.worm_id = _find_tag(root, "WormId")
+    result.state = _find_tag(root, "State")
+    result.retention_period_days = _find_int(root, "RetentionPeriodInDays")
+    result.creation_date = _find_tag(root, "CreationDate")
+
+def to_put_extend_bucket_worm(retention_period_days):
+    root = ElementTree.Element('ExtendWormConfiguration')
+    _add_text_child(root, 'RetentionPeriodInDays', str(retention_period_days))
+    return _node_to_string(root)
+
+def to_put_init_bucket_worm(retention_period_days):
+    root = ElementTree.Element('InitiateWormConfiguration')
+    _add_text_child(root, 'RetentionPeriodInDays', str(retention_period_days))
+    return _node_to_string(root)
