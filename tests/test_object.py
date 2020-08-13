@@ -1423,6 +1423,15 @@ class TestObject(OssTestCase):
             b_str = newstr.encode('iso-8859-1')
         self.assertEqual(to_string(b_str), value)
 
+    def test_with_get_object_result(self):
+        key = 'test-with-get-object-result'
+        content = b'123'
+        self.bucket.put_object(key, content)
+        result = self.bucket.get_object(key)
+        with result as f:
+            data = f.read()
+            self.assertEqual(content, data)
+
     
 class TestSign(TestObject):
     """

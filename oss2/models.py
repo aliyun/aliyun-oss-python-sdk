@@ -314,7 +314,13 @@ class GetObjectResult(HeadObjectResult):
 
     def __iter__(self):
         return iter(self.stream)
-    
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
     @property
     def client_crc(self):
         if self.__crc_enabled:
@@ -336,6 +342,12 @@ class SelectObjectResult(HeadObjectResult):
     
     def __next__(self):
         return self.select_resp.next()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
 
 class PutObjectResult(RequestResult):
     def __init__(self, resp):
