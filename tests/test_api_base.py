@@ -35,6 +35,11 @@ class TestApiBase(OssTestCase):
         bucket_name = random_string(64)
         self.assertRaises(oss2.exceptions.ClientError, oss2.Bucket, oss2.AnonymousAuth(), OSS_ENDPOINT, bucket_name)
 
+    def test_invalid_endpoint(self):
+        oss2.Bucket(oss2.AnonymousAuth(), " " + OSS_ENDPOINT + " ", 'test-bucket')
+        self.assertRaises(oss2.exceptions.ClientError, oss2.Bucket, oss2.AnonymousAuth(), OSS_ENDPOINT + '\\',
+                          'test-bucket')
+
     def test_whitespace(self):
         bucket = oss2.Bucket(oss2.Auth(OSS_ID, ' ' + OSS_SECRET + ' '), OSS_ENDPOINT, OSS_BUCKET)
         bucket.get_bucket_acl()

@@ -62,6 +62,16 @@ class TestUtils(OssTestCase):
         self.assertRaises(oss2.exceptions.ClientError, oss2.Bucket, oss2.Auth(access_key_id, access_key_secret), 
             endpoint, bucket_name)
 
+    def test_is_valid_endpoint(self):
+        from oss2 import utils
+        endpoint = 'oss-cn-shenzhen.aliyuncs.com'
+        self.assertTrue(utils.is_valid_endpoint('http://' + endpoint))
+        self.assertTrue(utils.is_valid_endpoint('https://' + endpoint))
+        self.assertTrue(utils.is_valid_endpoint('http://' + endpoint + '_'))
+        self.assertFalse(utils.is_valid_endpoint('http://' + endpoint + '\\'))
+        self.assertFalse(utils.is_valid_endpoint('://' + endpoint))
+        self.assertFalse(utils.is_valid_endpoint('https://www.abc.com\www.aliyun.com?x=123'))
+
     def test_compat(self):
         # from unicode
         u = u'中文'
