@@ -34,7 +34,7 @@ from Crypto import Random
 from Crypto.Util import Counter
 
 from .crc64_combine import mkCombineFun
-from .compat import to_string, to_bytes
+from .compat import to_string, to_bytes, urlparse
 from .exceptions import ClientError, InconsistentError, RequestError, OpenApiFormatError
 from . import defaults
 
@@ -147,6 +147,17 @@ def is_valid_bucket_name(name):
         return False
 
     return set(name) <= _BUCKET_NAME_CHARS
+
+def is_valid_endpoint(endpoint):
+    """判断是否为合法的endpoint"""
+    if endpoint is None:
+        return False
+
+    pattern = '^([a-zA-Z]+://)?[\w.-]+(:\d+)?$'
+    if re.match(pattern, endpoint):
+        return True
+
+    return False
 
 def change_endianness_if_needed(bytes_array):
     if sys.byteorder == 'little':
