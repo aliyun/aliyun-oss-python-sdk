@@ -203,7 +203,7 @@ class TestSelectJsonObject(OssTestCase):
         try:
             for chunk in result:
                 content += chunk
-        except ServerError:
+        except oss2.exceptions.ServerError:
             print("expected error occurs")
         
         self.assertEqual(content, '{\"key\":\"abc\"}\n{}\n'.encode('utf-8'))
@@ -238,7 +238,7 @@ class TestSelectJsonObject(OssTestCase):
         format = {'Json_Type':'invalid', 'CompressionType':'None', 'OverwriteifExists':'True'}
         try:
             self.bucket.create_select_object_meta(key, format)
-            self.assertFalse(true, "expected error did not occur")
+            self.assertFalse(True, "expected error did not occur")
         except SelectOperationClientError:
             print("expected error occured")
 

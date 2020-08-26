@@ -312,9 +312,18 @@ class GetObjectResult(HeadObjectResult):
     def read(self, amt=None):
         return self.stream.read(amt)
 
+    def close(self):
+        self.resp.response.close()
+
     def __iter__(self):
         return iter(self.stream)
-    
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
     @property
     def client_crc(self):
         if self.__crc_enabled:
@@ -330,12 +339,21 @@ class SelectObjectResult(HeadObjectResult):
 
     def read(self):
         return self.select_resp.read()
+
+    def close(self):
+        self.resp.response.close()
         
     def __iter__(self):
         return iter(self.select_resp)
     
     def __next__(self):
         return self.select_resp.next()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
 
 class PutObjectResult(RequestResult):
     def __init__(self, resp):

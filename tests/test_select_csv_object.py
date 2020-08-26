@@ -334,13 +334,45 @@ class TestSelectCsvObject(OssTestCase):
 
             self.assertTrue(len(content) > 0)
 
+    def test_with_select_result(self):
+        key = "city_sample_data.csv"
+        self.bucket.put_object_from_file(key, 'tests/sample_data.csv')
+        self.bucket.create_select_object_meta(key)
+
+        input_formats = [
+            {'SplitRange': (None, None)},
+            {'LineRange': (None, None)},
+            {'SplitRange': None},
+            {'LineRange': None}
+        ]
+
+        for input_format in input_formats:
+            result1 = self.bucket.select_object(key, "select * from ossobject", None, input_format)
+            content1 = b''
+            for chunk in result1:
+                content1 += chunk
+            self.assertTrue(len(content1) > 0)
+
+            result2 = self.bucket.select_object(key, "select * from ossobject", None, input_format)
+            content2 = b''
+            with result2 as f:
+                for chunk in f:
+                    content2 += chunk
+            self.assertEqual(content1, content2)
+
+            result3 = self.bucket.select_object(key, "select * from ossobject", None, input_format)
+            with result3 as f:
+                pass
+            content3 = result3.read()
+            self.assertEqual(0, len(content3))
+
     def test_create_csv_object_meta_invalid_request(self):
         key = "city_sample_data.csv"
         self.bucket.put_object_from_file(key, 'tests/sample_data.csv')
         format = {'CompressionType':'GZIP'}
         try:
             self.bucket.create_select_object_meta(key, format)
-            self.assertFalse(true, "expected error did not occur")
+            self.assertFalse(True, "expected error did not occur")
         except oss2.exceptions.ServerError :
             print("expected error occured")
 
@@ -350,7 +382,7 @@ class TestSelectCsvObject(OssTestCase):
         format = {'invalid_type':'value', 'CompressionType':'GZIP'}
         try:
             self.bucket.create_select_object_meta(key, format)
-            self.assertFalse(true, "expected error did not occur")
+            self.assertFalse(True, "expected error did not occur")
         except SelectOperationClientError:
             print("expected error occured")
 
