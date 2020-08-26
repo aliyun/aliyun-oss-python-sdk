@@ -35,6 +35,48 @@ class TestApiBase(OssTestCase):
         bucket_name = random_string(64)
         self.assertRaises(oss2.exceptions.ClientError, oss2.Bucket, oss2.AnonymousAuth(), OSS_ENDPOINT, bucket_name)
 
+    def test_check_endpoint1(self):
+        from oss2.api import _normalize_endpoint
+
+        endpoint = 'www.aliyuncs.com'
+        oss2.Bucket(oss2.AnonymousAuth(), endpoint, 'test-bucket')
+
+    def test_check_endpoint(self):
+        from oss2.api import _normalize_endpoint
+
+        endpoint = 'www.aliyuncs.com/?x=123#segemnt '
+        oss2.Bucket(oss2.AnonymousAuth(), endpoint, 'test-bucket')
+        normalized_endpoint = _normalize_endpoint(endpoint)
+        self.assertEqual('http://www.aliyuncs.com', normalized_endpoint)
+
+        endpoint = 'http://www.aliyuncs.com/?x=123#segemnt '
+        oss2.Bucket(oss2.AnonymousAuth(), endpoint, 'test-bucket')
+        normalized_endpoint = _normalize_endpoint(endpoint)
+        self.assertEqual('http://www.aliyuncs.com', normalized_endpoint)
+
+        endpoint = 'http://192.168.1.1:3182/?x=123#segemnt '
+        oss2.Bucket(oss2.AnonymousAuth(), endpoint, 'test-bucket')
+        normalized_endpoint = _normalize_endpoint(endpoint)
+        self.assertEqual('http://192.168.1.1:3182', normalized_endpoint)
+
+        endpoint = 'http://www.aliyuncs.com:80/?x=123#segemnt '
+        oss2.Bucket(oss2.AnonymousAuth(), endpoint, 'test-bucket')
+        normalized_endpoint = _normalize_endpoint(endpoint)
+        self.assertEqual('http://www.aliyuncs.com:80', normalized_endpoint)
+
+        endpoint = 'https://www.aliyuncs.com:443/?x=123#segemnt'
+        oss2.Bucket(oss2.AnonymousAuth(), endpoint, 'test-bucket')
+        normalized_endpoint = _normalize_endpoint(endpoint)
+        self.assertEqual('https://www.aliyuncs.com:443', normalized_endpoint)
+
+        endpoint = 'https://www.aliyuncs.com:443'
+        oss2.Bucket(oss2.AnonymousAuth(), endpoint, 'test-bucket')
+        normalized_endpoint = _normalize_endpoint(endpoint)
+        self.assertEqual('https://www.aliyuncs.com:443', normalized_endpoint)
+
+        self.assertRaises(oss2.exceptions.ClientError, oss2.Bucket, oss2.AnonymousAuth(), OSS_ENDPOINT + '\\',
+                          'test-bucket')
+
     def test_whitespace(self):
         bucket = oss2.Bucket(oss2.Auth(OSS_ID, ' ' + OSS_SECRET + ' '), OSS_ENDPOINT, OSS_BUCKET)
         bucket.get_bucket_acl()

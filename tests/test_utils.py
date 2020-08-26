@@ -62,6 +62,24 @@ class TestUtils(OssTestCase):
         self.assertRaises(oss2.exceptions.ClientError, oss2.Bucket, oss2.Auth(access_key_id, access_key_secret), 
             endpoint, bucket_name)
 
+    def test_is_valid_endpoint(self):
+        from oss2 import utils
+        self.assertTrue(utils.is_valid_endpoint('oss-cn-shenzhen.aliyuncs.com'))
+        self.assertTrue(utils.is_valid_endpoint('http://www.aliyun_cs.com'))
+        self.assertTrue(utils.is_valid_endpoint('http://www.aliyun_cs.com:80'))
+        self.assertTrue(utils.is_valid_endpoint('https://www.aliyuncs.com'))
+        self.assertTrue(utils.is_valid_endpoint('http://192.168.1.1'))
+        self.assertTrue(utils.is_valid_endpoint('http://192.168.1.1:3182'))
+        self.assertTrue(utils.is_valid_endpoint('ftp://www.aliyuncs.com:21'))
+        self.assertTrue(utils.is_valid_endpoint('192.168.1.1:80'))
+        self.assertTrue(utils.is_valid_endpoint('www.aliyun_cs.com:80'))
+
+        self.assertFalse(utils.is_valid_endpoint(None))
+        self.assertFalse(utils.is_valid_endpoint(''))
+        self.assertFalse(utils.is_valid_endpoint('www.aliyuncs.com:'))
+        self.assertFalse(utils.is_valid_endpoint('http://192.168.1.1:318r'))
+        self.assertFalse(utils.is_valid_endpoint('www.aliyuncs.com\\www.test.com'))
+
     def test_compat(self):
         # from unicode
         u = u'中文'
