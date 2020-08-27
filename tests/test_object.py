@@ -859,7 +859,7 @@ class TestObject(OssTestCase):
         self.assertEqual(content, content_got)
 
     def test_invalid_object_name(self):
-        key = '/invalid-object-name'
+        key = '\invalid-object-name'
         content = random_bytes(16)
 
         self.assertRaises(oss2.exceptions.InvalidObjectName, self.bucket.put_object, key, content)

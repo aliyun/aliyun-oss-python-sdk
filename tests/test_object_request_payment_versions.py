@@ -12,7 +12,7 @@ from oss2.models import (PAYER_REQUESTER,
 class TestObjectRequestPaymentVersions(OssTestCase):
     def setUp(self):
         OssTestCase.setUp(self)
-        self.endpoint = "http://oss-ap-south-1.aliyuncs.com"
+        self.endpoint = OSS_ENDPOINT
         bucket_name = OSS_BUCKET + "-test-request-payment-versionging"
 
         policy_text = ''

@@ -13,7 +13,7 @@ from oss2.models import (AsyncFetchTaskConfiguration, ASYNC_FETCH_TASK_STATE_SUC
 class TestAsyncFetchTask(OssTestCase):
     def setUp(self):
         OssTestCase.setUp(self)
-        self.endpoint = "http://oss-ap-south-1.aliyuncs.com"
+        self.endpoint = OSS_ENDPOINT
 
         self.fetch_object_name = 'test-async-fetch-task.txt'
         self.bucket.put_object(self.fetch_object_name, '123')

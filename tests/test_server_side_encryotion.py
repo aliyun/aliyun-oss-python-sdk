@@ -12,7 +12,7 @@ from oss2 import determine_part_size, SizedFileAdapter
 class TestSSEDataEncryption(OssTestCase):
     def setUp(self):
         OssTestCase.setUp(self)
-        self.endpoint = 'oss-ap-southeast-5.aliyuncs.com'
+        self.endpoint = OSS_ENDPOINT
 
     def test_put_bucket_encryption(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)

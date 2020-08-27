@@ -24,7 +24,7 @@ from oss2.models import (InventoryConfiguration,
 class TestBucketInventory(OssTestCase):
     def setUp(self):
         OssTestCase.setUp(self)
-        self.endpoint = "http://oss-ap-southeast-2.aliyuncs.com"
+        self.endpoint = OSS_ENDPOINT
         bucket_name = OSS_BUCKET + "-test-inventory"
         self.bucket1 = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), self.endpoint, bucket_name)
         self.bucket1.create_bucket()

@@ -21,7 +21,7 @@ from oss2.models import (BucketVersioningConfig,
 class TestLifecycleVersioning(OssTestCase):
     def setUp(self):
         OssTestCase.setUp(self)
-        self.endpoint = "http://oss-ap-south-1.aliyuncs.com"
+        self.endpoint = OSS_ENDPOINT
 
     def test_lifecycle_without_versioning(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)

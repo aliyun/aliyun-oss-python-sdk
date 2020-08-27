@@ -11,7 +11,7 @@ from oss2 import to_string
 class TestObjectVersioning(OssTestCase):
     def setUp(self):
         OssTestCase.setUp(self)
-        self.endpoint = "http://oss-ap-south-1.aliyuncs.com"
+        self.endpoint = OSS_ENDPOINT
 
     def test_resumable_download_with_version(self):
 

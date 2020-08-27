@@ -6,7 +6,7 @@ from .common import *
 class TestIteratorV2(OssTestCase):
     def setUp(self):
         OssTestCase.setUp(self)
-        self.endpoint = 'http://oss-ap-southeast-2.aliyuncs.com'
+        self.endpoint = OSS_ENDPOINT
 
     def test_normal_list_objects(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
