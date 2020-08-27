@@ -11,7 +11,7 @@ from oss2 import to_string
 class TestBucketVersioning(OssTestCase):
     def setUp(self):
         OssTestCase.setUp(self)
-        self.endpoint = "http://oss-ap-south-1.aliyuncs.com"
+        self.endpoint = OSS_ENDPOINT
 
     def test_bucket_versioning_wrong(self):
 
