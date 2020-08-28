@@ -309,7 +309,7 @@ class TestObject(OssTestCase):
         content_got = b''
 
         for chunk in result:
-            content_got += oss2.to_bytes(chunk)
+            content_got += chunk
 
         self.assertEqual(len(content), len(content_got))
         self.assertEqual(content, content_got)

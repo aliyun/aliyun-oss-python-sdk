@@ -416,7 +416,7 @@ class _FileLikeAdapter(object):
         if not content:
             self.read_all = True
             _invoke_progress_callback(self.progress_callback, self.offset, None)
-            return ''
+            return to_bytes('')
         else:
             _invoke_progress_callback(self.progress_callback, self.offset, None)
 
@@ -488,7 +488,7 @@ class _BytesAndFileAdapter(object):
 
     def read(self, amt=None):
         if self.offset >= self.size:
-            return ''
+            return to_bytes('')
 
         if amt is None or amt < 0:
             bytes_to_read = self.size - self.offset
