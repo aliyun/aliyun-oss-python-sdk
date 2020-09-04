@@ -3,6 +3,16 @@ OSS SDK for Python 版本记录
 
 Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
+Version 2.13.0
+-------------
+- 增加：支持 bucket worm
+- 增加：get_object 和 select_object 返回的对象支持 'with' 操作
+- 优化：断点上传接口支持设置ACL参数
+- 优化: 修复 python3.8 上的兼容性问题
+- 优化: 增加 endpoint 强检查
+- 优化: 签名URL支持 callback 和 callback-var 参数
+
+
 Version 2.12.1
 -------------
 - 增加：添加six依赖包
