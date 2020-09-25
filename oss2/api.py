@@ -394,6 +394,10 @@ class Bucket(_Base):
     WORM = "worm"
     WORM_ID = "wormId"
     WORM_EXTEND = "wormExtend"
+    REPLICATION = "replication"
+    REPLICATION_LOCATION = 'replicationLocation'
+    REPLICATION_PROGRESS = 'replicationProgress'
+
 
     def __init__(self, auth, endpoint, bucket_name,
                  is_cname=False,
@@ -2396,7 +2400,7 @@ class Bucket(_Base):
 
         return RequestResult(resp)
 
-    def get_bucket_worm(self, ):
+    def get_bucket_worm(self):
         """获取合规保留策略
 
         :return: :class:`GetBucketWormResult <oss2.models.GetBucketWormResult>`
@@ -2406,6 +2410,70 @@ class Bucket(_Base):
         logger.debug("get bucket worm done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return self._parse_result(resp, xml_utils.parse_get_bucket_worm_result, GetBucketWormResult)
+
+    def put_bucket_replication(self, rule):
+        """设置bucket跨区域复制规则
+
+        :param rule :class:`ReplicationRule <oss2.models.ReplicationRule>`
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to put bucket replication: {0}".format(self.bucket_name))
+        data = xml_utils.to_put_bucket_replication(rule)
+        headers = http.CaseInsensitiveDict()
+        headers['Content-MD5'] = utils.content_md5(data)
+        resp = self.__do_bucket('POST', data=data, params={Bucket.REPLICATION: '', 'comp': 'add'}, headers=headers)
+        logger.debug("Put bucket replication done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return RequestResult(resp)
+
+    def get_bucket_replication(self):
+        """获取bucket跨区域复制规则
+
+        :return: :class:`GetBucketReplicationResult <oss2.models.GetBucketReplicationResult>`
+        """
+        logger.debug("Start to get bucket replication: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('GET', params={Bucket.REPLICATION: ''})
+        logger.debug("Get bucket replication done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_get_bucket_replication_result, GetBucketReplicationResult)
+
+    def delete_bucket_replication(self, rule_id):
+        """停止Bucket的跨区域复制并删除Bucket的复制配置
+        :param str rule_id: Bucket跨区域复制规则的id。
+
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to delete bucket replication: {0}".format(self.bucket_name))
+        data = xml_utils.to_delete_bucket_replication(rule_id)
+        headers = http.CaseInsensitiveDict()
+        headers['Content-MD5'] = utils.content_md5(data)
+        resp = self.__do_bucket('POST', data=data, params={Bucket.REPLICATION: '', 'comp': 'delete'}, headers=headers)
+        logger.debug("Delete bucket replication done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return RequestResult(resp)
+
+    def get_bucket_replication_location(self):
+        """获取可复制到的Bucket所在的地域
+
+        :return: :class:`ReplicationLocation <oss2.models.GetBucketReplicationLocationResult>`
+        """
+        logger.debug("Start to get bucket replication location: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('GET',  params={Bucket.REPLICATION_LOCATION: ''})
+        logger.debug("Get bucket replication location done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_get_bucket_replication_location_result, GetBucketReplicationLocationResult)
+
+    def get_bucket_replication_progress(self, rule_id):
+        """获取获取某个Bucket的跨区域复制进度
+
+        :param str rule_id: Bucket跨区域复制规则的id。
+        :return: :class:`GetBucketReplicationProgressResult <oss2.models.GetBucketReplicationProgressResult>`
+        """
+        logger.debug("Start to get bucket replication progress: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('GET',  params={Bucket.REPLICATION_PROGRESS: '', 'rule-id': rule_id})
+        logger.debug("Get bucket replication progress done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_get_bucket_replication_progress_result, GetBucketReplicationProgressResult)
 
     def _get_bucket_config(self, config):
         """获得Bucket某项配置，具体哪种配置由 `config` 指定。该接口直接返回 `RequestResult` 对象。
