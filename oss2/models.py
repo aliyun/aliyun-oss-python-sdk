@@ -2032,3 +2032,146 @@ class GetBucketWormResult(RequestResult):
         self.retention_period_days = None
         # 合规保留策略的创建日期
         self.creation_date = None
+
+
+class ReplicationRule(object):
+    """创建Bucket指定跨区域复制规则
+
+    :param str rule_id: 规则ID。
+    :param str target_bucket_name: 目的地Bucket名称。
+    :param str target_bucket_location: 目的地Bucket所处地域。
+    :param str target_transfer_type: 跨区域复制时使用的数据链路。
+    :param list prefix_list: 待复制Object的前缀，只有匹配该前缀的Object才会被复制。
+    :param list action_list: 新写入的数据与历史数据需要遵循的Action类型, 其中"ALL" 表示"PUT", "ABORT"与"DELETE"操作。
+            均会被同步到Bucket，"PUT"表示同步到目标Bucket的写入操作。
+    :param bool is_enable_historical_object_replication: 指定是否复制历史数据。
+    :param str sync_role_name: 授权OSS使用哪个角色来进行数据复制。如果指定使用SSE-KMS加密目标对象，则必须指定sync_role。
+    :param str replica_kms_keyid: 指定SSE-KMS密钥ID。
+    :param str sse_kms_encrypted_objects_status: 指定OSS是否复制通过SSE-KMS加密创建的对象。
+            取值范围[ReplicationRule.ENABLED, ReplicationRule.DISABLED]。
+    :param str status: 复制状态，由服务端赋值，可能为:starting, doing 或closing。
+    """
+
+    ENABLED = 'Enabled'
+    DISABLED = 'Disabled'
+    ALL = 'ALL'
+    PUT = 'PUT'
+    DELETE = 'DELETE'
+    ABORT = 'ABORT'
+
+    STARTING = 'starting'
+    DOING = 'doing'
+    CLOSING = 'closing'
+
+    def __init__(self,
+                 rule_id=None,
+                 target_bucket_name=None,
+                 target_bucket_location=None,
+                 target_transfer_type=None,
+                 prefix_list=None,
+                 action_list=None,
+                 is_enable_historical_object_replication=None,
+                 sync_role_name=None,
+                 replica_kms_keyid=None,
+                 sse_kms_encrypted_objects_status=None,
+                 status=None):
+        self.rule_id = rule_id
+        self.target_bucket_name = target_bucket_name
+        self.target_bucket_location = target_bucket_location
+        self.target_transfer_type = target_transfer_type
+        self.prefix_list = prefix_list or []
+        self.action_list = action_list or []
+        if is_enable_historical_object_replication is not None and not isinstance(is_enable_historical_object_replication, bool):
+            raise ClientError('is_enable_historical_object_replication should be instance of bool.')
+        self.is_enable_historical_object_replication = is_enable_historical_object_replication
+        self.sync_role_name = sync_role_name
+        self.replica_kms_keyid = replica_kms_keyid
+        if sse_kms_encrypted_objects_status is not None and sse_kms_encrypted_objects_status not in [self.ENABLED, self.DISABLED]:
+            raise ClientError('sse_kms_encrypted_objects_status should be "Enabled" or "Disabled".')
+        self.sse_kms_encrypted_objects_status = sse_kms_encrypted_objects_status
+        self.status = status
+
+class BucketReplicationProgress(object):
+    """Bucket跨区域复制进度
+
+    :param str rule_id: 规则ID。
+    :param str target_bucket_name: 目的地Bucket名称。
+    :param str target_bucket_location: 目的地Bucket所处地域。
+    :param str target_transfer_type: 跨区域复制时使用的数据链路。
+    :param list prefix_list: 待复制Object的前缀，只有匹配该前缀的Object才会被复制。
+    :param list action_list: 新写入的数据与历史数据需要遵循的Action类型, 其中"ALL" 表示"PUT", "ABORT"与"DELETE"操作。
+            均会被同步到Bucket，"PUT"表示同步到目标Bucket的写入操作。
+    :param bool is_enable_historical_object_replication: 指定是否复制历史数据。
+    :param str status: 复制状态，可能为starting, doing 或closing。
+    :param float historical_object_progress: 已复制历史数据的百分比。
+    :param str new_object_progress: 数据复制到目标Bucket的时间点。
+            例如Thu, 24 Sep 2015 15:39:18 GMT，表示早于这个时间点写入的数据都已复制到目标Bucket。
+    """
+    def __init__(self,
+                 rule_id=None,
+                 target_bucket_name=None,
+                 target_bucket_location=None,
+                 target_transfer_type=None,
+                 prefix_list=None,
+                 action_list=None,
+                 is_enable_historical_object_replication=None,
+                 status=None,
+                 historical_object_progress=None,
+                 new_object_progress=None):
+        self.rule_id = rule_id
+        self.target_bucket_name = target_bucket_name
+        self.target_bucket_location = target_bucket_location
+        self.target_transfer_type = target_transfer_type
+        self.prefix_list = prefix_list or []
+        self.action_list = action_list or []
+        self.is_enable_historical_object_replication = is_enable_historical_object_replication
+        self.status = status
+        self.historical_object_progress = historical_object_progress or 0
+        self.new_object_progress = new_object_progress
+
+
+class LocationTransferType(object):
+    """包含TransferType到Location信息
+
+    :param str location: 可复制到的目标Bucket所在的地域。
+    :param str transfer_type: 跨区域复制时使用的数据传输类型。
+    """
+    def __init__(self):
+        self.location = None
+        self.transfer_type = None
+
+
+class GetBucketReplicationResult(RequestResult):
+    """获取Bucket跨区域复制规则的结果
+
+    :param rule_list: Bucket跨区域复制到规则集合，目前只允许配置一条规则，所以返回list大小最多为1。
+    :type rule_list:  list， 元素类型为class:`ReplicationRule <oss2.models.ReplicationRule>`。
+    """
+    def __init__(self, resp):
+        super(GetBucketReplicationResult, self).__init__(resp)
+        self.rule_list = []
+
+
+class GetBucketReplicationLocationResult(RequestResult):
+    """获取可复制到的目标存储空间（Bucket）所在的地域信息
+
+    :param location_list: 可复制到的目标Bucket所在的地域集合
+    :type location_list: list， 元素类型为str, 比如'oss-cn-beijing'
+    :param location_transfer_type_list: 包含TransferType到Location信息列表。
+    :type location_transfer_type_list: list, 元素类型为:class:`LocationTransferType <oss2.models.LocationTransferType>`。
+    """
+    def __init__(self, resp):
+        super(GetBucketReplicationLocationResult, self).__init__(resp)
+        self.location_list = []
+        self.location_transfer_type_list = []
+
+
+class GetBucketReplicationProgressResult(RequestResult):
+    """获取某个存储空间（Bucket）的跨区域复制进度结果。
+
+    :param progress: Bucket跨区域复制进度
+    :type progress: class:`BucketReplicationProgress <oss2.models.BucketReplicationProgress>`。
+    """
+    def __init__(self, resp):
+        super(GetBucketReplicationProgressResult, self).__init__(resp)
+        self.progress = None

@@ -57,7 +57,10 @@ from .models import (SimplifiedObjectInfo,
                      InventoryDestination, 
                      InventoryBucketDestination, 
                      InventoryServerSideEncryptionKMS,
-                     InventoryServerSideEncryptionOSS)
+                     InventoryServerSideEncryptionOSS,
+                     LocationTransferType,
+                     BucketReplicationProgress,
+                     ReplicationRule)
 
 from .select_params import (SelectJsonTypes, SelectParameters)
 
@@ -1562,3 +1565,132 @@ def to_put_init_bucket_worm(retention_period_days):
     root = ElementTree.Element('InitiateWormConfiguration')
     _add_text_child(root, 'RetentionPeriodInDays', str(retention_period_days))
     return _node_to_string(root)
+
+def to_put_bucket_replication(replication_config):
+    root = ElementTree.Element('ReplicationConfiguration')
+    rule = ElementTree.SubElement(root, 'Rule')
+    if replication_config.rule_id:
+        _add_text_child(rule, 'ID', replication_config.rule_id)
+
+    destination = ElementTree.SubElement(rule, 'Destination')
+    _add_text_child(destination, 'Bucket', replication_config.target_bucket_name)
+    _add_text_child(destination, 'Location', replication_config.target_bucket_location)
+
+    if replication_config.target_transfer_type:
+        _add_text_child(destination, 'TransferType', replication_config.target_transfer_type)
+
+    if replication_config.is_enable_historical_object_replication is False:
+        _add_text_child(rule, 'HistoricalObjectReplication', 'disabled')
+    else:
+        _add_text_child(rule, 'HistoricalObjectReplication', 'enabled')
+
+    if replication_config.prefix_list:
+        prefix_list_node = ElementTree.SubElement(rule, 'PrefixSet')
+        for prefix in replication_config.prefix_list:
+            _add_text_child(prefix_list_node, 'Prefix', prefix)
+
+    if replication_config.action_list:
+        actions = ''
+        for action in replication_config.action_list:
+            actions += action
+            actions += ','
+        actions = actions[:-1]
+        _add_text_child(rule, 'Action', actions)
+
+    if replication_config.sync_role_name:
+        _add_text_child(rule, 'SyncRole', replication_config.sync_role_name)
+
+    if replication_config.replica_kms_keyid:
+        encryption_config = ElementTree.SubElement(rule, 'EncryptionConfiguration')
+        _add_text_child(encryption_config, 'ReplicaKmsKeyID', replication_config.replica_kms_keyid)
+
+    if replication_config.sse_kms_encrypted_objects_status in ['Enabled', 'Disabled']:
+        criteria = ElementTree.SubElement(rule, 'SourceSelectionCriteria')
+        sse_kms_encrypted_objects = ElementTree.SubElement(criteria, 'SseKmsEncryptedObjects')
+        _add_text_child(sse_kms_encrypted_objects, 'Status', replication_config.sse_kms_encrypted_objects_status)
+
+    return _node_to_string(root)
+
+def to_delete_bucket_replication(rule_id):
+    root = ElementTree.Element('ReplicationRules')
+    _add_text_child(root, 'ID', rule_id)
+
+    return _node_to_string(root)
+
+def parse_get_bucket_replication_result(result, body):
+    root = ElementTree.fromstring(body)
+
+    for rule_node in root.findall("Rule"):
+        rule = ReplicationRule()
+        if rule_node.find("ID") is not None:
+            rule.rule_id = _find_tag(rule_node, "ID")
+
+        destination_node = rule_node.find("Destination")
+        rule.target_bucket_name = _find_tag(destination_node, "Bucket")
+        rule.target_bucket_location = _find_tag(destination_node, "Location")
+        rule.target_transfer_type = _find_tag_with_default(destination_node, "TransferType", None)
+
+        rule.status = _find_tag(rule_node, "Status")
+        rule.sync_role_name = _find_tag_with_default(rule_node, 'SyncRole', None)
+        rule.replica_kms_keyid = _find_tag_with_default(rule_node, 'EncryptionConfiguration/ReplicaKmsKeyID', None)
+        rule.sse_kms_encrypted_objects_status = _find_tag_with_default(rule_node, 'SourceSelectionCriteria/SseKmsEncryptedObjects/Status', None)
+
+        if _find_tag(rule_node, "HistoricalObjectReplication") == 'enabled':
+            rule.is_enable_historical_object_replication = True
+        else:
+            rule.is_enable_historical_object_replication = False
+
+        prefixes_node = rule_node.find('PrefixSet')
+        if prefixes_node is not None:
+            rule.prefix_list = _find_all_tags(prefixes_node, 'Prefix')
+
+        actions = _find_tag(rule_node, 'Action')
+        rule.action_list = actions.split(',')
+
+        result.rule_list.append(rule)
+
+def parse_get_bucket_replication_location_result(result, body):
+    root = ElementTree.fromstring(body)
+    result.location_list = _find_all_tags(root, "Location")
+
+    if root.find("LocationTransferTypeConstraint") is not None:
+        constraint_node = root.find("LocationTransferTypeConstraint")
+        for transfer_type_node in constraint_node.findall("LocationTransferType"):
+            location_transfer_type = LocationTransferType()
+            location_transfer_type.location = _find_tag_with_default(transfer_type_node, "Location", None)
+            location_transfer_type.transfer_type = _find_tag_with_default(transfer_type_node, "TransferTypes/Type", None)
+            result.location_transfer_type_list.append(location_transfer_type)
+
+def parse_get_bucket_replication_progress_result(result, body):
+    root = ElementTree.fromstring(body)
+
+    rule_node = root.find("Rule")
+    progress = BucketReplicationProgress()
+    progress.rule_id = _find_tag(rule_node, "ID")
+
+    destination_node = rule_node.find("Destination")
+    progress.target_bucket_name = _find_tag(destination_node, "Bucket")
+    progress.target_bucket_location = _find_tag(destination_node, "Location")
+    progress.target_transfer_type = _find_tag_with_default(destination_node, "TransferType", None)
+
+    progress.status = _find_tag(rule_node, "Status")
+
+    if _find_tag(rule_node, "HistoricalObjectReplication") == 'enabled':
+        progress.is_enable_historical_object_replication = True
+    else:
+        progress.is_enable_historical_object_replication = False
+
+    prefixes_node = rule_node.find('PrefixSet')
+    if prefixes_node is not None:
+        progress.prefix_list = _find_all_tags(prefixes_node, 'Prefix')
+
+    actions = _find_tag(rule_node, 'Action')
+    progress.action_list = actions.split(',')
+
+    historical_object_progress = _find_tag_with_default(rule_node, 'Progress/HistoricalObject', None)
+    if historical_object_progress is not None:
+        progress.historical_object_progress = float(historical_object_progress)
+    progress.new_object_progress = _find_tag_with_default(rule_node, 'Progress/NewObject', None)
+
+    result.progress = progress
+
