@@ -534,7 +534,8 @@ class Bucket(_Base):
 
         import oss2
         # bucket = oss2.Bucket(...)
-        for root, prefix_list, objects in a.walk(path):
+        # prefix = some folder
+        for root, prefix_list, objects in bucket.walk(prefix):
             print(root, "consumes ", end="")
             print(sum([obj.size for obj in objects]), end="")
             print(" bytes in", len(objects), " files")
