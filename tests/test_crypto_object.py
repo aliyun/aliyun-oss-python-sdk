@@ -11,6 +11,7 @@ from oss2 import headers
 
 from .common import *
 from .test_object import now
+from oss2.compat import to_bytes
 
 
 class TestCryptoObject(OssTestCase):
@@ -345,6 +346,40 @@ class TestCryptoObject(OssTestCase):
         provider_2.add_encryption_materials(encryption_materials)
         get_result = crypto_bucket_2.get_object(key)
         self.assertEqual(get_result.read(), content)
+
+    def test_put_object_chunked(self):
+        class FakeFileObj(object):
+            def __init__(self, data, size):
+                self.data = to_bytes(data)
+                self.offset = 0
+                self.size = size
+
+            def read(self, amt=None):
+                if self.offset >= self.size:
+                    return to_bytes('')
+
+                if amt is None or amt < 0:
+                    bytes_to_read = self.size - self.offset
+                else:
+                    bytes_to_read = min(amt, self.size - self.offset)
+
+                content = self.data[self.offset:self.offset + bytes_to_read]
+
+                self.offset += bytes_to_read
+
+                return content
+
+        object_name = 'test-put-file-like-object-chunked'
+
+        count = 1
+        while count <= 100:
+            count += 1
+            cnt = random.randint(count, 1024)
+            data = FakeFileObj(b'a' * cnt, count)
+            self.rsa_crypto_bucket.put_object(object_name + str(count) + '.txt', data)
+            get_result = self.rsa_crypto_bucket.get_object(object_name + str(count) + '.txt')
+            self.assertEqual(get_result.read(), b'a' * count)
+
 
     '''
     # 测试CryptoBucket类的Copy方法, 并使用"REPLACE"模式修改meta
