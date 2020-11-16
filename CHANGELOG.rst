@@ -3,6 +3,10 @@ OSS SDK for Python 版本记录
 
 Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
+Version 2.13.1
+-------------
+- 优化：修复 FileLikeAdapter 在chunked 上传场景的问题
+
 Version 2.13.0
 -------------
 - 增加：支持 bucket worm
