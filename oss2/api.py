@@ -1082,6 +1082,10 @@ class Bucket(_Base):
 
         :return: :class:`RequestResult <oss2.models.RequestResults>`
         """
+
+        if headers is not None:
+            headers[OSS_METADATA_DIRECTIVE] = 'REPLACE'
+
         logger.debug("Start to update object metadata, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
         return self.copy_object(self.bucket_name, key, key, headers=headers)
 

@@ -1025,6 +1025,57 @@ class TestObjectVersioning(OssTestCase):
         self.assertRaises(oss2.exceptions.ClientError, bucket.delete_object_versions, None)
         self.assertRaises(oss2.exceptions.ClientError, bucket.delete_object_versions, [])
 
+    def test_update_metadata_versioning(self):
+
+        object_name = "test-object"
+        # test normal bucket
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket_name = OSS_BUCKET + "-test-update-metadata"
+        bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
+
+        bucket.put_object(object_name, "123")
+        result = bucket.head_object(object_name)
+        self.assertEqual("application/octet-stream", result.content_type)
+
+        headers = {"Content-Type": "text/plain"}
+        bucket.update_object_meta(object_name, headers)
+        result = bucket.head_object(object_name)
+        self.assertEqual("text/plain", result.content_type)
+
+        headers = None
+        bucket.update_object_meta(object_name, headers)
+        result = bucket.head_object(object_name)
+        self.assertEqual("text/plain", result.content_type)
+
+
+        # test versioning bucket
+        from oss2.models import BucketVersioningConfig
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket_name = OSS_BUCKET + "-test-update-metadata-version"
+        bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
+        wait_meta_sync()
+
+        config = BucketVersioningConfig()
+        config.status = 'Enabled'
+        bucket.put_bucket_versioning(config)
+        wait_meta_sync()
+        result = bucket.get_bucket_info()
+        self.assertEqual(int(result.status) / 100, 2)
+        self.assertEqual(result.versioning_status, "Enabled")
+
+        result = bucket.put_object(object_name, "test1")
+        self.assertEqual(int(result.status) / 100, 2)
+        self.assertTrue(result.versionid != "")
+        result = bucket.head_object(object_name)
+        self.assertEqual("application/octet-stream", result.content_type)
+
+        headers = {"Content-Type": "text/plain"}
+        bucket.update_object_meta(object_name, headers)
+        result = bucket.head_object(object_name)
+        self.assertEqual("text/plain", result.content_type)
+
 
 if __name__ == '__main__':
     unittest.main()
