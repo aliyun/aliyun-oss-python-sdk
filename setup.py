@@ -31,7 +31,7 @@ setup(
                       'crcmod>=1.7',
                       'pycryptodome>=3.4.7',
                       'aliyun-python-sdk-kms>=2.4.1',
-                      'aliyun-python-sdk-core>=2.6.2' if sys.version_info[0] == 2 else 'aliyun-python-sdk-core-v3>=2.5.5',
+                      'aliyun-python-sdk-core>=2.6.2',
                       'six'],
     include_package_data=True,
     url='http://oss.aliyun.com',
