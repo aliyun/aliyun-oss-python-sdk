@@ -8,6 +8,7 @@ from . import utils
 from .compat import urlquote, to_bytes, is_py2
 from .headers import *
 import logging
+from .credentials import StaticCredentialsProvider
 
 AUTH_VERSION_1 = 'v1'
 AUTH_VERSION_2 = 'v2'
@@ -15,22 +16,28 @@ AUTH_VERSION_2 = 'v2'
 logger = logging.getLogger(__name__)
 
 
-def make_auth(access_key_id, access_key_secret, auth_version=AUTH_VERSION_1):
+def make_auth(access_key_id="", access_key_secret="", auth_version=AUTH_VERSION_1, security_token="", credentials_provider=None):
     if auth_version == AUTH_VERSION_2:
         logger.debug("Init Auth V2: access_key_id: {0}, access_key_secret: ******".format(access_key_id))
-        return AuthV2(access_key_id.strip(), access_key_secret.strip())
+        return AuthV2(access_key_id, access_key_secret, security_token, credentials_provider)
     else:
         logger.debug("Init Auth v1: access_key_id: {0}, access_key_secret: ******".format(access_key_id))
-        return Auth(access_key_id.strip(), access_key_secret.strip())
+        return Auth(access_key_id, access_key_secret, security_token, credentials_provider)
 
 
 class AuthBase(object):
     """用于保存用户AccessKeyId、AccessKeySecret，以及计算签名的对象。"""
-    def __init__(self, access_key_id, access_key_secret):
-        self.id = access_key_id.strip()
-        self.secret = access_key_secret.strip()
+    def __init__(self, access_key_id="", access_key_secret="", security_token="", credentials_provider=None):
+        if credentials_provider:
+            self.credentials_provider = credentials_provider
+        else:
+            self.credentials_provider = StaticCredentialsProvider(access_key_id.strip(), access_key_secret.strip(), security_token.strip())
 
     def _sign_rtmp_url(self, url, bucket_name, channel_name, expires, params):
+        credentials = self.credentials_provider.get_credentials()
+        if credentials.get_security_token():
+            params['security-token'] = credentials.get_security_token()
+
         expiration_time = int(time.time()) + expires
 
         canonicalized_resource = "/%s/%s" % (bucket_name, channel_name)
@@ -52,10 +59,10 @@ class AuthBase(object):
         logger.debug('Sign Rtmp url: string to be signed = {0}'.format(string_to_sign))
 
 
-        h = hmac.new(to_bytes(self.secret), to_bytes(string_to_sign), hashlib.sha1)
+        h = hmac.new(to_bytes(credentials.get_secret_access_key()), to_bytes(string_to_sign), hashlib.sha1)
         signature = utils.b64encode_as_string(h.digest())
 
-        p['OSSAccessKeyId'] = self.id
+        p['OSSAccessKeyId'] = credentials.get_access_key_id()
         p['Expires'] = str(expiration_time)
         p['Signature'] = signature
 
@@ -79,24 +86,32 @@ class Auth(AuthBase):
     )
 
     def _sign_request(self, req, bucket_name, key):
+        credentials = self.credentials_provider.get_credentials()
+        if credentials.get_security_token():
+            req.headers[OSS_SECURITY_TOKEN] = credentials.get_security_token()
+
         req.headers['date'] = utils.http_date()
 
-        signature = self.__make_signature(req, bucket_name, key)
-        req.headers['authorization'] = "OSS {0}:{1}".format(self.id, signature)
+        signature = self.__make_signature(req, bucket_name, key, credentials)
+        req.headers['authorization'] = "OSS {0}:{1}".format(credentials.get_access_key_id(), signature)
 
     def _sign_url(self, req, bucket_name, key, expires):
+        credentials = self.credentials_provider.get_credentials()
+        if credentials.get_security_token():
+            req.params['security-token'] = credentials.get_security_token()
+
         expiration_time = int(time.time()) + expires
 
         req.headers['date'] = str(expiration_time)
-        signature = self.__make_signature(req, bucket_name, key)
+        signature = self.__make_signature(req, bucket_name, key, credentials)
 
-        req.params['OSSAccessKeyId'] = self.id
+        req.params['OSSAccessKeyId'] = credentials.get_access_key_id()
         req.params['Expires'] = str(expiration_time)
         req.params['Signature'] = signature
 
         return req.url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in req.params.items())
 
-    def __make_signature(self, req, bucket_name, key):
+    def __make_signature(self, req, bucket_name, key, credentials):
         if is_py2:
             string_to_sign = self.__get_string_to_sign(req, bucket_name, key)
         else:
@@ -104,7 +119,7 @@ class Auth(AuthBase):
 
         logger.debug('Make signature: string to be signed = {0}'.format(string_to_sign))
 
-        h = hmac.new(to_bytes(self.secret), to_bytes(string_to_sign), hashlib.sha1)
+        h = hmac.new(to_bytes(credentials.get_secret_access_key()), to_bytes(string_to_sign), hashlib.sha1)
         return utils.b64encode_as_string(h.digest())
 
     def __get_string_to_sign(self, req, bucket_name, key):
@@ -213,27 +228,22 @@ class StsAuth(object):
 
     注意到临时凭证会在一段时间后过期，在此之前需要重新获取临时凭证，并更新 :class:`Bucket <oss2.Bucket>` 的 `auth` 成员变量为新
     的 `StsAuth` 实例。
-
     :param str access_key_id: 临时AccessKeyId
     :param str access_key_secret: 临时AccessKeySecret
     :param str security_token: 临时安全令牌(SecurityToken)
     :param str auth_version: 需要生成auth的版本，默认为AUTH_VERSION_1(v1)
     """
     def __init__(self, access_key_id, access_key_secret, security_token, auth_version=AUTH_VERSION_1):
-        logger.debug("Init StsAuth: access_key_id: {0}, access_key_secret: ******, security_token: ******".format(access_key_id))
-        self.__auth = make_auth(access_key_id, access_key_secret, auth_version)
-        self.__security_token = security_token
+        logger.debug("Init Auth: access_key_id: {0}, access_key_secret: ******, security_token: ******".format(access_key_id))
+        self.__auth = make_auth(access_key_id, access_key_secret, auth_version, security_token)
 
     def _sign_request(self, req, bucket_name, key):
-        req.headers[OSS_SECURITY_TOKEN] = self.__security_token
         self.__auth._sign_request(req, bucket_name, key)
 
     def _sign_url(self, req, bucket_name, key, expires):
-        req.params['security-token'] = self.__security_token
         return self.__auth._sign_url(req, bucket_name, key, expires)
 
     def _sign_rtmp_url(self, url, bucket_name, channel_name, expires, params):
-        params['security-token'] = self.__security_token
         return self.__auth._sign_rtmp_url(url, bucket_name, channel_name, expires, params)
 
 
@@ -282,6 +292,10 @@ class AuthV2(AuthBase):
         :param key: OSS文件名
         :param in_additional_headers: 加入签名计算的额外header列表
         """
+        credentials = self.credentials_provider.get_credentials()
+        if credentials.get_security_token():
+            req.headers[OSS_SECURITY_TOKEN] = credentials.get_security_token()
+
         if in_additional_headers is None:
             in_additional_headers = _DEFAULT_ADDITIONAL_HEADERS
 
@@ -289,13 +303,13 @@ class AuthV2(AuthBase):
 
         req.headers['date'] = utils.http_date()
 
-        signature = self.__make_signature(req, bucket_name, key, additional_headers)
+        signature = self.__make_signature(req, bucket_name, key, additional_headers, credentials)
 
         if additional_headers:
             req.headers['authorization'] = "OSS2 AccessKeyId:{0},AdditionalHeaders:{1},Signature:{2}"\
-                .format(self.id, ';'.join(additional_headers), signature)
+                .format(credentials.get_access_key_id(), ';'.join(additional_headers), signature)
         else:
-            req.headers['authorization'] = "OSS2 AccessKeyId:{0},Signature:{1}".format(self.id, signature)
+            req.headers['authorization'] = "OSS2 AccessKeyId:{0},Signature:{1}".format(credentials.get_access_key_id(), signature)
 
     def _sign_url(self, req, bucket_name, key, expires, in_additional_headers=None):
         """返回一个签过名的URL
@@ -310,6 +324,9 @@ class AuthV2(AuthBase):
 
         :return: a signed URL
         """
+        credentials = self.credentials_provider.get_credentials()
+        if credentials.get_security_token():
+            req.params['security-token'] = credentials.get_security_token()
 
         if in_additional_headers is None:
             in_additional_headers = set()
@@ -322,15 +339,15 @@ class AuthV2(AuthBase):
 
         req.params['x-oss-signature-version'] = 'OSS2'
         req.params['x-oss-expires'] = str(expiration_time)
-        req.params['x-oss-access-key-id'] = self.id
+        req.params['x-oss-access-key-id'] = credentials.get_access_key_id()
 
-        signature = self.__make_signature(req, bucket_name, key, additional_headers)
+        signature = self.__make_signature(req, bucket_name, key, additional_headers, credentials)
 
         req.params['x-oss-signature'] = signature
 
         return req.url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in req.params.items())
 
-    def __make_signature(self, req, bucket_name, key, additional_headers):
+    def __make_signature(self, req, bucket_name, key, additional_headers, credentials):
         if is_py2:
             string_to_sign = self.__get_string_to_sign(req, bucket_name, key, additional_headers)
         else:
@@ -338,7 +355,7 @@ class AuthV2(AuthBase):
 
         logger.debug('Make signature: string to be signed = {0}'.format(string_to_sign))
 
-        h = hmac.new(to_bytes(self.secret), to_bytes(string_to_sign), hashlib.sha256)
+        h = hmac.new(to_bytes(credentials.get_secret_access_key()), to_bytes(string_to_sign), hashlib.sha256)
         return utils.b64encode_as_string(h.digest())
 
     def __get_additional_headers(self, req, in_additional_headers):
@@ -426,7 +443,7 @@ class AuthV2(AuthBase):
             canonicalized_oss_headers +\
             additional_headers + b'\n' +\
             canonicalized_resource
-    
+
     def __get_canonicalized_oss_headers_bytes(self, req, additional_headers):
         """
         :param additional_headers: 小写的headers列表, 并且这些headers都不以'x-oss-'为前缀.
