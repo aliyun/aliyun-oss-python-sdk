@@ -3,9 +3,9 @@ __version__ = '2.13.1'
 from . import models, exceptions, defaults
 
 from .api import Service, Bucket
-from .auth import Auth, AuthV2, AnonymousAuth, StsAuth, AUTH_VERSION_1, AUTH_VERSION_2, make_auth
+from .auth import Auth, AuthV2, AnonymousAuth, StsAuth, AUTH_VERSION_1, AUTH_VERSION_2, make_auth, ProviderAuth, ProviderAuthV2
 from .http import Session, CaseInsensitiveDict
-
+from .credentials import EcsRamRoleCredentialsProvider, EcsRamRoleCredential, CredentialsProvider, StaticCredentialsProvider
 
 from .iterators import (BucketIterator, ObjectIterator, ObjectIteratorV2,
                         MultipartUploadIterator, ObjectUploadIterator,
