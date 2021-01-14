@@ -222,6 +222,33 @@ x-oss-request-id: 566B6BE31BA604C27DD429E8'''
             self.assertRequest(req_info, request_text.format(to_string(index), to_string(error)))
 
     @patch('oss2.Session.do_request')
+    def test_put_website_with_error_doc_http_status(self, do_request):
+        request_text = '''PUT /?website= HTTP/1.1
+    Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+    Accept-Encoding: identity
+    Connection: keep-alive
+    Content-Length: 155
+    date: Sat, 12 Dec 2015 00:35:47 GMT
+    User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+    Accept: */*
+    authorization: OSS ZCDmm7TPZKHtx77j:ZUVg/fNrUVyan0Y5xhz5zvcPZcs=
+
+    <WebsiteConfiguration><IndexDocument><Suffix>{0}</Suffix></IndexDocument><ErrorDocument><Key>{1}</Key><HttpStatus>200</HttpStatus></ErrorDocument></WebsiteConfiguration>'''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:47 GMT
+Content-Length: 0
+Connection: keep-alive
+x-oss-request-id: 566B6BE31BA604C27DD429E8'''
+
+        for index, error in [('index+中文.html', 'error.中文'), (u'中-+()文.index', u'@#$%中文.error')]:
+            req_info = mock_response(do_request, response_text)
+            bucket().put_bucket_website(oss2.models.BucketWebsite(index, error, error_document_http_status=200))
+
+            self.assertRequest(req_info, request_text.format(to_string(index), to_string(error)))
+
+    @patch('oss2.Session.do_request')
     def test_get_website(self, do_request):
         request_text = '''GET /?website= HTTP/1.1
 Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com

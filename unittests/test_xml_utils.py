@@ -3,7 +3,7 @@
 import unittest
 import xml.etree.ElementTree as ElementTree
 from oss2.xml_utils import _find_tag, _find_bool
-from oss2.xml_utils import parse_get_bucket_info
+from oss2.xml_utils import parse_get_bucket_info, parse_get_bucket_website
 from .common import MockResponse
 import oss2
 
@@ -75,6 +75,56 @@ class TestXmlUtils(unittest.TestCase):
         self.assertIsNone(result.comment)
         self.assertIsNone(result.versioning_status)
         self.assertIsNone(result.bucket_encryption_rule)
+
+    def test_parse_get_bucket_info(self):
+        body = '''
+        <WebsiteConfiguration>
+          <IndexDocument>
+            <Suffix>index.html</Suffix>
+          </IndexDocument>
+          <ErrorDocument>
+            <Key>error.html</Key>
+            <HttpStatus>200</HttpStatus>
+          </ErrorDocument>
+        </WebsiteConfiguration>
+        '''
+        headers = oss2.CaseInsensitiveDict({
+            'Server': 'AliyunOSS',
+            'Date': 'Fri, 11 Dec 2015 11:40:30 GMT',
+            'Content-Length': len(body),
+            'Connection': 'keep-alive',
+            'x-oss-request-id': '566AB62EB06147681C283D73',
+            'ETag': '7AE1A589ED6B161CAD94ACDB98206DA6'
+        })
+        resp = MockResponse(200, headers, body)
+
+        result = oss2.models.GetBucketWebsiteResult(resp)
+        parse_get_bucket_website(result, body)
+        self.assertEqual(result.index_file, 'index.html')
+        self.assertEqual(result.error_file, 'error.html')
+        self.assertEqual(result.error_document_http_status, 200)
+
+
+        body = '''
+        <WebsiteConfiguration>
+          <IndexDocument>
+            <Suffix>index.html</Suffix>
+          </IndexDocument>
+          <ErrorDocument>
+            <Key>error.html</Key>
+          </ErrorDocument>
+        </WebsiteConfiguration>
+        '''
+        resp = MockResponse(200, headers, body)
+
+        result = oss2.models.GetBucketWebsiteResult(resp)
+        parse_get_bucket_website(result, body)
+        self.assertEqual(result.index_file, 'index.html')
+        self.assertEqual(result.error_file, 'error.html')
+        self.assertIsNone(result.error_document_http_status)
+
+
+
 
 
 if __name__ == '__main__':
