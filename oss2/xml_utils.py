@@ -508,6 +508,9 @@ def parse_get_bucket_website(result, body):
     result.index_file = _find_tag(root, 'IndexDocument/Suffix')
     result.error_file = _find_tag(root, 'ErrorDocument/Key')
 
+    if root.find('ErrorDocument/HttpStatus') is not None:
+        result.error_document_http_status = _find_int(root, 'ErrorDocument/HttpStatus')
+
     if root.find('RoutingRules') is None:
         return result
 
@@ -832,6 +835,10 @@ def to_put_bucket_website(bucket_website):
 
     error_node = ElementTree.SubElement(root, 'ErrorDocument')
     _add_text_child(error_node, 'Key', bucket_website.error_file)
+
+    if bucket_website.error_document_http_status is not None:
+        _add_text_child(error_node, 'HttpStatus', str(bucket_website.error_document_http_status))
+
 
     if len(bucket_website.rules) == 0:
         return _node_to_string(root)

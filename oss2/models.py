@@ -950,7 +950,7 @@ class BucketWebsite(object):
     :param rules : list of class:`RoutingRule <oss2.models.RoutingRule>`
     
     """
-    def __init__(self, index_file, error_file, rules=None):
+    def __init__(self, index_file, error_file, rules=None, error_document_http_status=None):
         if rules is not None:
             if not isinstance(rules, list):
                 raise ClientError('rules type should be list.')
@@ -960,6 +960,7 @@ class BucketWebsite(object):
         self.index_file = index_file
         self.error_file = error_file
         self.rules = rules or []
+        self.error_document_http_status = error_document_http_status
 
 
 class GetBucketWebsiteResult(RequestResult, BucketWebsite):
