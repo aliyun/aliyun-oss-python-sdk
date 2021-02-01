@@ -165,7 +165,7 @@ def resumable_download(bucket, key, filename,
                                   headers=valid_headers)
 
 
-_MAX_MULTIGET_PART_COUNT = 100
+_MAX_MULTIGET_PART_COUNT = 100000
 
 
 def determine_part_size(total_size,
