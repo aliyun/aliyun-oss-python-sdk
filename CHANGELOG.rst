@@ -3,6 +3,14 @@ OSS SDK for Python 版本记录
 
 Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
+Version 2.14.0
+-------------
+- 增加：支持 credentials provider 机制
+- 增加：支持 bucket replication
+- 优化：修改断点下载的最大分片数参数
+- 更新：aliyun-python-sdk-core 版本升级到	2.13.12，同时移除对aliyun-python-sdk-core-v3 依赖
+- 修复：update_object_metadata 在多版本下不生效的问题
+
 Version 2.13.1
 -------------
 - 优化：修复 FileLikeAdapter 在chunked 上传场景的问题
