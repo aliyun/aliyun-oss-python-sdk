@@ -2506,10 +2506,16 @@ class Bucket(_Base):
 
 
 def _normalize_endpoint(endpoint):
+    """规范化endpoint，默认启用 https 以增加安全性。该接口返回规范化后的 URL 字符串。
+
+    :param endpoint: 合法的 URL 字符串，参考 RFC 1738。
+
+    :return: 规范化后的 URL 字符串。
+    """
     url = endpoint
 
     if not endpoint.startswith('http://') and not endpoint.startswith('https://'):
-        url = 'http://' + endpoint
+        url = 'https://' + endpoint
 
     p = urlparse(url)
 
