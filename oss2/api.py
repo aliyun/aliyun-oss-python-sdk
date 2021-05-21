@@ -203,7 +203,7 @@ logger = logging.getLogger(__name__)
 
 class _Base(object):
     def __init__(self, auth, endpoint, is_cname, session, connect_timeout,
-                 app_name='', enable_crc=True):
+                 app_name='', enable_crc=True, proxies=None):
         self.auth = auth
         self.endpoint = _normalize_endpoint(endpoint.strip())
         if utils.is_valid_endpoint(self.endpoint) is not True:
@@ -212,6 +212,7 @@ class _Base(object):
         self.timeout = defaults.get(connect_timeout, defaults.connect_timeout)
         self.app_name = app_name
         self.enable_crc = enable_crc
+        self.proxies = proxies
 
         self._make_url = _UrlMaker(self.endpoint, is_cname)
 
@@ -219,6 +220,7 @@ class _Base(object):
         key = to_string(key)
         req = http.Request(method, self._make_url(bucket_name, key),
                            app_name=self.app_name,
+                           proxies=self.proxies,
                            **kwargs)
         self.auth._sign_request(req, bucket_name, key)
 
@@ -238,7 +240,7 @@ class _Base(object):
         return resp
 
     def _do_url(self, method, sign_url, **kwargs):
-        req = http.Request(method, sign_url, app_name=self.app_name, **kwargs)
+        req = http.Request(method, sign_url, app_name=self.app_name, proxies=self.proxies, **kwargs)
         resp = self.session.do_request(req, timeout=self.timeout)
         if resp.status // 100 != 2:
             e = exceptions.make_exception(resp)
@@ -404,10 +406,11 @@ class Bucket(_Base):
                  session=None,
                  connect_timeout=None,
                  app_name='',
-                 enable_crc=True):
+                 enable_crc=True,
+                 proxies=None):
         logger.debug("Init Bucket: {0}, endpoint: {1}, isCname: {2}, connect_timeout: {3}, app_name: {4}, enabled_crc: "
                      "{5}".format(bucket_name, endpoint, is_cname, connect_timeout, app_name, enable_crc))
-        super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout, app_name, enable_crc)
+        super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout, app_name, enable_crc, proxies)
 
         self.bucket_name = bucket_name.strip()
         if utils.is_valid_bucket_name(self.bucket_name) is not True:
