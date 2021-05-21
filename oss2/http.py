@@ -49,7 +49,6 @@ class Session(object):
                 'stream': True,
                 'timeout': timeout,
             }
-            # 
             if req.proxies: req_variables['proxies'] = req.proxies
             return Response(self.session.request(**req_variables))
         except requests.RequestException as e:
