@@ -2175,3 +2175,14 @@ class GetBucketReplicationProgressResult(RequestResult):
     def __init__(self, resp):
         super(GetBucketReplicationProgressResult, self).__init__(resp)
         self.progress = None
+
+
+class GetBucketTransferAccelerationResult(RequestResult):
+    """获取目标存储空间（Bucket）的传输加速配置。
+
+    :param enabled: Bucket传输加速状态
+    :type progress: class:`GetBucketTransferAccelerationResult <oss2.models.GetBucketTransferAccelerationResult>`。
+    """
+    def __init__(self, resp):
+        super(GetBucketTransferAccelerationResult, self).__init__(resp)
+        self.enabled = None
