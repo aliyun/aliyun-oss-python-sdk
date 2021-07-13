@@ -44,6 +44,7 @@ class Session(object):
                                                  data=req.data,
                                                  params=req.params,
                                                  headers=req.headers,
+                                                 proxies=req.proxies,
                                                  stream=True,
                                                  timeout=timeout))
         except requests.RequestException as e:
@@ -55,11 +56,13 @@ class Request(object):
                  data=None,
                  params=None,
                  headers=None,
+                 proxies=None,
                  app_name=''):
         self.method = method
         self.url = url
         self.data = _convert_request_body(data)
         self.params = params or {}
+        self.proxies = proxies
 
         if not isinstance(headers, CaseInsensitiveDict):
             self.headers = CaseInsensitiveDict(headers)

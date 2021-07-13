@@ -219,6 +219,7 @@ class _Base(object):
         key = to_string(key)
         req = http.Request(method, self._make_url(bucket_name, key),
                            app_name=self.app_name,
+                           proxies=self.proxies,
                            **kwargs)
         self.auth._sign_request(req, bucket_name, key)
 
@@ -400,6 +401,7 @@ class Bucket(_Base):
 
 
     def __init__(self, auth, endpoint, bucket_name,
+                 proxies=None,
                  is_cname=False,
                  session=None,
                  connect_timeout=None,
@@ -412,6 +414,7 @@ class Bucket(_Base):
         self.bucket_name = bucket_name.strip()
         if utils.is_valid_bucket_name(self.bucket_name) is not True:
             raise ClientError("The bucket_name is invalid, please check it.")
+        self.proxies = proxies
 
     def sign_url(self, method, key, expires, headers=None, params=None, slash_safe=False):
         """生成签名URL。
