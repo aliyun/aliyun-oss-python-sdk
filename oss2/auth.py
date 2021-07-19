@@ -402,7 +402,7 @@ class ProviderAuthV2(AuthBase):
         else:
             encoded_uri = v2_uri_encode('/')
 
-        logging.info('encoded_uri={0} key={1}'.format(encoded_uri, key))
+        logger.debug('encoded_uri={0} key={1}'.format(encoded_uri, key))
 
         return encoded_uri + self.__get_canonalized_query_string(req)
 
