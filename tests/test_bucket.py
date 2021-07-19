@@ -6,7 +6,7 @@ import json
 
 from .common import *
 from oss2 import to_string
-
+from oss2.headers import *
 
 class TestBucket(OssTestCase):
     def test_bucket(self):
@@ -170,6 +170,44 @@ class TestBucket(OssTestCase):
         self.bucket.delete_bucket_lifecycle()
 
         self.assertRaises(oss2.exceptions.NoSuchLifecycle, self.bucket.get_bucket_lifecycle)
+
+    def test_lifecycle_overlap(self):
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle
+
+        rule = LifecycleRule(random_string(10), '中文前缀/',
+                             status=LifecycleRule.ENABLED,
+                             expiration=LifecycleExpiration(date=datetime.date(2016, 12, 25)))
+        lifecycle = BucketLifecycle([rule])
+
+        rule2 = LifecycleRule(random_string(10), '中文前缀/2',
+                              status=LifecycleRule.ENABLED,
+                              expiration=LifecycleExpiration(date=datetime.date(2016, 12, 25)))
+        lifecycle.rules.append(rule2)
+
+        headers = dict()
+        headers[OSS_ALLOW_ACTION_OVERLAP] = 'true'
+        self.bucket.put_bucket_lifecycle(lifecycle, headers)
+        self.retry_assert(lambda: self.same_lifecycle(rule, self.bucket))
+
+        self.bucket.delete_bucket_lifecycle()
+
+    def test_lifecycle_overlap_exception(self):
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle
+
+        rule = LifecycleRule(random_string(10), '前缀/',
+                             status=LifecycleRule.ENABLED,
+                             expiration=LifecycleExpiration(date=datetime.date(2016, 12, 25)))
+        lifecycle = BucketLifecycle([rule])
+
+        rule2 = LifecycleRule(random_string(10), '前缀/2',
+                              status=LifecycleRule.ENABLED,
+                              expiration=LifecycleExpiration(date=datetime.date(2016, 12, 25)))
+        lifecycle.rules.append(rule2)
+        try:
+            self.bucket.put_bucket_lifecycle(lifecycle)
+        except oss2.exceptions.OssError as e:
+            self.assertEqual(e.message, 'Overlap for same action type Expiration')
+        self.bucket.delete_bucket_lifecycle()
 
     def test_put_lifecycle_days_less_than_transition_days(self):
         from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle

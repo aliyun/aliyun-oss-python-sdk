@@ -1630,14 +1630,15 @@ class Bucket(_Base):
         logger.debug("Delete bucket CORS done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
-    def put_bucket_lifecycle(self, input):
+    def put_bucket_lifecycle(self, input, headers=None):
         """设置生命周期管理的配置。
 
         :param input: :class:`BucketLifecycle <oss2.models.BucketLifecycle>` 对象或其他
         """
+        headers = http.CaseInsensitiveDict(headers)
         data = self.__convert_data(BucketLifecycle, xml_utils.to_put_bucket_lifecycle, input)
         logger.debug("Start to put bucket lifecycle, bucket: {0}, lifecycle: {1}".format(self.bucket_name, data))
-        resp = self.__do_bucket('PUT', data=data, params={Bucket.LIFECYCLE: ''})
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.LIFECYCLE: ''}, headers=headers)
         logger.debug("Put bucket lifecycle done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
