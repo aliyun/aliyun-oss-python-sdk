@@ -292,11 +292,12 @@ class Service(_Base):
     def __init__(self, auth, endpoint,
                  session=None,
                  connect_timeout=None,
-                 app_name=''):
-        logger.debug("Init oss service, endpoint: {0}, connect_timeout: {1}, app_name: {2}".format(
-            endpoint, connect_timeout, app_name))
+                 app_name='',
+                 proxies=None):
+        logger.debug("Init oss service, endpoint: {0}, connect_timeout: {1}, app_name: {2}, proxies: {3}".format(
+            endpoint, connect_timeout, app_name, proxies))
         super(Service, self).__init__(auth, endpoint, False, session, connect_timeout,
-                                      app_name=app_name)
+                                      app_name=app_name, proxies=proxies)
 
     def list_buckets(self, prefix='', marker='', max_keys=100, params=None):
         """根据前缀罗列用户的Bucket。
@@ -399,6 +400,7 @@ class Bucket(_Base):
     REPLICATION = "replication"
     REPLICATION_LOCATION = 'replicationLocation'
     REPLICATION_PROGRESS = 'replicationProgress'
+    TRANSFER_ACCELERATION = 'transferAcceleration'
 
 
     def __init__(self, auth, endpoint, bucket_name,
@@ -408,9 +410,10 @@ class Bucket(_Base):
                  app_name='',
                  enable_crc=True,
                  proxies=None):
-        logger.debug("Init Bucket: {0}, endpoint: {1}, isCname: {2}, connect_timeout: {3}, app_name: {4}, enabled_crc: "
-                     "{5}".format(bucket_name, endpoint, is_cname, connect_timeout, app_name, enable_crc))
-        super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout, app_name, enable_crc, proxies)
+        logger.debug("Init Bucket: {0}, endpoint: {1}, isCname: {2}, connect_timeout: {3}, app_name: {4}, enabled_crc: {5}"
+                     ", proxies: {6}".format(bucket_name, endpoint, is_cname, connect_timeout, app_name, enable_crc, proxies))
+        super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout, 
+                                     app_name=app_name, enable_crc=enable_crc, proxies=proxies)
 
         self.bucket_name = bucket_name.strip()
         if utils.is_valid_bucket_name(self.bucket_name) is not True:
@@ -2494,6 +2497,33 @@ class Bucket(_Base):
         resp = self.__do_bucket('GET', params={config: ''})
         logger.debug("Get bucket config done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return resp
+
+    def put_bucket_transfer_acceleration(self, enabled):
+        """为存储空间（Bucket）配置传输加速
+
+        :param str enabled : 是否开启传输加速。true：开启传输加速; false：关闭传输加速.
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to bucket transfer acceleration, bucket: {0}, enabled: {1}."
+                     .format(self.bucket_name, enabled))
+        data = xml_utils.to_put_bucket_transfer_acceleration(enabled)
+        headers = http.CaseInsensitiveDict()
+        headers['Content-MD5'] = utils.content_md5(data)
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.TRANSFER_ACCELERATION: ''}, headers=headers)
+        logger.debug("bucket transfer acceleration done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return RequestResult(resp)
+
+    def get_bucket_transfer_acceleration(self):
+        """获取目标存储空间（Bucket）的传输加速配置
+
+        :return: :class:`GetBucketReplicationResult <oss2.models.GetBucketReplicationResult>`
+        """
+        logger.debug("Start to get bucket transfer acceleration: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('GET', params={Bucket.TRANSFER_ACCELERATION: ''})
+        logger.debug("Get bucket transfer acceleration done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_get_bucket_transfer_acceleration_result, GetBucketTransferAccelerationResult)
 
     def __do_object(self, method, key, **kwargs):
         return self._do(method, self.bucket_name, key, **kwargs)

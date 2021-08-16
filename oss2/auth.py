@@ -83,7 +83,7 @@ class ProviderAuth(AuthBase):
          'versioning', 'versionId', 'policy', 'requestPayment', 'x-oss-traffic-limit', 'qosInfo', 'asyncFetch',
          'x-oss-request-payer', 'sequential', 'inventory', 'inventoryId', 'continuation-token', 'callback',
          'callback-var', 'worm', 'wormId', 'wormExtend', 'replication', 'replicationLocation',
-         'replicationProgress']
+         'replicationProgress', 'transferAcceleration']
     )
 
     def _sign_request(self, req, bucket_name, key):
@@ -402,7 +402,7 @@ class ProviderAuthV2(AuthBase):
         else:
             encoded_uri = v2_uri_encode('/')
 
-        logging.info('encoded_uri={0} key={1}'.format(encoded_uri, key))
+        logger.info('encoded_uri={0} key={1}'.format(encoded_uri, key))
 
         return encoded_uri + self.__get_canonalized_query_string(req)
 

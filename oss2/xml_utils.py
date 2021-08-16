@@ -1694,3 +1694,13 @@ def parse_get_bucket_replication_progress_result(result, body):
 
     result.progress = progress
 
+
+def to_put_bucket_transfer_acceleration(enabled):
+    root = ElementTree.Element('TransferAccelerationConfiguration')
+    _add_text_child(root, 'Enabled', str(enabled))
+    return _node_to_string(root)
+
+
+def parse_get_bucket_transfer_acceleration_result(result, body):
+    root = ElementTree.fromstring(body)
+    result.enabled = _find_tag(root, "Enabled")

@@ -309,6 +309,9 @@ class InvalidWORMConfiguration(ServerError):
     status = 400
     code = 'InvalidWORMConfiguration'
 
+class NoSuchTransferAccelerationConfiguration(ServerError):
+    status = 404
+    code = 'NoSuchTransferAccelerationConfiguration'
 
 def make_exception(resp):
     status = resp.status

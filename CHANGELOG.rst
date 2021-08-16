@@ -3,6 +3,11 @@ OSS SDK for Python 版本记录
 
 Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
+Version 2.15.0
+-------------
+- 增加：支持 transfer acceleration
+- 增加：支持 http proxy
+
 Version 2.14.0
 -------------
 - 增加：支持 credentials provider 机制

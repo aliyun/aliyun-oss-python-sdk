@@ -40,17 +40,13 @@ class Session(object):
         try:
             logger.debug("Send request, method: {0}, url: {1}, params: {2}, headers: {3}, timeout: {4}, proxies: {5}".format(
                 req.method, req.url, req.params, req.headers, timeout, req.proxies))
-            req_variables = {
-                'method': req.method,
-                'url': req.url,
-                'data': req.data,
-                'params': req.params,
-                'headers': req.headers,
-                'stream': True,
-                'timeout': timeout,
-            }
-            if req.proxies: req_variables['proxies'] = req.proxies
-            return Response(self.session.request(**req_variables))
+            return Response(self.session.request(req.method, req.url,
+                                                 data=req.data,
+                                                 params=req.params,
+                                                 headers=req.headers,
+                                                 stream=True,
+                                                 timeout=timeout,
+                                                 proxies=req.proxies))
         except requests.RequestException as e:
             raise RequestError(e)
 
@@ -60,8 +56,8 @@ class Request(object):
                  data=None,
                  params=None,
                  headers=None,
-                 proxies=None,
-                 app_name=''):
+                 app_name='',
+                 proxies=None):
         self.method = method
         self.url = url
         self.data = _convert_request_body(data)
