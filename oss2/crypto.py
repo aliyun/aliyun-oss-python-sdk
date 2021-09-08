@@ -304,6 +304,7 @@ class AliKMSProvider(BaseCryptoProvider):
 
     def __init__(self, access_key_id, access_key_secret, region, cmk_id, sts_token=None, passphrase=None,
                  cipher=utils.AESCTRCipher(), mat_desc=None):
+        from aliyunsdkcore.auth.credentials import StsTokenCredential
 
         super(AliKMSProvider, self).__init__(cipher=cipher, mat_desc=mat_desc)
         if not isinstance(cipher, utils.AESCTRCipher):
@@ -312,7 +313,8 @@ class AliKMSProvider(BaseCryptoProvider):
         self.custom_master_key_id = cmk_id
         self.sts_token = sts_token
         self.context = '{"x-passphrase":"' + passphrase + '"}' if passphrase else ''
-        self.kms_client = client.AcsClient(access_key_id, access_key_secret, region)
+        credential = StsTokenCredential(access_key_id, access_key_secret, sts_token)
+        self.kms_client = client.AcsClient(region_id=region, credential=credential)
 
     def get_key(self):
         plain_key, encrypted_key = self.__generate_data_key()
@@ -357,8 +359,6 @@ class AliKMSProvider(BaseCryptoProvider):
         req.set_KeySpec('AES_256')
         req.set_NumberOfBytes(32)
         req.set_EncryptionContext(self.context)
-        if self.sts_token:
-            req.set_STSToken(self.sts_token)
 
         resp = self.__do(req)
 
@@ -372,8 +372,6 @@ class AliKMSProvider(BaseCryptoProvider):
         req.set_KeyId(self.custom_master_key_id)
         req.set_Plaintext(data)
         req.set_EncryptionContext(self.context)
-        if self.sts_token:
-            req.set_STSToken(self.sts_token)
 
         resp = self.__do(req)
 
@@ -386,8 +384,6 @@ class AliKMSProvider(BaseCryptoProvider):
         req.set_method(method_type.POST)
         req.set_CiphertextBlob(data)
         req.set_EncryptionContext(self.context)
-        if self.sts_token:
-            req.set_STSToken(self.sts_token)
 
         resp = self.__do(req)
         return resp['Plaintext']
