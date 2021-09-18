@@ -358,7 +358,7 @@ class AliKMSProvider(BaseCryptoProvider):
         req.set_NumberOfBytes(32)
         req.set_EncryptionContext(self.context)
         if self.sts_token:
-            req.set_STSToken(self.sts_token)
+            req.set_SecurityToken(self.sts_token)
 
         resp = self.__do(req)
 
@@ -373,7 +373,7 @@ class AliKMSProvider(BaseCryptoProvider):
         req.set_Plaintext(data)
         req.set_EncryptionContext(self.context)
         if self.sts_token:
-            req.set_STSToken(self.sts_token)
+            req.set_SecurityToken(self.sts_token)
 
         resp = self.__do(req)
 
@@ -387,7 +387,7 @@ class AliKMSProvider(BaseCryptoProvider):
         req.set_CiphertextBlob(data)
         req.set_EncryptionContext(self.context)
         if self.sts_token:
-            req.set_STSToken(self.sts_token)
+            req.set_SecurityToken(self.sts_token)
 
         resp = self.__do(req)
         return resp['Plaintext']
