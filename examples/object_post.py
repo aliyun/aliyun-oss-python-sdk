@@ -19,10 +19,15 @@ import requests
 
 # 首先初始化AccessKeyId、AccessKeySecret、Endpoint等信息。
 # 通过环境变量获取，或者把诸如“<你的AccessKeyId>”替换成真实的AccessKeyId等。
-access_key_id = os.getenv('OSS_TEST_ACCESS_KEY_ID', '<你的AccessKeyId>')
-access_key_secret = os.getenv('OSS_TEST_ACCESS_KEY_SECRET', '<你的AccessKeySecret>')
-bucket_name = os.getenv('OSS_TEST_BUCKET', '<你的Bucket>')
-endpoint = os.getenv('OSS_TEST_ENDPOINT', '<你的访问域名>')
+from anaconda_project.internal.test.multipart import MultipartEncoder
+
+import oss2
+from oss2 import utils
+
+access_key_id = 'LTAI5tPrTc2UxjSNdKvZuQCx'
+access_key_secret = 'bXul36VTII6BtZ9fOWGQEDV1IYMzJ9'
+bucket_name = 'example-bucket-by-util'
+endpoint = 'oss-cn-chengdu.aliyuncs.com'
 
 # 确认上面的参数都填写正确了
 for param in (access_key_id, access_key_secret, bucket_name, endpoint):
@@ -35,7 +40,7 @@ def calculate_crc64(data):
     """
     _POLY = 0x142F0E1EBA9EA3693
     _XOROUT = 0XFFFFFFFFFFFFFFFF
-    
+
     crc64 = crcmod.Crc(_POLY, initCrc=0, xorOut=_XOROUT)
     crc64.update(data)
 
@@ -48,24 +53,24 @@ def build_gmt_expired_time(expire_time):
     """
     now = int(time.time())
     expire_syncpoint  = now + expire_time
-    
+
     expire_gmt = datetime.datetime.fromtimestamp(expire_syncpoint).isoformat()
     expire_gmt += 'Z'
-    
+
     return expire_gmt
 
 def build_encode_policy(expired_time, condition_list):
     """生成policy
     :param int expired_time: 超时时间，单位秒
     :param list condition_list: 限制条件列表
-    """ 
+    """
     policy_dict = {}
     policy_dict['expiration'] = build_gmt_expired_time(expired_time)
     policy_dict['conditions'] = condition_list
-    
+
     policy = json.dumps(policy_dict).strip()
-    policy_encode = base64.b64encode(policy)
-    
+    # policy_encode = base64.b64encode(policy)
+    policy_encode = oss2.utils.b64encode_as_string(policy)
     return policy_encode
 
 def build_signature(access_key_secret, encode_policy):
@@ -74,8 +79,8 @@ def build_signature(access_key_secret, encode_policy):
     :param str encode_policy: 编码后的Policy
     :return str 请求签名
     """
-    h = hmac.new(access_key_secret, encode_policy, hashlib.sha1)
-    signature = base64.encodestring(h.digest()).strip()
+    digest = hmac.new(oss2.to_bytes(access_key_secret), oss2.to_bytes(encode_policy), hashlib.sha1).digest()
+    signature = oss2.utils.b64encode_as_string(digest)
     return signature
 
 def bulid_callback(cb_url, cb_body, cb_body_type=None, cb_host=None):
@@ -87,21 +92,21 @@ def bulid_callback(cb_url, cb_body, cb_body_type=None, cb_host=None):
     :return str 编码后的Callback
     """
     callback_dict = {}
-    
+
     callback_dict['callbackUrl'] = cb_url
-    
+
     callback_dict['callbackBody'] = cb_body
     if cb_body_type is None:
         callback_dict['callbackBodyType'] = 'application/x-www-form-urlencoded'
     else:
         callback_dict['callbackBodyType'] = cb_body_type
-    
+
     if cb_host is not None:
         callback_dict['callbackHost'] = cb_host
-        
+
     callback_param = json.dumps(callback_dict).strip()
-    base64_callback = base64.b64encode(callback_param);
-    
+    base64_callback = base64.b64encode(oss2.compat.to_bytes(callback_param));
+
     return base64_callback
 
 def build_post_url(endpoint, bucket_name):
@@ -123,21 +128,21 @@ def build_post_body(field_dict, boundary):
     :param str boundary: 表单域的边界字符串
     :return str POST请求Body
     """
-    post_body = b''
+    post_body = ''
 
     # 编码表单域
-    for k,v in field_dict.iteritems():
+    for k,v in field_dict.items():
         if k != 'content' and k != 'content-type':
             post_body += '''--{0}\r\nContent-Disposition: form-data; name=\"{1}\"\r\n\r\n{2}\r\n'''.format(boundary, k, v)
-    
+
     # 上传文件的内容，必须作为最后一个表单域
     post_body += '''--{0}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{1}\"\r\nContent-Type: {2}\r\n\r\n{3}'''.format(
     boundary, field_dict['key'], field_dict['content-type'], field_dict['content'])
-    
+    print(post_body)
     # 加上表单域结束符
     post_body += '\r\n--{0}--\r\n'.format(boundary)
 
-    return post_body
+    return post_body.encode('utf-8')
 
 def build_post_headers(body_len, boundary, headers=None):
     """生气POST请求Header
@@ -151,45 +156,57 @@ def build_post_headers(body_len, boundary, headers=None):
 
     return headers
 
+def up_file(file_name):
+    with open(file_name, 'rb') as fr:
+        data = fr.read()
+    return data
 
-# POST请求表单域，注意大小写
-field_dict = {}
-# object名称
-field_dict['key'] = 'post.txt'
-# access key id
-field_dict['OSSAccessKeyId'] = access_key_id
-# Policy包括超时时间(单位秒)和限制条件condition
-field_dict['policy'] = build_encode_policy(120, [['eq','$bucket', bucket_name],
-                                                 ['content-length-range', 0, 104857600]])
-# 请求签名
-field_dict['Signature'] = build_signature(access_key_secret, field_dict['policy']) 
-# 临时用户Token，当使用临时用户密钥时Token必填；非临时用户填空或不填
-field_dict['x-oss-security-token'] = ''
-# Content-Disposition
-field_dict['Content-Disposition'] = 'attachment;filename=download.txt'
-# 用户自定义meta
-field_dict['x-oss-meta-uuid'] = 'uuid-xxx'
-# callback，没有回调需求不填该域
-field_dict['callback'] = bulid_callback('http://oss-demo.aliyuncs.com:23450',
-                                        'filename=${object}&size=${size}&mimeType=${mimeType}',
-                                        'application/x-www-form-urlencoded') 
-# callback中的自定义变量，没有回调不填该域
-field_dict['x:var1'] = 'callback-var1-val'
-# 上传文件内容
-field_dict['content'] = 'a'*64
-# 上传文件类型
-field_dict['content-type'] = 'text/plain'
+with open('D:\\zxl\\临时保存文件\\cc.jpg', 'rb') as fr:
+    data=fr.read()
+    print(data)
+    # POST请求表单域，注意大小写
+    field_dict = {}
+    # object名称
+    field_dict['key'] = 'cc.jpg'
+    # access key id
+    field_dict['OSSAccessKeyId'] = access_key_id
+    # Policy包括超时时间(单位秒)和限制条件condition
+    field_dict['policy'] = build_encode_policy(120, [['eq','$bucket', bucket_name],
+                                                     ['content-length-range', 0, 104857600]])
+    # 请求签名
+    field_dict['Signature'] = build_signature(access_key_secret, field_dict['policy'])
+    # 临时用户Token，当使用临时用户密钥时Token必填；非临时用户填空或不填
+    field_dict['x-oss-security-token'] = ''
+    # Content-Disposition
+    field_dict['Content-Disposition'] = 'attachment;filename=D:\\zxl\\临时保存文件\\cc.jpg'
+    # 用户自定义meta
+    field_dict['x-oss-meta-uuid'] = 'uuid-xxx'
+    # callback，没有回调需求不填该域
+    # field_dict['callback'] = bulid_callback('http://oss-demo.aliyuncs.com:23450',
+    #                                         'filename=${object}&size=${size}&mimeType=${mimeType}',
+    #                                         'application/x-www-form-urlencoded')
+    # callback中的自定义变量，没有回调不填该域
+    field_dict['x:var1'] = 'callback-var1-val'
 
-# 表单域的边界字符串，一般为随机字符串
-boundary = '9431149156168'
+    # 上传文件内容
+    field_dict['content'] = data
+    # 上传文件类型
+    # field_dict['content-type'] = 'image/jpeg'
+    field_dict['content-type'] = 'application/octet-stream'
 
-# 发送POST请求
-body = build_post_body(field_dict, boundary)
-headers = build_post_headers(len(body), boundary)
+    # 表单域的边界字符串，一般为随机字符串
+    boundary = '9431149156168'
 
-resp = requests.post(build_post_url(endpoint, bucket_name),
-                     data=body,
-                     headers=headers)
+    # 发送POST请求
+    body = build_post_body(field_dict, boundary)
+
+    headers = build_post_headers(len(body), boundary)
+
+    # files = {"file": open("D:\\zxl\\临时保存文件\\cc.jpg", "rb")}
+
+    resp = requests.post(build_post_url(endpoint, bucket_name),
+                         data=body,
+                         headers=headers)
 
 # 确认请求结果
 assert resp.status_code == 200
