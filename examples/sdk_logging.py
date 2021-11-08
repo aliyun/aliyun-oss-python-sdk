@@ -4,43 +4,40 @@ import oss2
 import logging
 from itertools import islice
 
-# 首先初始化AccessKeyId、AccessKeySecret、Endpoint等信息。
-# 通过环境变量获取，或者把诸如“<你的AccessKeyId>”替换成真实的AccessKeyId等。
+# Specify access information, such as AccessKeyId, AccessKeySecret, and Endpoint.
+# You can obtain access information from evironment variables or replace sample values in the code, such as <your AccessKeyId> with actual values.
 #
-# 以杭州区域为例，Endpoint可以是：
+# For example, if your bucket is located in the China (Hangzhou) region, you can set Endpoint to one of the following values:
 #   http://oss-cn-hangzhou.aliyuncs.com
 #   https://oss-cn-hangzhou.aliyuncs.com
 
 
-access_key_id = os.getenv('OSS_TEST_ACCESS_KEY_ID', '<你的AccessKeyId>')
-access_key_secret = os.getenv('OSS_TEST_ACCESS_KEY_SECRET', '<你的AccessKeySecret>')
-bucket_name = os.getenv('OSS_TEST_BUCKET', '<你的Bucket>')
-endpoint = os.getenv('OSS_TEST_ENDPOINT', '<你的访问域名>')
+access_key_id = os.getenv('OSS_TEST_ACCESS_KEY_ID', '<yourAccessKeyId>')
+access_key_secret = os.getenv('OSS_TEST_ACCESS_KEY_SECRET', '<yourAccessKeySecret>')
+bucket_name = os.getenv('OSS_TEST_BUCKET', '<yourBucketName>')
+endpoint = os.getenv('OSS_TEST_ENDPOINT', '<yourEndpoint>')
 
 
-# 确认上面的参数都填写正确了
+# Make sure that all parameters are correctly configured
 for param in (access_key_id, access_key_secret, bucket_name, endpoint):
-    assert '<' not in param, '请设置参数：' + param
+    assert '<' not in param, 'Please set parameters：' + param
 
 
-# 为方便追查问题，Python SDK提供了日志记录功能，该功能默认处于关闭状态。
-# Python SDK日志记录功能可以收集定位各类OSS操作的日志信息，并以日志文件的形式存储在本地。
-# 日志级别：CRITICAL > ERROR > WARNING > INFO > DEBUG > NOTSET
-# 下载日志信息到本地日志文件，并保存到指定的本地路径中。
-# 如果未指定本地路径只填写了本地日志文件名称（例如examplelogfile.log），则下载后的文件默认保存到示例程序所属项目对应本地路径中。
+# Download log information to a local log file, and store the log file in the specified local path.
+# By default, if you specify the name of a local file such as examplelogfile.log without specifying the local path, the local file is saved to the local path of the project to which the sample program belongs.
 log_file_path = "D:\\localpath\\examplelogfile.log"
 
-# 开启日志。
+# Enable log recording.
 oss2.set_file_logger(log_file_path, 'oss2', logging.INFO)
-# 阿里云账号AccessKey拥有所有API的访问权限，风险很高。强烈建议您创建并使用RAM用户进行API访问或日常运维，请登录RAM控制台创建RAM用户。
+# Security risks may arise if you use the AccessKey pair of an Alibaba Cloud account to access OSS because the account has permissions on all API operations. We recommend that you use a RAM user to call API operations or perform routine O&M. To create a RAM user, log on to the RAM console.
 auth = oss2.Auth('yourAccessKeyId', 'yourAccessKeySecret')
-# yourEndpoint填写Bucket所在地域对应的Endpoint。以华东1（杭州）为例，Endpoint填写为https://oss-cn-hangzhou.aliyuncs.com。
-# 填写Bucket名称，例如examplebucket。
+# Set yourEndpoint to the endpoint of the region in which the bucket is located. For example, if your bucket is located in the China (Hangzhou) region, set yourEndpoint to https://oss-cn-hangzhou.aliyuncs.com.
+# Specify the name of the bucket. Example: examplebucket.
 bucket = oss2.Bucket(auth, 'yourEndpoint', 'examplebucket')
 
-# 遍历文件目录。
+# Traverse objects and directories.
 for b in islice(oss2.ObjectIterator(bucket), 10):
     print(b.key)
-# 获取文件元信息。
-# 填写Object完整路径，例如exampledir/exampleobject.txt。Object完整路径中不能包含Bucket名称。
+# Obtain the metadata of the object.
+# Specify the full path of the object. Example: exampledir/exampleobject.txt. The full path of the object cannot contain bucket names.
 object_meta = bucket.get_object_meta('exampledir/exampleobject.txt')

@@ -104,11 +104,11 @@ assert result.error_file == 'error2.html'
 # 取消静态网站托管模式
 bucket.delete_bucket_website()
 
-# 获取存储空间的地域信息
+# Obtain the region of the bucket
 result = bucket.get_bucket_location()
 print('location: ' + result.location)
 
-# 判断存储空间是否存在
+# Determine whether a bucket exists
 def does_bucket_exist(bucket):
     try:
         bucket.get_bucket_info()
@@ -119,16 +119,16 @@ def does_bucket_exist(bucket):
     return True
 
 exist = does_bucket_exist(bucket)
-# 返回值为true表示已存在同名bucket，false表示不存在同名bucket。
+# If the returned value is true, a bucket with the specified name exists. If the returned value is false, a bucket with the specified name does not exist.
 if exist:
     print('bucket exist')
 else:
     print('bucket not exist')
 
 
-# 设置存储空间访问权限-设置为私有
+# Configure the ACL of the bucket to private
 bucket.put_bucket_acl(oss2.BUCKET_ACL_PRIVATE)
 
-# 获取存储空间访问权限
+# Obtain the ACL of a bucket
 bucket.put_bucket_acl(oss2.BUCKET_ACL_PRIVATE)
 print(bucket.get_bucket_acl().acl)
