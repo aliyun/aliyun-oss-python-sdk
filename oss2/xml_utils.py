@@ -331,6 +331,19 @@ def parse_get_bucket_stat(result, body):
     result.storage_size_in_bytes = _find_int(root, 'Storage')
     result.object_count = _find_int(root, 'ObjectCount')
     result.multi_part_upload_count = _find_int(root, 'MultipartUploadCount')
+    result.live_channel_count = _find_int(root, 'LiveChannelCount')
+    result.last_modified_time = _find_int(root, 'LastModifiedTime')
+    result.standard_storage = _find_int(root, 'StandardStorage')
+    result.standard_object_count = _find_int(root, 'StandardObjectCount')
+    result.infrequent_access_storage = _find_int(root, 'InfrequentAccessStorage')
+    result.infrequent_access_real_storage = _find_int(root, 'InfrequentAccessRealStorage')
+    result.infrequent_access_object_count = _find_int(root, 'InfrequentAccessObjectCount')
+    result.archive_storage = _find_int(root, 'ArchiveStorage')
+    result.archive_real_storage = _find_int(root, 'ArchiveRealStorage')
+    result.archive_object_count = _find_int(root, 'ArchiveObjectCount')
+    result.cold_archive_storage = _find_int(root, 'ColdArchiveStorage')
+    result.cold_archive_real_storage = _find_int(root, 'ColdArchiveRealStorage')
+    result.cold_archive_object_count = _find_int(root, 'ColdArchiveObjectCount')
 
     return result
 

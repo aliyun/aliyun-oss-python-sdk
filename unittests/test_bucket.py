@@ -724,7 +724,20 @@ x-oss-request-id: 566B6BDD68248CE14F729DC0
 <BucketStat> 
     <Storage>472594058</Storage> 
     <ObjectCount>666</ObjectCount> 
-    <MultipartUploadCount>992</MultipartUploadCount> 
+    <MultipartUploadCount>992</MultipartUploadCount>
+    <LiveChannelCount>4</LiveChannelCount>
+    <LastModifiedTime>0</LastModifiedTime>
+    <StandardStorage>430</StandardStorage>
+    <StandardObjectCount>66</StandardObjectCount>
+    <InfrequentAccessStorage>2359296</InfrequentAccessStorage>
+    <InfrequentAccessRealStorage>360</InfrequentAccessRealStorage>
+    <InfrequentAccessObjectCount>54</InfrequentAccessObjectCount>
+    <ArchiveStorage>2949120</ArchiveStorage>
+    <ArchiveRealStorage>450</ArchiveRealStorage>
+    <ArchiveObjectCount>74</ArchiveObjectCount>
+    <ColdArchiveStorage>2359296</ColdArchiveStorage>
+    <ColdArchiveRealStorage>360</ColdArchiveRealStorage>
+    <ColdArchiveObjectCount>36</ColdArchiveObjectCount>
 </BucketStat>'''
 
         req_info = mock_response(do_request, response_text)
@@ -735,6 +748,19 @@ x-oss-request-id: 566B6BDD68248CE14F729DC0
         self.assertEqual(result.storage_size_in_bytes, 472594058)
         self.assertEqual(result.object_count, 666)
         self.assertEqual(result.multi_part_upload_count, 992)
+        self.assertEqual(result.live_channel_count, 4)
+        self.assertEqual(result.last_modified_time, 0)
+        self.assertEqual(result.standard_storage, 430)
+        self.assertEqual(result.standard_object_count, 66)
+        self.assertEqual(result.infrequent_access_storage, 2359296)
+        self.assertEqual(result.infrequent_access_real_storage, 360)
+        self.assertEqual(result.infrequent_access_object_count, 54)
+        self.assertEqual(result.archive_storage, 2949120)
+        self.assertEqual(result.archive_real_storage, 450)
+        self.assertEqual(result.archive_object_count, 74)
+        self.assertEqual(result.cold_archive_storage, 2359296)
+        self.assertEqual(result.cold_archive_real_storage, 360)
+        self.assertEqual(result.cold_archive_object_count, 36)
 
 
     @patch('oss2.Session.do_request')
