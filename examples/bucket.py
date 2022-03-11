@@ -103,3 +103,32 @@ assert result.error_file == 'error2.html'
 
 # 取消静态网站托管模式
 bucket.delete_bucket_website()
+
+# Obtain the region of the bucket
+result = bucket.get_bucket_location()
+print('location: ' + result.location)
+
+# Determine whether a bucket exists
+def does_bucket_exist(bucket):
+    try:
+        bucket.get_bucket_info()
+    except oss2.exceptions.NoSuchBucket:
+        return False
+    except:
+        raise
+    return True
+
+exist = does_bucket_exist(bucket)
+# If the returned value is true, a bucket with the specified name exists. If the returned value is false, a bucket with the specified name does not exist.
+if exist:
+    print('bucket exist')
+else:
+    print('bucket not exist')
+
+
+# Configure the ACL of the bucket to private
+bucket.put_bucket_acl(oss2.BUCKET_ACL_PRIVATE)
+
+# Obtain the ACL of a bucket
+bucket.put_bucket_acl(oss2.BUCKET_ACL_PRIVATE)
+print(bucket.get_bucket_acl().acl)
