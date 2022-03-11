@@ -1344,8 +1344,11 @@ class Bucket(_Base):
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         headers = http.CaseInsensitiveDict(headers)
-        parts = sorted(parts, key=lambda p: p.part_number)
-        data = xml_utils.to_complete_upload_request(parts)
+
+        data = None
+        if parts is not None:
+            parts = sorted(parts, key=lambda p: p.part_number)
+            data = xml_utils.to_complete_upload_request(parts)
 
         logger.debug("Start to complete multipart upload, bucket: {0}, key: {1}, upload_id: {2}, parts: {3}".format(
             self.bucket_name, to_string(key), upload_id, data))
@@ -1359,7 +1362,7 @@ class Bucket(_Base):
 
         result = PutObjectResult(resp)
 
-        if self.enable_crc:
+        if self.enable_crc and parts is not None:
             object_crc = utils.calc_obj_crc_from_parts(parts)
             utils.check_crc('multipart upload', object_crc, result.crc, result.request_id)
 
