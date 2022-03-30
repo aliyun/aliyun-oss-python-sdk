@@ -203,7 +203,7 @@ logger = logging.getLogger(__name__)
 
 class _Base(object):
     def __init__(self, auth, endpoint, is_cname, session, connect_timeout,
-                 app_name='', enable_crc=True, proxies=None):
+                 app_name='', enable_crc=True, proxies=None, region=None, additional_headers=None):
         self.auth = auth
         self.endpoint = _normalize_endpoint(endpoint.strip())
         if utils.is_valid_endpoint(self.endpoint) is not True:
@@ -213,6 +213,8 @@ class _Base(object):
         self.app_name = app_name
         self.enable_crc = enable_crc
         self.proxies = proxies
+        self.region = region
+        self.additional_headers = additional_headers
 
         self._make_url = _UrlMaker(self.endpoint, is_cname)
 
@@ -221,6 +223,8 @@ class _Base(object):
         req = http.Request(method, self._make_url(bucket_name, key),
                            app_name=self.app_name,
                            proxies=self.proxies,
+                           region=self.region,
+                           additional_headers=self.additional_headers,
                            **kwargs)
         self.auth._sign_request(req, bucket_name, key)
 
@@ -401,6 +405,7 @@ class Bucket(_Base):
     REPLICATION_LOCATION = 'replicationLocation'
     REPLICATION_PROGRESS = 'replicationProgress'
     TRANSFER_ACCELERATION = 'transferAcceleration'
+    CLOUD_BOXES = 'cloudboxes'
 
 
     def __init__(self, auth, endpoint, bucket_name,
@@ -409,11 +414,13 @@ class Bucket(_Base):
                  connect_timeout=None,
                  app_name='',
                  enable_crc=True,
-                 proxies=None):
-        logger.debug("Init Bucket: {0}, endpoint: {1}, isCname: {2}, connect_timeout: {3}, app_name: {4}, enabled_crc: {5}"
-                     ", proxies: {6}".format(bucket_name, endpoint, is_cname, connect_timeout, app_name, enable_crc, proxies))
+                 proxies=None,
+                 region=None,
+                 additional_headers=None):
+        logger.debug("Init Bucket: {0}, endpoint: {1}, isCname: {2}, connect_timeout: {3}, app_name: {4}, enabled_crc: {5}, region: {6}"
+                     ", proxies: {6}".format(bucket_name, endpoint, is_cname, connect_timeout, app_name, enable_crc, proxies, region))
         super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout, 
-                                     app_name=app_name, enable_crc=enable_crc, proxies=proxies)
+                                     app_name=app_name, enable_crc=enable_crc, proxies=proxies, region=region, additional_headers=additional_headers)
 
         self.bucket_name = bucket_name.strip()
         if utils.is_valid_bucket_name(self.bucket_name) is not True:
@@ -449,7 +456,9 @@ class Bucket(_Base):
                 method, self.bucket_name, to_string(key), expires, headers, params, slash_safe))
         req = http.Request(method, self._make_url(self.bucket_name, key, slash_safe),
                            headers=headers,
-                           params=params)
+                           params=params,
+                           region=self.region,
+                           additional_headers=self.additional_headers)
         return self.auth._sign_url(req, self.bucket_name, key, expires)
 
     def sign_rtmp_url(self, channel_name, playlist_name, expires):
@@ -2524,6 +2533,30 @@ class Bucket(_Base):
         logger.debug("Get bucket transfer acceleration done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return self._parse_result(resp, xml_utils.parse_get_bucket_transfer_acceleration_result, GetBucketTransferAccelerationResult)
+
+    def list_cloud_boxes(self, prefix='', marker='', max_keys=100, headers=None):
+        """列举出B所有符合条件的云盒
+
+        param: str prefix: list时id的公共前缀
+        param: str marker: list时指定的起始标记
+        param: int max_keys: 本次list返回的最大个数
+
+        param headers: HTTP头部
+        type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+
+        return: :class:`ListLiveChannelResult <oss2.models.ListLiveChannelResult>`
+        """
+        headers = http.CaseInsensitiveDict(headers)
+        logger.debug("Start to list live-channels, bucket: {0}, prefix: {1}, marker: {2}, max_keys: {3}".format(
+            self.bucket_name, to_string(prefix), to_string(marker), max_keys))
+        resp = self.__do_bucket('GET', params={Bucket.CLOUD_BOXES: '',
+                                               'prefix': prefix,
+                                               'marker': marker,
+                                               'max-keys': str(max_keys)},
+                                headers=headers)
+        logger.debug("List live-channel done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_list_cloud_boxes, ListCloudBoxesResult)
+
 
     def __do_object(self, method, key, **kwargs):
         return self._do(method, self.bucket_name, key, **kwargs)

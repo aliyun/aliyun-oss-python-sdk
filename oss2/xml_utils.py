@@ -60,7 +60,8 @@ from .models import (SimplifiedObjectInfo,
                      InventoryServerSideEncryptionOSS,
                      LocationTransferType,
                      BucketReplicationProgress,
-                     ReplicationRule)
+                     ReplicationRule,
+                     CloudBoxInfo)
 
 from .select_params import (SelectJsonTypes, SelectParameters)
 
@@ -1704,3 +1705,31 @@ def to_put_bucket_transfer_acceleration(enabled):
 def parse_get_bucket_transfer_acceleration_result(result, body):
     root = ElementTree.fromstring(body)
     result.enabled = _find_tag(root, "Enabled")
+
+def parse_list_cloud_boxes(result, body):
+    root = ElementTree.fromstring(body)
+
+    if _find_tag(root, 'Owner') is not None:
+        result.owner = Owner(_find_tag(root, 'Owner/DisplayName'), _find_tag(root, 'Owner/ID'))
+    result.prefix = _find_tag(root, 'Prefix')
+    result.marker = _find_tag(root, 'Marker')
+    result.max_keys = _find_int(root, 'MaxKeys')
+    result.is_truncated = _find_bool(root, 'IsTruncated')
+
+    if result.is_truncated:
+        result.next_marker = _find_tag(root, 'NextMarker')
+
+    cloud_boxes = root.findall('CloudBoxs/CloudBox')
+    for cloud_box in cloud_boxes:
+        tmp = CloudBoxInfo()
+        tmp.id = _find_tag(cloud_box, 'Id')
+        tmp.name = _find_tag(cloud_box, 'Name')
+        if cloud_box.find("Owner") is not None:
+            tmp.owner = Owner(_find_tag(cloud_box, 'Owner/DisplayName'), _find_tag(cloud_box, 'Owner/ID'))
+        tmp.region = _find_tag(cloud_box, 'Region')
+        tmp.control_endpoint = _find_tag(cloud_box, 'ControlEndpoint')
+        tmp.data_endpoint = _find_tag(cloud_box, 'DataEndpoint')
+
+        result.cloud_boxes.append(tmp)
+
+    return result

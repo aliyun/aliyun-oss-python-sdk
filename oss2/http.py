@@ -57,12 +57,16 @@ class Request(object):
                  params=None,
                  headers=None,
                  app_name='',
-                 proxies=None):
+                 proxies=None,
+                 region=None,
+                 additional_headers=None):
         self.method = method
         self.url = url
         self.data = _convert_request_body(data)
         self.params = params or {}
         self.proxies = proxies
+        self.region = region
+        self.additional_headers = additional_headers
 
         if not isinstance(headers, CaseInsensitiveDict):
             self.headers = CaseInsensitiveDict(headers)

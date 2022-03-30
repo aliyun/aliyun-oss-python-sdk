@@ -3,7 +3,7 @@
 from .common import *
 from oss2.credentials import EcsRamRoleCredentialsProvider, EcsRamRoleCredentialsFetcher, EcsRamRoleCredential
 from aliyunsdkcore import client
-from aliyunsdksts.request.v20150401 import AssumeRoleRequest
+from aliyunsdkcore.request import CommonRequest
 import json
 import datetime
 
@@ -21,12 +21,11 @@ class TestCredentialsProvider(OssTestCase):
     def create_fake_ecs_credentials_url(self):
         def get_fake_credentials_content(access_key_id, access_key_secret, role_arn, oss_region):
             clt = client.AcsClient(access_key_id, access_key_secret, oss_region)
-            req = AssumeRoleRequest.AssumeRoleRequest()
-
+            req = CommonRequest(product="Sts", version='2015-04-01', action_name='AssumeRole')
             req.set_accept_format('json')
-            req.set_RoleArn(role_arn)
-            req.set_RoleSessionName('oss-python-sdk-fake-ecs-credentials-test')
-
+            req.set_protocol_type('https')
+            req.add_query_param('RoleArn', role_arn)
+            req.add_query_param('RoleSessionName', 'oss-python-sdk-fake-ecs-credentials-test')
             body = clt.do_action_with_exception(req)
 
             j = json.loads(oss2.to_unicode(body))
@@ -201,6 +200,43 @@ class TestCredentialsProvider(OssTestCase):
         self.assertRaises(oss2.exceptions.ClientError, provider.fetcher.fetch)
         credentials2 = provider.get_credentials()
         self.assertEqual(credentials1, credentials2)
+
+    def test_sign_v4(self):
+        auth = oss2.AuthV4(OSS_ID, OSS_SECRET)
+        additional_headers = set(['x-oss-object-acl', 'x-oss-select-output-raw', 'Content-Type', 'aaa', 'ccc'])
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, OSS_BUCKET, region=OSS_REGION, additional_headers=additional_headers)
+
+        headers = dict()
+        headers['x-oss-select-output-raw'] = 'true'
+        headers['Content-Type'] = 'text/txt'
+        headers['Date'] = 'Thu, 17 Mar 2022 08:35:28 GMT'
+        headers['x-oss-date'] = 'Thu, 17 Mar 2022 08:35:28 GMT'
+        headers['aaa'] = 'aa'
+        headers['ccc'] = 'ccd'
+        result = bucket.list_objects('oss', '/', '', 10, headers=headers)
+        self.assertEqual(result.status, 200)
+
+    def test_sign_v4_url(self):
+        key = 'test_v4_url.txt'
+        auth = oss2.AuthV4(OSS_ID, OSS_SECRET)
+        additional_headers = set(['x-oss-object-acl', 'x-oss-select-output-raw', 'Content-Type', 'aaa', 'ccc', 'ddd'])
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, OSS_BUCKET, region=OSS_REGION, additional_headers=additional_headers)
+
+        content = b'Never give up. - Jack Ma'
+
+        headers = dict()
+        # 如果指定的时间早于实际修改时间或指定的时间不符合规范，则直接返回Object
+        headers['x-oss-select-output-raw'] = 'true'
+        headers['Content-Type'] = 'text/txt'
+        headers['dada'] = 'Thu, 16 Mar 2022 08:35:28 GMT'
+        headers['x-oss-date'] = 'Thu, 17 Mar 2022 08:35:28 GMT'
+        headers['aaa'] = 'aa'
+        headers['ccc'] = 'ccd'
+        url = bucket.sign_url('PUT', key, 1650801600, headers=headers)
+        print(url)
+
+        result = bucket.put_object_with_url(url, content)
+        self.assertEqual(result.status, 200)
 
 
 if __name__ == '__main__':

@@ -2186,3 +2186,52 @@ class GetBucketTransferAccelerationResult(RequestResult):
     def __init__(self, resp):
         super(GetBucketTransferAccelerationResult, self).__init__(resp)
         self.enabled = None
+
+class CloudBoxInfo(object):
+    """Cloud box（云盒）配置。
+
+    :param id: 云盒id
+    :type id: str
+
+    :param name: 云盒name
+    :type name: str
+
+    :param owner: owner
+    :type class:
+
+    :param region: 云盒region
+    :type region: str
+
+    :param control_endpoint: 云盒控制端点
+    :type control_endpoint: str
+
+    :param data_endpoint: 云盒数据端点
+    :type data_endpoint: str"""
+
+    def __init__(self,
+                 id = None,
+                 name = None,
+                 owner = None,
+                 region = None,
+                 control_endpoint = None,
+                 data_endpoint = None):
+        self.id = id
+        self.name = name
+        self.owner = owner
+        self.region = region
+        self.control_endpoint = control_endpoint
+        self.data_endpoint = data_endpoint
+
+
+class ListCloudBoxesResult(RequestResult):
+    def __init__(self, resp):
+        super(ListCloudBoxesResult, self).__init__(resp)
+
+        #: True表示还有更多的结果可以罗列；False表示已经列举完毕。
+        self.is_truncated = False
+
+        #: 下一次罗列的分页标记符，即，可以作为下一次List云盒的 `marker` 参数。
+        self.next_marker = ''
+
+        #: 得到的云盒列表，类型为 :class:`CloudBoxInfo` 。
+        self.cloud_boxes = []
