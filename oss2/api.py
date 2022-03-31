@@ -2535,7 +2535,7 @@ class Bucket(_Base):
         return self._parse_result(resp, xml_utils.parse_get_bucket_transfer_acceleration_result, GetBucketTransferAccelerationResult)
 
     def list_cloud_boxes(self, prefix='', marker='', max_keys=100, headers=None):
-        """列举出B所有符合条件的云盒
+        """列举出所有符合条件的云盒
 
         param: str prefix: list时id的公共前缀
         param: str marker: list时指定的起始标记
@@ -2544,17 +2544,17 @@ class Bucket(_Base):
         param headers: HTTP头部
         type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
 
-        return: :class:`ListLiveChannelResult <oss2.models.ListLiveChannelResult>`
+        return: :class:`ListCloudBoxesResult <oss2.models.ListCloudBoxesResult>`
         """
         headers = http.CaseInsensitiveDict(headers)
-        logger.debug("Start to list live-channels, bucket: {0}, prefix: {1}, marker: {2}, max_keys: {3}".format(
+        logger.debug("Start to list cloud-boxes, bucket: {0}, prefix: {1}, marker: {2}, max_keys: {3}".format(
             self.bucket_name, to_string(prefix), to_string(marker), max_keys))
         resp = self.__do_bucket('GET', params={Bucket.CLOUD_BOXES: '',
                                                'prefix': prefix,
                                                'marker': marker,
                                                'max-keys': str(max_keys)},
                                 headers=headers)
-        logger.debug("List live-channel done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        logger.debug("List cloud-boxes done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_cloud_boxes, ListCloudBoxesResult)
 
 

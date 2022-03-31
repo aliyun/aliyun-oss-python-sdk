@@ -7,7 +7,7 @@ sys.path.insert(0, parentdir)
 from .common import *
 
 
-class TestLiveChannel(OssTestCase):
+class TestListCloudBoxes(OssTestCase):
 
     def _assert_list_result(self,
                             result,
