@@ -6,6 +6,7 @@ from mock import patch
 from functools import partial
 
 from oss2 import to_string
+from oss2.models import AggregationsRequest, MetaQuery
 from unittests.common import *
 
 
@@ -869,6 +870,275 @@ Date: Fri , 30 Apr 2021 13:08:38 GMT
         self.assertRequest(req_info, request_text)
         self.assertEqual(result.enabled, 'true')
 
+    @patch('oss2.Session.do_request')
+    def test_open_bucket_meta_query(self, do_request):
+        request_text = '''POST /?metaQuery HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****
+'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length: 443
+Connection: keep-alive
+Server: AliyunOSS'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().open_bucket_meta_query()
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+
+    @patch('oss2.Session.do_request')
+    def test_get_bucket_meta_query(self, do_request):
+        request_text = '''GET /?metaQuery HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<MetaQuery>
+  <State>Running</State>
+  <Phase>FullScanning</Phase>
+  <CreateTime>2021-08-02T10:49:17.289372919+08:00</CreateTime>
+  <UpdateTime>2021-08-02T10:49:18.289372919+08:00</UpdateTime>
+</MetaQuery>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().get_bucket_meta_query()
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.state, 'Running')
+        self.assertEqual(result.phase, 'FullScanning')
+        self.assertEqual(result.create_time, '2021-08-02T10:49:17.289372919+08:00')
+        self.assertEqual(result.update_time, '2021-08-02T10:49:18.289372919+08:00')
+
+    @patch('oss2.Session.do_request')
+    def test_do_bucket_meta_query(self, do_request):
+        request_text = '''POST /?metaQuery&comp=query HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****
+
+<?xml version="1.0" encoding="UTF-8"?>
+<MetaQuery>
+<NextToken>MTIzNDU2NzgnV9zYW1wbGVvYmplY3QxLmpwZw==</NextToken>
+<MaxResults>120</MaxResults>
+<Query>{"Field": "Size","Value": "1048576","Operation": "gt"}</Query>
+<Sort>Size</Sort>
+<Order>asc</Order>
+<Aggregations>
+<Aggregation>
+<Field>Size</Field>
+<Operation>sum</Operation>
+</Aggregation>
+<Aggregation>
+<Field>Size</Field>
+<Operation>max</Operation>
+</Aggregation>
+</Aggregations>
+</MetaQuery>'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<MetaQuery>
+    <NextToken>MTIzNDU2NzgnV9zYW1wbGVvYmplY3QxLmpwZw==</NextToken>
+    <Files>    
+        <File>     
+            <Filename>exampleobject.txt</Filename>
+            <Size>120</Size>
+            <FileModifiedTime>2021-06-29T14:50:13.011643661+08:00</FileModifiedTime>
+            <FileCreateTime>2021-06-28T14:50:13.011643661+08:00</FileCreateTime>
+            <FileAccessTime>2021-06-27T14:50:13.011643661+08:00</FileAccessTime>
+            <OSSObjectType>Normal</OSSObjectType>
+            <OSSStorageClass>Standard</OSSStorageClass>
+            <ObjectACL>defalut</ObjectACL>
+            <ETag>fba9dede5f27731c9771645a3986****</ETag>
+            <OSSCRC64>4858A48BD1466884</OSSCRC64>
+            <OSSTaggingCount>2</OSSTaggingCount>
+            <OSSTagging>
+                <Tagging>
+                    <Key>owner</Key>
+                    <Value>John</Value>
+                </Tagging>
+                <Tagging>
+                    <Key>type</Key>
+                    <Value>document</Value>
+                </Tagging>
+            </OSSTagging>
+            <OSSUserMeta>
+                <UserMeta>
+                    <Key>x-oss-meta-location</Key>
+                    <Value>hangzhou</Value>
+                </UserMeta>
+            </OSSUserMeta>
+        </File>
+        <File>
+          <Filename>file2</Filename>
+          <Size>1</Size>
+          <ObjectACL>private</ObjectACL>
+          <OSSObjectType>Appendable</OSSObjectType>
+          <OSSStorageClass>Standard</OSSStorageClass>
+          <ETag>etag</ETag>
+          <OSSCRC64>crc</OSSCRC64>
+          <OSSTaggingCount>2</OSSTaggingCount>
+          <OSSTagging>
+            <Tagging>
+              <Key>t3</Key>
+              <Value>v3</Value>
+            </Tagging>
+            <Tagging>
+              <Key>t4</Key>
+              <Value>v4</Value>
+            </Tagging>
+          </OSSTagging>
+          <OSSUserMeta>
+            <UserMeta>
+              <Key>u3</Key>
+              <Value>v3</Value>
+            </UserMeta>
+            <UserMeta>
+              <Key>u4</Key>
+              <Value>v4</Value>
+            </UserMeta>
+          </OSSUserMeta>
+        </File>
+    </Files>
+    <Aggregations>
+            <Aggregation>
+              <Field>Size</Field>
+              <Operation>sum</Operation>
+              <Value>200</Value>
+              <Groups>
+                <Group>
+                    <Value>100</Value>
+                    <Count>5</Count>
+                </Group>
+                <Group>
+                    <Value>300</Value>
+                    <Count>6</Count>
+                </Group>
+              </Groups>
+            </Aggregation>
+            <Aggregation>
+              <Field>Size</Field>
+              <Operation>max</Operation>
+              <Value>200.2</Value>
+            </Aggregation>
+            <Aggregation>
+              <Field>field1</Field>
+              <Operation>operation1</Operation>
+              <Groups>
+                <Group>
+                  <Value>value1</Value>
+                  <Count>10</Count>
+                </Group>
+                <Group>
+                  <Value>value2</Value>
+                  <Count>20</Count>
+                </Group>
+              </Groups>
+            </Aggregation>
+        </Aggregations>
+</MetaQuery>'''
+
+        req_info = mock_response(do_request, response_text)
+        aggregation1 = AggregationsRequest('Size', 'sum')
+        aggregation2 = AggregationsRequest('Size', 'max')
+        do_meta_query_request = MetaQuery('MTIzNDU2NzgnV9zYW1wbGVvYmplY3QxLmpwZw==', 120, '{"Field": "Size","Value": "1048576","Operation": "gt"}', 'Size', 'asc', [aggregation1, aggregation2])
+        result = bucket().do_bucket_meta_query(do_meta_query_request)
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.next_token, 'MTIzNDU2NzgnV9zYW1wbGVvYmplY3QxLmpwZw==')
+        self.assertEqual(result.files[0].file_name, 'exampleobject.txt')
+        self.assertEqual(result.files[0].size, 120)
+        self.assertEqual(result.files[0].file_modified_time, '2021-06-29T14:50:13.011643661+08:00')
+        self.assertEqual(result.files[0].file_create_time, '2021-06-28T14:50:13.011643661+08:00')
+        self.assertEqual(result.files[0].file_access_time, '2021-06-27T14:50:13.011643661+08:00')
+        self.assertEqual(result.files[0].oss_object_type, 'Normal')
+        self.assertEqual(result.files[0].oss_storage_class, 'Standard')
+        self.assertEqual(result.files[0].object_acl, 'defalut')
+        self.assertEqual(result.files[0].etag, 'fba9dede5f27731c9771645a3986****')
+        self.assertEqual(result.files[0].oss_crc64, '4858A48BD1466884')
+        self.assertEqual(result.files[0].oss_tagging_count, 2)
+        self.assertEqual(result.files[0].oss_tagging[0].key, 'owner')
+        self.assertEqual(result.files[0].oss_tagging[0].value, 'John')
+        self.assertEqual(result.files[0].oss_tagging[1].key, 'type')
+        self.assertEqual(result.files[0].oss_tagging[1].value, 'document')
+        self.assertEqual(result.files[0].oss_user_meta[0].key, 'x-oss-meta-location')
+        self.assertEqual(result.files[0].oss_user_meta[0].value, 'hangzhou')
+        self.assertEqual(result.files[1].file_name, 'file2')
+        self.assertEqual(result.files[1].size, 1)
+        self.assertEqual(result.files[1].oss_object_type, 'Appendable')
+        self.assertEqual(result.files[1].oss_storage_class, 'Standard')
+        self.assertEqual(result.files[1].object_acl, 'private')
+        self.assertEqual(result.files[1].etag, 'etag')
+        self.assertEqual(result.files[1].oss_crc64, 'crc')
+        self.assertEqual(result.files[1].oss_tagging_count, 2)
+        self.assertEqual(result.files[1].oss_tagging[0].key, 't3')
+        self.assertEqual(result.files[1].oss_tagging[0].value, 'v3')
+        self.assertEqual(result.files[1].oss_tagging[1].key, 't4')
+        self.assertEqual(result.files[1].oss_tagging[1].value, 'v4')
+        self.assertEqual(result.files[1].oss_user_meta[0].key, 'u3')
+        self.assertEqual(result.files[1].oss_user_meta[0].value, 'v3')
+        self.assertEqual(result.files[1].oss_user_meta[1].key, 'u4')
+        self.assertEqual(result.files[1].oss_user_meta[1].value, 'v4')
+        self.assertEqual(result.aggregations[0].field, 'Size')
+        self.assertEqual(result.aggregations[0].operation, 'sum')
+        self.assertEqual(result.aggregations[0].value, 200)
+        self.assertEqual(result.aggregations[0].groups[0].value, '100')
+        self.assertEqual(result.aggregations[0].groups[0].count, 5)
+        self.assertEqual(result.aggregations[0].groups[1].value, '300')
+        self.assertEqual(result.aggregations[0].groups[1].count, 6)
+        self.assertEqual(result.aggregations[1].field, 'Size')
+        self.assertEqual(result.aggregations[1].operation, 'max')
+        self.assertEqual(result.aggregations[1].value, 200.2)
+        self.assertEqual(result.aggregations[2].field, 'field1')
+        self.assertEqual(result.aggregations[2].operation, 'operation1')
+        self.assertEqual(result.aggregations[2].groups[0].value, 'value1')
+        self.assertEqual(result.aggregations[2].groups[0].count, 10)
+        self.assertEqual(result.aggregations[2].groups[1].value, 'value2')
+        self.assertEqual(result.aggregations[2].groups[1].count, 20)
+
+    @patch('oss2.Session.do_request')
+    def test_close_bucket_meta_query(self, do_request):
+        request_text = '''POST /?metaQuery&comp=delete HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().close_bucket_meta_query()
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
 
 if __name__ == '__main__':
     unittest.main()

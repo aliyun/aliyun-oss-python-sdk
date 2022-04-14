@@ -401,6 +401,7 @@ class Bucket(_Base):
     REPLICATION_LOCATION = 'replicationLocation'
     REPLICATION_PROGRESS = 'replicationProgress'
     TRANSFER_ACCELERATION = 'transferAcceleration'
+    META_QUERY = 'metaQuery'
 
 
     def __init__(self, auth, endpoint, bucket_name,
@@ -2517,13 +2518,56 @@ class Bucket(_Base):
     def get_bucket_transfer_acceleration(self):
         """获取目标存储空间（Bucket）的传输加速配置
 
-        :return: :class:`GetBucketReplicationResult <oss2.models.GetBucketReplicationResult>`
+        :return: :class:`GetBucketTransferAccelerationResult <oss2.models.GetBucketTransferAccelerationResult>`
         """
         logger.debug("Start to get bucket transfer acceleration: {0}".format(self.bucket_name))
         resp = self.__do_bucket('GET', params={Bucket.TRANSFER_ACCELERATION: ''})
         logger.debug("Get bucket transfer acceleration done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return self._parse_result(resp, xml_utils.parse_get_bucket_transfer_acceleration_result, GetBucketTransferAccelerationResult)
+
+    def open_bucket_meta_query(self):
+        """为存储空间（Bucket）开启元数据管理功能
+
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to bucket meta query, bucket: {0}.".format(self.bucket_name))
+        resp = self.__do_bucket('POST', params={Bucket.META_QUERY: '', 'comp': 'add'})
+        logger.debug("bucket meta query done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
+
+    def get_bucket_meta_query(self):
+        """获取指定存储空间（Bucket）的元数据索引库信息。
+
+        :return: :class:`GetBucketMetaQueryResult <oss2.models.GetBucketMetaQueryResult>`
+        """
+        logger.debug("Start to get bucket meta query: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('GET', params={Bucket.META_QUERY: ''})
+        logger.debug("Get bucket meta query done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_get_bucket_meta_query_result, GetBucketMetaQueryResult)
+
+    def do_bucket_meta_query(self, do_meta_query_request):
+        """查询满足指定条件的文件（Object），并按照指定字段和排序方式列出文件信息。
+
+        :param do_meta_query_request :class:`MetaQuery <oss2.models.MetaQuery>`
+        :return: :class:`DoBucketMetaQueryResult <oss2.models.DoBucketMetaQueryResult>`
+        """
+        logger.debug("Start to do bucket meta query: {0}".format(self.bucket_name))
+
+        data = self.__convert_data(MetaQuery, xml_utils.to_do_bucket_meta_query_request, do_meta_query_request)
+        resp = self.__do_bucket('POST', data=data, params={Bucket.META_QUERY: '', Bucket.COMP: 'query'})
+        logger.debug("do bucket meta query done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_do_bucket_meta_query_result, DoBucketMetaQueryResult)
+
+    def close_bucket_meta_query(self):
+        """关闭存储空间（Bucket）的元数据管理功能
+
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to close bucket meta query: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('POST', params={Bucket.META_QUERY: '', Bucket.COMP: 'delete'})
+        logger.debug("bucket meta query done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
 
     def __do_object(self, method, key, **kwargs):
         return self._do(method, self.bucket_name, key, **kwargs)

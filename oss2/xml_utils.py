@@ -60,7 +60,12 @@ from .models import (SimplifiedObjectInfo,
                      InventoryServerSideEncryptionOSS,
                      LocationTransferType,
                      BucketReplicationProgress,
-                     ReplicationRule)
+                     ReplicationRule,
+                     ObjectFilesInfo,
+                     AggregationsInfo,
+                     OSSTaggingInfo,
+                     OSSUserMetaInfo,
+                     AggregationGroupInfo)
 
 from .select_params import (SelectJsonTypes, SelectParameters)
 
@@ -1704,3 +1709,72 @@ def to_put_bucket_transfer_acceleration(enabled):
 def parse_get_bucket_transfer_acceleration_result(result, body):
     root = ElementTree.fromstring(body)
     result.enabled = _find_tag(root, "Enabled")
+
+
+def to_do_bucket_meta_query_request(meta_query):
+    root = ElementTree.Element("MetaQuery")
+    if meta_query.next_token is not None:
+        _add_text_child(root, "NextToken", meta_query.next_token)
+    _add_text_child(root, "MaxResults", meta_query.max_results)
+    _add_text_child(root, "Query", meta_query.query)
+    if meta_query.sort is not None:
+        _add_text_child(root, "Sort", meta_query.sort)
+    if meta_query.order is not None:
+        _add_text_child(root, "Order", meta_query.order)
+    if meta_query.aggregations:
+        aggregations_node = ElementTree.SubElement(root, "Aggregations")
+        for aggregation in meta_query.aggregations:
+            aggregation_node = ElementTree.SubElement(aggregations_node, 'Aggregation')
+            if aggregation.field is not None:
+                _add_text_child(aggregation_node, 'Field', aggregation.field)
+            if aggregation.operation is not None:
+                _add_text_child(aggregation_node, 'Operation', aggregation.operation)
+
+    return _node_to_string(root)
+
+
+def parse_get_bucket_meta_query_result(result, body):
+    root = ElementTree.fromstring(body)
+    result.state = _find_tag(root, "State")
+    result.phase = _find_tag(root, "Phase")
+    result.create_time = _find_tag(root, "CreateTime")
+    result.update_time = _find_tag(root, "UpdateTime")
+
+
+def parse_do_bucket_meta_query_result(result, body):
+    root = ElementTree.fromstring(body)
+    result.next_token = _find_tag(root, "NextToken")
+
+    for file in root.findall('Files/File'):
+        tmp = ObjectFilesInfo()
+        tmp.file_name = _find_tag(file, 'Filename')
+        tmp.size = int(_find_tag_with_default(file, 'Size', 0))
+        tmp.file_modified_time = _find_tag_with_default(file, 'FileModifiedTime', None)
+        tmp.file_create_time = _find_tag_with_default(file, 'FileCreateTime', None)
+        tmp.file_access_time = _find_tag_with_default(file, 'FileAccessTime', None)
+        tmp.oss_object_type = _find_tag_with_default(file, 'OSSObjectType', None)
+        tmp.oss_storage_class = _find_tag_with_default(file, 'OSSStorageClass', None)
+        tmp.object_acl = _find_tag_with_default(file, 'ObjectACL', None)
+        tmp.etag = _find_tag_with_default(file, 'ETag', None)
+        tmp.oss_crc64 = _find_tag_with_default(file, 'OSSCRC64', None)
+        tmp.oss_tagging_count = int(_find_tag_with_default(file, 'OSSTaggingCount', 0))
+        if file.find('OSSTagging') is not None:
+            for tagging in file.find('OSSTagging').findall('Tagging'):
+                tmp_tagging = OSSTaggingInfo(_find_tag(tagging, 'Key'), _find_tag(tagging, 'Value'))
+                tmp.oss_tagging.append(tmp_tagging)
+        if file.find('OSSUserMeta') is not None:
+            for meta in file.find('OSSUserMeta').findall('UserMeta'):
+                tmp_meta = OSSUserMetaInfo(_find_tag(meta, 'Key'), _find_tag(meta, 'Value'))
+                tmp.oss_user_meta.append(tmp_meta)
+        result.files.append(tmp)
+
+    for aggregation in root.findall('Aggregations/Aggregation'):
+        tmp = AggregationsInfo()
+        tmp.field = _find_tag(aggregation, 'Field')
+        tmp.operation = _find_tag(aggregation, 'Operation')
+        tmp.value = float(_find_tag_with_default(aggregation, 'Value', 0))
+
+        for group in aggregation.findall('Groups/Group'):
+            tmp_groups = AggregationGroupInfo(_find_tag(group, 'Value'), int(_find_tag_with_default(group, 'Count', 0)))
+            tmp.groups.append(tmp_groups)
+        result.aggregations.append(tmp)

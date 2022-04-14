@@ -2186,3 +2186,167 @@ class GetBucketTransferAccelerationResult(RequestResult):
     def __init__(self, resp):
         super(GetBucketTransferAccelerationResult, self).__init__(resp)
         self.enabled = None
+
+
+class MetaQuery(object):
+    """元数据索引库信息查询信息设置
+
+    :param str next_token: 当Object总数大于设置的MaxResults时，用于翻页的token。
+    :param str max_results: 返回Object的最大个数，取值范围为0~200。不设置此参数或者设置为0时，则默认值为100。
+    :param str query: 查询条件。
+    :param str sort: 对指定字段排序。
+    :param str order: 排序方式。asc（默认）：升序; desc：降序。
+    :param list aggregations: 聚合操作信息的容器。元素类型为:class:`AggregationsRequest <oss2.models.AggregationsRequest>`。
+    """
+
+    def __init__(self,
+                 next_token=None,
+                 max_results=None,
+                 query=None,
+                 sort=None,
+                 order=None,
+                 aggregations=None):
+        self.next_token = next_token
+        self.max_results = str(max_results)
+        self.query = query
+        self.sort = sort
+        self.order = order
+        self.aggregations = aggregations or []
+
+
+class AggregationsRequest(object):
+    """聚合操作信息的容器。
+
+    :param str field: 字段名称。
+    :param str operation: 聚合操作中的操作符。
+    """
+
+    def __init__(self,
+                 field=None,
+                 operation=None):
+        self.field = field
+        self.operation = operation
+
+
+class GetBucketMetaQueryResult(RequestResult):
+    """获取指定存储空间（Bucket）的元数据索引库信息。
+
+    :param str state: 元数据索引库的状态。
+    :param str phase: 当前扫描类型。
+    :param str create_time: 元数据索引库的创建时间，遵循RFC 3339标准格式，格式为YYYY-MM-DDTHH:mm:ss+TIMEZONE。
+    :param str update_time: 元数据索引库的更新时间，遵循RFC 3339标准格式，格式为YYYY-MM-DDTHH:mm:ss+TIMEZONE。
+    """
+
+    def __init__(self, resp):
+        super(GetBucketMetaQueryResult, self).__init__(resp)
+        self.state = None
+        self.phase = None
+        self.create_time = None
+        self.update_time = None
+
+
+class DoBucketMetaQueryResult(RequestResult):
+    """查询满足指定条件的文件（Object），并按照指定字段和排序方式列出文件信息。
+
+    :param str next_token: Object完整路径。
+    :param list files: Object信息的容器。元素类型为:class:`ObjectFilesInfo <oss2.models.ObjectFilesInfo>`。
+    :param list aggregations: 聚合操作信息的容器。元素类型为:class:`AggregationsInfo <oss2.models.AggregationsInfo>`。
+    """
+
+    def __init__(self, resp):
+        super(DoBucketMetaQueryResult, self).__init__(resp)
+        self.next_token = None
+        self.files = []
+        self.aggregations = []
+
+
+class ObjectFilesInfo(RequestResult):
+    """Object信息的容器。
+
+    :param str file_name: Object完整路径。
+    :param int size: Object大小。单位为字节。
+    :param str file_modified_time: Object的最近一次修改时间，遵循RFC 3339标准格式，格式为YYYY-MM-DDTHH:mm:ss.ms+TIMEZONE。
+    :param str file_create_time: Object的创建时间，遵循RFC 3339标准格式，格式为YYYY-MM-DDTHH:mm:ss.ms+TIMEZONE。
+    :param str file_access_time: Object的智能分层时间，遵循RFC 3339标准格式，格式为YYYY-MM-DDTHH:mm:ss.ms+TIMEZONE。
+    :param str oss_object_type: Object的类型。
+    :param str oss_storage_class: Object的存储类型。
+    :param str object_acl: Object的访问权限。
+    :param str etag: Object生成时会创建相应的ETag ，ETag用于标识一个Object的内容。
+    :param str oss_crc64: Object的64位CRC值。该64位CRC根据ECMA-182标准计算得出。
+    :param int oss_tagging_count: Object的标签个数。
+    :param list oss_tagging: 标签信息的容器。元素类型为:class:`OSSTaggingInfo <oss2.models.OSSTaggingInfo>`。
+    :param list oss_user_meta: 用户自定义元数据的容器。元素类型为:class:`OSSUserMetaInfo <oss2.models.OSSUserMetaInfo>`。
+    """
+
+    def __init__(self):
+        self.file_name = None
+        self.size = None
+        self.file_modified_time = None
+        self.file_create_time = None
+        self.file_access_time = None
+        self.oss_object_type = None
+        self.oss_storage_class = None
+        self.object_acl = None
+        self.etag = None
+        self.oss_crc64 = None
+        self.oss_tagging_count = None
+        self.oss_tagging = []
+        self.oss_user_meta = []
+
+
+class AggregationsInfo(RequestResult):
+    """聚合操作信息的容器。
+
+    :param str field: 字段名称。
+    :param str operation: 聚合操作中的操作符。
+    :param float value: 聚合操作的结果值。
+    :param list groups: 分组聚合的结果列表。元素类型为:class:`AggregationGroupInfo <oss2.models.AggregationGroupInfo>`。
+    """
+
+    def __init__(self):
+        self.field = None
+        self.operation = None
+        self.value = None
+        self.groups = []
+
+
+class OSSTaggingInfo(RequestResult):
+    """标签信息的容器。
+
+    :param key: 标签或者用户自定义元数据的Key。
+    :type key: str
+    :param value: 标签或者用户自定义元数据的Value。
+    :type value: str
+    """
+
+    def __init__(self, key, value):
+        self.key = key
+        self.value = value
+
+
+class OSSUserMetaInfo(RequestResult):
+    """用户自定义元数据的容器。
+
+    :param key: 用户自定义元数据的 key。
+    :type key: str
+    :param value: 用户自定义元数据的 value。
+    :type value: str
+    """
+
+    def __init__(self, key, value):
+        self.key = key
+        self.value = value
+
+
+class AggregationGroupInfo(RequestResult):
+    """分组聚合的结果列表。
+
+    :param value: 分组聚合的值。
+    :type value: str
+    :param count: 分组聚合的总个数。
+    :type count: int
+    """
+
+    def __init__(self, value, count):
+        self.value = value
+        self.count = count
