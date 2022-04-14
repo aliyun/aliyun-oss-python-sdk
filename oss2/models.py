@@ -645,10 +645,39 @@ class BucketCreateConfig(object):
 
 
 class BucketStat(object):
-    def __init__(self, storage_size_in_bytes, object_count, multi_part_upload_count):
+    def __init__(self, storage_size_in_bytes, object_count, multi_part_upload_count, live_channel_count,
+                 last_modified_time, standard_storage, standard_object_count, infrequent_access_storage,
+                 infrequent_access_real_storage, infrequent_access_object_count, archive_storage, archive_real_storage,
+                 archive_object_count, cold_archive_storage, cold_archive_real_storage, cold_archive_object_count):
         self.storage_size_in_bytes = storage_size_in_bytes
         self.object_count = object_count
         self.multi_part_upload_count = multi_part_upload_count
+        #: bucket中live channel数量
+        self.live_channel_count = live_channel_count
+        #: 此次调用获取到的数据记录的时间点
+        self.last_modified_time = last_modified_time
+        #: 标准存储类型的存储量，单位字节
+        self.standard_storage = standard_storage
+        #: 标准存储类型的object数量
+        self.standard_object_count = standard_object_count
+        #: 低频存储类型的计费存储量(单个object不足64KB以64KB计算)，单位字节
+        self.infrequent_access_storage = infrequent_access_storage
+        #: 低频存储类型的实际存储量，单位字节
+        self.infrequent_access_real_storage = infrequent_access_real_storage
+        #: 低频存储类型的object数量
+        self.infrequent_access_object_count = infrequent_access_object_count
+        #: 归档存储类型的计费存储量(单个object不足64KB以64KB计算)，单位字节
+        self.archive_storage = archive_storage
+        #: 归档存储类型的实际存储量，单位字节
+        self.archive_real_storage = archive_real_storage
+        #: 归档存储类型的object数量
+        self.archive_object_count = archive_object_count
+        #: 冷归档存储类型的计费存储量(单个object不足64KB以64KB计算)，单位字节
+        self.cold_archive_storage = cold_archive_storage
+        #: 冷归档存储类型的实际存储量，单位字节
+        self.cold_archive_real_storage = cold_archive_real_storage
+        #: 冷归档存储类型的object数量
+        self.cold_archive_object_count = cold_archive_object_count
 
 
 class AccessControlList(object):
@@ -684,7 +713,8 @@ class BucketInfo(object):
 class GetBucketStatResult(RequestResult, BucketStat):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
-        BucketStat.__init__(self, 0, 0, 0)
+        BucketStat.__init__(self, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+
 
 
 class GetBucketInfoResult(RequestResult, BucketInfo):

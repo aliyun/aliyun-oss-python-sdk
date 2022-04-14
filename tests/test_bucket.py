@@ -585,6 +585,46 @@ class TestBucket(OssTestCase):
         wait_meta_sync()
         self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.delete_bucket)
 
+    def test_bucket_stat_all_param(self):
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket_name = OSS_BUCKET + "-test-stat-all"
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
+
+        service = oss2.Service(auth, OSS_ENDPOINT)
+        wait_meta_sync()
+        self.retry_assert(lambda: bucket.bucket_name in (b.name for b in
+                                                         service.list_buckets(prefix=bucket.bucket_name).buckets))
+
+        key = 'b.txt'
+        bucket.put_object(key, 'content')
+        wait_meta_sync()
+
+        result = bucket.get_bucket_stat()
+        self.assertEqual(1, result.object_count)
+        self.assertEqual(0, result.multi_part_upload_count)
+        self.assertEqual(7, result.storage_size_in_bytes)
+        self.assertEqual(0, result.live_channel_count)
+        self.assertIsNotNone(result.last_modified_time)
+        self.assertEqual(7, result.standard_storage)
+        self.assertEqual(1, result.standard_object_count)
+        self.assertEqual(0, result.infrequent_access_storage)
+        self.assertEqual(0, result.infrequent_access_real_storage)
+        self.assertEqual(0, result.infrequent_access_object_count)
+        self.assertEqual(0, result.archive_storage)
+        self.assertEqual(0, result.archive_real_storage)
+        self.assertEqual(0, result.archive_object_count)
+        self.assertEqual(0, result.cold_archive_storage)
+        self.assertEqual(0, result.cold_archive_real_storage)
+        self.assertEqual(0, result.cold_archive_object_count)
+
+        bucket.delete_object(key)
+        bucket.delete_bucket()
+
+        wait_meta_sync()
+        self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.delete_bucket)
+
     def test_bucket_info(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket_name = OSS_BUCKET + "-test-info"

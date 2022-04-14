@@ -736,6 +736,67 @@ x-oss-request-id: 566B6BDD68248CE14F729DC0
         self.assertEqual(result.object_count, 666)
         self.assertEqual(result.multi_part_upload_count, 992)
 
+    @patch('oss2.Session.do_request')
+    def test_get_stat_all_param(self, do_request):
+        request_text = '''GET /?stat= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:41 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:Pt0DtPQ/FODOGs5y0yTIVctRcok='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:42 GMT
+Content-Type: application/xml
+Content-Length: 96
+Connection: keep-alive
+x-oss-request-id: 566B6BDD68248CE14F729DC0
+
+<?xml version="1.0" encoding="UTF-8"?>
+<BucketStat> 
+    <Storage>472594058</Storage> 
+    <ObjectCount>666</ObjectCount> 
+    <MultipartUploadCount>992</MultipartUploadCount>
+    <LiveChannelCount>4</LiveChannelCount>
+    <LastModifiedTime>0</LastModifiedTime>
+    <StandardStorage>430</StandardStorage>
+    <StandardObjectCount>66</StandardObjectCount>
+    <InfrequentAccessStorage>2359296</InfrequentAccessStorage>
+    <InfrequentAccessRealStorage>360</InfrequentAccessRealStorage>
+    <InfrequentAccessObjectCount>54</InfrequentAccessObjectCount>
+    <ArchiveStorage>2949120</ArchiveStorage>
+    <ArchiveRealStorage>450</ArchiveRealStorage>
+    <ArchiveObjectCount>74</ArchiveObjectCount>
+    <ColdArchiveStorage>2359296</ColdArchiveStorage>
+    <ColdArchiveRealStorage>360</ColdArchiveRealStorage>
+    <ColdArchiveObjectCount>36</ColdArchiveObjectCount>
+</BucketStat>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().get_bucket_stat()
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.storage_size_in_bytes, 472594058)
+        self.assertEqual(result.object_count, 666)
+        self.assertEqual(result.multi_part_upload_count, 992)
+        self.assertEqual(result.live_channel_count, 4)
+        self.assertEqual(result.last_modified_time, 0)
+        self.assertEqual(result.standard_storage, 430)
+        self.assertEqual(result.standard_object_count, 66)
+        self.assertEqual(result.infrequent_access_storage, 2359296)
+        self.assertEqual(result.infrequent_access_real_storage, 360)
+        self.assertEqual(result.infrequent_access_object_count, 54)
+        self.assertEqual(result.archive_storage, 2949120)
+        self.assertEqual(result.archive_real_storage, 450)
+        self.assertEqual(result.archive_object_count, 74)
+        self.assertEqual(result.cold_archive_storage, 2359296)
+        self.assertEqual(result.cold_archive_real_storage, 360)
+        self.assertEqual(result.cold_archive_object_count, 36)
+
 
     @patch('oss2.Session.do_request')
     def test_get_bucket_policy(self, do_request):
