@@ -134,7 +134,7 @@ class ProviderAuth(AuthBase):
 
         content_md5 = req.headers.get('content-md5', '')
         content_type = req.headers.get('content-type', '')
-        date = req.headers.get('date', '')
+        date = req.headers.get('x-oss-date', '') or req.headers.get('date', '')
         return '\n'.join([req.method,
                           content_md5,
                           content_type,
@@ -190,7 +190,7 @@ class ProviderAuth(AuthBase):
 
         content_md5 = req.headers.get('content-md5', '').encode('utf-8')
         content_type = req.headers.get('content-type', '').encode('utf-8')
-        date = req.headers.get('date', '').encode('utf-8')
+        date = req.headers.get('x-oss-date', '').encode('utf-8') or req.headers.get('date', '').encode('utf-8')
         return b'\n'.join([req.method.encode('utf-8'),
                           content_md5,
                           content_type,
