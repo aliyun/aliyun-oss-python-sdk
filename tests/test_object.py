@@ -105,7 +105,7 @@ class TestObject(OssTestCase):
     def test_restore_object_with_wrong_request(self):
         from oss2.models import RestoreJobParameters, RestoreConfiguration
 
-        endpoint = "http://oss-ap-southeast-2.aliyuncs.com"
+        endpoint = OSS_ENDPOINT
         bucket_name = OSS_BUCKET + "-test-restore-2"
         bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), endpoint, bucket_name)
         bucket.create_bucket()
@@ -123,7 +123,7 @@ class TestObject(OssTestCase):
     def test_restore_archive_object_with_job_parameters(self):
         from oss2.models import RestoreJobParameters, RestoreConfiguration, RESTORE_TIER_BULK
 
-        endpoint = "http://oss-ap-southeast-2.aliyuncs.com"
+        endpoint = OSS_ENDPOINT
         bucket_name = OSS_BUCKET + "-test-restore-3"
         bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), endpoint, bucket_name)
         bucket.create_bucket()
