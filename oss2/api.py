@@ -203,7 +203,7 @@ logger = logging.getLogger(__name__)
 
 class _Base(object):
     def __init__(self, auth, endpoint, is_cname, session, connect_timeout,
-                 app_name='', enable_crc=True, proxies=None):
+                 app_name='', enable_crc=True, proxies=None, region=None, cloudbox_id= None):
         self.auth = auth
         self.endpoint = _normalize_endpoint(endpoint.strip())
         if utils.is_valid_endpoint(self.endpoint) is not True:
@@ -213,14 +213,22 @@ class _Base(object):
         self.app_name = app_name
         self.enable_crc = enable_crc
         self.proxies = proxies
-
+        self.region = region
+        self.product = 'oss'
+        self.cloudbox_id = cloudbox_id
+        if self.cloudbox_id is not None:
+            self.product = 'oss-cloudbox'
         self._make_url = _UrlMaker(self.endpoint, is_cname)
+
 
     def _do(self, method, bucket_name, key, **kwargs):
         key = to_string(key)
         req = http.Request(method, self._make_url(bucket_name, key),
                            app_name=self.app_name,
                            proxies=self.proxies,
+                           region=self.region,
+                           product=self.product,
+                           cloudbox_id=self.cloudbox_id,
                            **kwargs)
         self.auth._sign_request(req, bucket_name, key)
 
@@ -293,11 +301,14 @@ class Service(_Base):
                  session=None,
                  connect_timeout=None,
                  app_name='',
-                 proxies=None):
+                 proxies=None,
+                 region=None,
+                 cloudbox_id=None):
         logger.debug("Init oss service, endpoint: {0}, connect_timeout: {1}, app_name: {2}, proxies: {3}".format(
             endpoint, connect_timeout, app_name, proxies))
         super(Service, self).__init__(auth, endpoint, False, session, connect_timeout,
-                                      app_name=app_name, proxies=proxies)
+                                      app_name=app_name, proxies=proxies,
+                                      region=region, cloudbox_id=cloudbox_id)
 
     def list_buckets(self, prefix='', marker='', max_keys=100, params=None):
         """根据前缀罗列用户的Bucket。
@@ -409,11 +420,14 @@ class Bucket(_Base):
                  connect_timeout=None,
                  app_name='',
                  enable_crc=True,
-                 proxies=None):
-        logger.debug("Init Bucket: {0}, endpoint: {1}, isCname: {2}, connect_timeout: {3}, app_name: {4}, enabled_crc: {5}"
-                     ", proxies: {6}".format(bucket_name, endpoint, is_cname, connect_timeout, app_name, enable_crc, proxies))
+                 proxies=None,
+                 region=None,
+                 cloudbox_id=None):
+        logger.debug("Init Bucket: {0}, endpoint: {1}, isCname: {2}, connect_timeout: {3}, app_name: {4}, enabled_crc: {5}, region: {6}"
+                     ", proxies: {6}".format(bucket_name, endpoint, is_cname, connect_timeout, app_name, enable_crc, proxies, region))
         super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout, 
-                                     app_name=app_name, enable_crc=enable_crc, proxies=proxies)
+                                     app_name=app_name, enable_crc=enable_crc, proxies=proxies,
+                                     region=region, cloudbox_id=cloudbox_id)
 
         self.bucket_name = bucket_name.strip()
         if utils.is_valid_bucket_name(self.bucket_name) is not True:
@@ -449,7 +463,10 @@ class Bucket(_Base):
                 method, self.bucket_name, to_string(key), expires, headers, params, slash_safe))
         req = http.Request(method, self._make_url(self.bucket_name, key, slash_safe),
                            headers=headers,
-                           params=params)
+                           params=params,
+                           region=self.region,
+                           product=self.product,
+                           cloudbox_id=self.cloudbox_id)
         return self.auth._sign_url(req, self.bucket_name, key, expires)
 
     def sign_rtmp_url(self, channel_name, playlist_name, expires):

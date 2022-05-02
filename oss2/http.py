@@ -57,12 +57,18 @@ class Request(object):
                  params=None,
                  headers=None,
                  app_name='',
-                 proxies=None):
+                 proxies=None,
+                 region=None,
+                 product=None,
+                 cloudbox_id=None):
         self.method = method
         self.url = url
         self.data = _convert_request_body(data)
         self.params = params or {}
         self.proxies = proxies
+        self.region = region
+        self.product = product
+        self.cloudbox_id = cloudbox_id
 
         if not isinstance(headers, CaseInsensitiveDict):
             self.headers = CaseInsensitiveDict(headers)
