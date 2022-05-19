@@ -401,6 +401,7 @@ class Bucket(_Base):
     REPLICATION_LOCATION = 'replicationLocation'
     REPLICATION_PROGRESS = 'replicationProgress'
     TRANSFER_ACCELERATION = 'transferAcceleration'
+    CNAME = 'cname'
 
 
     def __init__(self, auth, endpoint, bucket_name,
@@ -2524,6 +2525,60 @@ class Bucket(_Base):
         logger.debug("Get bucket transfer acceleration done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return self._parse_result(resp, xml_utils.parse_get_bucket_transfer_acceleration_result, GetBucketTransferAccelerationResult)
+
+    def create_bucket_cname_token(self, domain):
+        """创建域名所有权验证所需的CnameToken。
+
+        :return: :class:`CreateBucketCnameTokenResult <oss2.models.CreateBucketCnameTokenResult>`
+        """
+        logger.debug("Start to create bucket cname token, bucket: {0}.".format(self.bucket_name))
+        data = xml_utils.to_bucket_cname(domain)
+        resp = self.__do_bucket('POST', data=data, params={Bucket.CNAME: '', Bucket.COMP: 'token'})
+        logger.debug("bucket cname token done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_create_bucket_cname_token, CreateBucketCnameTokenResult)
+
+    def get_bucket_cname_token(self, domain=None):
+        """获取已创建的CnameToken。
+
+        :return: :class:`GetBucketCnameTokenResult <oss2.models.GetBucketCnameTokenResult>`
+        """
+        logger.debug("Start to get bucket cname: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('GET', params={Bucket.CNAME: domain, Bucket.COMP: 'token'})
+        logger.debug("Get bucket cname done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_get_bucket_cname_token, GetBucketCnameTokenResult)
+
+    def put_bucket_cname(self, bucket_cname):
+        """为某个存储空间（Bucket）绑定自定义域名。
+
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to add bucket cname, bucket: {0}.".format(self.bucket_name))
+        data = xml_utils.to_put_bucket_cname(bucket_cname)
+        resp = self.__do_bucket('POST', data=data, params={Bucket.CNAME: '', Bucket.COMP: 'add'})
+        logger.debug("bucket cname done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
+
+    def list_bucket_cname(self):
+        """查询某个存储空间（Bucket）下绑定的所有Cname列表。
+
+        :return: :class:`ListBucketCnameResult <oss2.models.ListBucketCnameResult>`
+        """
+        logger.debug("Start to do query list bucket cname: {0}".format(self.bucket_name))
+
+        resp = self.__do_bucket('GET', params={Bucket.CNAME: ''})
+        logger.debug("query list bucket cname done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_list_bucket_cname, ListBucketCnameResult)
+
+    def delete_bucket_cname(self, domain):
+        """删除某个存储空间（Bucket）已绑定的Cname
+
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to delete bucket cname: {0}".format(self.bucket_name))
+        data = xml_utils.to_bucket_cname(domain)
+        resp = self.__do_bucket('POST', data=data, params={Bucket.CNAME: '', Bucket.COMP: 'delete'})
+        logger.debug("delete bucket cname done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
 
     def __do_object(self, method, key, **kwargs):
         return self._do(method, self.bucket_name, key, **kwargs)

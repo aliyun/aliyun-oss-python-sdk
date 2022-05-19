@@ -52,15 +52,16 @@ from .models import (SimplifiedObjectInfo,
                      NoncurrentVersionExpiration,
                      AsyncFetchTaskConfiguration,
                      InventoryConfiguration,
-                     InventoryFilter, 
-                     InventorySchedule, 
-                     InventoryDestination, 
-                     InventoryBucketDestination, 
+                     InventoryFilter,
+                     InventorySchedule,
+                     InventoryDestination,
+                     InventoryBucketDestination,
                      InventoryServerSideEncryptionKMS,
                      InventoryServerSideEncryptionOSS,
                      LocationTransferType,
                      BucketReplicationProgress,
-                     ReplicationRule)
+                     ReplicationRule,
+                     CnameInfo, CertificateInfo)
 
 from .select_params import (SelectJsonTypes, SelectParameters)
 
@@ -1704,3 +1705,73 @@ def to_put_bucket_transfer_acceleration(enabled):
 def parse_get_bucket_transfer_acceleration_result(result, body):
     root = ElementTree.fromstring(body)
     result.enabled = _find_tag(root, "Enabled")
+
+
+def to_bucket_cname(domain):
+    root = ElementTree.Element('BucketCnameConfiguration')
+    cname = ElementTree.SubElement(root, 'Cname')
+    _add_text_child(cname, 'Domain', domain)
+    return _node_to_string(root)
+
+
+def to_put_bucket_cname(bucket_cname):
+    root = ElementTree.Element("BucketCnameConfiguration")
+    cname = ElementTree.SubElement(root, 'Cname')
+    _add_text_child(cname, 'Domain', bucket_cname.domain)
+    if bucket_cname.cert is not None:
+        certificate = ElementTree.SubElement(cname, 'CertificateConfiguration')
+        if bucket_cname.cert.cert_id is not None:
+            _add_text_child(certificate, 'CertId', bucket_cname.cert.cert_id)
+        if bucket_cname.cert.certificate is not None:
+            _add_text_child(certificate, 'Certificate', bucket_cname.cert.certificate)
+        if bucket_cname.cert.private_key is not None:
+            _add_text_child(certificate, 'PrivateKey', bucket_cname.cert.private_key)
+        if bucket_cname.cert.previous_cert_id is not None:
+            _add_text_child(certificate, 'PreviousCertId', bucket_cname.cert.previous_cert_id)
+        if bucket_cname.cert.force is not None:
+            _add_text_child(certificate, 'Force', str(bucket_cname.cert.force))
+        if bucket_cname.cert.delete_certificate is not None:
+            _add_text_child(certificate, 'DeleteCertificate', str(bucket_cname.cert.delete_certificate))
+    return _node_to_string(root)
+
+
+def parse_create_bucket_cname_token(result, body):
+    root = ElementTree.fromstring(body)
+    result.bucket = _find_tag(root, "Bucket")
+    result.cname = _find_tag(root, "Cname")
+    result.token = _find_tag(root, "Token")
+    result.expire_time = _find_tag(root, "ExpireTime")
+
+
+def parse_get_bucket_cname_token(result, body):
+    root = ElementTree.fromstring(body)
+    result.bucket = _find_tag(root, "Bucket")
+    result.cname = _find_tag(root, "Cname")
+    result.token = _find_tag(root, "Token")
+    result.expire_time = _find_tag(root, "ExpireTime")
+
+
+def parse_list_bucket_cname(result, body):
+    root = ElementTree.fromstring(body)
+    result.bucket = _find_tag(root, "Bucket")
+    result.owner = _find_tag(root, "Owner")
+    for cname in root.findall('Cname'):
+        tmp = CnameInfo()
+        tmp.domain = _find_tag_with_default(cname, 'Domain', None)
+        tmp.last_modified = _find_tag_with_default(cname, 'LastModified', None)
+        tmp.status = _find_tag_with_default(cname, 'Status', None)
+        tmp.is_purge_cdn_cache = _find_tag_with_default(cname, 'IsPurgeCdnCache', None)
+
+        cert = cname.find('Certificate')
+        if cert is not None:
+            certificate = CertificateInfo()
+            certificate.type = _find_tag_with_default(cert, 'Type', None)
+            certificate.cert_id = _find_tag_with_default(cert, 'CertId', None)
+            certificate.status = _find_tag_with_default(cert, 'Status', None)
+            certificate.creation_date = _find_tag_with_default(cert, 'CreationDate', None)
+            certificate.fingerprint = _find_tag_with_default(cert, 'Fingerprint', None)
+            certificate.valid_start_date = _find_tag_with_default(cert, 'ValidStartDate', None)
+            certificate.valid_end_date = _find_tag_with_default(cert, 'ValidEndDate', None)
+            tmp.certificate = certificate
+        result.cname.append(tmp)
+
