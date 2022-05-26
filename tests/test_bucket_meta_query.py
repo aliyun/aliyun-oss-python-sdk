@@ -14,7 +14,7 @@ class TestBucketMetaQuery(OssTestCase):
         while True:
             time.sleep(10)
             # 获取指定存储空间（Bucket）的元数据索引库信息
-            get_result = self.bucket.get_bucket_meta_query()
+            get_result = self.bucket.get_bucket_meta_query_status()
             if get_result.state == 'Running':
                 # 查询满足指定条件的文件（Object），并按照指定字段和排序方式列出文件信息。
                 do_meta_query_request = MetaQuery('', 2, '{"Field": "Size","Value": "1048576","Operation": "lt"}', 'Size', 'asc')
@@ -57,7 +57,7 @@ class TestBucketMetaQuery(OssTestCase):
         while True:
             time.sleep(10)
             # 获取指定存储空间（Bucket）的元数据索引库信息
-            get_result = dest_bucket.get_bucket_meta_query()
+            get_result = dest_bucket.get_bucket_meta_query_status()
             if get_result.state == 'Running':
                 # 查询满足指定条件的文件（Object），并按照指定字段和排序方式列出文件信息。
                 aggregations1 = AggregationsRequest(field='Size', operation='sum')

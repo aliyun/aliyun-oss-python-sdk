@@ -2249,7 +2249,7 @@ class DoBucketMetaQueryResult(RequestResult):
     """查询满足指定条件的文件（Object），并按照指定字段和排序方式列出文件信息。
 
     :param str next_token: Object完整路径。
-    :param list files: Object信息的容器。元素类型为:class:`ObjectFilesInfo <oss2.models.ObjectFilesInfo>`。
+    :param list files: Object信息的容器。元素类型为:class:`MetaQueryFile <oss2.models.MetaQueryFile>`。
     :param list aggregations: 聚合操作信息的容器。元素类型为:class:`AggregationsInfo <oss2.models.AggregationsInfo>`。
     """
 
@@ -2260,7 +2260,7 @@ class DoBucketMetaQueryResult(RequestResult):
         self.aggregations = []
 
 
-class ObjectFilesInfo(RequestResult):
+class MetaQueryFile(RequestResult):
     """Object信息的容器。
 
     :param str file_name: Object完整路径。

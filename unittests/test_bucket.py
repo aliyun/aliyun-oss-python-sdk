@@ -916,7 +916,7 @@ Date: Fri , 30 Apr 2021 13:08:38 GMT
 
         req_info = mock_response(do_request, response_text)
 
-        result = bucket().get_bucket_meta_query()
+        result = bucket().get_bucket_meta_query_status()
 
         self.assertRequest(req_info, request_text)
         self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')

@@ -52,16 +52,16 @@ from .models import (SimplifiedObjectInfo,
                      NoncurrentVersionExpiration,
                      AsyncFetchTaskConfiguration,
                      InventoryConfiguration,
-                     InventoryFilter, 
-                     InventorySchedule, 
-                     InventoryDestination, 
-                     InventoryBucketDestination, 
+                     InventoryFilter,
+                     InventorySchedule,
+                     InventoryDestination,
+                     InventoryBucketDestination,
                      InventoryServerSideEncryptionKMS,
                      InventoryServerSideEncryptionOSS,
                      LocationTransferType,
                      BucketReplicationProgress,
                      ReplicationRule,
-                     ObjectFilesInfo,
+                     MetaQueryFile,
                      AggregationsInfo,
                      OSSTaggingInfo,
                      OSSUserMetaInfo,
@@ -1746,7 +1746,7 @@ def parse_do_bucket_meta_query_result(result, body):
     result.next_token = _find_tag(root, "NextToken")
 
     for file in root.findall('Files/File'):
-        tmp = ObjectFilesInfo()
+        tmp = MetaQueryFile()
         tmp.file_name = _find_tag(file, 'Filename')
         tmp.size = int(_find_tag_with_default(file, 'Size', 0))
         tmp.file_modified_time = _find_tag_with_default(file, 'FileModifiedTime', None)

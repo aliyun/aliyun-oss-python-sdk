@@ -2536,7 +2536,7 @@ class Bucket(_Base):
         logger.debug("bucket meta query done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
-    def get_bucket_meta_query(self):
+    def get_bucket_meta_query_status(self):
         """获取指定存储空间（Bucket）的元数据索引库信息。
 
         :return: :class:`GetBucketMetaQueryResult <oss2.models.GetBucketMetaQueryResult>`

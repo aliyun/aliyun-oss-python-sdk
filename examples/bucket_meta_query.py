@@ -29,7 +29,7 @@ bucket = oss2.Bucket(oss2.Auth(access_key_id, access_key_secret), endpoint, buck
 bucket.open_bucket_meta_query()
 
 # Gets the meta query information of the specified storage space (bucket)
-result = bucket.get_bucket_meta_query()
+result = bucket.get_bucket_meta_query_status()
 print("Print the status of the meta query: ", result.state)
 
 # Query the files (objects) that meet the specified conditions, and list the file information according to the specified fields and sorting method.
