@@ -930,6 +930,211 @@ Date: Fri , 30 Apr 2021 13:08:38 GMT
         self.assertRequest(req_info, request_text)
         self.assertEqual(result.enabled, 'true')
 
+    @patch('oss2.Session.do_request')
+    def test_create_bucket_cname_token(self, do_request):
+        request_text = '''POST /?cname&comp=token HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****
+
+<BucketCnameConfiguration><Cname><Domain>example.com</Domain></Cname></BucketCnameConfiguration>
+'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<CnameToken>
+  <Bucket>mybucket</Bucket>
+  <Cname>example.com</Cname>;
+  <Token>be1d49d863dea9ffeff3df7d6455****</Token>
+  <ExpireTime>Wed, 23 Feb 2022 21:39:42 GMT</ExpireTime>
+</CnameToken>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().create_bucket_cname_token('example.com')
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.bucket, 'mybucket')
+        self.assertEqual(result.cname, 'example.com')
+        self.assertEqual(result.token, 'be1d49d863dea9ffeff3df7d6455****')
+        self.assertEqual(result.expire_time, 'Wed, 23 Feb 2022 21:39:42 GMT')
+
+    @patch('oss2.Session.do_request')
+    def test_get_bucket_cname_token(self, do_request):
+        request_text = '''GET /?comp=token&cname=example.com HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<CnameToken>
+  <Bucket>mybucket</Bucket>
+  <Cname>example.com</Cname>;
+  <Token>be1d49d863dea9ffeff3df7d6455****</Token>
+  <ExpireTime>Wed, 23 Feb 2022 21:39:42 GMT</ExpireTime>
+</CnameToken>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().get_bucket_cname_token('example.com')
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.bucket, 'mybucket')
+        self.assertEqual(result.cname, 'example.com')
+        self.assertEqual(result.token, 'be1d49d863dea9ffeff3df7d6455****')
+        self.assertEqual(result.expire_time, 'Wed, 23 Feb 2022 21:39:42 GMT')
+
+    @patch('oss2.Session.do_request')
+    def test_put_bucket_cname(self, do_request):
+        request_text = '''POST /?cname&comp=add HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****
+
+<BucketCnameConfiguration>
+<Cname>
+<Domain>{0}</Domain>
+<CertificateConfiguration>
+<CertId>{1}</CertId>
+<Certificate>{2}</Certificate>
+<PrivateKey>{3}</PrivateKey>
+<PreviousCertId>493****-cn-hangzhou</PreviousCertId>
+<Force>True</Force>
+<DeleteCertificate>True</DeleteCertificate>
+</CertificateConfiguration>
+</Cname>
+</BucketCnameConfiguration>'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 5C1B138A109F4E405B2D
+content-length: 0
+x-oss-console-auth: success
+server: AliyunOSS
+x-oss-server-time: 980
+connection: keep-alive
+date: Wed, 15 Sep 2021 03:33:37 GMT'''
+
+        req_info = mock_response(do_request, response_text)
+        domain = 'example.com'
+        cert_id = '493****-cn-hangzhou'
+        certificate = '-----BEGIN CERTIFICATE----- MIIDhDCCAmwCCQCFs8ixARsyrDANBgkqhkiG9w0BAQsFADCBgzELMAkGA1UEBhMC **** -----END CERTIFICATE-----'
+        private_key = '-----BEGIN CERTIFICATE----- MIIDhDCCAmwCCQCFs8ixARsyrDANBgkqhkiG9w0BAQsFADCBgzELMAkGA1UEBhMC **** -----END CERTIFICATE-----'
+        cert = oss2.models.CertInfo(cert_id, certificate, private_key, '493****-cn-hangzhou', True, True)
+        input = oss2.models.PutBucketCnameRequest(domain, cert)
+        bucket().put_bucket_cname(input)
+        self.assertRequest(req_info, request_text.format(to_string(domain), to_string(cert_id), to_string(certificate), to_string(private_key)))
+
+    @patch('oss2.Session.do_request')
+    def test_list_bucket_cname(self, do_request):
+        request_text = '''GET /?cname HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<ListCnameResult>
+  <Bucket>targetbucket</Bucket>
+  <Owner>testowner</Owner>
+  <Cname>
+    <Domain>example.com</Domain>
+    <LastModified>2021-09-15T02:35:07.000Z</LastModified>
+    <Status>Enabled</Status>
+    <Certificate>
+      <Type>CAS</Type>
+      <CertId>493****-cn-hangzhou</CertId>
+      <Status>Enabled</Status>
+      <CreationDate>Wed, 15 Sep 2021 02:35:06 GMT</CreationDate>
+      <Fingerprint>DE:01:CF:EC:7C:A7:98:CB:D8:6E:FB:1D:97:EB:A9:64:1D:4E:**:**</Fingerprint>
+      <ValidStartDate>Tues, 12 Apr 2021 10:14:51 GMT</ValidStartDate>
+      <ValidEndDate>Mon, 4 May 2048 10:14:51 GMT</ValidEndDate>
+    </Certificate>
+  </Cname>
+  <Cname>
+    <Domain>example.org</Domain>
+    <LastModified>2021-09-15T02:34:58.000Z</LastModified>
+    <Status>Enabled</Status>
+  </Cname>
+  <Cname>
+    <Domain>example.edu</Domain>
+    <LastModified>2021-09-15T02:50:34.000Z</LastModified>
+    <Status>Disabled</Status>
+  </Cname>
+</ListCnameResult>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().list_bucket_cname()
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.bucket, 'targetbucket')
+        self.assertEqual(result.owner, 'testowner')
+        self.assertEqual(result.cname[0].domain, 'example.com')
+        self.assertEqual(result.cname[0].last_modified, '2021-09-15T02:35:07.000Z')
+        self.assertEqual(result.cname[0].status, 'Enabled')
+        # self.assertEqual(result.cname[0].is_purge_cdn_cache, '2021-08-02T10:49:18.289372919+08:00')
+        self.assertEqual(result.cname[0].certificate.type, 'CAS')
+        self.assertEqual(result.cname[0].certificate.cert_id, '493****-cn-hangzhou')
+        self.assertEqual(result.cname[0].certificate.status, 'Enabled')
+        self.assertEqual(result.cname[0].certificate.creation_date, 'Wed, 15 Sep 2021 02:35:06 GMT')
+        self.assertEqual(result.cname[0].certificate.fingerprint, 'DE:01:CF:EC:7C:A7:98:CB:D8:6E:FB:1D:97:EB:A9:64:1D:4E:**:**')
+        self.assertEqual(result.cname[0].certificate.valid_start_date, 'Tues, 12 Apr 2021 10:14:51 GMT')
+        self.assertEqual(result.cname[0].certificate.valid_end_date, 'Mon, 4 May 2048 10:14:51 GMT')
+        self.assertEqual(result.cname[1].domain, 'example.org')
+        self.assertEqual(result.cname[1].last_modified, '2021-09-15T02:34:58.000Z')
+        self.assertEqual(result.cname[1].status, 'Enabled')
+        self.assertEqual(result.cname[2].domain, 'example.edu')
+        self.assertEqual(result.cname[2].last_modified, '2021-09-15T02:50:34.000Z')
+        self.assertEqual(result.cname[2].status, 'Disabled')
+        for c in result.cname:
+            print(c.domain)
+            print(c.last_modified)
+            print(c.status)
+
+    @patch('oss2.Session.do_request')
+    def test_delete_bucket_cname(self, do_request):
+        request_text = '''POST /?cname&comp=delete HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****
+
+<BucketCnameConfiguration><Cname><Domain>{0}</Domain></Cname></BucketCnameConfiguration>'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 5C1B138A109F4E405B2D
+Date: Mon, 26 Jul 2021 13:08:38 GMT
+Content-Length: 118
+Content-Type: application/xml
+Connection: keep-alive
+Server: AliyunOSS
+'''
+
+        req_info = mock_response(do_request, response_text)
+        domain = 'example.com'
+        bucket().delete_bucket_cname(domain)
+        self.assertRequest(req_info, request_text.format(to_string(domain)))
+
 
 if __name__ == '__main__':
     unittest.main()
