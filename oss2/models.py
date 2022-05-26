@@ -2276,7 +2276,7 @@ class CertificateInfo(object):
         self.valid_end_date = None
 
 
-class BucketCnameRequest(RequestResult):
+class PutBucketCnameRequest(object):
     """绑定证书请求。
 
     :param str domain: 自定义域名。
@@ -2284,7 +2284,7 @@ class BucketCnameRequest(RequestResult):
 
     """
 
-    def __init__(self, domain=None, cert=None):
+    def __init__(self, domain, cert=None):
         self.domain = domain
         self.cert = cert
 

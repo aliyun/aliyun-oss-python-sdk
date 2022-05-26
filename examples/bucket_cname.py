@@ -49,8 +49,8 @@ print(get_result.expire_time)
 
 # Bind a custom domain name to a bucket.
 cert = oss2.models.CertInfo(cert_id, certificate, private_key, previous_cert_id, True, False)
-cname = oss2.models.BucketCnameRequest(test_domain, cert)
-bucket.put_bucket_cname(cname)
+input = oss2.models.PutBucketCnameRequest(test_domain, cert)
+bucket.put_bucket_cname(input)
 
 # Query the list of all cnames bound under a storage space (bucket).
 list_result = bucket.list_bucket_cname()

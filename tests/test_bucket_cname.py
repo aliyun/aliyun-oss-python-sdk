@@ -70,8 +70,8 @@ g1i2t41Q/SC3HUGC5mJjpO8=
 
 
         cert = oss2.models.CertInfo(cert_id, certificate, private_key, previous_cert_id, True, False)
-        cname = oss2.models.BucketCnameRequest(test_domain, cert)
-        result = self.bucket.put_bucket_cname(cname)
+        input = oss2.models.PutBucketCnameRequest(test_domain, cert)
+        result = self.bucket.put_bucket_cname(input)
         self.assertEqual(200, result.status)
 
         result = self.bucket.list_bucket_cname()

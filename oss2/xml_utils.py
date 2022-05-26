@@ -1707,31 +1707,24 @@ def parse_get_bucket_transfer_acceleration_result(result, body):
     result.enabled = _find_tag(root, "Enabled")
 
 
-def to_bucket_cname(domain):
-    root = ElementTree.Element('BucketCnameConfiguration')
-    cname = ElementTree.SubElement(root, 'Cname')
-    _add_text_child(cname, 'Domain', domain)
-    return _node_to_string(root)
-
-
-def to_put_bucket_cname(bucket_cname):
+def to_bucket_cname_configuration(domain, cert=None):
     root = ElementTree.Element("BucketCnameConfiguration")
     cname = ElementTree.SubElement(root, 'Cname')
-    _add_text_child(cname, 'Domain', bucket_cname.domain)
-    if bucket_cname.cert is not None:
+    _add_text_child(cname, 'Domain', domain)
+    if cert is not None:
         certificate = ElementTree.SubElement(cname, 'CertificateConfiguration')
-        if bucket_cname.cert.cert_id is not None:
-            _add_text_child(certificate, 'CertId', bucket_cname.cert.cert_id)
-        if bucket_cname.cert.certificate is not None:
-            _add_text_child(certificate, 'Certificate', bucket_cname.cert.certificate)
-        if bucket_cname.cert.private_key is not None:
-            _add_text_child(certificate, 'PrivateKey', bucket_cname.cert.private_key)
-        if bucket_cname.cert.previous_cert_id is not None:
-            _add_text_child(certificate, 'PreviousCertId', bucket_cname.cert.previous_cert_id)
-        if bucket_cname.cert.force is not None:
-            _add_text_child(certificate, 'Force', str(bucket_cname.cert.force))
-        if bucket_cname.cert.delete_certificate is not None:
-            _add_text_child(certificate, 'DeleteCertificate', str(bucket_cname.cert.delete_certificate))
+        if cert.cert_id is not None:
+            _add_text_child(certificate, 'CertId', cert.cert_id)
+        if cert.certificate is not None:
+            _add_text_child(certificate, 'Certificate', cert.certificate)
+        if cert.private_key is not None:
+            _add_text_child(certificate, 'PrivateKey',cert.private_key)
+        if cert.previous_cert_id is not None:
+            _add_text_child(certificate, 'PreviousCertId', cert.previous_cert_id)
+        if cert.force is not None:
+            _add_text_child(certificate, 'Force', str(cert.force))
+        if cert.delete_certificate is not None:
+            _add_text_child(certificate, 'DeleteCertificate', str(cert.delete_certificate))
     return _node_to_string(root)
 
 

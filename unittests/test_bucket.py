@@ -973,8 +973,8 @@ date: Wed, 15 Sep 2021 03:33:37 GMT'''
         certificate = '-----BEGIN CERTIFICATE----- MIIDhDCCAmwCCQCFs8ixARsyrDANBgkqhkiG9w0BAQsFADCBgzELMAkGA1UEBhMC **** -----END CERTIFICATE-----'
         private_key = '-----BEGIN CERTIFICATE----- MIIDhDCCAmwCCQCFs8ixARsyrDANBgkqhkiG9w0BAQsFADCBgzELMAkGA1UEBhMC **** -----END CERTIFICATE-----'
         cert = oss2.models.CertInfo(cert_id, certificate, private_key, '493****-cn-hangzhou', True, True)
-        cname = oss2.models.BucketCnameRequest(domain, cert)
-        bucket().put_bucket_cname(cname)
+        input = oss2.models.PutBucketCnameRequest(domain, cert)
+        bucket().put_bucket_cname(input)
         self.assertRequest(req_info, request_text.format(to_string(domain), to_string(cert_id), to_string(certificate), to_string(private_key)))
 
     @patch('oss2.Session.do_request')

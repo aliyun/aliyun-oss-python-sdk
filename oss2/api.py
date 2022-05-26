@@ -2529,17 +2529,19 @@ class Bucket(_Base):
     def create_bucket_cname_token(self, domain):
         """创建域名所有权验证所需的CnameToken。
 
+        :param str domain : 绑定的Cname名称。
         :return: :class:`CreateBucketCnameTokenResult <oss2.models.CreateBucketCnameTokenResult>`
         """
         logger.debug("Start to create bucket cname token, bucket: {0}.".format(self.bucket_name))
-        data = xml_utils.to_bucket_cname(domain)
+        data = xml_utils.to_bucket_cname_configuration(domain)
         resp = self.__do_bucket('POST', data=data, params={Bucket.CNAME: '', Bucket.COMP: 'token'})
         logger.debug("bucket cname token done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_create_bucket_cname_token, CreateBucketCnameTokenResult)
 
-    def get_bucket_cname_token(self, domain=None):
+    def get_bucket_cname_token(self, domain):
         """获取已创建的CnameToken。
 
+        :param str domain : 绑定的Cname名称。
         :return: :class:`GetBucketCnameTokenResult <oss2.models.GetBucketCnameTokenResult>`
         """
         logger.debug("Start to get bucket cname: {0}".format(self.bucket_name))
@@ -2547,13 +2549,14 @@ class Bucket(_Base):
         logger.debug("Get bucket cname done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_get_bucket_cname_token, GetBucketCnameTokenResult)
 
-    def put_bucket_cname(self, bucket_cname):
+    def put_bucket_cname(self, input):
         """为某个存储空间（Bucket）绑定自定义域名。
 
+        :param input: PutBucketCnameRequest类型，包含了证书和自定义域名信息
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
         logger.debug("Start to add bucket cname, bucket: {0}.".format(self.bucket_name))
-        data = xml_utils.to_put_bucket_cname(bucket_cname)
+        data = xml_utils.to_bucket_cname_configuration(input.domain, input.cert)
         resp = self.__do_bucket('POST', data=data, params={Bucket.CNAME: '', Bucket.COMP: 'add'})
         logger.debug("bucket cname done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
@@ -2572,10 +2575,11 @@ class Bucket(_Base):
     def delete_bucket_cname(self, domain):
         """删除某个存储空间（Bucket）已绑定的Cname
 
+        :param str domain : 绑定的Cname名称。
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
         logger.debug("Start to delete bucket cname: {0}".format(self.bucket_name))
-        data = xml_utils.to_bucket_cname(domain)
+        data = xml_utils.to_bucket_cname_configuration(domain)
         resp = self.__do_bucket('POST', data=data, params={Bucket.CNAME: '', Bucket.COMP: 'delete'})
         logger.debug("delete bucket cname done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
