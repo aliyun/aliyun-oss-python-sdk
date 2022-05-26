@@ -2216,3 +2216,125 @@ class GetBucketTransferAccelerationResult(RequestResult):
     def __init__(self, resp):
         super(GetBucketTransferAccelerationResult, self).__init__(resp)
         self.enabled = None
+
+
+class CreateBucketCnameTokenResult(RequestResult):
+    """创建域名所有权验证所需的CnameToken。
+
+    :param str bucket: 绑定Cname的Bucket名称。
+    :param str cname: 绑定的Cname名称。
+    :param str token: OSS返回的CnameToken。
+    :param str expire_time: CnameToken的有效时间。
+    """
+
+    def __init__(self, resp):
+        super(CreateBucketCnameTokenResult, self).__init__(resp)
+        self.bucket = None
+        self.cname = None
+        self.token = None
+        self.expire_time = None
+
+
+class GetBucketCnameTokenResult(RequestResult):
+    """获取已创建的CnameToken。
+
+    :param str bucket: 绑定Cname的Bucket名称。
+    :param str cname: 绑定的Cname名称。
+    :param str token: OSS返回的CnameToken。
+    :param str expire_time: CnameToken的有效时间。
+    """
+
+    def __init__(self, resp):
+        super(GetBucketCnameTokenResult, self).__init__(resp)
+        self.bucket = None
+        self.cname = None
+        self.token = None
+        self.expire_time = None
+
+
+class ListBucketCnameResult(RequestResult):
+    """查询某个存储空间（Bucket）下绑定的所有Cname列表。
+
+    :param str bucket: 已绑定Cname列表的Bucket名称。
+    :param str owner: Bucket Owner名称。
+    :param str cname: Cname信息列表的容器。元素类型为:class:`CnameInfo <oss2.models.CnameInfo>`。
+    """
+
+    def __init__(self, resp):
+        super(ListBucketCnameResult, self).__init__(resp)
+        self.bucket = None
+        self.owner = None
+        self.cname = []
+
+
+class CnameInfo(RequestResult):
+    """Cname信息列表。
+
+    :param str domain: 自定义域名。
+    :param str last_modified: 绑定自定义域名的时间
+    :param str status: 域名所处状态。
+    :param class certificate: 证书信息的容器。元素类型为:class:`CertificateInfo <oss2.models.CertificateInfo>`。
+    """
+
+    def __init__(self):
+        self.domain = None
+        self.last_modified = None
+        self.status = None
+        self.is_purge_cdn_cache = None
+        self.certificate = None
+
+
+class CertificateInfo(object):
+    """证书信息。
+
+    :param str type: 证书来源。
+    :param str cert_id: 证书ID。
+    :param str status: 证书状态。
+    :param str creation_date: 证书绑定时间。
+    :param str fingerprint: 证书签名。
+    :param str valid_start_date: 证书有效期起始时间。
+    :param str valid_end_date: 证书有效期终止时间。
+    """
+
+    def __init__(self):
+        self.type = None
+        self.cert_id = None
+        self.status = None
+        self.creation_date = None
+        self.fingerprint = None
+        self.valid_start_date = None
+        self.valid_end_date = None
+
+
+class PutBucketCnameRequest(object):
+    """绑定证书请求。
+
+    :param str domain: 自定义域名。
+    :param class cert: 证书。元素类型为:class:`CertInfo <oss2.models.CertInfo>`。
+
+    """
+
+    def __init__(self, domain, cert=None):
+        self.domain = domain
+        self.cert = cert
+
+
+class CertInfo(RequestResult):
+    """绑定证书信息请求参数。
+
+    :param str cert_id: 证书ID。
+    :param str certificate: 证书公钥。
+    :param str private_key: 证书私钥。
+    :param bool previous_cert_id: 当前证书ID。
+    :param bool force: 是否强制覆盖证书
+    :param bool delete_certificate: 是否删除证书。
+    """
+
+    def __init__(self, cert_id=None, certificate=None, private_key=None, previous_cert_id=None, force=None,
+                 delete_certificate=None):
+        self.cert_id = cert_id
+        self.certificate = certificate
+        self.private_key = private_key
+        self.previous_cert_id = previous_cert_id
+        self.force = force
+        self.delete_certificate = delete_certificate
