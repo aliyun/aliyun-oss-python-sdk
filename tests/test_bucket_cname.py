@@ -54,7 +54,6 @@ MK+m1BT4TMklgVoN3w3sPsKIsSJ/jLz5cv/kYweFAoGAG4iWU1378tI2Ts/Fngsv
 g1i2t41Q/SC3HUGC5mJjpO8=
 -----END PRIVATE KEY-----
 '''
-        # 开启元数据管理功能
         try:
             result = self.bucket.create_bucket_cname_token(test_domain)
         except:
@@ -71,8 +70,14 @@ g1i2t41Q/SC3HUGC5mJjpO8=
 
         cert = oss2.models.CertInfo(cert_id, certificate, private_key, previous_cert_id, True, False)
         input = oss2.models.PutBucketCnameRequest(test_domain, cert)
-        result = self.bucket.put_bucket_cname(input)
-        self.assertEqual(200, result.status)
+        try:
+            result = self.bucket.put_bucket_cname(input)
+            self.assertFalse(True, "should not get a exception")
+        except oss2.exceptions.ServerError as e:
+            self.assertEqual(e.details['Code'], 'NeedVerifyDomainOwnership')
+        except:
+            self.assertFalse(True, "should not get other exception")
+
 
         result = self.bucket.list_bucket_cname()
         self.assertEqual(200, result.status)

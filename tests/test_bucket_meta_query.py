@@ -5,7 +5,6 @@ class TestBucketMetaQuery(OssTestCase):
     def test_1_bucket_meta_query(self):
         key = 'a.txt'
         self.bucket.put_object(key, 'content')
-        # 开启元数据管理功能
         result = self.bucket.open_bucket_meta_query()
         self.assertEqual(200, result.status)
         key = 'b.txt'
@@ -13,10 +12,8 @@ class TestBucketMetaQuery(OssTestCase):
 
         while True:
             time.sleep(10)
-            # 获取指定存储空间（Bucket）的元数据索引库信息
             get_result = self.bucket.get_bucket_meta_query_status()
             if get_result.state == 'Running':
-                # 查询满足指定条件的文件（Object），并按照指定字段和排序方式列出文件信息。
                 do_meta_query_request = MetaQuery('', 2, '{"Field": "Size","Value": "1048576","Operation": "lt"}', 'Size', 'asc')
                 result = self.bucket.do_bucket_meta_query(do_meta_query_request)
 
@@ -37,7 +34,6 @@ class TestBucketMetaQuery(OssTestCase):
                 self.assertIsNotNone(result.files[1].object_acl)
                 break
 
-        # 关闭存储空间（Bucket）的元数据管理功能。
         result = self.bucket.close_bucket_meta_query()
         self.assertEqual(200, result.status)
 
@@ -49,17 +45,14 @@ class TestBucketMetaQuery(OssTestCase):
 
         key = 'c.txt'
         dest_bucket.put_object(key, 'content  ccccc')
-        # 开启元数据管理功能
         result = dest_bucket.open_bucket_meta_query()
         self.assertEqual(200, result.status)
         key = 'd.txt'
         dest_bucket.put_object(key, 'content dddddd')
         while True:
             time.sleep(10)
-            # 获取指定存储空间（Bucket）的元数据索引库信息
             get_result = dest_bucket.get_bucket_meta_query_status()
             if get_result.state == 'Running':
-                # 查询满足指定条件的文件（Object），并按照指定字段和排序方式列出文件信息。
                 aggregations1 = AggregationsRequest(field='Size', operation='sum')
                 aggregations2 = AggregationsRequest(field='Size', operation='max')
                 do_meta_query_request = MetaQuery(max_results=2, query='{"Field": "Size","Value": "1048576","Operation": "lt"}', sort='Size', order='asc', aggregations=[aggregations1, aggregations2])
@@ -73,7 +66,6 @@ class TestBucketMetaQuery(OssTestCase):
                 self.assertEqual('Size', result.aggregations[1].field)
                 self.assertEqual('max', result.aggregations[1].operation)
                 break
-        # 关闭存储空间（Bucket）的元数据管理功能。
         result = dest_bucket.close_bucket_meta_query()
         self.assertEqual(200, result.status)
 
