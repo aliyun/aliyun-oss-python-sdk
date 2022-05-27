@@ -2260,7 +2260,7 @@ class DoBucketMetaQueryResult(RequestResult):
         self.aggregations = []
 
 
-class MetaQueryFile(RequestResult):
+class MetaQueryFile(object):
     """Object信息的容器。
 
     :param str file_name: Object完整路径。
@@ -2294,7 +2294,7 @@ class MetaQueryFile(RequestResult):
         self.oss_user_meta = []
 
 
-class AggregationsInfo(RequestResult):
+class AggregationsInfo(object):
     """聚合操作信息的容器。
 
     :param str field: 字段名称。
@@ -2310,7 +2310,7 @@ class AggregationsInfo(RequestResult):
         self.groups = []
 
 
-class OSSTaggingInfo(RequestResult):
+class OSSTaggingInfo(object):
     """标签信息的容器。
 
     :param key: 标签或者用户自定义元数据的Key。
@@ -2324,7 +2324,7 @@ class OSSTaggingInfo(RequestResult):
         self.value = value
 
 
-class OSSUserMetaInfo(RequestResult):
+class OSSUserMetaInfo(object):
     """用户自定义元数据的容器。
 
     :param key: 用户自定义元数据的 key。
@@ -2338,7 +2338,7 @@ class OSSUserMetaInfo(RequestResult):
         self.value = value
 
 
-class AggregationGroupInfo(RequestResult):
+class AggregationGroupInfo(object):
     """分组聚合的结果列表。
 
     :param value: 分组聚合的值。
