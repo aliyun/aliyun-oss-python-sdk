@@ -341,8 +341,8 @@ class TestBucket(OssTestCase):
 
         rule = LifecycleRule(random_string(10), '中文前缀/',
                              status=LifecycleRule.ENABLED,
-                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 25)))
-        rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 20),
+                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 20)))
+        rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 25),
                                                       storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
 
         lifecycle = BucketLifecycle([rule])
@@ -352,7 +352,7 @@ class TestBucket(OssTestCase):
         result = self.bucket.get_bucket_lifecycle()
         self.assertEqual(1, len(result.rules))
         self.assertEqual(1, len(result.rules[0].storage_transitions))
-        self.assertEqual(datetime.date(2016, 12, 20), result.rules[0].storage_transitions[0].created_before_date)
+        self.assertEqual(datetime.date(2016, 12, 25), result.rules[0].storage_transitions[0].created_before_date)
 
         self.assertTrue(result.rules[0].tagging is None)
 
@@ -363,8 +363,8 @@ class TestBucket(OssTestCase):
 
         rule = LifecycleRule(random_string(10), 'aaaaaaaaaaa/',
                              status=LifecycleRule.ENABLED,
-                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 25)))
-        rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 20),
+                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 20)))
+        rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 25),
                                                       storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
 
         tagging_rule = TaggingRule()
@@ -380,7 +380,7 @@ class TestBucket(OssTestCase):
         result = self.bucket.get_bucket_lifecycle()
         self.assertEqual(1, len(result.rules))
         self.assertEqual(1, len(result.rules[0].storage_transitions))
-        self.assertEqual(datetime.date(2016, 12, 20), result.rules[0].storage_transitions[0].created_before_date)
+        self.assertEqual(datetime.date(2016, 12, 25), result.rules[0].storage_transitions[0].created_before_date)
 
         self.assertEqual(1, result.rules[0].tagging.tag_set.len())
         self.assertEqual('test_value', result.rules[0].tagging.tag_set.tagging_rule['test_key'])
@@ -446,8 +446,8 @@ class TestBucket(OssTestCase):
 
         rule = LifecycleRule(random_string(10), '中文前缀/',
                              status=LifecycleRule.ENABLED,
-                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 25)))
-        rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 20),
+                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 20)))
+        rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 25),
                                                       storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
 
         tagging = Tagging()
@@ -481,8 +481,8 @@ class TestBucket(OssTestCase):
 
         rule = LifecycleRule(random_string(10), '中文前缀/',
                              status=LifecycleRule.ENABLED,
-                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 25)))
-        rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 20),
+                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 20)))
+        rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 25),
                                                       storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
 
         tagging = Tagging()
@@ -514,8 +514,8 @@ class TestBucket(OssTestCase):
 
         rule = LifecycleRule(random_string(10), '中文前缀/',
                              status=LifecycleRule.ENABLED,
-                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 25)))
-        rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 20),
+                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 20)))
+        rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 25),
                                                       storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
 
         tagging = Tagging()
