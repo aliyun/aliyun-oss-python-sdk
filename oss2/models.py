@@ -2325,7 +2325,7 @@ class CertInfo(RequestResult):
     :param str cert_id: 证书ID。
     :param str certificate: 证书公钥。
     :param str private_key: 证书私钥。
-    :param bool previous_cert_id: 当前证书ID。
+    :param str previous_cert_id: 当前证书ID。
     :param bool force: 是否强制覆盖证书
     :param bool delete_certificate: 是否删除证书。
     """
