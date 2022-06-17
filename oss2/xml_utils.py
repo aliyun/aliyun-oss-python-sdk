@@ -1406,11 +1406,22 @@ def to_put_inventory_configuration(inventory_config):
 
     if inventory_config.included_object_versions is not None:
         _add_text_child(root, "IncludedObjectVersions", inventory_config.included_object_versions)
-    
-    if inventory_config.inventory_filter is not None and inventory_config.inventory_filter.prefix is not None:
+
+    if inventory_config.inventory_filter is not None:
         filter_node = ElementTree.SubElement(root, 'Filter')
-        _add_text_child(filter_node, "Prefix", inventory_config.inventory_filter.prefix)
-    
+        if inventory_config.inventory_filter.prefix is not None:
+            _add_text_child(filter_node, "Prefix", inventory_config.inventory_filter.prefix)
+        if inventory_config.inventory_filter.last_modify_begin_time_stamp is not None:
+            _add_text_child(filter_node, "LastModifyBeginTimeStamp", str(inventory_config.inventory_filter.last_modify_begin_time_stamp))
+        if inventory_config.inventory_filter.last_modify_end_time_stamp is not None:
+            _add_text_child(filter_node, "LastModifyEndTimeStamp", str(inventory_config.inventory_filter.last_modify_end_time_stamp))
+        if inventory_config.inventory_filter.lower_size_bound is not None:
+            _add_text_child(filter_node, "LowerSizeBound", str(inventory_config.inventory_filter.lower_size_bound))
+        if inventory_config.inventory_filter.upper_size_bound is not None:
+            _add_text_child(filter_node, "UpperSizeBound", str(inventory_config.inventory_filter.upper_size_bound))
+        if inventory_config.inventory_filter.storage_class is not None:
+            _add_text_child(filter_node, "StorageClass", inventory_config.inventory_filter.storage_class)
+
     if inventory_config.inventory_schedule is not None and inventory_config.inventory_schedule.frequency is not None:
         schedule_node = ElementTree.SubElement(root, 'Schedule')
         _add_text_child(schedule_node, "Frequency", inventory_config.inventory_schedule.frequency)
@@ -1458,9 +1469,29 @@ def get_Inventory_configuration_from_element(elem):
     result.is_enabled = _find_bool(root, 'IsEnabled')
     result.included_object_versions = _find_tag(root, 'IncludedObjectVersions')
 
-    if root.find("Filter/Prefix") is not None:
-        result.inventory_filter = InventoryFilter(_find_tag(root, 'Filter/Prefix'))
-    
+    if root.find("Filter") is not None:
+        prefix = None
+        last_modify_begin_time_stamp = None
+        last_modify_end_time_stamp = None
+        lower_size_bound = None
+        upper_size_bound = None
+        storage_class = None
+        if root.find("Filter/Prefix") is not None:
+            prefix = _find_tag(root, 'Filter/Prefix')
+        if root.find("Filter/LastModifyBeginTimeStamp") is not None:
+            last_modify_begin_time_stamp = _find_tag_with_default(root, 'Filter/LastModifyBeginTimeStamp', None)
+        if root.find("Filter/LastModifyEndTimeStamp") is not None:
+            last_modify_end_time_stamp = _find_tag_with_default(root, 'Filter/LastModifyEndTimeStamp', None)
+        if root.find("Filter/LowerSizeBound") is not None:
+            lower_size_bound = _find_tag_with_default(root, 'Filter/LowerSizeBound', None)
+        if root.find("Filter/UpperSizeBound") is not None:
+            upper_size_bound = _find_tag_with_default(root, 'Filter/UpperSizeBound', None)
+        if root.find("Filter/StorageClass") is not None:
+            storage_class = _find_tag_with_default(root, 'Filter/StorageClass', None)
+        result.inventory_filter = InventoryFilter(prefix=prefix, last_modify_begin_time_stamp=last_modify_begin_time_stamp,
+                                                  last_modify_end_time_stamp=last_modify_end_time_stamp, lower_size_bound=lower_size_bound,
+                                                  upper_size_bound=upper_size_bound, storage_class=storage_class)
+
     if root.find("Schedule/Frequency") is not None:
         result.inventory_schedule = InventorySchedule(_find_tag(root, 'Schedule/Frequency'))
 
