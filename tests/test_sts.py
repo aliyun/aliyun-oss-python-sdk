@@ -52,6 +52,7 @@ if oss2.compat.is_py2:
 
     class TestSts(unittest.TestCase):
         def setUp(self):
+            self.OSS_BUCKET = OSS_BUCKET_BASE + random_string(4)
             self.bucket = None
             self.key_list = []
             self.prefix = 'sts-' + random_string(8) + '/'
