@@ -212,7 +212,7 @@ class TestMultipart(OssTestCase):
     def test_multipart_sequential(self): 
         endpoint = "http://oss-cn-shanghai.aliyuncs.com"
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-multipart-sequential"
+        bucket_name = self.OSS_BUCKET + "-test-multipart-sequential"
         bucket = oss2.Bucket(auth, endpoint, bucket_name)
         bucket.create_bucket()
 

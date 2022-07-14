@@ -16,7 +16,7 @@ class TestSSEDataEncryption(OssTestCase):
 
     def test_put_bucket_encryption(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-put-bucket-encryption"
+        bucket_name = self.OSS_BUCKET + "-test-put-bucket-encryption"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
         bucket.create_bucket()
 
@@ -122,7 +122,7 @@ class TestSSEDataEncryption(OssTestCase):
 
     def test_put_object_with_encryption(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-put-object-data-encryption"
+        bucket_name = self.OSS_BUCKET + "-test-put-object-data-encryption"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
         bucket.create_bucket()
 
@@ -190,7 +190,7 @@ class TestSSEDataEncryption(OssTestCase):
 
     def test_append_object_with_encryption(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-append-object-data-encryption"
+        bucket_name = self.OSS_BUCKET + "-test-append-object-data-encryption"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
         bucket.create_bucket()
 
@@ -218,7 +218,7 @@ class TestSSEDataEncryption(OssTestCase):
 
     def test_multipart_upload(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-multipart-upload-data-encryption"
+        bucket_name = self.OSS_BUCKET + "-test-multipart-upload-data-encryption"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
         bucket.create_bucket()
 
@@ -296,7 +296,7 @@ class TestSSEDataEncryption(OssTestCase):
 
     def test_resumable_uoload(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-resumable-upload-data-encryption"
+        bucket_name = self.OSS_BUCKET + "-test-resumable-upload-data-encryption"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
         bucket.create_bucket()
 
@@ -342,7 +342,7 @@ class TestSSEDataEncryption(OssTestCase):
 
     def test_copy_object(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-copy-object-data-encryption"
+        bucket_name = self.OSS_BUCKET + "-test-copy-object-data-encryption"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
         bucket.create_bucket()
 

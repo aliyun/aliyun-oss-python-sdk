@@ -9,13 +9,13 @@ from oss2.models import ReplicationRule
 class TestBucketReplication(OssTestCase):
     def setUp(self):
         OssTestCase.setUp(self)
-        source_bucket_name = OSS_BUCKET + '-test-replica-source-' + random_string(10)
+        source_bucket_name = self.OSS_BUCKET + '-test-replica-source-' + random_string(10)
         self.source_bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, source_bucket_name)
         self.source_bucket.create_bucket()
 
         self.replica_endpoint = "oss-ap-south-1"
         self.transfer_type = 'oss_acc'
-        self.replica_bucket_name = OSS_BUCKET + "-test-replica-dest-" + random_string(10)
+        self.replica_bucket_name = self.OSS_BUCKET + "-test-replica-dest-" + random_string(10)
         self.replica_bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), self.replica_endpoint + '.aliyuncs.com', self.replica_bucket_name)
         self.replica_bucket.create_bucket()
 

@@ -11,11 +11,11 @@ from .common import *
 class TestApiBase(OssTestCase):
     if OSS_CNAME:
         def test_cname_bucket(self):
-            bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_CNAME, OSS_BUCKET, is_cname=True)
+            bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_CNAME, self.OSS_BUCKET, is_cname=True)
             bucket.get_bucket_acl()
 
         def test_cname_object(self):
-            bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_CNAME, OSS_BUCKET, is_cname=True)
+            bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_CNAME, self.OSS_BUCKET, is_cname=True)
             bucket.put_object('hello.txt', 'hello world')
 
     def test_https(self):
@@ -78,13 +78,13 @@ class TestApiBase(OssTestCase):
                           'test-bucket')
 
     def test_whitespace(self):
-        bucket = oss2.Bucket(oss2.Auth(OSS_ID, ' ' + OSS_SECRET + ' '), OSS_ENDPOINT, OSS_BUCKET)
+        bucket = oss2.Bucket(oss2.Auth(OSS_ID, ' ' + OSS_SECRET + ' '), OSS_ENDPOINT, self.OSS_BUCKET)
         bucket.get_bucket_acl()
 
-        bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), ' ' + OSS_ENDPOINT + ' ', OSS_BUCKET)
+        bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), ' ' + OSS_ENDPOINT + ' ', self.OSS_BUCKET)
         bucket.get_bucket_acl()
 
-        bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, ' ' + OSS_BUCKET + ' ')
+        bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, ' ' + self.OSS_BUCKET + ' ')
         bucket.get_bucket_acl()
 
     if sys.version_info >= (3, 3):
@@ -111,7 +111,7 @@ class TestApiBase(OssTestCase):
 
                 # 加app_name
                 assert_found = True
-                bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET,
+                bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, self.OSS_BUCKET,
                                      app_name=app)
                 self.assertRaises(oss2.exceptions.ClientError, bucket.get_bucket_acl)
 

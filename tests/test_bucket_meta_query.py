@@ -47,7 +47,7 @@ class TestBucketMetaQuery(OssTestCase):
 
     def test_2_bucket_meta_query_aggregation(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        dest_bucket_name = OSS_BUCKET + "-test-meta-query"
+        dest_bucket_name = self.OSS_BUCKET + "-test-meta-query"
         dest_bucket = oss2.Bucket(auth, OSS_ENDPOINT, dest_bucket_name)
         dest_bucket.create_bucket()
 

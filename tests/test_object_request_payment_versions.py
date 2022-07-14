@@ -13,7 +13,7 @@ class TestObjectRequestPaymentVersions(OssTestCase):
     def setUp(self):
         OssTestCase.setUp(self)
         self.endpoint = OSS_ENDPOINT
-        bucket_name = OSS_BUCKET + "-test-request-payment-versionging"
+        bucket_name = self.OSS_BUCKET + "-test-request-payment-versionging"
 
         policy_text = ''
         policy_text += '{'
