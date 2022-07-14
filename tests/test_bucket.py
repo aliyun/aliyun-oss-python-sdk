@@ -11,7 +11,7 @@ from oss2 import to_string
 class TestBucket(OssTestCase):
     def test_bucket(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-bucket"
+        bucket_name = self.OSS_BUCKET + "-test-bucket"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -35,7 +35,7 @@ class TestBucket(OssTestCase):
 
     def test_bucket_with_storage_class(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-storage-class"
+        bucket_name = self.OSS_BUCKET + "-test-storage-class"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE, oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_IA))
@@ -63,7 +63,7 @@ class TestBucket(OssTestCase):
 
     def test_bucket_with_data_redundancy_type(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-redundancy-type"
+        bucket_name = self.OSS_BUCKET + "-test-redundancy-type"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         # LRS
@@ -86,7 +86,7 @@ class TestBucket(OssTestCase):
 
     def test_acl(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-acl"
+        bucket_name = self.OSS_BUCKET + "-test-acl"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PUBLIC_READ)
@@ -104,7 +104,7 @@ class TestBucket(OssTestCase):
         bucket.delete_bucket()
 
     def test_logging(self):
-        bucket_name = OSS_BUCKET + "-test-logging"
+        bucket_name = self.OSS_BUCKET + "-test-logging"
         other_bucket = oss2.Bucket(self.bucket.auth, OSS_ENDPOINT, bucket_name)
         other_bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
 
@@ -560,7 +560,7 @@ class TestBucket(OssTestCase):
 
     def test_bucket_stat(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-stat"
+        bucket_name = self.OSS_BUCKET + "-test-stat"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -587,7 +587,7 @@ class TestBucket(OssTestCase):
 
     def test_bucket_stat_all_param(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-stat-all"
+        bucket_name = self.OSS_BUCKET + "-test-stat-all"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -627,7 +627,7 @@ class TestBucket(OssTestCase):
 
     def test_bucket_info(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-info"
+        bucket_name = self.OSS_BUCKET + "-test-info"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.get_bucket_info)
@@ -801,14 +801,14 @@ class TestBucket(OssTestCase):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         service = oss2.Service(auth, OSS_ENDPOINT)
 
-        bucket_name1 = OSS_BUCKET + "-test-with-tagging-1"
+        bucket_name1 = self.OSS_BUCKET + "-test-with-tagging-1"
         bucket1 = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name1)
 
         bucket1.create_bucket(oss2.BUCKET_ACL_PRIVATE)
 
         wait_meta_sync()
 
-        bucket_name2 = OSS_BUCKET + "-test-with-tagging-2"
+        bucket_name2 = self.OSS_BUCKET + "-test-with-tagging-2"
         bucket2 = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name2)
 
         bucket2.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -851,7 +851,7 @@ class TestBucket(OssTestCase):
 
     def test_bucket_policy(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-policy"
+        bucket_name = self.OSS_BUCKET + "-test-policy"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.get_bucket_info)

@@ -72,11 +72,11 @@ key_pair_compact = {'private_key': private_key_compact, 'public_key': public_key
 def random_string(n):
     return ''.join(random.choice(string.ascii_lowercase) for i in range(n))
 
-OSS_BUCKET = ''
+OSS_BUCKET_BASE = ''
 if OSS_TEST_BUCKET is None:
-    OSS_BUCKET = 'oss-python-sdk-'+random_string(10)
+    OSS_BUCKET_BASE = 'oss-python-sdk-'+random_string(6)
 else:
-    OSS_BUCKET = OSS_TEST_BUCKET + random_string(10)
+    OSS_BUCKET_BASE = OSS_TEST_BUCKET + random_string(6)
 
 def random_bytes(n):
     return oss2.to_bytes(random_string(n))
@@ -174,7 +174,8 @@ class OssTestCase(unittest.TestCase):
         global OSS_AUTH_VERSION
         OSS_AUTH_VERSION = os.getenv('OSS_TEST_AUTH_VERSION')
 
-        self.bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, OSS_BUCKET)
+        self.OSS_BUCKET = OSS_BUCKET_BASE + random_string(4)
+        self.bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, self.OSS_BUCKET)
 
         try:
             self.bucket.create_bucket()
@@ -182,10 +183,10 @@ class OssTestCase(unittest.TestCase):
             pass
 
         self.rsa_crypto_bucket = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT,
-                                                   OSS_BUCKET, crypto_provider=oss2.RsaProvider(key_pair))
+                                                   self.OSS_BUCKET, crypto_provider=oss2.RsaProvider(key_pair))
 
         self.kms_crypto_bucket = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT,
-                                                   OSS_BUCKET, crypto_provider=oss2.AliKMSProvider(OSS_ID, OSS_SECRET,
+                                                   self.OSS_BUCKET, crypto_provider=oss2.AliKMSProvider(OSS_ID, OSS_SECRET,
                                                                                                    OSS_REGION, OSS_CMK))
 
         self.key_list = []
@@ -196,7 +197,7 @@ class OssTestCase(unittest.TestCase):
             oss2.utils.silently_remove(temp_file)
 
         clean_and_delete_bucket(self.bucket)
-        clean_and_delete_bucket_by_prefix(OSS_BUCKET + "-test-")
+        clean_and_delete_bucket_by_prefix(self.OSS_BUCKET + "-test-")
 
     def random_key(self, suffix=''):
         key = self.prefix + random_string(12) + suffix
