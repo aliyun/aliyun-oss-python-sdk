@@ -970,7 +970,7 @@ class Bucket(_Base):
         resp = self.__do_object('HEAD', key, headers=headers, params=params)
 
         logger.debug("Head object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
-        return HeadObjectResult(resp)
+        return self._parse_result(resp, xml_utils.parse_dummy_result, HeadObjectResult)
 
     def create_select_object_meta(self, key, select_meta_params=None, headers=None):
         """获取或创建CSV,JSON LINES 文件元信息。如果元信息存在，返回之；不然则创建后返回之

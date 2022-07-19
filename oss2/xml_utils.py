@@ -1857,3 +1857,6 @@ def parse_do_bucket_meta_query_result(result, body):
             tmp_groups = AggregationGroupInfo(_find_tag(group, 'Value'), int(_find_tag_with_default(group, 'Count', 0)))
             tmp.groups.append(tmp_groups)
         result.aggregations.append(tmp)
+
+def parse_dummy_result(result, body):
+    return result
