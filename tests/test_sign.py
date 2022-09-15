@@ -90,5 +90,28 @@ class TestSign(OssTestCase):
         dest_bucket.delete_object(key)
         dest_bucket.delete_bucket()
 
+    def test_sign_key_not_empty(self):
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket_name = self.OSS_BUCKET + "-sign-v1-url-key-not-empty"
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
+        bucket.create_bucket()
+        key = 'testexampleobject.txt'
+        headers = dict()
+        content = 'test example'
+        url = bucket.sign_url('PUT', key, 1650801600, headers=headers)
+        print(url)
+        put_result = bucket.put_object(key, content, headers=headers)
+
+        try:
+            key = None
+            bucket.sign_url('PUT', key, 1650801600, headers=headers)
+        except oss2.exceptions.ClientError as e:
+            self.assertEqual(e.body, 'ClientError: The key is invalid, please check it.')
+
+        try:
+            key = ''
+            bucket.sign_url('PUT', key, 1650801600, headers=headers)
+        except oss2.exceptions.ClientError as e:
+            self.assertEqual(e.body, 'ClientError: The key is invalid, please check it.')
 if __name__ == '__main__':
     unittest.main()
