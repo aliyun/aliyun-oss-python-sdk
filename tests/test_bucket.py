@@ -11,7 +11,7 @@ from oss2 import to_string
 class TestBucket(OssTestCase):
     def test_bucket(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-bucket"
+        bucket_name = self.OSS_BUCKET + "-test-bucket"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -35,7 +35,7 @@ class TestBucket(OssTestCase):
 
     def test_bucket_with_storage_class(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-storage-class"
+        bucket_name = self.OSS_BUCKET + "-test-storage-class"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE, oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_IA))
@@ -63,7 +63,7 @@ class TestBucket(OssTestCase):
 
     def test_bucket_with_data_redundancy_type(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-redundancy-type"
+        bucket_name = self.OSS_BUCKET + "-test-redundancy-type"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         # LRS
@@ -86,7 +86,7 @@ class TestBucket(OssTestCase):
 
     def test_acl(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-acl"
+        bucket_name = self.OSS_BUCKET + "-test-acl"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PUBLIC_READ)
@@ -104,7 +104,7 @@ class TestBucket(OssTestCase):
         bucket.delete_bucket()
 
     def test_logging(self):
-        bucket_name = OSS_BUCKET + "-test-logging"
+        bucket_name = self.OSS_BUCKET + "-test-logging"
         other_bucket = oss2.Bucket(self.bucket.auth, OSS_ENDPOINT, bucket_name)
         other_bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
 
@@ -341,8 +341,8 @@ class TestBucket(OssTestCase):
 
         rule = LifecycleRule(random_string(10), '中文前缀/',
                              status=LifecycleRule.ENABLED,
-                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 25)))
-        rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 20),
+                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 20)))
+        rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 25),
                                                       storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
 
         lifecycle = BucketLifecycle([rule])
@@ -352,7 +352,7 @@ class TestBucket(OssTestCase):
         result = self.bucket.get_bucket_lifecycle()
         self.assertEqual(1, len(result.rules))
         self.assertEqual(1, len(result.rules[0].storage_transitions))
-        self.assertEqual(datetime.date(2016, 12, 20), result.rules[0].storage_transitions[0].created_before_date)
+        self.assertEqual(datetime.date(2016, 12, 25), result.rules[0].storage_transitions[0].created_before_date)
 
         self.assertTrue(result.rules[0].tagging is None)
 
@@ -363,8 +363,8 @@ class TestBucket(OssTestCase):
 
         rule = LifecycleRule(random_string(10), 'aaaaaaaaaaa/',
                              status=LifecycleRule.ENABLED,
-                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 25)))
-        rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 20),
+                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 20)))
+        rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 25),
                                                       storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
 
         tagging_rule = TaggingRule()
@@ -380,7 +380,7 @@ class TestBucket(OssTestCase):
         result = self.bucket.get_bucket_lifecycle()
         self.assertEqual(1, len(result.rules))
         self.assertEqual(1, len(result.rules[0].storage_transitions))
-        self.assertEqual(datetime.date(2016, 12, 20), result.rules[0].storage_transitions[0].created_before_date)
+        self.assertEqual(datetime.date(2016, 12, 25), result.rules[0].storage_transitions[0].created_before_date)
 
         self.assertEqual(1, result.rules[0].tagging.tag_set.len())
         self.assertEqual('test_value', result.rules[0].tagging.tag_set.tagging_rule['test_key'])
@@ -446,8 +446,8 @@ class TestBucket(OssTestCase):
 
         rule = LifecycleRule(random_string(10), '中文前缀/',
                              status=LifecycleRule.ENABLED,
-                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 25)))
-        rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 20),
+                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 20)))
+        rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 25),
                                                       storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
 
         tagging = Tagging()
@@ -481,8 +481,8 @@ class TestBucket(OssTestCase):
 
         rule = LifecycleRule(random_string(10), '中文前缀/',
                              status=LifecycleRule.ENABLED,
-                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 25)))
-        rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 20),
+                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 20)))
+        rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 25),
                                                       storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
 
         tagging = Tagging()
@@ -514,8 +514,8 @@ class TestBucket(OssTestCase):
 
         rule = LifecycleRule(random_string(10), '中文前缀/',
                              status=LifecycleRule.ENABLED,
-                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 25)))
-        rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 20),
+                             expiration=LifecycleExpiration(created_before_date=datetime.date(2016, 12, 20)))
+        rule.storage_transitions = [StorageTransition(created_before_date=datetime.date(2016, 12, 25),
                                                       storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
 
         tagging = Tagging()
@@ -560,7 +560,7 @@ class TestBucket(OssTestCase):
 
     def test_bucket_stat(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-stat"
+        bucket_name = self.OSS_BUCKET + "-test-stat"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -585,9 +585,49 @@ class TestBucket(OssTestCase):
         wait_meta_sync()
         self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.delete_bucket)
 
+    def test_bucket_stat_all_param(self):
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket_name = self.OSS_BUCKET + "-test-stat-all"
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
+
+        service = oss2.Service(auth, OSS_ENDPOINT)
+        wait_meta_sync()
+        self.retry_assert(lambda: bucket.bucket_name in (b.name for b in
+                                                         service.list_buckets(prefix=bucket.bucket_name).buckets))
+
+        key = 'b.txt'
+        bucket.put_object(key, 'content')
+        wait_meta_sync()
+
+        result = bucket.get_bucket_stat()
+        self.assertEqual(1, result.object_count)
+        self.assertEqual(0, result.multi_part_upload_count)
+        self.assertEqual(7, result.storage_size_in_bytes)
+        self.assertEqual(0, result.live_channel_count)
+        self.assertIsNotNone(result.last_modified_time)
+        self.assertEqual(7, result.standard_storage)
+        self.assertEqual(1, result.standard_object_count)
+        self.assertEqual(0, result.infrequent_access_storage)
+        self.assertEqual(0, result.infrequent_access_real_storage)
+        self.assertEqual(0, result.infrequent_access_object_count)
+        self.assertEqual(0, result.archive_storage)
+        self.assertEqual(0, result.archive_real_storage)
+        self.assertEqual(0, result.archive_object_count)
+        self.assertEqual(0, result.cold_archive_storage)
+        self.assertEqual(0, result.cold_archive_real_storage)
+        self.assertEqual(0, result.cold_archive_object_count)
+
+        bucket.delete_object(key)
+        bucket.delete_bucket()
+
+        wait_meta_sync()
+        self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.delete_bucket)
+
     def test_bucket_info(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-info"
+        bucket_name = self.OSS_BUCKET + "-test-info"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.get_bucket_info)
@@ -761,14 +801,14 @@ class TestBucket(OssTestCase):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         service = oss2.Service(auth, OSS_ENDPOINT)
 
-        bucket_name1 = OSS_BUCKET + "-test-with-tagging-1"
+        bucket_name1 = self.OSS_BUCKET + "-test-with-tagging-1"
         bucket1 = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name1)
 
         bucket1.create_bucket(oss2.BUCKET_ACL_PRIVATE)
 
         wait_meta_sync()
 
-        bucket_name2 = OSS_BUCKET + "-test-with-tagging-2"
+        bucket_name2 = self.OSS_BUCKET + "-test-with-tagging-2"
         bucket2 = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name2)
 
         bucket2.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -811,7 +851,7 @@ class TestBucket(OssTestCase):
 
     def test_bucket_policy(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-policy"
+        bucket_name = self.OSS_BUCKET + "-test-policy"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.get_bucket_info)

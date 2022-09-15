@@ -212,7 +212,7 @@ class TestMultipart(OssTestCase):
     def test_multipart_sequential(self): 
         endpoint = "http://oss-cn-shanghai.aliyuncs.com"
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-multipart-sequential"
+        bucket_name = self.OSS_BUCKET + "-test-multipart-sequential"
         bucket = oss2.Bucket(auth, endpoint, bucket_name)
         bucket.create_bucket()
 
@@ -241,6 +241,28 @@ class TestMultipart(OssTestCase):
         bucket.delete_object(key)
         bucket.delete_bucket()
 
+    def test_multipart_yes(self):
+        key = self.random_key()
+        content = random_bytes(128 * 1024)
+
+        parts = []
+        upload_id = self.bucket.init_multipart_upload(key).upload_id
+        headers = dict()
+        headers["x-oss-object-acl"] = oss2.OBJECT_ACL_PRIVATE
+        headers["x-oss-complete-all"] = 'yes'
+
+        result = self.bucket.upload_part(key, upload_id, 1, content, headers=headers)
+        parts.append(oss2.models.PartInfo(1, result.etag, size=len(content), part_crc=result.crc))
+        self.assertTrue(result.crc is not None)
+
+        complete_result = self.bucket.complete_multipart_upload(key, upload_id, None, headers=headers)
+
+        object_crc = calc_obj_crc_from_parts(parts)
+        self.assertTrue(complete_result.crc is not None)
+        self.assertEqual(object_crc, result.crc)
+
+        result = self.bucket.get_object(key)
+        self.assertEqual(content, result.read())
 
 if __name__ == '__main__':
     unittest.main()

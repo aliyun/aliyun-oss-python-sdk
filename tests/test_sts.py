@@ -52,6 +52,7 @@ if oss2.compat.is_py2:
 
     class TestSts(unittest.TestCase):
         def setUp(self):
+            self.OSS_BUCKET = OSS_BUCKET_BASE + random_string(4)
             self.bucket = None
             self.key_list = []
             self.prefix = 'sts-' + random_string(8) + '/'
@@ -70,7 +71,7 @@ if oss2.compat.is_py2:
             self.token = fetch_sts_token(OSS_STS_ID, OSS_STS_KEY, OSS_STS_ARN)
 
             auth = oss2.StsAuth(self.token.access_key_id, self.token.access_key_secret, self.token.security_token)
-            self.bucket = oss2.Bucket(auth, OSS_ENDPOINT, OSS_BUCKET)
+            self.bucket = oss2.Bucket(auth, OSS_ENDPOINT, self.OSS_BUCKET)
             self.bucket.create_bucket()
 
         def test_object(self):

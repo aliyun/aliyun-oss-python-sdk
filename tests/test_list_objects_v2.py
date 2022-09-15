@@ -10,7 +10,7 @@ class TestIteratorV2(OssTestCase):
 
     def test_normal_list_objects(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-normal"
+        bucket_name = self.OSS_BUCKET + "-test-normal"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
         bucket.create_bucket()
 
@@ -79,7 +79,7 @@ class TestIteratorV2(OssTestCase):
 
     def test_list_with_encoding_type_None(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-list-with-encoding-type-none"
+        bucket_name = self.OSS_BUCKET + "-test-list-with-encoding-type-none"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
         bucket.create_bucket()
 
@@ -99,7 +99,7 @@ class TestIteratorV2(OssTestCase):
 
     def test_list_with_error_continuation_token(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-list-with-error-token"
+        bucket_name = self.OSS_BUCKET + "-test-list-with-error-token"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
         bucket.create_bucket()
 
@@ -110,7 +110,7 @@ class TestIteratorV2(OssTestCase):
 
     def test_list_object_iterator_v2(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-list-iterator-v2"
+        bucket_name = self.OSS_BUCKET + "-test-list-iterator-v2"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
         bucket.create_bucket()
 

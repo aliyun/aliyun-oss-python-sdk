@@ -24,7 +24,7 @@ class TestAsyncFetchTask(OssTestCase):
 
     def test_async_fetch_task(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-async-fetch-task"
+        bucket_name = self.OSS_BUCKET + "-test-async-fetch-task"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
         bucket.create_bucket()
 
@@ -52,7 +52,7 @@ class TestAsyncFetchTask(OssTestCase):
 
     def test_async_fetch_task_with_few_argument(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-async-fetch-task"
+        bucket_name = self.OSS_BUCKET + "-test-async-fetch-task"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
         bucket.create_bucket()
 
@@ -80,7 +80,7 @@ class TestAsyncFetchTask(OssTestCase):
 
     def test_fetch_success_callback_failed_state(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-async-fetch-task-callback"
+        bucket_name = self.OSS_BUCKET + "-test-async-fetch-task-callback"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
         bucket.create_bucket()
 
@@ -112,7 +112,7 @@ class TestAsyncFetchTask(OssTestCase):
 
     def test_failed_state(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-async-fetch-task-callback"
+        bucket_name = self.OSS_BUCKET + "-test-async-fetch-task-callback"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
         bucket.create_bucket()
 
@@ -134,7 +134,7 @@ class TestAsyncFetchTask(OssTestCase):
 
     def test_ignore_same_key(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-async-fetch-task"
+        bucket_name = self.OSS_BUCKET + "-test-async-fetch-task"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
         bucket.create_bucket()
 
