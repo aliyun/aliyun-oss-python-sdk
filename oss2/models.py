@@ -1884,9 +1884,25 @@ class InventoryFilter(object):
 
     :param prefix: 清单筛选的前缀, 指定前缀后，清单将筛选出符合前缀设置的对象。
     :type prefix: str
+    :param prefix: 筛选数据的起始时间戳。
+    :type prefix: int
+    :param prefix: 筛选数据的终止时间戳。
+    :type prefix: int
+    :param prefix: 筛选文件大小的最小大小。
+    :type prefix: int
+    :param prefix: 筛选文件大小的最大大小。
+    :type prefix: int
+    :param prefix: 筛选存储类型（支持多选)，默认选All。
+    :type prefix: str
     """
-    def __init__(self, prefix=None):
+    def __init__(self, prefix=None, last_modify_begin_time_stamp=None, last_modify_end_time_stamp=None, lower_size_bound=None,
+                 upper_size_bound=None, storage_class=None):
         self.prefix = prefix
+        self.last_modify_begin_time_stamp = last_modify_begin_time_stamp
+        self.last_modify_end_time_stamp = last_modify_end_time_stamp
+        self.lower_size_bound = lower_size_bound
+        self.upper_size_bound = upper_size_bound
+        self.storage_class = storage_class
 
 class InventorySchedule(object):
     """清单的生成周期
