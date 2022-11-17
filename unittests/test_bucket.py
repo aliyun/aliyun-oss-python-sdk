@@ -1406,5 +1406,297 @@ Date: Fri , 30 Apr 2021 13:08:38 GMT
         self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
         self.assertEqual(result.status, 200)
 
+    @patch('oss2.Session.do_request')
+    def test_put_bucket_inventory(self, do_request):
+        request_text = '''PUT /?inventory&inventoryId=report1 HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****
+
+<?xml version="1.0" encoding="UTF-8"?>
+<InventoryConfiguration>
+<Id>{0}</Id>
+<IsEnabled>True</IsEnabled>
+<IncludedObjectVersions>All</IncludedObjectVersions>
+<Filter>
+<Prefix>Pics/</Prefix>
+<LastModifyBeginTimeStamp>1637883649</LastModifyBeginTimeStamp>
+<LastModifyEndTimeStamp>1638347592</LastModifyEndTimeStamp>
+<LowerSizeBound>1024</LowerSizeBound>
+<UpperSizeBound>1048576</UpperSizeBound>
+<StorageClass>Standard,IA</StorageClass>
+</Filter>
+<Schedule>
+<Frequency>Daily</Frequency>
+</Schedule>
+<OptionalFields>
+<Field>Size</Field>
+<Field>LastModifiedDate</Field>
+<Field>StorageClass</Field>
+<Field>ETag</Field>
+<Field>IsMultipartUploaded</Field>
+<Field>EncryptionStatus</Field>
+</OptionalFields>
+<Destination>
+<OSSBucketDestination>
+<AccountId>100000000000000</AccountId>
+<RoleArn>acs:ram::100000000000000:role/AliyunOSSRole</RoleArn>
+<Bucket>acs:oss:::acs:oss:::bucket_0001</Bucket>
+<Format>CSV</Format>
+<Prefix>prefix1</Prefix>
+<Encryption>
+<SSE-OSS/>
+</Encryption>
+</OSSBucketDestination>
+</Destination>
+</InventoryConfiguration>'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 5C1B138A109F4E405B2D
+content-length: 0
+x-oss-console-auth: success
+server: AliyunOSS
+x-oss-server-time: 980
+connection: keep-alive
+date: Wed, 15 Sep 2021 03:33:37 GMT'''
+
+        req_info = mock_response(do_request, response_text)
+        optional_fields = [oss2.models.FIELD_SIZE, oss2.models.FIELD_LAST_MODIFIED_DATE, oss2.models.FIELD_STORAG_CLASS,
+                           oss2.models.FIELD_ETAG, oss2.models.FIELD_IS_MULTIPART_UPLOADED, oss2.models.FIELD_ENCRYPTION_STATUS]
+        bucket_destination = oss2.models.InventoryBucketDestination(
+            account_id='100000000000000',
+            role_arn='acs:ram::100000000000000:role/AliyunOSSRole',
+            bucket='acs:oss:::bucket_0001',
+            inventory_format='CSV',
+            prefix="prefix1",
+            sse_oss_encryption=oss2.models.InventoryServerSideEncryptionOSS())
+
+        inventory_configuration = oss2.models.InventoryConfiguration(
+            inventory_id='report1',
+            is_enabled=True,
+            inventory_schedule=oss2.models.InventorySchedule(frequency='Daily'),
+            included_object_versions='All',
+            inventory_filter=oss2.models.InventoryFilter(prefix="Pics/", last_modify_begin_time_stamp=1637883649, last_modify_end_time_stamp=1638347592, lower_size_bound=1024,
+                                                         upper_size_bound=1048576, storage_class='Standard,IA'),
+            optional_fields=optional_fields,
+            inventory_destination=oss2.models.InventoryDestination(bucket_destination=bucket_destination))
+
+        bucket().put_bucket_inventory_configuration(inventory_configuration)
+        self.assertRequest(req_info, request_text.format(to_string('report1')))
+
+
+    @patch('oss2.Session.do_request')
+    def test_get_bucket_inventory(self, do_request):
+        request_text = '''GET /?inventory&inventoryId=list1 HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<InventoryConfiguration>
+    <Id>list1</Id>
+    <IsEnabled>false</IsEnabled>
+    <IncludedObjectVersions>All</IncludedObjectVersions>
+    <Filter>
+        <Prefix>testPrefix</Prefix>
+        <LastModifyBeginTimeStamp></LastModifyBeginTimeStamp>
+        <LastModifyEndTimeStamp>1638347592</LastModifyEndTimeStamp>
+        <LowerSizeBound>1024</LowerSizeBound>
+        <UpperSizeBound>1048576</UpperSizeBound>
+        <StorageClass>Standard,IA</StorageClass>
+    </Filter>
+    <Schedule>
+        <Frequency>Weekly</Frequency>
+    </Schedule>
+    <OptionalFields>
+        <Field>Size</Field>
+        <Field>LastModifiedDate</Field>
+        <Field>ETag</Field>
+        <Field>StorageClass</Field>
+        <Field>IsMultipartUploaded</Field>
+        <Field>EncryptionStatus</Field>
+    </OptionalFields>
+    <Destination>
+        <OSSBucketDestination>
+            <AccountId>1283641064516515</AccountId>
+            <RoleArn>acs:ram::1283641064516515:role/AliyunOSSRole</RoleArn>
+            <Bucket>acs:oss:::oss-java-sdk-1655373445-inventory-destin</Bucket>
+            <Prefix>bucket-prefix</Prefix>
+            <Format>CSV</Format>
+            <Encryption>
+                <SSE-OSS></SSE-OSS>
+            </Encryption>
+        </OSSBucketDestination>
+    </Destination>
+</InventoryConfiguration>'''
+
+        req_info = mock_response(do_request, response_text)
+        inventory_id = 'list1'
+        result = bucket().get_bucket_inventory_configuration(inventory_id)
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.inventory_filter.prefix, 'testPrefix')
+        self.assertEqual(result.inventory_filter.last_modify_begin_time_stamp, '')
+        self.assertEqual(int(result.inventory_filter.last_modify_end_time_stamp), 1638347592)
+        self.assertEqual(int(result.inventory_filter.lower_size_bound), 1024)
+        self.assertEqual(int(result.inventory_filter.upper_size_bound), 1048576)
+        self.assertEqual(result.inventory_filter.storage_class, 'Standard,IA')
+
+
+    @patch('oss2.Session.do_request')
+    def test_list_bucket_inventory(self, do_request):
+        request_text = '''GET /?inventory&continuation-token=aa HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<ListInventoryConfigurationsResult>
+     <InventoryConfiguration>
+        <Id>report1</Id>
+        <IsEnabled>true</IsEnabled>
+        <Destination>
+           <OSSBucketDestination>
+              <Format>CSV</Format>
+              <AccountId>1000000000000000</AccountId>
+              <RoleArn>acs:ram::1000000000000000:role/AliyunOSSRole</RoleArn>
+              <Bucket>acs:oss:::destination-bucket</Bucket>
+              <Prefix>prefix1</Prefix>
+           </OSSBucketDestination>
+        </Destination>
+        <Schedule>
+           <Frequency>Daily</Frequency>
+        </Schedule>
+        <Filter>
+           <Prefix>prefix/One</Prefix>
+           <LastModifyBeginTimeStamp></LastModifyBeginTimeStamp>
+            <LastModifyEndTimeStamp>1638347592</LastModifyEndTimeStamp>
+            <LowerSizeBound>1024</LowerSizeBound>
+            <UpperSizeBound>1048576</UpperSizeBound>
+            <StorageClass>Standard,IA</StorageClass>
+        </Filter>
+        <IncludedObjectVersions>All</IncludedObjectVersions>
+        <OptionalFields>
+           <Field>Size</Field>
+           <Field>LastModifiedDate</Field>
+           <Field>ETag</Field>
+           <Field>StorageClass</Field>
+           <Field>IsMultipartUploaded</Field>
+           <Field>EncryptionStatus</Field>
+        </OptionalFields>
+     </InventoryConfiguration>
+     <InventoryConfiguration>
+        <Id>report2</Id>
+        <IsEnabled>true</IsEnabled>
+        <Destination>
+           <OSSBucketDestination>
+              <Format>CSV</Format>
+              <AccountId>1000000000000000</AccountId>
+              <RoleArn>acs:ram::1000000000000000:role/AliyunOSSRole</RoleArn>
+              <Bucket>acs:oss:::destination-bucket</Bucket>
+              <Prefix>prefix2</Prefix>
+           </OSSBucketDestination>
+        </Destination>
+        <Schedule>
+           <Frequency>Daily</Frequency>
+        </Schedule>
+        <Filter>
+           <Prefix>prefix/Two</Prefix>
+        </Filter>
+        <IncludedObjectVersions>All</IncludedObjectVersions>
+        <OptionalFields>
+           <Field>Size</Field>
+           <Field>LastModifiedDate</Field>
+           <Field>ETag</Field>
+           <Field>StorageClass</Field>
+           <Field>IsMultipartUploaded</Field>
+           <Field>EncryptionStatus</Field>
+        </OptionalFields>
+     </InventoryConfiguration>
+     <InventoryConfiguration>
+        <Id>report3</Id>
+        <IsEnabled>true</IsEnabled>
+        <Destination>
+           <OSSBucketDestination>
+              <Format>CSV</Format>
+              <AccountId>1000000000000000</AccountId>
+              <RoleArn>acs:ram::1000000000000000:role/AliyunOSSRole</RoleArn>
+              <Bucket>acs:oss:::destination-bucket</Bucket>
+              <Prefix>prefix3</Prefix>
+           </OSSBucketDestination>
+        </Destination>
+        <Schedule>
+           <Frequency>Daily</Frequency>
+        </Schedule>
+        <Filter>
+           <Prefix>prefix/Three</Prefix>
+            <LowerSizeBound>111</LowerSizeBound>
+            <StorageClass>Standard</StorageClass>
+        </Filter>
+        <IncludedObjectVersions>All</IncludedObjectVersions>
+        <OptionalFields>
+           <Field>Size</Field>
+           <Field>LastModifiedDate</Field>
+           <Field>ETag</Field>
+           <Field>StorageClass</Field>
+           <Field>IsMultipartUploaded</Field>
+           <Field>EncryptionStatus</Field>
+        </OptionalFields>
+     </InventoryConfiguration>
+     <IsTruncated>true</IsTruncated>
+     <NextContinuationToken>aa</NextContinuationToken> 
+  </ListInventoryConfigurationsResult>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().list_bucket_inventory_configurations('aa')
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.inventory_configurations[0].inventory_filter.prefix, 'prefix/One')
+        self.assertEqual(result.inventory_configurations[0].inventory_filter.last_modify_begin_time_stamp, '')
+        self.assertEqual(int(result.inventory_configurations[0].inventory_filter.last_modify_end_time_stamp), 1638347592)
+        self.assertEqual(int(result.inventory_configurations[0].inventory_filter.lower_size_bound), 1024)
+        self.assertEqual(int(result.inventory_configurations[0].inventory_filter.upper_size_bound), 1048576)
+        self.assertEqual(result.inventory_configurations[0].inventory_filter.storage_class, 'Standard,IA')
+        self.assertEqual(result.inventory_configurations[2].inventory_filter.prefix, 'prefix/Three')
+        self.assertEqual(int(result.inventory_configurations[2].inventory_filter.lower_size_bound), 111)
+        self.assertEqual(result.inventory_configurations[2].inventory_filter.storage_class, 'Standard')
+
+    @patch('oss2.Session.do_request')
+    def test_delete_inventory(self, do_request):
+        request_text = '''DELETE ?/inventory&inventoryId=list1 HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+'''
+
+        req_info = mock_response(do_request, response_text)
+        inventory_id = 'test-id'
+        result = bucket().delete_bucket_inventory_configuration(inventory_id)
+
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -191,6 +191,66 @@ class TestBucketInventory(OssTestCase):
 
         dest_bucket.delete_bucket()
 
+    def test_bucket_inventory_filter(self):
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        dest_bucket_name = OSS_BUCKET + "-test-inventory-dest-filter"
+        dest_bucket = oss2.Bucket(auth, self.endpoint, dest_bucket_name)
+        dest_bucket.create_bucket()
+
+        inventory_id = "test-id-4"
+        optional_fields = [FIELD_SIZE, FIELD_LAST_MODIFIED_DATE, FIELD_STORAG_CLASS,
+                           FIELD_ETAG, FIELD_IS_MULTIPART_UPLOADED, FIELD_ENCRYPTION_STATUS]
+
+        bucket_destination = InventoryBucketDestination(
+            account_id=OSS_INVENTORY_BUCKET_DESTINATION_ACCOUNT,
+            role_arn=OSS_INVENTORY_BUCKET_DESTINATION_ARN,
+            bucket=dest_bucket_name,
+            inventory_format=INVENTORY_FORMAT_CSV,
+            prefix="destination-prefix",
+            sse_oss_encryption=InventoryServerSideEncryptionOSS())
+
+        inventory_configuration = InventoryConfiguration(
+            inventory_id=inventory_id,
+            is_enabled=True,
+            inventory_schedule=InventorySchedule(frequency=INVENTORY_FREQUENCY_WEEKLY),
+            included_object_versions=INVENTORY_INCLUDED_OBJECT_VERSIONS_ALL,
+            inventory_filter=InventoryFilter("obj-prefix", 1637883649, 1638347592, 1024, 1048576, 'Standard,IA'),
+            optional_fields=optional_fields,
+            inventory_destination=InventoryDestination(bucket_destination=bucket_destination))
+
+        self.bucket1.put_bucket_inventory_configuration(inventory_configuration)
+
+        result = self.bucket1.get_bucket_inventory_configuration(inventory_id=inventory_id)
+        self.assertEquals(inventory_id, result.inventory_id)
+        self.assertEquals(True, result.is_enabled)
+        self.assertEquals(INVENTORY_FREQUENCY_WEEKLY, result.inventory_schedule.frequency)
+        self.assertEquals(INVENTORY_INCLUDED_OBJECT_VERSIONS_ALL, result.included_object_versions)
+        self.assertEquals("obj-prefix", result.inventory_filter.prefix)
+        self.assertEquals(1637883649, result.inventory_filter.last_modify_begin_time_stamp)
+        self.assertEquals(1638347592, result.inventory_filter.last_modify_end_time_stamp)
+        self.assertEquals(1024, result.inventory_filter.lower_size_bound)
+        self.assertEquals(1048576, result.inventory_filter.upper_size_bound)
+        self.assertEquals("Standard,IA", result.inventory_filter.storage_class)
+        self.assertEquals(len(optional_fields), len(result.optional_fields))
+        ret_bucket_destin = result.inventory_destination.bucket_destination
+        self.assertEquals(OSS_INVENTORY_BUCKET_DESTINATION_ACCOUNT, ret_bucket_destin.account_id)
+        self.assertEquals(OSS_INVENTORY_BUCKET_DESTINATION_ARN, ret_bucket_destin.role_arn)
+        self.assertEquals(dest_bucket_name, ret_bucket_destin.bucket)
+        self.assertEquals(INVENTORY_FORMAT_CSV, ret_bucket_destin.inventory_format)
+        self.assertEquals("destination-prefix", ret_bucket_destin.prefix)
+        self.assertIsNone(ret_bucket_destin.sse_kms_encryption)
+        self.assertIsNotNone(ret_bucket_destin.sse_oss_encryption)
+
+        result = self.bucket1.list_bucket_inventory_configurations()
+        self.assertEquals("obj-prefix", result.inventory_configurations[0].inventory_filter.prefix)
+        self.assertEquals(1637883649, result.inventory_configurations[0].inventory_filter.last_modify_begin_time_stamp)
+        self.assertEquals(1638347592, result.inventory_configurations[0].inventory_filter.last_modify_end_time_stamp)
+        self.assertEquals(1024, result.inventory_configurations[0].inventory_filter.lower_size_bound)
+        self.assertEquals(1048576, result.inventory_configurations[0].inventory_filter.upper_size_bound)
+        self.assertEquals("Standard,IA", result.inventory_configurations[0].inventory_filter.storage_class)
+
+        self.bucket1.delete_bucket_inventory_configuration(inventory_id)
+        dest_bucket.delete_bucket()
 
 if __name__ == '__main__':
     unittest.main()
