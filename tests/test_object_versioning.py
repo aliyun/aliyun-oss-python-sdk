@@ -20,7 +20,7 @@ class TestObjectVersioning(OssTestCase):
         from oss2.models import BatchDeleteObjectVersionList
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-resumable-download-with-version"
+        bucket_name = self.OSS_BUCKET + "-test-resumable-download-with-version"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -73,7 +73,7 @@ class TestObjectVersioning(OssTestCase):
         from oss2.utils import calc_obj_crc_from_parts
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-multipart-with-versionging"
+        bucket_name = self.OSS_BUCKET + "-test-multipart-with-versionging"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -127,7 +127,7 @@ class TestObjectVersioning(OssTestCase):
         from oss2.models import BatchDeleteObjectVersionList
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-upload-part-copy-with-versioning"
+        bucket_name = self.OSS_BUCKET + "-test-upload-part-copy-with-versioning"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -202,7 +202,7 @@ class TestObjectVersioning(OssTestCase):
         from oss2.models import BucketVersioningConfig
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-put-symlink-with-version"
+        bucket_name = self.OSS_BUCKET + "-test-put-symlink-with-version"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -269,7 +269,7 @@ class TestObjectVersioning(OssTestCase):
         from oss2.models import Tagging
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-put-object-tagging-version"
+        bucket_name = self.OSS_BUCKET + "-test-put-object-tagging-version"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -377,7 +377,7 @@ class TestObjectVersioning(OssTestCase):
         from oss2.models import BatchDeleteObjectVersionList
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-batch-delete-version"
+        bucket_name = self.OSS_BUCKET + "-test-batch-delete-version"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -437,7 +437,7 @@ class TestObjectVersioning(OssTestCase):
         from oss2.models import BatchDeleteObjectVersionList
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-batch-delete-objects-version"
+        bucket_name = self.OSS_BUCKET + "-test-batch-delete-objects-version"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -538,7 +538,7 @@ class TestObjectVersioning(OssTestCase):
         from oss2.models import BatchDeleteObjectVersionList
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-get-object-meta-version"
+        bucket_name = self.OSS_BUCKET + "-test-get-object-meta-version"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -610,7 +610,7 @@ class TestObjectVersioning(OssTestCase):
         from oss2.models import BatchDeleteObjectVersionList
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-object-acl-version"
+        bucket_name = self.OSS_BUCKET + "-test-object-acl-version"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -707,7 +707,7 @@ class TestObjectVersioning(OssTestCase):
         from oss2.models import BatchDeleteObjectVersionList
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-head-object-version"
+        bucket_name = self.OSS_BUCKET + "-test-head-object-version"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -822,7 +822,7 @@ class TestObjectVersioning(OssTestCase):
         from oss2.models import BatchDeleteObjectVersionList
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-copy-object-version"
+        bucket_name = self.OSS_BUCKET + "-test-copy-object-version"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -902,7 +902,7 @@ class TestObjectVersioning(OssTestCase):
         from oss2.models import BatchDeleteObjectVersionList
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-delete-object-version"
+        bucket_name = self.OSS_BUCKET + "-test-delete-object-version"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
@@ -970,7 +970,7 @@ class TestObjectVersioning(OssTestCase):
         from oss2.models import BucketVersioningConfig
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-restore-object-version"
+        bucket_name = self.OSS_BUCKET + "-test-restore-object-version"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE, oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_ARCHIVE))
@@ -1008,7 +1008,7 @@ class TestObjectVersioning(OssTestCase):
         from oss2.models import BatchDeleteObjectVersionList
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-delete-object-versions"
+        bucket_name = self.OSS_BUCKET + "-test-delete-object-versions"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
 
@@ -1030,7 +1030,7 @@ class TestObjectVersioning(OssTestCase):
         object_name = "test-object"
         # test normal bucket
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-update-metadata"
+        bucket_name = self.OSS_BUCKET + "-test-update-metadata"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
 
@@ -1052,7 +1052,7 @@ class TestObjectVersioning(OssTestCase):
         # test versioning bucket
         from oss2.models import BucketVersioningConfig
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-update-metadata-version"
+        bucket_name = self.OSS_BUCKET + "-test-update-metadata-version"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
         wait_meta_sync()

@@ -17,7 +17,7 @@ class TestBucketVersioning(OssTestCase):
 
         from oss2.models import BucketVersioningConfig
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-bucket-versioning-wrong"
+        bucket_name = self.OSS_BUCKET + "-test-bucket-versioning-wrong"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
 
@@ -35,7 +35,7 @@ class TestBucketVersioning(OssTestCase):
         from oss2.models import BucketVersioningConfig
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-versioning"
+        bucket_name = self.OSS_BUCKET + "-test-versioning"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
 
         self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.get_bucket_info)
@@ -72,7 +72,7 @@ class TestBucketVersioning(OssTestCase):
         from oss2.models import BucketVersioningConfig
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-list-object-versions-wrong"
+        bucket_name = self.OSS_BUCKET + "-test-list-object-versions-wrong"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
 
         self.assertRaises(oss2.exceptions.NoSuchBucket, bucket.get_bucket_info)
@@ -128,7 +128,7 @@ class TestBucketVersioning(OssTestCase):
         from oss2.models import BatchDeleteObjectVersionList
 
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-list-object-versions-truncated"
+        bucket_name = self.OSS_BUCKET + "-test-list-object-versions-truncated"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)

@@ -3,6 +3,17 @@ OSS SDK for Python 版本记录
 
 Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
+Version 2.16.0
+-------------
+- 增加：支持 设置连接池数量
+- 增加：支持 x-oss-complete-all:yes 参数
+- 更新：get_bucket_stat 接口返回更多的信息
+- 增加：签名头支持 oss v4 签名规则
+- 增加：支持 bucket cname 接口
+- 增加：支持 bucket meta query 接口
+- 增加：支持 x-oss-date  请求头
+- 修复：head_object 接口连接不释放的问题
+
 Version 2.15.0
 -------------
 - 增加：支持 transfer acceleration

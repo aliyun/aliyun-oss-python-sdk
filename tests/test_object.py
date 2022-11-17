@@ -62,7 +62,7 @@ class TestObject(OssTestCase):
 
     def test_restore_object(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-restore-object"
+        bucket_name = self.OSS_BUCKET + "-test-restore-object"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
 
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE, oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_ARCHIVE))
@@ -83,7 +83,7 @@ class TestObject(OssTestCase):
                                  RESTORE_TIER_STANDARD, RESTORE_TIER_BULK)
 
         endpoint = "http://oss-ap-southeast-2.aliyuncs.com"
-        bucket_name = OSS_BUCKET + "-test-restore-1"
+        bucket_name = self.OSS_BUCKET + "-test-restore-1"
         bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), endpoint, bucket_name)
         bucket.create_bucket()
 
@@ -105,8 +105,8 @@ class TestObject(OssTestCase):
     def test_restore_object_with_wrong_request(self):
         from oss2.models import RestoreJobParameters, RestoreConfiguration
 
-        endpoint = "http://oss-ap-southeast-2.aliyuncs.com"
-        bucket_name = OSS_BUCKET + "-test-restore-2"
+        endpoint = OSS_ENDPOINT
+        bucket_name = self.OSS_BUCKET + "-test-restore-2"
         bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), endpoint, bucket_name)
         bucket.create_bucket()
 
@@ -123,8 +123,8 @@ class TestObject(OssTestCase):
     def test_restore_archive_object_with_job_parameters(self):
         from oss2.models import RestoreJobParameters, RestoreConfiguration, RESTORE_TIER_BULK
 
-        endpoint = "http://oss-ap-southeast-2.aliyuncs.com"
-        bucket_name = OSS_BUCKET + "-test-restore-3"
+        endpoint = OSS_ENDPOINT
+        bucket_name = self.OSS_BUCKET + "-test-restore-3"
         bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), endpoint, bucket_name)
         bucket.create_bucket()
 
@@ -267,7 +267,7 @@ class TestObject(OssTestCase):
 
     def test_request_error(self):
         bad_endpoint = random_string(8) + '.' + random_string(16) + '.com'
-        bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), bad_endpoint, OSS_BUCKET)
+        bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), bad_endpoint, self.OSS_BUCKET)
 
         try:
             bucket.get_bucket_acl()
@@ -281,13 +281,13 @@ class TestObject(OssTestCase):
             self.assertTrue(e.body)
 
     def test_timeout(self):
-        bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET,
+        bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, self.OSS_BUCKET,
                              connect_timeout=0.001)
         self.assertRaises(RequestError, bucket.get_bucket_acl)
 
     def test_default_timeout(self):
         oss2.defaults.connect_timeout = 0.001
-        bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET)
+        bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, self.OSS_BUCKET)
         self.assertRaises(RequestError, bucket.get_bucket_acl)
         oss2.defaults.connect_timeout = 60
 
@@ -330,7 +330,7 @@ class TestObject(OssTestCase):
         self.bucket.put_bucket_acl('public-read-write')
         wait_meta_sync()
 
-        b = oss2.Bucket(oss2.AnonymousAuth(), OSS_ENDPOINT, OSS_BUCKET)
+        b = oss2.Bucket(oss2.AnonymousAuth(), OSS_ENDPOINT, self.OSS_BUCKET)
         b.put_object(key, content)
         result = b.get_object(key)
         self.assertEqual(result.read(), content)
@@ -724,7 +724,7 @@ class TestObject(OssTestCase):
         key = self.random_key()
         
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-object-exists"
+        bucket_name = self.OSS_BUCKET + "-test-object-exists"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
         self.assertRaises(NoSuchBucket, bucket.object_exists, key)
 
@@ -749,7 +749,7 @@ class TestObject(OssTestCase):
         
         # bucket no exist
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-get-object-meta"
+        bucket_name = self.OSS_BUCKET + "-test-get-object-meta"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
         
         self.assertRaises(NoSuchBucket, bucket.get_object_meta, key)
@@ -868,7 +868,7 @@ class TestObject(OssTestCase):
         key = self.random_key('.txt')
         content = random_bytes(1024 * 100)
         
-        bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, OSS_BUCKET, enable_crc=False)
+        bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, self.OSS_BUCKET, enable_crc=False)
         
         # put
         put_result = bucket.put_object(key, content)
@@ -949,7 +949,7 @@ class TestObject(OssTestCase):
         
         # bucket no exist
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-get-symlink"
+        bucket_name = self.OSS_BUCKET + "-test-get-symlink"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
         
         self.assertRaises(NoSuchBucket, bucket.get_symlink, symlink)

@@ -12,7 +12,7 @@ from oss2 import to_string
 class TestIterator(OssTestCase):
     def test_bucket_iterator(self):
         service = oss2.Service(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT)
-        self.assertTrue(OSS_BUCKET in (b.name for b in oss2.BucketIterator(service, max_keys=2)))
+        self.assertTrue(self.OSS_BUCKET in (b.name for b in oss2.BucketIterator(service, max_keys=2)))
 
     def test_object_iterator(self):
         prefix = self.random_key('/')

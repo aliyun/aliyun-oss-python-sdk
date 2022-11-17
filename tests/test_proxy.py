@@ -7,7 +7,7 @@ from .common import *
 class TestProxy(OssTestCase):
     def test_with_proxy(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-proxy"
+        bucket_name = self.OSS_BUCKET + "-test-proxy"
 
         proxies = {'http': 'http://localhost:8888'}
 

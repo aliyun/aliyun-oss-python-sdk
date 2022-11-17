@@ -645,10 +645,39 @@ class BucketCreateConfig(object):
 
 
 class BucketStat(object):
-    def __init__(self, storage_size_in_bytes, object_count, multi_part_upload_count):
+    def __init__(self, storage_size_in_bytes, object_count, multi_part_upload_count, live_channel_count,
+                 last_modified_time, standard_storage, standard_object_count, infrequent_access_storage,
+                 infrequent_access_real_storage, infrequent_access_object_count, archive_storage, archive_real_storage,
+                 archive_object_count, cold_archive_storage, cold_archive_real_storage, cold_archive_object_count):
         self.storage_size_in_bytes = storage_size_in_bytes
         self.object_count = object_count
         self.multi_part_upload_count = multi_part_upload_count
+        #: bucket中live channel数量
+        self.live_channel_count = live_channel_count
+        #: 此次调用获取到的数据记录的时间点
+        self.last_modified_time = last_modified_time
+        #: 标准存储类型的存储量，单位字节
+        self.standard_storage = standard_storage
+        #: 标准存储类型的object数量
+        self.standard_object_count = standard_object_count
+        #: 低频存储类型的计费存储量(单个object不足64KB以64KB计算)，单位字节
+        self.infrequent_access_storage = infrequent_access_storage
+        #: 低频存储类型的实际存储量，单位字节
+        self.infrequent_access_real_storage = infrequent_access_real_storage
+        #: 低频存储类型的object数量
+        self.infrequent_access_object_count = infrequent_access_object_count
+        #: 归档存储类型的计费存储量(单个object不足64KB以64KB计算)，单位字节
+        self.archive_storage = archive_storage
+        #: 归档存储类型的实际存储量，单位字节
+        self.archive_real_storage = archive_real_storage
+        #: 归档存储类型的object数量
+        self.archive_object_count = archive_object_count
+        #: 冷归档存储类型的计费存储量(单个object不足64KB以64KB计算)，单位字节
+        self.cold_archive_storage = cold_archive_storage
+        #: 冷归档存储类型的实际存储量，单位字节
+        self.cold_archive_real_storage = cold_archive_real_storage
+        #: 冷归档存储类型的object数量
+        self.cold_archive_object_count = cold_archive_object_count
 
 
 class AccessControlList(object):
@@ -684,7 +713,8 @@ class BucketInfo(object):
 class GetBucketStatResult(RequestResult, BucketStat):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
-        BucketStat.__init__(self, 0, 0, 0)
+        BucketStat.__init__(self, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+
 
 
 class GetBucketInfoResult(RequestResult, BucketInfo):
@@ -2186,3 +2216,289 @@ class GetBucketTransferAccelerationResult(RequestResult):
     def __init__(self, resp):
         super(GetBucketTransferAccelerationResult, self).__init__(resp)
         self.enabled = None
+
+
+class CreateBucketCnameTokenResult(RequestResult):
+    """创建域名所有权验证所需的CnameToken。
+
+    :param str bucket: 绑定Cname的Bucket名称。
+    :param str cname: 绑定的Cname名称。
+    :param str token: OSS返回的CnameToken。
+    :param str expire_time: CnameToken的有效时间。
+    """
+
+    def __init__(self, resp):
+        super(CreateBucketCnameTokenResult, self).__init__(resp)
+        self.bucket = None
+        self.cname = None
+        self.token = None
+        self.expire_time = None
+
+
+class GetBucketCnameTokenResult(RequestResult):
+    """获取已创建的CnameToken。
+
+    :param str bucket: 绑定Cname的Bucket名称。
+    :param str cname: 绑定的Cname名称。
+    :param str token: OSS返回的CnameToken。
+    :param str expire_time: CnameToken的有效时间。
+    """
+
+    def __init__(self, resp):
+        super(GetBucketCnameTokenResult, self).__init__(resp)
+        self.bucket = None
+        self.cname = None
+        self.token = None
+        self.expire_time = None
+
+
+class ListBucketCnameResult(RequestResult):
+    """查询某个存储空间（Bucket）下绑定的所有Cname列表。
+
+    :param str bucket: 已绑定Cname列表的Bucket名称。
+    :param str owner: Bucket Owner名称。
+    :param str cname: Cname信息列表的容器。元素类型为:class:`CnameInfo <oss2.models.CnameInfo>`。
+    """
+
+    def __init__(self, resp):
+        super(ListBucketCnameResult, self).__init__(resp)
+        self.bucket = None
+        self.owner = None
+        self.cname = []
+
+
+class CnameInfo(RequestResult):
+    """Cname信息列表。
+
+    :param str domain: 自定义域名。
+    :param str last_modified: 绑定自定义域名的时间
+    :param str status: 域名所处状态。
+    :param class certificate: 证书信息的容器。元素类型为:class:`CertificateInfo <oss2.models.CertificateInfo>`。
+    """
+
+    def __init__(self):
+        self.domain = None
+        self.last_modified = None
+        self.status = None
+        self.is_purge_cdn_cache = None
+        self.certificate = None
+
+
+class CertificateInfo(object):
+    """证书信息。
+
+    :param str type: 证书来源。
+    :param str cert_id: 证书ID。
+    :param str status: 证书状态。
+    :param str creation_date: 证书绑定时间。
+    :param str fingerprint: 证书签名。
+    :param str valid_start_date: 证书有效期起始时间。
+    :param str valid_end_date: 证书有效期终止时间。
+    """
+
+    def __init__(self):
+        self.type = None
+        self.cert_id = None
+        self.status = None
+        self.creation_date = None
+        self.fingerprint = None
+        self.valid_start_date = None
+        self.valid_end_date = None
+
+
+class PutBucketCnameRequest(object):
+    """绑定证书请求。
+
+    :param str domain: 自定义域名。
+    :param class cert: 证书。元素类型为:class:`CertInfo <oss2.models.CertInfo>`。
+
+    """
+
+    def __init__(self, domain, cert=None):
+        self.domain = domain
+        self.cert = cert
+
+
+class CertInfo(RequestResult):
+    """绑定证书信息请求参数。
+
+    :param str cert_id: 证书ID。
+    :param str certificate: 证书公钥。
+    :param str private_key: 证书私钥。
+    :param str previous_cert_id: 当前证书ID。
+    :param bool force: 是否强制覆盖证书
+    :param bool delete_certificate: 是否删除证书。
+    """
+
+    def __init__(self, cert_id=None, certificate=None, private_key=None, previous_cert_id=None, force=None,
+                 delete_certificate=None):
+        self.cert_id = cert_id
+        self.certificate = certificate
+        self.private_key = private_key
+        self.previous_cert_id = previous_cert_id
+        self.force = force
+        self.delete_certificate = delete_certificate
+
+
+class MetaQuery(object):
+    """元数据索引库信息查询信息设置
+
+    :param str next_token: 当Object总数大于设置的MaxResults时，用于翻页的token。
+    :param str max_results: 返回Object的最大个数，取值范围为0~200。不设置此参数或者设置为0时，则默认值为100。
+    :param str query: 查询条件。
+    :param str sort: 对指定字段排序。
+    :param str order: 排序方式。asc（默认）：升序; desc：降序。
+    :param list aggregations: 聚合操作信息的容器。元素类型为:class:`AggregationsRequest <oss2.models.AggregationsRequest>`。
+    """
+
+    def __init__(self,
+                 next_token=None,
+                 max_results=None,
+                 query=None,
+                 sort=None,
+                 order=None,
+                 aggregations=None):
+        self.next_token = next_token
+        self.max_results = str(max_results)
+        self.query = query
+        self.sort = sort
+        self.order = order
+        self.aggregations = aggregations or []
+
+
+class AggregationsRequest(object):
+    """聚合操作信息的容器。
+
+    :param str field: 字段名称。
+    :param str operation: 聚合操作中的操作符。
+    """
+
+    def __init__(self,
+                 field=None,
+                 operation=None):
+        self.field = field
+        self.operation = operation
+
+
+class GetBucketMetaQueryResult(RequestResult):
+    """获取指定存储空间（Bucket）的元数据索引库信息。
+
+    :param str state: 元数据索引库的状态。
+    :param str phase: 当前扫描类型。
+    :param str create_time: 元数据索引库的创建时间，遵循RFC 3339标准格式，格式为YYYY-MM-DDTHH:mm:ss+TIMEZONE。
+    :param str update_time: 元数据索引库的更新时间，遵循RFC 3339标准格式，格式为YYYY-MM-DDTHH:mm:ss+TIMEZONE。
+    """
+
+    def __init__(self, resp):
+        super(GetBucketMetaQueryResult, self).__init__(resp)
+        self.state = None
+        self.phase = None
+        self.create_time = None
+        self.update_time = None
+
+
+class DoBucketMetaQueryResult(RequestResult):
+    """查询满足指定条件的文件（Object），并按照指定字段和排序方式列出文件信息。
+
+    :param str next_token: Object完整路径。
+    :param list files: Object信息的容器。元素类型为:class:`MetaQueryFile <oss2.models.MetaQueryFile>`。
+    :param list aggregations: 聚合操作信息的容器。元素类型为:class:`AggregationsInfo <oss2.models.AggregationsInfo>`。
+    """
+
+    def __init__(self, resp):
+        super(DoBucketMetaQueryResult, self).__init__(resp)
+        self.next_token = None
+        self.files = []
+        self.aggregations = []
+
+
+class MetaQueryFile(object):
+    """Object信息的容器。
+
+    :param str file_name: Object完整路径。
+    :param int size: Object大小。单位为字节。
+    :param str file_modified_time: Object的最近一次修改时间，遵循RFC 3339标准格式，格式为YYYY-MM-DDTHH:mm:ss.ms+TIMEZONE。
+    :param str file_create_time: Object的创建时间，遵循RFC 3339标准格式，格式为YYYY-MM-DDTHH:mm:ss.ms+TIMEZONE。
+    :param str file_access_time: Object的智能分层时间，遵循RFC 3339标准格式，格式为YYYY-MM-DDTHH:mm:ss.ms+TIMEZONE。
+    :param str oss_object_type: Object的类型。
+    :param str oss_storage_class: Object的存储类型。
+    :param str object_acl: Object的访问权限。
+    :param str etag: Object生成时会创建相应的ETag ，ETag用于标识一个Object的内容。
+    :param str oss_crc64: Object的64位CRC值。该64位CRC根据ECMA-182标准计算得出。
+    :param int oss_tagging_count: Object的标签个数。
+    :param list oss_tagging: 标签信息的容器。元素类型为:class:`OSSTaggingInfo <oss2.models.OSSTaggingInfo>`。
+    :param list oss_user_meta: 用户自定义元数据的容器。元素类型为:class:`OSSUserMetaInfo <oss2.models.OSSUserMetaInfo>`。
+    """
+
+    def __init__(self):
+        self.file_name = None
+        self.size = None
+        self.file_modified_time = None
+        self.file_create_time = None
+        self.file_access_time = None
+        self.oss_object_type = None
+        self.oss_storage_class = None
+        self.object_acl = None
+        self.etag = None
+        self.oss_crc64 = None
+        self.oss_tagging_count = None
+        self.oss_tagging = []
+        self.oss_user_meta = []
+
+
+class AggregationsInfo(object):
+    """聚合操作信息的容器。
+
+    :param str field: 字段名称。
+    :param str operation: 聚合操作中的操作符。
+    :param float value: 聚合操作的结果值。
+    :param list groups: 分组聚合的结果列表。元素类型为:class:`AggregationGroupInfo <oss2.models.AggregationGroupInfo>`。
+    """
+
+    def __init__(self):
+        self.field = None
+        self.operation = None
+        self.value = None
+        self.groups = []
+
+
+class OSSTaggingInfo(object):
+    """标签信息的容器。
+
+    :param key: 标签或者用户自定义元数据的Key。
+    :type key: str
+    :param value: 标签或者用户自定义元数据的Value。
+    :type value: str
+    """
+
+    def __init__(self, key, value):
+        self.key = key
+        self.value = value
+
+
+class OSSUserMetaInfo(object):
+    """用户自定义元数据的容器。
+
+    :param key: 用户自定义元数据的 key。
+    :type key: str
+    :param value: 用户自定义元数据的 value。
+    :type value: str
+    """
+
+    def __init__(self, key, value):
+        self.key = key
+        self.value = value
+
+
+class AggregationGroupInfo(object):
+    """分组聚合的结果列表。
+
+    :param value: 分组聚合的值。
+    :type value: str
+    :param count: 分组聚合的总个数。
+    :type count: int
+    """
+
+    def __init__(self, value, count):
+        self.value = value
+        self.count = count
