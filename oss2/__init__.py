@@ -3,7 +3,7 @@ __version__ = '2.16.0'
 from . import models, exceptions, defaults
 
 from .api import Service, Bucket
-from .auth import Auth, AuthV2, AnonymousAuth, StsAuth, AUTH_VERSION_1, AUTH_VERSION_2, make_auth, ProviderAuth, ProviderAuthV2
+from .auth import Auth, AuthV2, AuthV4, AnonymousAuth, StsAuth, AUTH_VERSION_1, AUTH_VERSION_2, AUTH_VERSION_4, make_auth, ProviderAuth, ProviderAuthV2, ProviderAuthV4
 from .http import Session, CaseInsensitiveDict
 from .credentials import EcsRamRoleCredentialsProvider, EcsRamRoleCredential, CredentialsProvider, StaticCredentialsProvider
 
