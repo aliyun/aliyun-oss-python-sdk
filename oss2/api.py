@@ -459,6 +459,8 @@ class Bucket(_Base):
 
         :return: 签名URL。
         """
+        if key is None or len(key.strip()) <= 0:
+            raise ClientError("The key is invalid, please check it.")
         key = to_string(key)
         logger.debug(
             "Start to sign_url, method: {0}, bucket: {1}, key: {2}, expires: {3}, headers: {4}, params: {5}, slash_safe: {6}".format(
