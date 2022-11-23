@@ -694,7 +694,7 @@ class Owner(object):
 class BucketInfo(object):
     def __init__(self, name=None, owner=None, location=None, storage_class=None, intranet_endpoint=None,
                  extranet_endpoint=None, creation_date=None, acl=None, data_redundancy_type=None, comment=None,
-                 bucket_encryption_rule=None, versioning_status=None):
+                 bucket_encryption_rule=None, versioning_status=None, access_monitor=None):
         self.name = name
         self.owner = owner
         self.location = location
@@ -708,6 +708,7 @@ class BucketInfo(object):
 
         self.bucket_encryption_rule = bucket_encryption_rule
         self.versioning_status = versioning_status
+        self.access_monitor = access_monitor
 
 
 class GetBucketStatResult(RequestResult, BucketStat):
@@ -1055,14 +1056,20 @@ class StorageTransition(object):
     :param days: 将相对最后修改时间days天之后的Object转储
     :param created_before_date: 将最后修改时间早于created_before_date的对象转储
     :param storage_class: 对象转储到OSS的目标存储类型
+    :param bool is_access_time: 指定lifecycle rule是否基于atime。
+    :param bool return_to_std_when_visit: 指定对象转到低频层后再次访问时是否回到标准层。
+    :param bool allow_small_file: 指定是否将小于64 KB的Object转储为低频、归档、冷归档文件类型。
     """
-    def __init__(self, days=None, created_before_date=None, storage_class=None):
+    def __init__(self, days=None, created_before_date=None, storage_class=None, is_access_time=None, return_to_std_when_visit=None, allow_small_file=None):
         if days is not None and created_before_date is not None:
             raise ClientError('days and created_before_date should not be both specified')
 
         self.days = days
         self.created_before_date = created_before_date
         self.storage_class = storage_class
+        self.is_access_time = is_access_time
+        self.return_to_std_when_visit = return_to_std_when_visit
+        self.allow_small_file = allow_small_file
 
 
 class NoncurrentVersionExpiration(object):
@@ -1080,10 +1087,19 @@ class NoncurrentVersionStorageTransition(object):
 
     :param noncurrent_days: 多少天之后转存储
     :type noncurrent_days: int
+    :param is_access_time: 指定lifecycle rule是否基于atime。
+    :type is_access_time: bool
+    :param return_to_std_when_visit: 指定对象转到低频层后再次访问时是否回到标准层。
+    :type return_to_std_when_visit: bool
+    :param allow_small_file: 指定是否将小于64 KB的Object转储为低频、归档、冷归档文件类型。
+    :type allow_small_file: bool
     """
-    def __init__(self, noncurrent_days, storage_class):
+    def __init__(self, noncurrent_days, storage_class, is_access_time=None, return_to_std_when_visit=None, allow_small_file=None):
         self.noncurrent_days = noncurrent_days
         self.storage_class = storage_class
+        self.is_access_time = is_access_time
+        self.return_to_std_when_visit = return_to_std_when_visit
+        self.allow_small_file = allow_small_file
 
 
 class LifecycleRule(object):
@@ -1111,6 +1127,9 @@ class LifecycleRule(object):
 
     :param noncurrent_version_sotrage_transitions: 在有效生命周期中，OSS何时将指定Object的非当前版本转储为IA或者Archive存储类型，适用于多版本场景。
     :type noncurrent_version_sotrage_transitions: list of class:`NoncurrentVersionStorageTransition <oss2.models.NoncurrentVersionStorageTransition>`
+
+    :param atime_base: last access time的时间戳
+    :type atime_base: int
     """
 
     ENABLED = 'Enabled'
@@ -1121,7 +1140,8 @@ class LifecycleRule(object):
                  abort_multipart_upload=None,
                  storage_transitions=None, tagging=None,
                  noncurrent_version_expiration=None,
-                 noncurrent_version_sotrage_transitions=None):
+                 noncurrent_version_sotrage_transitions=None,
+                 atime_base=None):
         self.id = id
         self.prefix = prefix
         self.status = status
@@ -1131,6 +1151,7 @@ class LifecycleRule(object):
         self.tagging = tagging
         self.noncurrent_version_expiration = noncurrent_version_expiration
         self.noncurrent_version_sotrage_transitions = noncurrent_version_sotrage_transitions
+        self.atime_base = atime_base
 
 
 class BucketLifecycle(object):
@@ -2518,3 +2539,20 @@ class AggregationGroupInfo(object):
     def __init__(self, value, count):
         self.value = value
         self.count = count
+
+class GetBucketAccessMonitorResult(RequestResult):
+    """获取目标存储空间（Bucket）的访问跟踪状态。
+
+    :param class access_monitor: Bucket访问跟踪状态容器. 元素类型为:class:`AccessMonitorInfo <oss2.models.AccessMonitorInfo>`。
+    """
+    def __init__(self, resp):
+        super(GetBucketAccessMonitorResult, self).__init__(resp)
+        self.access_monitor = None
+
+class AccessMonitorInfo(object):
+    """获取目标存储空间（Bucket）的访问跟踪状态。
+
+    :param str status: Bucket访问跟踪状态.
+    """
+    def __init__(self, status):
+        self.status = status
