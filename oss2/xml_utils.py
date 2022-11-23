@@ -69,7 +69,10 @@ from .models import (SimplifiedObjectInfo,
                      OSSTaggingInfo,
                      OSSUserMetaInfo,
                      AggregationGroupInfo,
-                     AccessMonitorInfo)
+                     AccessMonitorInfo,
+                     LifecycleFilter,
+                     FilterNot,
+                     FilterNotTag)
 
 from .select_params import (SelectJsonTypes, SelectParameters)
 
@@ -755,6 +758,7 @@ def parse_get_bucket_lifecycle(result, body):
         tagging = parse_lifecycle_object_taggings(rule_node.findall('Tag'))
         noncurrent_version_expiration = parse_lifecycle_version_expiration(rule_node.find('NoncurrentVersionExpiration'))
         noncurrent_version_sotrage_transitions = parse_lifecycle_verison_storage_transitions(rule_node.findall('NoncurrentVersionTransition'))
+        lifecycle_filter = parse_lifecycle_filter_not(rule_node.findall('Filter/Not'))
 
         rule = LifecycleRule(
             _find_tag(rule_node, 'ID'),
@@ -766,7 +770,8 @@ def parse_get_bucket_lifecycle(result, body):
             tagging=tagging,
             noncurrent_version_expiration = noncurrent_version_expiration,
             noncurrent_version_sotrage_transitions = noncurrent_version_sotrage_transitions,
-            atime_base=int(_find_tag_with_default(rule_node, 'AtimeBase', 0))
+            atime_base=int(_find_tag_with_default(rule_node, 'AtimeBase', 0)),
+            filter=lifecycle_filter
             )
         result.rules.append(rule)
 
@@ -1027,6 +1032,16 @@ def to_put_bucket_lifecycle(bucket_lifecycle):
                 if noncurrent_version_sotrage_transition.allow_small_file is not None:
                     _add_text_child(version_transition_node, 'AllowSmallFile', str(noncurrent_version_sotrage_transition.allow_small_file).lower())
 
+        if rule.filter and rule.filter.filter_not:
+            filter_node = ElementTree.SubElement(rule_node, "Filter")
+            for not_arg in rule.filter.filter_not:
+                not_node = ElementTree.SubElement(filter_node, 'Not')
+
+                _add_text_child(not_node, 'Prefix', not_arg.prefix)
+                if not_arg.tag:
+                    tag_node = ElementTree.SubElement(not_node, 'Tag')
+                    _add_text_child(tag_node, 'Key', not_arg.tag.key)
+                    _add_text_child(tag_node, 'Value', not_arg.tag.value)
 
     return _node_to_string(root)
 
@@ -1932,3 +1947,17 @@ def parse_get_bucket_access_monitor_result(result, body):
 
     access_monitor = AccessMonitorInfo(_find_tag(root, "Status"))
     result.access_monitor = access_monitor
+
+def parse_lifecycle_filter_not(filter_not_node):
+    if filter_not_node is not None:
+
+        lifecycle_filter = LifecycleFilter()
+        for not_node in filter_not_node:
+            prefix = _find_tag(not_node, 'Prefix')
+            key = _find_tag(not_node, 'Tag/Key')
+            value = _find_tag(not_node, 'Tag/Value')
+            tag = FilterNotTag(key, value)
+            filter_not = FilterNot(prefix, tag)
+            lifecycle_filter.filter_not.append(filter_not)
+
+    return lifecycle_filter
