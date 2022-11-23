@@ -1130,6 +1130,9 @@ class LifecycleRule(object):
 
     :param atime_base: last access time的时间戳
     :type atime_base: int
+
+    :param filter: 规则的条件参数容器。
+    :type filter class:`LifecycleFilter <oss2.models.LifecycleFilter>`
     """
 
     ENABLED = 'Enabled'
@@ -1141,7 +1144,8 @@ class LifecycleRule(object):
                  storage_transitions=None, tagging=None,
                  noncurrent_version_expiration=None,
                  noncurrent_version_sotrage_transitions=None,
-                 atime_base=None):
+                 atime_base=None,
+                 filter=None):
         self.id = id
         self.prefix = prefix
         self.status = status
@@ -1152,6 +1156,7 @@ class LifecycleRule(object):
         self.noncurrent_version_expiration = noncurrent_version_expiration
         self.noncurrent_version_sotrage_transitions = noncurrent_version_sotrage_transitions
         self.atime_base = atime_base
+        self.filter = filter
 
 
 class BucketLifecycle(object):
@@ -2556,3 +2561,34 @@ class AccessMonitorInfo(object):
     """
     def __init__(self, status):
         self.status = status
+
+class LifecycleFilter(object):
+    """规则的条件参数容器。
+
+    :param list filter_not: 规则的匹配容器。 元素类型为:class:`FilterNot <oss2.models.FilterNot>`。
+    """
+
+    def __init__(self, filter_not=None):
+        self.filter_not = filter_not or []
+
+class FilterNot(object):
+    """规则的匹配容器。
+
+    :param str prefix: 排除规则所适用的前缀。
+    :param class tag: 排除规则所适用的对象标签。元素类型为:class:`FilterNotTag <oss2.models.FilterNotTag>`。
+    """
+
+    def __init__(self, prefix=None, tag=None):
+        self.prefix = prefix
+        self.tag = tag
+
+class FilterNotTag(object):
+    """对象标签。
+
+    :param str key: 标签key。
+    :param str value: 标签value。
+    """
+
+    def __init__(self, key=None, value=None):
+        self.key = key
+        self.value = value
