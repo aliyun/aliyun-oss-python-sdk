@@ -414,6 +414,7 @@ class Bucket(_Base):
     TRANSFER_ACCELERATION = 'transferAcceleration'
     CNAME = 'cname'
     META_QUERY = 'metaQuery'
+    ACCESS_MONITOR = 'accessmonitor'
 
 
     def __init__(self, auth, endpoint, bucket_name,
@@ -2649,6 +2650,29 @@ class Bucket(_Base):
         resp = self.__do_bucket('POST', params={Bucket.META_QUERY: '', Bucket.COMP: 'delete'})
         logger.debug("bucket meta query done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
+
+    def put_bucket_access_monitor(self, status):
+        """更新 Bucket 访问跟踪状态。
+
+        :param str status : bucket访问跟踪的开启状态
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to put bucket access monitor, bucket: {0}.".format(self.bucket_name))
+        data = xml_utils.to_put_bucket_access_monitor(status)
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.ACCESS_MONITOR: ''})
+        logger.debug("bucket access monitor done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
+
+    def get_bucket_access_monitor(self):
+        """获取当前Bucket的访问跟踪的状态。
+
+        :return: :class:`GetBucketAccessMonitorResult <oss2.models.GetBucketAccessMonitorResult>`
+        """
+        logger.debug("Start to get bucket access monitor: {0}".format(self.bucket_name))
+
+        resp = self.__do_bucket('GET', params={Bucket.ACCESS_MONITOR: ''})
+        logger.debug("query list bucket cname done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_get_bucket_access_monitor_result, GetBucketAccessMonitorResult)
 
     def __do_object(self, method, key, **kwargs):
         return self._do(method, self.bucket_name, key, **kwargs)

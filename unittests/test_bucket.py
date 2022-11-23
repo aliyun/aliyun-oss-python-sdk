@@ -1697,6 +1697,189 @@ Date: Fri , 30 Apr 2021 13:08:38 GMT
         self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
         self.assertEqual(result.status, 200)
 
+    @patch('oss2.Session.do_request')
+    def test_put_bucket_access_monitor(self, do_request):
+        request_text = '''PUT /?accessmonitor HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****
+
+<AccessMonitorConfiguration><Status>Enabled</Status></AccessMonitorConfiguration>
+'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 5C1B138A109F4E405B2D
+content-length: 0
+x-oss-console-auth: success
+server: AliyunOSS
+x-oss-server-time: 980
+connection: keep-alive
+date: Wed, 15 Sep 2021 03:33:37 GMT'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().put_bucket_access_monitor('Enabled')
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '5C1B138A109F4E405B2D')
+        self.assertEqual(result.status, 200)
+
+
+    @patch('oss2.Session.do_request')
+    def test_get_bucket_access_monitor(self, do_request):
+        request_text = '''GET /?accessmonitor HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<AccessMonitorConfiguration>
+  <Status>Enabled</Status>
+</AccessMonitorConfiguration>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().get_bucket_access_monitor()
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.access_monitor.status, 'Enabled')
+
+
+    @patch('oss2.Session.do_request')
+    def test_put_lifecycle_access_monitor(self, do_request):
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition
+
+        request_text = '''PUT /?lifecycle= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Content-Length: 198
+date: Sat, 12 Dec 2015 00:35:37 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:45HTpSD5osRvtusf8VCkmchZZFs=
+
+<LifecycleConfiguration>
+<Rule>
+<ID>{0}</ID>
+<Prefix>{1}</Prefix>
+<Status>{2}</Status>
+<Expiration>
+<Date>{3}</Date>
+</Expiration>
+<Transition>
+<StorageClass>{5}</StorageClass>
+<IsAccessTime>{6}</IsAccessTime>
+<ReturnToStdWhenVisit>{7}</ReturnToStdWhenVisit>
+<AllowSmallFile>{8}</AllowSmallFile>
+<Days>{4}</Days>
+</Transition>
+</Rule>
+</LifecycleConfiguration>'''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:37 GMT
+Content-Length: 0
+Connection: keep-alive
+x-oss-request-id: 566B6BD9B295345D15740F1F'''
+
+        id = 'hello world'
+        prefix = '中文前缀'
+        status = 'Disabled'
+        date = '2015-12-25T00:00:00.000Z'
+        days = 30
+        storage_class = 'IA'
+        is_access_time = True
+        return_to_std_when_visit = True
+        allow_small_file = True
+
+        req_info = mock_response(do_request, response_text)
+        rule = LifecycleRule(id, prefix,
+                             status=LifecycleRule.DISABLED,
+                             expiration=LifecycleExpiration(date=datetime.date(2015, 12, 25)))
+        rule.storage_transitions = [StorageTransition(days=30,
+                                                      storage_class=oss2.BUCKET_STORAGE_CLASS_IA, is_access_time=True, return_to_std_when_visit=True, allow_small_file=True)]
+        bucket().put_bucket_lifecycle(BucketLifecycle([rule]))
+
+        self.assertRequest(req_info, request_text.format(id, prefix, status, date, days, storage_class, str(is_access_time).lower(), str(return_to_std_when_visit).lower(), str(allow_small_file).lower()))
+
+
+    @patch('oss2.Session.do_request')
+    def test_get_lifecycle_access_monitor(self, do_request):
+        from oss2.models import LifecycleRule
+
+        request_text = '''GET /?lifecycle= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:38 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:mr0QeREuAcoeK0rSWBnobrzu6uU='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:38 GMT
+Content-Type: application/xml
+Content-Length: 277
+Connection: keep-alive
+x-oss-request-id: 566B6BDA010B7A4314D1614A
+
+<?xml version="1.0" encoding="UTF-8"?>
+<LifecycleConfiguration>
+  <Rule>
+    <ID>{0}</ID>
+    <Prefix>{1}</Prefix>
+    <Status>{2}</Status>
+    <Expiration>
+      <Date>{3}</Date>
+    </Expiration>
+    <NoncurrentVersionTransition>
+      <NoncurrentDays>{4}</NoncurrentDays>
+      <StorageClass>{5}</StorageClass>
+      <IsAccessTime>{6}</IsAccessTime>
+      <ReturnToStdWhenVisit>{7}</ReturnToStdWhenVisit>
+      <AllowSmallFile>{8}</AllowSmallFile>
+    </NoncurrentVersionTransition>
+  </Rule>
+</LifecycleConfiguration>'''
+
+        id = 'whatever'
+        prefix = 'lifecycle rule 1'
+        status = LifecycleRule.DISABLED
+        date = datetime.date(2015, 12, 25)
+        days = 30
+        storage_class = 'IA'
+        is_access_time = True
+        return_to_std_when_visit = False
+        allow_small_file = True
+
+        req_info = mock_response(do_request, response_text.format(id, prefix, status, '2015-12-25T00:00:00.000Z',
+                                 days, storage_class, str(is_access_time).lower(), str(return_to_std_when_visit).lower(), str(allow_small_file).lower()))
+        result = bucket().get_bucket_lifecycle()
+
+        self.assertRequest(req_info, request_text)
+
+        rule = result.rules[0]
+        self.assertEqual(rule.id, id)
+        self.assertEqual(rule.prefix, prefix)
+        self.assertEqual(rule.status, status)
+        self.assertEqual(rule.expiration.date, date)
+        self.assertEqual(rule.noncurrent_version_sotrage_transitions[0].noncurrent_days, days)
+        self.assertEqual(rule.noncurrent_version_sotrage_transitions[0].storage_class, storage_class)
+        self.assertEqual(rule.noncurrent_version_sotrage_transitions[0].is_access_time, is_access_time)
+        self.assertEqual(rule.noncurrent_version_sotrage_transitions[0].return_to_std_when_visit, return_to_std_when_visit)
+        self.assertEqual(rule.noncurrent_version_sotrage_transitions[0].allow_small_file, allow_small_file)
+
 
 if __name__ == '__main__':
     unittest.main()
