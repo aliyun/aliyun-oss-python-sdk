@@ -68,7 +68,8 @@ from .models import (SimplifiedObjectInfo,
                      AggregationsInfo,
                      OSSTaggingInfo,
                      OSSUserMetaInfo,
-                     AggregationGroupInfo)
+                     AggregationGroupInfo,
+                     AccessMonitorInfo)
 
 from .select_params import (SelectJsonTypes, SelectParameters)
 
@@ -370,6 +371,7 @@ def parse_get_bucket_info(result, body):
     result.comment = _find_tag_with_default(root, 'Bucket/Comment', None)
     result.versioning_status = _find_tag_with_default(root, 'Bucket/Versioning', None)
     result.data_redundancy_type = _find_tag_with_default(root, 'Bucket/DataRedundancyType', None)
+    result.access_monitor = _find_tag_with_default(root, 'Bucket/AccessMonitor', None)
 
     server_side_encryption = root.find("Bucket/ServerSideEncryptionRule")
     if server_side_encryption is None:
@@ -690,6 +692,12 @@ def parse_lifecycle_storage_transitions(storage_transition_nodes):
         elif storage_transition_node.find('CreatedBeforeDate') is not None:
             storage_transition.created_before_date = iso8601_to_date(_find_tag(storage_transition_node,
                                                                                'CreatedBeforeDate'))
+        if storage_transition_node.find('IsAccessTime') is not None:
+            storage_transition.is_access_time = _find_bool(storage_transition_node, 'IsAccessTime')
+        if storage_transition_node.find('ReturnToStdWhenVisit') is not None:
+            storage_transition.return_to_std_when_visit = _find_bool(storage_transition_node, 'ReturnToStdWhenVisit')
+        if storage_transition_node.find('AllowSmallFile') is not None:
+            storage_transition.allow_small_file = _find_bool(storage_transition_node, 'AllowSmallFile')
 
         storage_transitions.append(storage_transition)
 
@@ -724,6 +732,13 @@ def parse_lifecycle_verison_storage_transitions(version_storage_transition_nodes
         storage_class = _find_tag(transition_node, 'StorageClass')
         non_crurrent_days = _find_int(transition_node, 'NoncurrentDays')
         version_storage_transition = NoncurrentVersionStorageTransition(non_crurrent_days, storage_class)
+        if transition_node.find('IsAccessTime') is not None:
+            version_storage_transition.is_access_time = _find_bool(transition_node, 'IsAccessTime')
+        if transition_node.find('ReturnToStdWhenVisit') is not None:
+            version_storage_transition.return_to_std_when_visit = _find_bool(transition_node, 'ReturnToStdWhenVisit')
+        if transition_node.find('AllowSmallFile') is not None:
+            version_storage_transition.allow_small_file = _find_bool(transition_node, 'AllowSmallFile')
+
         version_storage_transitions.append(version_storage_transition)
 
     return version_storage_transitions
@@ -750,7 +765,8 @@ def parse_get_bucket_lifecycle(result, body):
             storage_transitions=storage_transitions,
             tagging=tagging,
             noncurrent_version_expiration = noncurrent_version_expiration,
-            noncurrent_version_sotrage_transitions = noncurrent_version_sotrage_transitions
+            noncurrent_version_sotrage_transitions = noncurrent_version_sotrage_transitions,
+            atime_base=int(_find_tag_with_default(rule_node, 'AtimeBase', 0))
             )
         result.rules.append(rule)
 
@@ -973,6 +989,12 @@ def to_put_bucket_lifecycle(bucket_lifecycle):
             for storage_transition in storage_transitions:
                 storage_transition_node = ElementTree.SubElement(rule_node, 'Transition')
                 _add_text_child(storage_transition_node, 'StorageClass', str(storage_transition.storage_class))
+                if storage_transition.is_access_time is not None:
+                    _add_text_child(storage_transition_node, 'IsAccessTime', str(storage_transition.is_access_time).lower())
+                if storage_transition.return_to_std_when_visit is not None:
+                    _add_text_child(storage_transition_node, 'ReturnToStdWhenVisit', str(storage_transition.return_to_std_when_visit).lower())
+                if storage_transition.allow_small_file is not None:
+                    _add_text_child(storage_transition_node, 'AllowSmallFile', str(storage_transition.allow_small_file).lower())
                 if storage_transition.days is not None:
                     _add_text_child(storage_transition_node, 'Days', str(storage_transition.days))
                 elif storage_transition.created_before_date is not None:
@@ -998,6 +1020,13 @@ def to_put_bucket_lifecycle(bucket_lifecycle):
                 version_transition_node = ElementTree.SubElement(rule_node, 'NoncurrentVersionTransition')
                 _add_text_child(version_transition_node, 'NoncurrentDays', str(noncurrent_version_sotrage_transition.noncurrent_days))
                 _add_text_child(version_transition_node, 'StorageClass', str(noncurrent_version_sotrage_transition.storage_class))
+                if noncurrent_version_sotrage_transition.is_access_time is not None:
+                    _add_text_child(version_transition_node, 'IsAccessTime', str(noncurrent_version_sotrage_transition.is_access_time).lower())
+                if noncurrent_version_sotrage_transition.return_to_std_when_visit is not None:
+                    _add_text_child(version_transition_node, 'ReturnToStdWhenVisit', str(noncurrent_version_sotrage_transition.return_to_std_when_visit).lower())
+                if noncurrent_version_sotrage_transition.allow_small_file is not None:
+                    _add_text_child(version_transition_node, 'AllowSmallFile', str(noncurrent_version_sotrage_transition.allow_small_file).lower())
+
 
     return _node_to_string(root)
 
@@ -1891,3 +1920,15 @@ def parse_do_bucket_meta_query_result(result, body):
 
 def parse_dummy_result(result, body):
     return result
+
+def to_put_bucket_access_monitor(status):
+    root = ElementTree.Element('AccessMonitorConfiguration')
+    _add_text_child(root, 'Status', status)
+    return _node_to_string(root)
+
+
+def parse_get_bucket_access_monitor_result(result, body):
+    root = ElementTree.fromstring(body)
+
+    access_monitor = AccessMonitorInfo(_find_tag(root, "Status"))
+    result.access_monitor = access_monitor
