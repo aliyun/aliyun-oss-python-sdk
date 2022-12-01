@@ -4,7 +4,7 @@ import os
 import oss2
 
 
-# 下面的代码展示了使用OSS V2签名算法来对请求进行签名
+# 下面的代码展示了使用OSS V4签名算法来对请求进行签名
 
 
 # 首先，初始化AccessKeyId、AccessKeySecret和Endpoint.
