@@ -1458,5 +1458,144 @@ Date: Fri , 30 Apr 2021 13:08:38 GMT
         self.assertEqual(result.status, 200)
         self.assertEqual(result.resource_group_id, 'rg-xxxxxx')
 
+    @patch('oss2.Session.do_request')
+    def test_put_bucket_style(self, do_request):
+        request_text = '''PUT /?style&styleName=imagestyle HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****
+
+<Style>
+<Content>{0}</Content>
+</Style>'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 5C1B138A109F4E405B2D
+content-length: 0
+x-oss-console-auth: success
+server: AliyunOSS
+x-oss-server-time: 980
+connection: keep-alive
+date: Wed, 15 Sep 2021 03:33:37 GMT'''
+
+        req_info = mock_response(do_request, response_text)
+        content = 'image/resize,p_50'
+        bucket().put_bucket_style('imagestyle',content)
+        self.assertRequest(req_info, request_text.format(to_string(content)))
+
+    @patch('oss2.Session.do_request')
+    def test_get_bucket_style(self, do_request):
+        request_text = '''GET /?style&styleName=imagestyle HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<Style>
+ <Name>imagestyle</Name>
+ <Content>image/resize,p_50</Content>
+ <CreateTime>Wed, 20 May 2020 12:07:15 GMT</CreateTime>
+ <LastModifyTime>Wed, 21 May 2020 12:07:15 GMT</LastModifyTime>
+</Style>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().get_bucket_style('imagestyle')
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.name, 'imagestyle')
+        self.assertEqual(result.content, 'image/resize,p_50')
+        self.assertEqual(result.create_time, 'Wed, 20 May 2020 12:07:15 GMT')
+        self.assertEqual(result.last_modify_time, 'Wed, 21 May 2020 12:07:15 GMT')
+
+
+    @patch('oss2.Session.do_request')
+    def test_list_bucket_style(self, do_request):
+        request_text = '''GET /?style HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<StyleList>
+ <Style>
+ <Name>imagestyle</Name>
+ <Content>image/resize,p_50</Content>
+ <CreateTime>Wed, 20 May 2020 12:07:15 GMT</CreateTime>
+ <LastModifyTime>Wed, 21 May 2020 12:07:15 GMT</LastModifyTime>
+ </Style>
+ <Style>
+ <Name>imagestyle1</Name>
+ <Content>image/resize,w_200</Content>
+ <CreateTime>Wed, 20 May 2020 12:08:04 GMT</CreateTime>
+ <LastModifyTime>Wed, 21 May 2020 12:08:04 GMT</LastModifyTime>
+ </Style>
+ <Style>
+ <Name>imagestyle2</Name>
+ <Content>image/resize,w_300</Content>
+ <CreateTime>Fri, 12 Mar 2021 06:19:13 GMT</CreateTime>
+ <LastModifyTime>Fri, 13 Mar 2021 06:27:21 GMT</LastModifyTime>
+ </Style>
+</StyleList>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().list_bucket_style()
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.styles[0].name, 'imagestyle')
+        self.assertEqual(result.styles[0].content, 'image/resize,p_50')
+        self.assertEqual(result.styles[0].create_time, 'Wed, 20 May 2020 12:07:15 GMT')
+        self.assertEqual(result.styles[0].last_modify_time, 'Wed, 21 May 2020 12:07:15 GMT')
+        self.assertEqual(result.styles[1].name, 'imagestyle1')
+        self.assertEqual(result.styles[1].content, 'image/resize,w_200')
+        self.assertEqual(result.styles[1].create_time, 'Wed, 20 May 2020 12:08:04 GMT')
+        self.assertEqual(result.styles[1].last_modify_time, 'Wed, 21 May 2020 12:08:04 GMT')
+        self.assertEqual(result.styles[2].name, 'imagestyle2')
+        self.assertEqual(result.styles[2].content, 'image/resize,w_300')
+        self.assertEqual(result.styles[2].create_time, 'Fri, 12 Mar 2021 06:19:13 GMT')
+        self.assertEqual(result.styles[2].last_modify_time, 'Fri, 13 Mar 2021 06:27:21 GMT')
+
+
+    @patch('oss2.Session.do_request')
+    def test_delete_bucket_style(self, do_request):
+        request_text = '''DELETE /?style&styleName=imagestyle HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:41 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:Pt0DtPQ/FODOGs5y0yTIVctRcok='''
+
+        response_text = '''HTTP/1.1 204 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:42 GMT
+Content-Type: application/xml
+Content-Length: 96
+Connection: keep-alive
+x-oss-request-id: 566B6BDD68248CE14F729DC0
+'''
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().delete_bucket_style('imagestyle')
+
+        self.assertRequest(req_info, request_text)
+
 if __name__ == '__main__':
     unittest.main()

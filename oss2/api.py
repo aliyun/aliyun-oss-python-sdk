@@ -415,6 +415,8 @@ class Bucket(_Base):
     CNAME = 'cname'
     META_QUERY = 'metaQuery'
     RESOURCE_GROUP = 'resourceGroup'
+    STYLE = 'style'
+    STYLE_NAME = 'styleName'
 
 
     def __init__(self, auth, endpoint, bucket_name,
@@ -2671,6 +2673,56 @@ class Bucket(_Base):
         logger.debug("Get bucket resource group done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return self._parse_result(resp, xml_utils.parse_get_bucket_resource_group_result, GetBucketResourceGroupResult)
+
+    def put_bucket_style(self, styleName, content):
+        """新增图片样式。
+
+        :param str styleName : 样式名称。
+        :param str content : 图片样式内容，图片样式可以包含一个或多个图片处理操作。
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to put bucket style, bucket: {0}.".format(self.bucket_name))
+
+        data = xml_utils.to_put_bucket_style(content)
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.STYLE: '', Bucket.STYLE_NAME: styleName})
+        logger.debug("bucket style done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
+
+    def get_bucket_style(self, styleName):
+        """查询某个Bucket下指定的图片样式信息。
+
+        :param str styleName : 样式名称。
+        :return: :class:`GetBucketStyleResult <oss2.models.GetBucketStyleResult>`
+        """
+        logger.debug("Start to get bucket style: {0}".format(self.bucket_name))
+
+        resp = self.__do_bucket('GET', params={Bucket.STYLE: '', Bucket.STYLE_NAME: styleName})
+        logger.debug("Get bucket style done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_get_bucket_style_result, GetBucketStyleResult)
+
+    def list_bucket_style(self):
+        """查询某个Bucket下已创建的所有图片样式。
+
+        :return: :class:`ListBucketStyleResult <oss2.models.ListBucketStyleResult>`
+        """
+        logger.debug("Start to list bucket style: {0}".format(self.bucket_name))
+
+        resp = self.__do_bucket('GET', params={Bucket.STYLE: ''})
+        logger.debug("query list bucket style done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_list_bucket_style, ListBucketStyleResult)
+
+    def delete_bucket_style(self, styleName):
+        """删除某个Bucket下指定的图片样式。
+
+        :param str styleName : 样式名称。
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to delete bucket style: {0}".format(self.bucket_name))
+
+        resp = self.__do_bucket('DELETE', params={Bucket.STYLE: '', Bucket.STYLE_NAME: styleName})
+        logger.debug("delete bucket style done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
 
     def __do_object(self, method, key, **kwargs):
         return self._do(method, self.bucket_name, key, **kwargs)

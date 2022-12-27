@@ -2513,3 +2513,48 @@ class GetBucketResourceGroupResult(RequestResult):
     def __init__(self, resp):
         super(GetBucketResourceGroupResult, self).__init__(resp)
         self.resource_group_id = None
+
+
+class GetBucketStyleResult(RequestResult):
+    """获取图片样式内容的容器。
+
+    :param name: 图片样式名称。
+    :param content: 图片样式内容。
+    :param create_time: 图片样式创建时间。
+    :param last_modify_time: 图片样式修改时间。
+    :type progress: class:`GetBucketStyleResult <oss2.models.GetBucketStyleResult>`。
+    """
+    def __init__(self, resp):
+        super(GetBucketStyleResult, self).__init__(resp)
+        self.name = None
+        self.content = None
+        self.create_time = None
+        self.last_modify_time = None
+
+
+class BucketStyleInfo(RequestResult):
+    """图片样式内容的容器。
+
+    :param name: 图片样式名称。
+    :param content: 图片样式内容。
+    :param create_time: 图片样式创建时间。
+    :param last_modify_time: 图片样式修改时间。
+    :type progress: class:`BucketStyleInfo <oss2.models.BucketStyleInfo>`。
+    """
+    def __init__(self, name=None, content=None, create_time=None, last_modify_time=None):
+        self.name = name
+        self.content = content
+        self.create_time = create_time
+        self.last_modify_time = last_modify_time
+
+
+
+class ListBucketStyleResult(RequestResult):
+    """查询图片样式信息列表的容器。
+
+    :param str styles: 图片样式内容的容器。元素类型为:class:`ListBucketStyleResult <oss2.models.ListBucketStyleResult>`。
+    """
+
+    def __init__(self, resp):
+        super(ListBucketStyleResult, self).__init__(resp)
+        self.styles = []
