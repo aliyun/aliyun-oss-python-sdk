@@ -2502,3 +2502,14 @@ class AggregationGroupInfo(object):
     def __init__(self, value, count):
         self.value = value
         self.count = count
+
+
+class GetBucketResourceGroupResult(RequestResult):
+    """显示资源组ID的容器。
+
+    :param resource_group_id: Bucket所属的资源组ID
+    :type progress: class:`GetBucketResourceGroupResult <oss2.models.GetBucketResourceGroupResult>`。
+    """
+    def __init__(self, resp):
+        super(GetBucketResourceGroupResult, self).__init__(resp)
+        self.resource_group_id = None

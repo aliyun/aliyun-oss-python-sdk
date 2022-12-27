@@ -1406,5 +1406,57 @@ Date: Fri , 30 Apr 2021 13:08:38 GMT
         self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
         self.assertEqual(result.status, 200)
 
+    @patch('oss2.Session.do_request')
+    def test_put_bucket_resource_group(self, do_request):
+        request_text = '''PUT /?resourceGroup HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****
+
+<BucketResourceGroupConfiguration>
+<ResourceGroupId>{0}</ResourceGroupId>
+</BucketResourceGroupConfiguration>'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 5C1B138A109F4E405B2D
+content-length: 0
+x-oss-console-auth: success
+server: AliyunOSS
+x-oss-server-time: 980
+connection: keep-alive
+date: Wed, 15 Sep 2021 03:33:37 GMT'''
+
+        req_info = mock_response(do_request, response_text)
+        resourceGroupId = 'rg-xxxxxx'
+        bucket().put_bucket_resource_group(resourceGroupId)
+        self.assertRequest(req_info, request_text.format(to_string(resourceGroupId)))
+
+    @patch('oss2.Session.do_request')
+    def test_get_bucket_resource_group(self, do_request):
+        request_text = '''GET /?resourceGroup HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<BucketResourceGroupConfiguration>
+  <ResourceGroupId>rg-xxxxxx</ResourceGroupId>
+</BucketResourceGroupConfiguration>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().get_bucket_resource_group()
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.resource_group_id, 'rg-xxxxxx')
+
 if __name__ == '__main__':
     unittest.main()

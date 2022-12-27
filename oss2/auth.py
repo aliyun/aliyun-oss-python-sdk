@@ -88,7 +88,7 @@ class ProviderAuth(AuthBase):
          'versioning', 'versionId', 'policy', 'requestPayment', 'x-oss-traffic-limit', 'qosInfo', 'asyncFetch',
          'x-oss-request-payer', 'sequential', 'inventory', 'inventoryId', 'continuation-token', 'callback',
          'callback-var', 'worm', 'wormId', 'wormExtend', 'replication', 'replicationLocation',
-         'replicationProgress', 'transferAcceleration', 'cname', 'metaQuery']
+         'replicationProgress', 'transferAcceleration', 'cname', 'metaQuery','resourceGroup']
     )
         
     def _sign_request(self, req, bucket_name, key):

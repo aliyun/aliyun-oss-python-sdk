@@ -414,6 +414,7 @@ class Bucket(_Base):
     TRANSFER_ACCELERATION = 'transferAcceleration'
     CNAME = 'cname'
     META_QUERY = 'metaQuery'
+    RESOURCE_GROUP = 'resourceGroup'
 
 
     def __init__(self, auth, endpoint, bucket_name,
@@ -2647,6 +2648,29 @@ class Bucket(_Base):
         resp = self.__do_bucket('POST', params={Bucket.META_QUERY: '', Bucket.COMP: 'delete'})
         logger.debug("bucket meta query done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
+
+    def put_bucket_resource_group(self, resourceGroupId):
+        """为存储空间（Bucket）配置所属资源组。
+
+        :param str resourceGroupId : Bucket所属的资源组ID。
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to put bucket resource group, bucket: {0}.".format(self.bucket_name))
+        data = xml_utils.to_put_bucket_resource_group(resourceGroupId)
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.RESOURCE_GROUP: ''})
+        logger.debug("bucket resource group done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
+
+    def get_bucket_resource_group(self):
+        """查询存储空间（Bucket）的资源组ID。
+
+        :return: :class:`GetBucketResourceGroupResult <oss2.models.GetBucketResourceGroupResult>`
+        """
+        logger.debug("Start to get bucket resource group: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('GET', params={Bucket.RESOURCE_GROUP: ''})
+        logger.debug("Get bucket resource group done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_get_bucket_resource_group_result, GetBucketResourceGroupResult)
 
     def __do_object(self, method, key, **kwargs):
         return self._do(method, self.bucket_name, key, **kwargs)
