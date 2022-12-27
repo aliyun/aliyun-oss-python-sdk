@@ -90,7 +90,7 @@ class ProviderAuth(AuthBase):
          'callback-var', 'worm', 'wormId', 'wormExtend', 'replication', 'replicationLocation',
          'replicationProgress', 'transferAcceleration', 'cname', 'metaQuery',
          'x-oss-ac-source-ip', 'x-oss-ac-subnet-mask', 'x-oss-ac-vpc-id', 'x-oss-ac-forward-allow',
-         'resourceGroup']
+         'resourceGroup', 'style', 'styleName']
     )
         
     def _sign_request(self, req, bucket_name, key):
