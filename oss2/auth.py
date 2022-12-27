@@ -89,7 +89,8 @@ class ProviderAuth(AuthBase):
          'x-oss-request-payer', 'sequential', 'inventory', 'inventoryId', 'continuation-token', 'callback',
          'callback-var', 'worm', 'wormId', 'wormExtend', 'replication', 'replicationLocation',
          'replicationProgress', 'transferAcceleration', 'cname', 'metaQuery',
-         'x-oss-ac-source-ip', 'x-oss-ac-subnet-mask', 'x-oss-ac-vpc-id', 'x-oss-ac-forward-allow']
+         'x-oss-ac-source-ip', 'x-oss-ac-subnet-mask', 'x-oss-ac-vpc-id', 'x-oss-ac-forward-allow',
+         'resourceGroup']
     )
         
     def _sign_request(self, req, bucket_name, key):

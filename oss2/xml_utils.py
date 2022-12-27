@@ -1944,7 +1944,6 @@ def to_put_bucket_access_monitor(status):
     _add_text_child(root, 'Status', status)
     return _node_to_string(root)
 
-
 def parse_get_bucket_access_monitor_result(result, body):
     root = ElementTree.fromstring(body)
 
@@ -1964,3 +1963,12 @@ def parse_lifecycle_filter_not(filter_not_node):
             lifecycle_filter.filter_not.append(filter_not)
 
     return lifecycle_filter
+
+def to_put_bucket_resource_group(resourceGroupId):
+    root = ElementTree.Element('BucketResourceGroupConfiguration')
+    _add_text_child(root, 'ResourceGroupId', resourceGroupId)
+    return _node_to_string(root)
+
+def parse_get_bucket_resource_group_result(result, body):
+    root = ElementTree.fromstring(body)
+    result.resource_group_id = _find_tag(root, "ResourceGroupId")
