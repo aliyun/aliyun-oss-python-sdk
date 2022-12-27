@@ -72,7 +72,8 @@ from .models import (SimplifiedObjectInfo,
                      AccessMonitorInfo,
                      LifecycleFilter,
                      FilterNot,
-                     FilterNotTag)
+                     FilterNotTag,
+                     BucketStyleInfo)
 
 from .select_params import (SelectJsonTypes, SelectParameters)
 
@@ -1972,3 +1973,26 @@ def to_put_bucket_resource_group(resourceGroupId):
 def parse_get_bucket_resource_group_result(result, body):
     root = ElementTree.fromstring(body)
     result.resource_group_id = _find_tag(root, "ResourceGroupId")
+
+def to_put_bucket_style(content):
+    root = ElementTree.Element('Style')
+    _add_text_child(root, 'Content', content)
+    return _node_to_string(root)
+
+def parse_get_bucket_style_result(result, body):
+    root = ElementTree.fromstring(body)
+    result.name = _find_tag(root, "Name")
+    result.content = _find_tag(root, "Content")
+    result.create_time = _find_tag(root, "CreateTime")
+    result.last_modify_time = _find_tag(root, "LastModifyTime")
+
+def parse_list_bucket_style(result, body):
+    root = ElementTree.fromstring(body)
+    for style in root.findall('Style'):
+        tmp = BucketStyleInfo()
+        tmp.name = _find_tag_with_default(style, 'Name', None)
+        tmp.content = _find_tag_with_default(style, 'Content', None)
+        tmp.create_time = _find_tag_with_default(style, 'CreateTime', None)
+        tmp.last_modify_time = _find_tag_with_default(style, 'LastModifyTime', None)
+
+        result.styles.append(tmp)
