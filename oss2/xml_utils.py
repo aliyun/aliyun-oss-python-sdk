@@ -167,7 +167,8 @@ def parse_list_objects(result, body):
             _find_tag(contents_node, 'Type'),
             int(_find_tag(contents_node, 'Size')),
             _find_tag(contents_node, 'StorageClass'),
-            owner
+            owner,
+            _find_tag_with_default(contents_node, 'RestoreInfo', None)
         ))
 
     for prefix_node in root.findall('CommonPrefixes'):
@@ -194,7 +195,8 @@ def parse_list_objects_v2(result, body):
             _find_tag(contents_node, 'Type'),
             int(_find_tag(contents_node, 'Size')),
             _find_tag(contents_node, 'StorageClass'),
-            owner
+            owner,
+            _find_tag_with_default(contents_node, 'RestoreInfo', None)
         ))
 
     for prefix_node in root.findall('CommonPrefixes'):
@@ -1273,6 +1275,7 @@ def parse_list_object_versions(result, body):
         versionInfo.storage_class = _find_tag(version, "StorageClass")
         versionInfo.size = _find_int(version, "Size")
         versionInfo.etag = _find_tag(version, "ETag").strip('"')
+        versionInfo.restore_info = _find_tag_with_default(version, 'RestoreInfo', None)
 
         result.versions.append(versionInfo)
 

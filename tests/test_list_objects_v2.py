@@ -162,6 +162,29 @@ class TestIteratorV2(OssTestCase):
 
         self.assertEqual(3, len(top_dir_object_got))
 
+    def test_normal_list_objects_restore_info(self):
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket_name = self.OSS_BUCKET + "-test-normal-resotre"
+        bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
+        bucket.create_bucket()
+
+        dir1 = 'test-dir/'
+        sub_dir = 'sub-dir/'
+        key_prefix = dir1 + sub_dir + 'test-file'
+
+        headers = {'x-oss-storage-class': 'Archive'}
+        for i in range(2):
+            key = key_prefix + str(i) + '.txt'
+            bucket.put_object(key, b'a', headers=headers)
+
+            bucket.restore_object(key)
+
+
+        # list under bucket
+        result = bucket.list_objects_v2()
+        self.assertTrue(result.object_list[0].restore_info.__contains__('ongoing-request="true"'))
+        self.assertTrue(result.object_list[1].restore_info.__contains__('ongoing-request="true"'))
+
 
 if __name__ == '__main__':
     unittest.main()

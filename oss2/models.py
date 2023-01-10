@@ -457,7 +457,7 @@ class ListObjectsV2Result(RequestResult):
 
 
 class SimplifiedObjectInfo(object):
-    def __init__(self, key, last_modified, etag, type, size, storage_class, owner=None):
+    def __init__(self, key, last_modified, etag, type, size, storage_class, owner=None, restore_info=None):
         #: 文件名，或公共前缀名。
         self.key = key
 
@@ -478,6 +478,10 @@ class SimplifiedObjectInfo(object):
 
         #: owner信息, 类型为: class:`Owner <oss2.models.Owner>`
         self.owner = owner
+
+        #: Object的解冻状态。
+        self.restore_info = restore_info
+
 
     def is_prefix(self):
         """如果是公共前缀，返回True；是文件，则返回False"""
@@ -1589,6 +1593,7 @@ class ObjectVersionInfo(object):
         self.storage_class = ''
         self.size = ''
         self.etag = ''
+        self.restore_info = ''
 
 BUCKET_VERSIONING_ENABLE = 'Enabled'
 BUCKET_VERSIONING_SUSPEND = 'Suspended'
