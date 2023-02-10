@@ -1438,6 +1438,29 @@ class TestObject(OssTestCase):
         data = result.read()
         self.assertEqual(0, len(data))
 
+
+    def test_list_objects(self):
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket_name = self.OSS_BUCKET + "-test-normal-resotre"
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
+        bucket.create_bucket()
+
+        dir1 = 'test-dir/'
+        sub_dir = 'sub-dir/'
+        key_prefix = dir1 + sub_dir + 'test-file'
+
+        headers = {'x-oss-storage-class': 'Archive'}
+        for i in range(2):
+            key = key_prefix + str(i) + '.txt'
+            bucket.put_object(key, b'a', headers=headers)
+
+            bucket.restore_object(key)
+
+
+        # list under bucket
+        result = bucket.list_objects()
+        self.assertTrue(result.object_list[0].restore_info.__contains__('ongoing-request="true"'))
+        self.assertTrue(result.object_list[1].restore_info.__contains__('ongoing-request="true"'))
     
 class TestSign(TestObject):
     """

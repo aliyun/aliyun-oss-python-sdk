@@ -22,6 +22,7 @@ class TestIterator(OssTestCase):
         self.assertEqual(a.type, b.type)
         self.assertEqual(a.size, b.size)
         self.assertEqual(a.storage_class, b.storage_class)
+        self.assertEqual(a.restore_info, b.restore_info)
         if a.owner is None:
             self.assertIsNone(b.owner)
         else:
@@ -488,6 +489,80 @@ class TestIterator(OssTestCase):
 
         iter = oss2.ObjectUploadIterator(bucket(), 'fake-key', max_retries=1)
         self.assertEqual(iter.max_retries, 1)
+
+    @patch('oss2.Session.do_request')
+    def test_object_iterator_resotre_info(self, do_request):
+        body_list = [b'''<?xml version="1.0" encoding="UTF-8"?>
+        <ListBucketResult>
+          <Name>zzy-share</Name>
+          <Prefix></Prefix>
+          <Marker></Marker>
+          <MaxKeys>1000</MaxKeys>
+          <Delimiter></Delimiter>
+          <IsTruncated>false</IsTruncated>
+          <Contents>
+            <Key>object-1</Key>
+            <LastModified>2015-02-02T05:15:13.000Z</LastModified>
+            <ETag>"716AF6FFD529DFEA856FAA4E12D2C5EA"</ETag>
+            <Type>Normal</Type>
+            <Size>4308</Size>
+            <StorageClass>Standard</StorageClass>
+            <Owner>
+              <ID>1047205513514293</ID>
+              <DisplayName>1047205513514293</DisplayName>
+            </Owner>
+            <RestoreInfo>ongoing-request="true"</RestoreInfo>
+          </Contents>
+          <Contents>
+            <Key>object-2</Key>
+            <LastModified>2015-06-23T09:56:55.000Z</LastModified>
+            <ETag>"333D74B47CB1B0E275D2AB3CDDA02665-26"</ETag>
+            <Type>Multipart</Type>
+            <Size>3389246</Size>
+            <StorageClass>Standard</StorageClass>
+            <Owner>
+              <ID>1047205513514293</ID>
+              <DisplayName>1047205513514293</DisplayName>
+            </Owner>
+          </Contents>
+          <Contents>
+            <Key>object-3</Key>
+            <LastModified>2015-01-16T12:41:34.000Z</LastModified>
+            <ETag>"B28F7255E6EA777DB0AFB1C58C2CFCFE"</ETag>
+            <Type>Normal</Type>
+            <Size>10718416</Size>
+            <StorageClass>Standard</StorageClass>
+            <Owner>
+              <ID>1047205513514293</ID>
+              <DisplayName>1047205513514293</DisplayName>
+            </Owner>
+          </Contents>
+        </ListBucketResult>
+        ''']
+
+        req_info = RequestInfo()
+
+        do_request.auto_spec = True
+        do_request.side_effect = make_do4body(req_infos=[req_info], body_list=body_list)
+
+        got = list(oss2.ObjectIterator(bucket(), max_keys=1000))
+
+        expected = [SimplifiedObjectInfo('object-1', 1422854113, '716AF6FFD529DFEA856FAA4E12D2C5EA', 'Normal',
+                                         4308, 'Standard', Owner('1047205513514293', '1047205513514293'),'ongoing-request="true"'),
+                    SimplifiedObjectInfo('object-2', 1435053415, '333D74B47CB1B0E275D2AB3CDDA02665-26', 'Multipart',
+                                         3389246, 'Standard', Owner('1047205513514293', '1047205513514293')),
+                    SimplifiedObjectInfo('object-3', 1421412094, 'B28F7255E6EA777DB0AFB1C58C2CFCFE', 'Normal',
+                                         10718416, 'Standard', Owner('1047205513514293', '1047205513514293'))]
+
+        self.assertEqual(len(expected), len(got))
+
+        for i in range(len(expected)):
+            self.assertSimpleObjectInfoEqual(expected[i], got[i])
+
+        self.assertEqual(req_info.req.params.get('prefix', ''), '')
+        self.assertEqual(req_info.req.params.get('marker', ''), '')
+        self.assertEqual(req_info.req.params.get('encoding-type'), 'url')
+
 
 
 if __name__ == '__main__':
