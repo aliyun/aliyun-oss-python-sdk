@@ -203,7 +203,7 @@ logger = logging.getLogger(__name__)
 
 class _Base(object):
     def __init__(self, auth, endpoint, is_cname, session, connect_timeout,
-                 app_name='', enable_crc=True, proxies=None):
+                 app_name='', enable_crc=True, proxies=None, region=None, cloudbox_id= None):
         self.auth = auth
         self.endpoint = _normalize_endpoint(endpoint.strip())
         if utils.is_valid_endpoint(self.endpoint) is not True:
@@ -213,14 +213,22 @@ class _Base(object):
         self.app_name = app_name
         self.enable_crc = enable_crc
         self.proxies = proxies
-
+        self.region = region
+        self.product = 'oss'
+        self.cloudbox_id = cloudbox_id
+        if self.cloudbox_id is not None:
+            self.product = 'oss-cloudbox'
         self._make_url = _UrlMaker(self.endpoint, is_cname)
+
 
     def _do(self, method, bucket_name, key, **kwargs):
         key = to_string(key)
         req = http.Request(method, self._make_url(bucket_name, key),
                            app_name=self.app_name,
                            proxies=self.proxies,
+                           region=self.region,
+                           product=self.product,
+                           cloudbox_id=self.cloudbox_id,
                            **kwargs)
         self.auth._sign_request(req, bucket_name, key)
 
@@ -293,11 +301,14 @@ class Service(_Base):
                  session=None,
                  connect_timeout=None,
                  app_name='',
-                 proxies=None):
+                 proxies=None,
+                 region=None,
+                 cloudbox_id=None):
         logger.debug("Init oss service, endpoint: {0}, connect_timeout: {1}, app_name: {2}, proxies: {3}".format(
             endpoint, connect_timeout, app_name, proxies))
         super(Service, self).__init__(auth, endpoint, False, session, connect_timeout,
-                                      app_name=app_name, proxies=proxies)
+                                      app_name=app_name, proxies=proxies,
+                                      region=region, cloudbox_id=cloudbox_id)
 
     def list_buckets(self, prefix='', marker='', max_keys=100, params=None):
         """根据前缀罗列用户的Bucket。
@@ -401,6 +412,8 @@ class Bucket(_Base):
     REPLICATION_LOCATION = 'replicationLocation'
     REPLICATION_PROGRESS = 'replicationProgress'
     TRANSFER_ACCELERATION = 'transferAcceleration'
+    CNAME = 'cname'
+    META_QUERY = 'metaQuery'
 
 
     def __init__(self, auth, endpoint, bucket_name,
@@ -409,11 +422,14 @@ class Bucket(_Base):
                  connect_timeout=None,
                  app_name='',
                  enable_crc=True,
-                 proxies=None):
-        logger.debug("Init Bucket: {0}, endpoint: {1}, isCname: {2}, connect_timeout: {3}, app_name: {4}, enabled_crc: {5}"
-                     ", proxies: {6}".format(bucket_name, endpoint, is_cname, connect_timeout, app_name, enable_crc, proxies))
+                 proxies=None,
+                 region=None,
+                 cloudbox_id=None):
+        logger.debug("Init Bucket: {0}, endpoint: {1}, isCname: {2}, connect_timeout: {3}, app_name: {4}, enabled_crc: {5}, region: {6}"
+                     ", proxies: {6}".format(bucket_name, endpoint, is_cname, connect_timeout, app_name, enable_crc, proxies, region))
         super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout, 
-                                     app_name=app_name, enable_crc=enable_crc, proxies=proxies)
+                                     app_name=app_name, enable_crc=enable_crc, proxies=proxies,
+                                     region=region, cloudbox_id=cloudbox_id)
 
         self.bucket_name = bucket_name.strip()
         if utils.is_valid_bucket_name(self.bucket_name) is not True:
@@ -449,7 +465,10 @@ class Bucket(_Base):
                 method, self.bucket_name, to_string(key), expires, headers, params, slash_safe))
         req = http.Request(method, self._make_url(self.bucket_name, key, slash_safe),
                            headers=headers,
-                           params=params)
+                           params=params,
+                           region=self.region,
+                           product=self.product,
+                           cloudbox_id=self.cloudbox_id)
         return self.auth._sign_url(req, self.bucket_name, key, expires)
 
     def sign_rtmp_url(self, channel_name, playlist_name, expires):
@@ -951,7 +970,7 @@ class Bucket(_Base):
         resp = self.__do_object('HEAD', key, headers=headers, params=params)
 
         logger.debug("Head object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
-        return HeadObjectResult(resp)
+        return self._parse_result(resp, xml_utils.parse_dummy_result, HeadObjectResult)
 
     def create_select_object_meta(self, key, select_meta_params=None, headers=None):
         """获取或创建CSV,JSON LINES 文件元信息。如果元信息存在，返回之；不然则创建后返回之
@@ -1344,8 +1363,11 @@ class Bucket(_Base):
         :return: :class:`PutObjectResult <oss2.models.PutObjectResult>`
         """
         headers = http.CaseInsensitiveDict(headers)
-        parts = sorted(parts, key=lambda p: p.part_number)
-        data = xml_utils.to_complete_upload_request(parts)
+
+        data = None
+        if parts is not None:
+            parts = sorted(parts, key=lambda p: p.part_number)
+            data = xml_utils.to_complete_upload_request(parts)
 
         logger.debug("Start to complete multipart upload, bucket: {0}, key: {1}, upload_id: {2}, parts: {3}".format(
             self.bucket_name, to_string(key), upload_id, data))
@@ -1359,7 +1381,7 @@ class Bucket(_Base):
 
         result = PutObjectResult(resp)
 
-        if self.enable_crc:
+        if self.enable_crc and parts is not None:
             object_crc = utils.calc_obj_crc_from_parts(parts)
             utils.check_crc('multipart upload', object_crc, result.crc, result.request_id)
 
@@ -2517,13 +2539,114 @@ class Bucket(_Base):
     def get_bucket_transfer_acceleration(self):
         """获取目标存储空间（Bucket）的传输加速配置
 
-        :return: :class:`GetBucketReplicationResult <oss2.models.GetBucketReplicationResult>`
+        :return: :class:`GetBucketTransferAccelerationResult <oss2.models.GetBucketTransferAccelerationResult>`
         """
         logger.debug("Start to get bucket transfer acceleration: {0}".format(self.bucket_name))
         resp = self.__do_bucket('GET', params={Bucket.TRANSFER_ACCELERATION: ''})
         logger.debug("Get bucket transfer acceleration done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return self._parse_result(resp, xml_utils.parse_get_bucket_transfer_acceleration_result, GetBucketTransferAccelerationResult)
+
+    def create_bucket_cname_token(self, domain):
+        """创建域名所有权验证所需的CnameToken。
+
+        :param str domain : 绑定的Cname名称。
+        :return: :class:`CreateBucketCnameTokenResult <oss2.models.CreateBucketCnameTokenResult>`
+        """
+        logger.debug("Start to create bucket cname token, bucket: {0}.".format(self.bucket_name))
+        data = xml_utils.to_bucket_cname_configuration(domain)
+        resp = self.__do_bucket('POST', data=data, params={Bucket.CNAME: '', Bucket.COMP: 'token'})
+        logger.debug("bucket cname token done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_create_bucket_cname_token, CreateBucketCnameTokenResult)
+
+    def get_bucket_cname_token(self, domain):
+        """获取已创建的CnameToken。
+
+        :param str domain : 绑定的Cname名称。
+        :return: :class:`GetBucketCnameTokenResult <oss2.models.GetBucketCnameTokenResult>`
+        """
+        logger.debug("Start to get bucket cname: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('GET', params={Bucket.CNAME: domain, Bucket.COMP: 'token'})
+        logger.debug("Get bucket cname done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_get_bucket_cname_token, GetBucketCnameTokenResult)
+
+    def put_bucket_cname(self, input):
+        """为某个存储空间（Bucket）绑定自定义域名。
+
+        :param input: PutBucketCnameRequest类型，包含了证书和自定义域名信息
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to add bucket cname, bucket: {0}.".format(self.bucket_name))
+        data = xml_utils.to_bucket_cname_configuration(input.domain, input.cert)
+        resp = self.__do_bucket('POST', data=data, params={Bucket.CNAME: '', Bucket.COMP: 'add'})
+        logger.debug("bucket cname done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
+
+    def list_bucket_cname(self):
+        """查询某个存储空间（Bucket）下绑定的所有Cname列表。
+
+        :return: :class:`ListBucketCnameResult <oss2.models.ListBucketCnameResult>`
+        """
+        logger.debug("Start to do query list bucket cname: {0}".format(self.bucket_name))
+
+        resp = self.__do_bucket('GET', params={Bucket.CNAME: ''})
+        logger.debug("query list bucket cname done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_list_bucket_cname, ListBucketCnameResult)
+
+    def delete_bucket_cname(self, domain):
+        """删除某个存储空间（Bucket）已绑定的Cname
+
+        :param str domain : 绑定的Cname名称。
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to delete bucket cname: {0}".format(self.bucket_name))
+        data = xml_utils.to_bucket_cname_configuration(domain)
+        resp = self.__do_bucket('POST', data=data, params={Bucket.CNAME: '', Bucket.COMP: 'delete'})
+        logger.debug("delete bucket cname done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
+
+    def open_bucket_meta_query(self):
+        """为存储空间（Bucket）开启元数据管理功能
+
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to bucket meta query, bucket: {0}.".format(self.bucket_name))
+        resp = self.__do_bucket('POST', params={Bucket.META_QUERY: '', 'comp': 'add'})
+        logger.debug("bucket meta query done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
+
+    def get_bucket_meta_query_status(self):
+        """获取指定存储空间（Bucket）的元数据索引库信息。
+
+        :return: :class:`GetBucketMetaQueryResult <oss2.models.GetBucketMetaQueryResult>`
+        """
+        logger.debug("Start to get bucket meta query: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('GET', params={Bucket.META_QUERY: ''})
+        logger.debug("Get bucket meta query done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_get_bucket_meta_query_result, GetBucketMetaQueryResult)
+
+    def do_bucket_meta_query(self, do_meta_query_request):
+        """查询满足指定条件的文件（Object），并按照指定字段和排序方式列出文件信息。
+
+        :param do_meta_query_request :class:`MetaQuery <oss2.models.MetaQuery>`
+        :return: :class:`DoBucketMetaQueryResult <oss2.models.DoBucketMetaQueryResult>`
+        """
+        logger.debug("Start to do bucket meta query: {0}".format(self.bucket_name))
+
+        data = self.__convert_data(MetaQuery, xml_utils.to_do_bucket_meta_query_request, do_meta_query_request)
+        resp = self.__do_bucket('POST', data=data, params={Bucket.META_QUERY: '', Bucket.COMP: 'query'})
+        logger.debug("do bucket meta query done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_do_bucket_meta_query_result, DoBucketMetaQueryResult)
+
+    def close_bucket_meta_query(self):
+        """关闭存储空间（Bucket）的元数据管理功能
+
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to close bucket meta query: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('POST', params={Bucket.META_QUERY: '', Bucket.COMP: 'delete'})
+        logger.debug("bucket meta query done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
 
     def __do_object(self, method, key, **kwargs):
         return self._do(method, self.bucket_name, key, **kwargs)

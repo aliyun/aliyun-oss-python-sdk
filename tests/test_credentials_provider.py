@@ -13,7 +13,7 @@ class TestCredentialsProvider(OssTestCase):
         OssTestCase.setUp(self)
         self.auth_server_host = self.create_fake_ecs_credentials_url()
         self.endpoint = OSS_ENDPOINT
-        self.bucket_name = OSS_BUCKET + "-test-ecs-ram-role"
+        self.bucket_name = self.OSS_BUCKET + "-test-ecs-ram-role"
 
     def tearDown(self):
         OssTestCase.tearDown(self)
@@ -80,7 +80,7 @@ class TestCredentialsProvider(OssTestCase):
         test_bucket.delete_object(object_name)
         test_bucket.delete_bucket()
 
-        bucket_name = OSS_BUCKET + '-test-auth-bucket'
+        bucket_name = self.OSS_BUCKET + '-test-auth-bucket'
         object_name = 'test-auth-obj'
         auth1 = oss2.make_auth(OSS_ID, OSS_SECRET, oss2.AUTH_VERSION_1)
         test_bucket2 = oss2.Bucket(auth1, OSS_ENDPOINT, bucket_name)

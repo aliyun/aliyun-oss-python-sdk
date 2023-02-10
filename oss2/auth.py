@@ -3,8 +3,9 @@
 import hmac
 import hashlib
 import time
-
+from datetime import datetime
 from . import utils
+from .exceptions import ClientError
 from .compat import urlquote, to_bytes, is_py2
 from .headers import *
 import logging
@@ -12,6 +13,8 @@ from .credentials import StaticCredentialsProvider
 
 AUTH_VERSION_1 = 'v1'
 AUTH_VERSION_2 = 'v2'
+AUTH_VERSION_4 = 'v4'
+DEFAULT_SIGNED_HEADERS = ['content-type', 'content-md5']
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +23,9 @@ def make_auth(access_key_id, access_key_secret, auth_version=AUTH_VERSION_1):
     if auth_version == AUTH_VERSION_2:
         logger.debug("Init Auth V2: access_key_id: {0}, access_key_secret: ******".format(access_key_id))
         return AuthV2(access_key_id.strip(), access_key_secret.strip())
+    if auth_version == AUTH_VERSION_4:
+        logger.debug("Init Auth V4: access_key_id: {0}, access_key_secret: ******".format(access_key_id))
+        return AuthV4(access_key_id.strip(), access_key_secret.strip())
     else:
         logger.debug("Init Auth v1: access_key_id: {0}, access_key_secret: ******".format(access_key_id))
         return Auth(access_key_id.strip(), access_key_secret.strip())
@@ -64,8 +70,7 @@ class AuthBase(object):
         p['Signature'] = signature
 
         return url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in p.items())
-
-
+    
 
 class ProviderAuth(AuthBase):
     """签名版本1
@@ -83,10 +88,10 @@ class ProviderAuth(AuthBase):
          'versioning', 'versionId', 'policy', 'requestPayment', 'x-oss-traffic-limit', 'qosInfo', 'asyncFetch',
          'x-oss-request-payer', 'sequential', 'inventory', 'inventoryId', 'continuation-token', 'callback',
          'callback-var', 'worm', 'wormId', 'wormExtend', 'replication', 'replicationLocation',
-         'replicationProgress', 'transferAcceleration', 'x-oss-ac-source-ip', 'x-oss-ac-subnet-mask',
-         'x-oss-ac-vpc-id', 'x-oss-ac-forward-allow']
+         'replicationProgress', 'transferAcceleration', 'cname', 'metaQuery',
+         'x-oss-ac-source-ip', 'x-oss-ac-subnet-mask', 'x-oss-ac-vpc-id', 'x-oss-ac-forward-allow']
     )
-
+        
     def _sign_request(self, req, bucket_name, key):
         credentials = self.credentials_provider.get_credentials()
         if credentials.get_security_token():
@@ -130,7 +135,7 @@ class ProviderAuth(AuthBase):
 
         content_md5 = req.headers.get('content-md5', '')
         content_type = req.headers.get('content-type', '')
-        date = req.headers.get('date', '')
+        date = req.headers.get('x-oss-date', '') or req.headers.get('date', '')
         return '\n'.join([req.method,
                           content_md5,
                           content_type,
@@ -186,7 +191,7 @@ class ProviderAuth(AuthBase):
 
         content_md5 = req.headers.get('content-md5', '').encode('utf-8')
         content_type = req.headers.get('content-type', '').encode('utf-8')
-        date = req.headers.get('date', '').encode('utf-8')
+        date = req.headers.get('x-oss-date', '').encode('utf-8') or req.headers.get('date', '').encode('utf-8')
         return b'\n'.join([req.method.encode('utf-8'),
                           content_md5,
                           content_type,
@@ -247,7 +252,13 @@ class StsAuth(object):
     def __init__(self, access_key_id, access_key_secret, security_token, auth_version=AUTH_VERSION_1):
         logger.debug("Init StsAuth: access_key_id: {0}, access_key_secret: ******, security_token: ******".format(access_key_id))
         credentials_provider = StaticCredentialsProvider(access_key_id, access_key_secret, security_token)
-        self.__auth = ProviderAuthV2(credentials_provider) if auth_version == AUTH_VERSION_2 else ProviderAuth(credentials_provider)
+
+        if auth_version == AUTH_VERSION_2:
+            self.__auth = ProviderAuthV2(credentials_provider)
+        elif auth_version == AUTH_VERSION_4:
+            self.__auth = ProviderAuthV4(credentials_provider)
+        else:
+            self.__auth = ProviderAuth(credentials_provider)
 
     def _sign_request(self, req, bucket_name, key):
         self.__auth._sign_request(req, bucket_name, key)
@@ -481,3 +492,199 @@ class AuthV2(ProviderAuthV2):
     def __init__(self, access_key_id, access_key_secret):
         credentials_provider = StaticCredentialsProvider(access_key_id.strip(), access_key_secret.strip())
         super(AuthV2, self).__init__(credentials_provider)
+
+
+class ProviderAuthV4(AuthBase):
+    """签名版本4，默认构造函数同父类AuthBase，需要传递credentials_provider
+    与版本2的区别在：
+    1. v4 签名规则引入了scope概念，SignToString(待签名串) 和 SigningKey （签名密钥）都需要包含 region信息
+    2. 资源路径里的 / 不做转义。   query里的 / 需要转义为 %2F
+    """
+    def _sign_request(self, req, bucket_name, key, in_additional_headers=None):
+        """把authorization放入req的header里面
+
+        :param req: authorization信息将会加入到这个请求的header里面
+        :type req: oss2.http.Request
+
+        :param bucket_name: bucket名称
+        :param key: OSS文件名
+        :param in_additional_headers: 加入签名计算的额外header列表
+        """
+        if req.region is None:
+            raise ClientError('The region should not be None in signature version 4.')
+
+        credentials = self.credentials_provider.get_credentials()
+        if credentials.get_security_token():
+            req.headers[OSS_SECURITY_TOKEN] = credentials.get_security_token()
+
+        now_datetime = datetime.utcnow()
+        now_datetime_iso8601 = now_datetime.strftime("%Y%m%dT%H%M%SZ")
+        now_date = now_datetime_iso8601[:8]
+        req.headers['x-oss-date'] = now_datetime_iso8601
+        req.headers['x-oss-content-sha256'] = 'UNSIGNED-PAYLOAD'
+
+        additional_signed_headers = self.__get_additional_signed_headers(in_additional_headers)
+        credential = credentials.get_access_key_id() + "/" + self.__get_scope(now_date, req)
+        signature = self.__make_signature(req, bucket_name, key, additional_signed_headers, credentials)
+
+        authorization = 'OSS4-HMAC-SHA256 Credential={0}, Signature={1}'.format(credential, signature)
+        if additional_signed_headers:
+            authorization = authorization + ', AdditionalHeaders={0}'.format(';'.join(additional_signed_headers))
+
+        req.headers['authorization'] = authorization
+
+    def _sign_url(self, req, bucket_name, key, expires, in_additional_headers=None):
+        """返回一个签过名的URL
+
+        :param req: 需要签名的请求
+        :type req: oss2.http.Request
+
+        :param bucket_name: bucket名称
+        :param key: OSS文件名
+        :param int expires: 返回的url将在`expires`秒后过期.
+        :param in_additional_headers: 加入签名计算的额外header列表
+
+        :return: a signed URL
+        """
+        raise ClientError("sign_url is not support in signature version 4.")
+
+    def __make_signature(self, req, bucket_name, key, additional_signed_headers, credentials):
+        canonical_request = self.__get_canonical_request(req, bucket_name, key, additional_signed_headers)
+        string_to_sign = self.__get_string_to_sign(req, canonical_request)
+        signing_key = self.__get_signing_key(req, credentials)
+        signature = hmac.new(signing_key, to_bytes(string_to_sign), hashlib.sha256).hexdigest()
+        #print("canonical_request:\n" + canonical_request)
+        #print("string_to_sign:\n" + string_to_sign)
+        logger.debug('Make signature: canonical_request = {0}'.format(canonical_request))
+        logger.debug('Make signature: string to be signed = {0}'.format(string_to_sign))
+        return signature
+
+    def __get_additional_signed_headers(self, in_additional_headers):
+        if in_additional_headers is None:
+            return None
+        headers = []
+        for k in in_additional_headers:
+            key = k.lower()
+            if not (key.startswith('x-oss-') or DEFAULT_SIGNED_HEADERS.__contains__(key)):
+                headers.append(key)
+        headers.sort(key=lambda x: x[0])
+        return headers
+
+    def __get_canonical_uri(self, bucket_name, key):
+        if bucket_name:
+            encoded_uri = '/' + bucket_name + '/' + key
+        else:
+            encoded_uri = '/'
+        return self.__v4_uri_encode(encoded_uri, True)
+
+    def __param_to_query(self, k, v):
+        if v:
+            return k + '=' + v
+        else:
+            return k
+
+    def __get_canonical_query(self, req):
+        encoded_params = {}
+        for param, value in req.params.items():
+            encoded_params[self.__v4_uri_encode(param, False)] = self.__v4_uri_encode(value, False)
+
+        if not encoded_params:
+            return ''
+
+        sorted_params = sorted(encoded_params.items(), key=lambda e: e[0])
+        return '&'.join(self.__param_to_query(k, v) for k, v in sorted_params)
+    
+    def __is_sign_header(self, key, additional_headers):
+        if key is not None:
+            if key.startswith('x-oss-'):
+                return True
+        
+            if DEFAULT_SIGNED_HEADERS.__contains__(key):
+                return True
+
+            if additional_headers is not None and additional_headers.__contains__(key):
+                return True
+
+        return False
+
+    def __get_canonical_headers(self, req, additional_headers):
+        canon_headers = []
+        for k, v in req.headers.items():
+            lower_key = k.lower()
+            if self.__is_sign_header(lower_key, additional_headers):
+                canon_headers.append((lower_key, v))
+        canon_headers.sort(key=lambda x: x[0])
+        return ''.join(v[0] + ':' + v[1] + '\n' for v in canon_headers)
+
+    def __get_canonical_additional_signed_headers(self, additional_headers):
+        if additional_headers is None:
+            return ''
+        return ';'.join(sorted(additional_headers))
+
+    def __get_canonical_hash_payload(self, req):
+        if req.headers.__contains__('x-oss-content-sha256'):
+            return req.headers.get('x-oss-content-sha256', '')
+        return 'UNSIGNED-PARYLOAD'
+
+    def __get_region(self, req):
+        return req.cloudbox_id or req.region
+
+    def __get_product(self, req):
+        return req.product
+    
+    def __get_scope(self, date, req):
+        return date + "/" + self.__get_region(req) + "/" + self.__get_product(req) + "/aliyun_v4_request"
+
+    def __get_canonical_request(self, req, bucket_name, key, additional_signed_headers):
+        return req.method + '\n' + \
+               self.__get_canonical_uri(bucket_name, key) + '\n' + \
+               self.__get_canonical_query(req) + '\n' + \
+               self.__get_canonical_headers(req, additional_signed_headers) + '\n' + \
+               self.__get_canonical_additional_signed_headers(additional_signed_headers) + '\n' + \
+               self.__get_canonical_hash_payload(req)
+
+    def __get_string_to_sign(self, req, canonical_request):
+        datetime = req.headers.get('x-oss-date', '')
+        date = datetime[:8]
+        return 'OSS4-HMAC-SHA256' + '\n' + \
+               datetime + '\n' + \
+               self.__get_scope(date, req) + '\n' + \
+               hashlib.sha256(to_bytes(canonical_request)).hexdigest()
+    
+    def __get_signing_key(self, req, credentials):
+        date = req.headers.get('x-oss-date', '')[:8]
+        key_secret = 'aliyun_v4'+credentials.get_access_key_secret()
+        signing_date = hmac.new(to_bytes(key_secret), to_bytes(date), hashlib.sha256)
+        signing_region = hmac.new(signing_date.digest(), to_bytes(self.__get_region(req)), hashlib.sha256)
+        signing_product = hmac.new(signing_region.digest(), to_bytes(self.__get_product(req)), hashlib.sha256)
+        signing_key = hmac.new(signing_product.digest(), to_bytes('aliyun_v4_request'), hashlib.sha256)
+        return signing_key.digest()
+
+    def __v4_uri_encode(self, raw_text, ignoreSlashes):
+        raw_text = to_bytes(raw_text)
+
+        res = ''
+        for b in raw_text:
+            if isinstance(b, int):
+                c = chr(b)
+            else:
+                c = b
+
+            if (c >= 'A' and c <= 'Z') or (c >= 'a' and c <= 'z')\
+                or (c >= '0' and c <= '9') or c in ['_', '-', '~', '.']:
+                res += c
+            elif ignoreSlashes is True and  c == '/':
+                res += c
+            else:
+                res += "%{0:02X}".format(ord(c))
+
+        return res
+
+class AuthV4(ProviderAuthV4):
+    """签名版本4，与版本2的区别在：
+    1. v4 签名规则引入了scope概念，SignToString(待签名串) 和 SigningKey （签名密钥）都需要包含 region信息
+    2. 资源路径里的 / 不做转义。   query里的 / 需要转义为 %2F
+    """
+    def __init__(self, access_key_id, access_key_secret):
+        credentials_provider = StaticCredentialsProvider(access_key_id.strip(), access_key_secret.strip())
+        super(AuthV4, self).__init__(credentials_provider)

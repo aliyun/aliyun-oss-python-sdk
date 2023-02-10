@@ -87,7 +87,7 @@ class TestLiveChannel(OssTestCase):
 
     def test_list_live_channel(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-list-live-channel"
+        bucket_name = self.OSS_BUCKET + "-test-list-live-channel"
         bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
 

@@ -25,14 +25,14 @@ class TestBucketInventory(OssTestCase):
     def setUp(self):
         OssTestCase.setUp(self)
         self.endpoint = OSS_ENDPOINT
-        bucket_name = OSS_BUCKET + "-test-inventory"
+        bucket_name = self.OSS_BUCKET + "-test-inventory"
         self.bucket1 = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), self.endpoint, bucket_name)
         self.bucket1.create_bucket()
 
 
     def test_bucket_inventory(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        dest_bucket_name = OSS_BUCKET + "-test-inventory-dest"
+        dest_bucket_name = self.OSS_BUCKET + "-test-inventory-dest"
         dest_bucket = oss2.Bucket(auth, self.endpoint, dest_bucket_name)
         dest_bucket.create_bucket()
 
@@ -91,9 +91,10 @@ class TestBucketInventory(OssTestCase):
 
     def test_list_few_bucket_inventory(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        dest_bucket_name = OSS_BUCKET + "-test-inventory-dest"
+        dest_bucket_name = self.OSS_BUCKET + "-test-inventory-dest"
         dest_bucket = oss2.Bucket(auth, self.endpoint, dest_bucket_name)
         dest_bucket.create_bucket()
+        time.sleep(5)
 
         inventory_id_prefix = "test-id-"
         for index in range(0, 3):
@@ -104,10 +105,10 @@ class TestBucketInventory(OssTestCase):
             bucket_destination = InventoryBucketDestination(
                     account_id=OSS_INVENTORY_BUCKET_DESTINATION_ACCOUNT, 
                     role_arn=OSS_INVENTORY_BUCKET_DESTINATION_ARN,
-                    bucket=dest_bucket_name,
+                    bucket=self.OSS_BUCKET,
                     inventory_format=INVENTORY_FORMAT_CSV,
                     prefix="destination-prefix",
-                    sse_kms_encryption=InventoryServerSideEncryptionKMS("test-kms-id"))
+                    sse_kms_encryption=InventoryServerSideEncryptionKMS(OSS_CMK))
 
             inventory_configuration = InventoryConfiguration(
                     inventory_id=inventory_id,
@@ -138,11 +139,11 @@ class TestBucketInventory(OssTestCase):
 
     def test_list_lot_bucket_inventory(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        dest_bucket_name = OSS_BUCKET + "-test-inventory-dest"
+        dest_bucket_name = self.OSS_BUCKET + "-test-inventory-dest"
         dest_bucket = oss2.Bucket(auth, self.endpoint, dest_bucket_name)
         dest_bucket.create_bucket()
 
-        inventory_id_prefix = "test-id-"
+        inventory_id_prefix = "test-lot-id-"
         for index in range(0, 120):
             inventory_id = inventory_id_prefix + str(index)
             optional_fields = [FIELD_SIZE, FIELD_LAST_MODIFIED_DATE, FIELD_STORAG_CLASS,
@@ -151,10 +152,9 @@ class TestBucketInventory(OssTestCase):
             bucket_destination = InventoryBucketDestination(
                     account_id=OSS_INVENTORY_BUCKET_DESTINATION_ACCOUNT, 
                     role_arn=OSS_INVENTORY_BUCKET_DESTINATION_ARN,
-                    bucket=dest_bucket_name,
+                    bucket=self.OSS_BUCKET,
                     inventory_format=INVENTORY_FORMAT_CSV,
-                    prefix="destination-prefix",
-                    sse_kms_encryption=InventoryServerSideEncryptionKMS("test-kms-id"))
+                    prefix="destination-prefix")
 
             inventory_configuration = InventoryConfiguration(
                     inventory_id=inventory_id,
@@ -183,7 +183,13 @@ class TestBucketInventory(OssTestCase):
         dest_bucket.delete_bucket()
 
     def test_list_none_inventory(self):
-        self.assertRaises(oss2.exceptions.NoSuchInventory, self.bucket1.list_bucket_inventory_configurations)
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        dest_bucket_name = self.OSS_BUCKET + "-test-none-inventory"
+        dest_bucket = oss2.Bucket(auth, self.endpoint, dest_bucket_name)
+        dest_bucket.create_bucket()
+        self.assertRaises(oss2.exceptions.NoSuchInventory, dest_bucket.list_bucket_inventory_configurations)
+
+        dest_bucket.delete_bucket()
 
 
 if __name__ == '__main__':

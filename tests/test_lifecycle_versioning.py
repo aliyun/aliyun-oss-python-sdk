@@ -25,7 +25,7 @@ class TestLifecycleVersioning(OssTestCase):
 
     def test_lifecycle_without_versioning(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-lifecycle-without-versioning"
+        bucket_name = self.OSS_BUCKET + "-test-lifecycle-without-versioning"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
         wait_meta_sync()
@@ -68,7 +68,7 @@ class TestLifecycleVersioning(OssTestCase):
 
     def test_lifecycle_versioning(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-lifecycle-versioning"
+        bucket_name = self.OSS_BUCKET + "-test-lifecycle-versioning"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
         wait_meta_sync()
@@ -97,7 +97,7 @@ class TestLifecycleVersioning(OssTestCase):
         
     def test_lifecycle_veriong_wrong(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        bucket_name = OSS_BUCKET + "-test-lifecycle-versioning-wrong"
+        bucket_name = self.OSS_BUCKET + "-test-lifecycle-versioning-wrong"
         bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
         bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
         wait_meta_sync()

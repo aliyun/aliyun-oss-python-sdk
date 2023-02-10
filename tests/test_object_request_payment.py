@@ -19,7 +19,7 @@ class TestObjectRequestPayment(OssTestCase):
         policy_text += '"Action":["oss:*"],'
         policy_text += '"Effect":"Allow",'
         policy_text += '"Principal":["{0}"],'.format(OSS_PAYER_UID)
-        policy_text += '"Resource": ["acs:oss:*:*:{0}","acs:oss:*:*:{0}/*"]'.format(OSS_BUCKET)
+        policy_text += '"Resource": ["acs:oss:*:*:{0}","acs:oss:*:*:{0}/*"]'.format(self.OSS_BUCKET)
         policy_text += '}]}'
         self.bucket.put_bucket_policy(policy_text)
 
@@ -27,7 +27,7 @@ class TestObjectRequestPayment(OssTestCase):
         result = self.bucket.put_bucket_request_payment(PAYER_REQUESTER)
         self.assertEqual(result.status, 200)
 
-        self.payer_bucket = oss2.Bucket(oss2.Auth(OSS_PAYER_ID, OSS_PAYER_SECRET), OSS_ENDPOINT, OSS_BUCKET)
+        self.payer_bucket = oss2.Bucket(oss2.Auth(OSS_PAYER_ID, OSS_PAYER_SECRET), OSS_ENDPOINT, self.OSS_BUCKET)
 
     def test_put_object(self):
         key = 'requestpayment-test-put-object'
