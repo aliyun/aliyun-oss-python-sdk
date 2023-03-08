@@ -47,6 +47,12 @@ class OssError(Exception):
         #: OSS错误信息
         self.message = self.details.get('Message', '')
 
+        #: OSS新的错误码
+        self.ec = self.details.get('EC', '')
+
+        #: header信息
+        self.headers = headers
+
     def __str__(self):
         error = {'status': self.status,
                  OSS_REQUEST_ID : self.request_id,
