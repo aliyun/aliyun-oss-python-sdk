@@ -3,6 +3,16 @@ OSS SDK for Python 版本记录
 
 Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
+Version 2.17.0
+-------------
+- 增加：支持 x-oss-ac-* 加入到签名子资源
+- 更新：sign url 接口 增加 key 非空参数校验
+- 增加：inventory 接口 支持filter 参数 
+- 增加：支持 acces  monitor 接口
+- 增加：lifecycle 接口支持 not 参数
+- 增加：支持bucket style 接口
+- 增加：支持Resource Group接口
+
 Version 2.16.0
 -------------
 - 增加：支持 设置连接池数量
