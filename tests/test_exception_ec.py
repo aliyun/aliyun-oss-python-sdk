@@ -25,5 +25,19 @@ class TestExceptionEC(OssTestCase):
             self.assertEqual(e.ec, '0026-00000001')
             self.assertEqual(e.headers.get('x-oss-ec'), '0026-00000001')
 
+    def test_3_exception_head_err(self):
+        # 模拟head请求下的签名错误
+        auth = oss2.AuthV4(OSS_ID, OSS_SECRET)
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, self.OSS_BUCKET, region='cn-hangzhou-test-1')
+        key = 'a.txt'
+
+        try:
+            bucket.head_object(key)
+        except oss2.exceptions.OssError as e:
+            self.assertEqual(e.ec, '0002-00000061')
+            self.assertEqual(e.headers.get('x-oss-ec'), '0002-00000061')
+            self.assertEqual(e.code, 'InvalidArgument')
+            self.assertEqual(e.message, 'Authorization header is invalid.')
+
 if __name__ == '__main__':
     unittest.main()

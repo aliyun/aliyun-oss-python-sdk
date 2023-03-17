@@ -8,7 +8,7 @@ oss2.exceptions
 """
 
 import re
-
+import base64
 import xml.etree.ElementTree as ElementTree
 from xml.parsers import expat
 
@@ -323,6 +323,8 @@ def make_exception(resp):
     status = resp.status
     headers = resp.headers
     body = resp.read(4096)
+    if not body and headers.get('x-oss-err') is not None:
+        body = base64.b64decode(headers.get('x-oss-err'))
     details = _parse_error_body(body)
     code = details.get('Code', '')
 

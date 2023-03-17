@@ -1042,7 +1042,7 @@ class Bucket(_Base):
         if Bucket.OBJECTMETA not in params:
             params[Bucket.OBJECTMETA] = ''
 
-        resp = self.__do_object('GET', key, params=params, headers=headers)
+        resp = self.__do_object('HEAD', key, params=params, headers=headers)
         logger.debug("Get object metadata done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return GetObjectMetaResult(resp)
 
