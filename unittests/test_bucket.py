@@ -2199,5 +2199,52 @@ x-oss-request-id: 566B6BDD68248CE14F729DC0
 
         self.assertRequest(req_info, request_text)
 
+
+    @patch('oss2.Session.do_request')
+    def test_get_describe_regions(self, do_request):
+        request_text = '''GET /?regions HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<RegionInfoList>
+  <RegionInfo>
+     <Region>oss-cn-hangzhou</Region>
+     <InternetEndpoint>oss-cn-hangzhou.aliyuncs.com</InternetEndpoint>
+     <InternalEndpoint>oss-cn-hangzhou-internal.aliyuncs.com</InternalEndpoint>
+     <AccelerateEndpoint>oss-accelerate.aliyuncs.com</AccelerateEndpoint>  
+  </RegionInfo>
+  <RegionInfo>
+     <Region>oss-cn-shanghai</Region>
+     <InternetEndpoint>oss-cn-shanghai.aliyuncs.com</InternetEndpoint>
+     <InternalEndpoint>oss-cn-shanghai-internal.aliyuncs.com</InternalEndpoint>
+     <AccelerateEndpoint>oss-accelerate.aliyuncs.com</AccelerateEndpoint>  
+  </RegionInfo>
+</RegionInfoList>
+'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().get_describe_regions()
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.regions[0].region, 'oss-cn-hangzhou')
+        self.assertEqual(result.regions[0].internet_endpoint, 'oss-cn-hangzhou.aliyuncs.com')
+        self.assertEqual(result.regions[0].internal_endpoint, 'oss-cn-hangzhou-internal.aliyuncs.com')
+        self.assertEqual(result.regions[0].accelerate_endpoint, 'oss-accelerate.aliyuncs.com')
+        self.assertEqual(result.regions[1].region, 'oss-cn-shanghai')
+        self.assertEqual(result.regions[1].internet_endpoint, 'oss-cn-shanghai.aliyuncs.com')
+        self.assertEqual(result.regions[1].internal_endpoint, 'oss-cn-shanghai-internal.aliyuncs.com')
+        self.assertEqual(result.regions[1].accelerate_endpoint, 'oss-accelerate.aliyuncs.com')
+
+
 if __name__ == '__main__':
     unittest.main()
