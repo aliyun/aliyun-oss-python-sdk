@@ -2199,5 +2199,95 @@ x-oss-request-id: 566B6BDD68248CE14F729DC0
 
         self.assertRequest(req_info, request_text)
 
+
+    @patch('oss2.Session.do_request')
+    def test_put_black_referer(self, do_request):
+        from oss2.models import BucketReferer
+
+        request_text = '''PUT /?referer= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Content-Length: 249
+date: Sat, 12 Dec 2015 00:35:46 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:Kq2RS9nmT44C1opXGbcLzNdTt1A=
+
+<RefererConfiguration>
+<AllowEmptyReferer>true</AllowEmptyReferer>
+<RefererList>
+<Referer>http://hello.com</Referer>
+<Referer>mibrowser:home</Referer>
+<Referer>{0}</Referer>
+</RefererList>
+<AllowTruncateQueryString>true</AllowTruncateQueryString>
+<RefererBlacklist>
+<Referer>http://hello2.com</Referer>
+<Referer>mibrowser2:home</Referer>
+<Referer>{1}</Referer>
+</RefererBlacklist>
+</RefererConfiguration>'''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:46 GMT
+Content-Length: 0
+Connection: keep-alive
+x-oss-request-id: 566B6BE244ABFA2608E5A8AD'''
+
+        req_info = mock_response(do_request, response_text)
+
+        bucket().put_bucket_referer(BucketReferer(True, ['http://hello.com', 'mibrowser:home', '阿里巴巴'], True, ['http://hello2.com', 'mibrowser2:home', '阿里巴巴2']))
+
+        self.assertRequest(req_info, request_text.format('阿里巴巴', '阿里巴巴2'))
+
+
+    @patch('oss2.Session.do_request')
+    def test_get_black_referer(self, do_request):
+        request_text = '''GET /?referer= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:47 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:nWqS3JExf/lsVxm+Sbxbg2cQyrc='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:47 GMT
+Content-Type: application/xml
+Content-Length: 319
+Connection: keep-alive
+x-oss-request-id: 566B6BE3BCD1D4FE65D449A2
+
+<?xml version="1.0" encoding="UTF-8"?>
+<RefererConfiguration>
+  <AllowEmptyReferer>true</AllowEmptyReferer>
+  <AllowTruncateQueryString>false</AllowTruncateQueryString>
+  <RefererList>
+    <Referer>http://hello.com</Referer>
+    <Referer>mibrowser:home</Referer>
+    <Referer>{0}</Referer>
+  </RefererList>
+  <RefererBlacklist>
+    <Referer>http://www.aliyun.com</Referer>
+    <Referer>mibrowser:home.com</Referer>
+  </RefererBlacklist>
+</RefererConfiguration>'''.format('阿里巴巴')
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().get_bucket_referer()
+
+        self.assertRequest(req_info, request_text)
+
+        self.assertEqual(result.allow_empty_referer, True)
+        self.assertEqual(result.allow_truncate_query_string, False)
+        self.assertSortedListEqual(result.referers, ['http://hello.com', 'mibrowser:home', '阿里巴巴'])
+        self.assertSortedListEqual(result.black_referers, ['http://www.aliyun.com', 'mibrowser:home.com'])
+
+
 if __name__ == '__main__':
     unittest.main()

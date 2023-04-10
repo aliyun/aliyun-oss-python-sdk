@@ -417,6 +417,8 @@ def parse_get_bucket_referer(result, body):
 
     result.allow_empty_referer = _find_bool(root, 'AllowEmptyReferer')
     result.referers = _find_all_tags(root, 'RefererList/Referer')
+    result.allow_truncate_query_string = _find_bool(root, 'AllowTruncateQueryString')
+    result.black_referers = _find_all_tags(root, 'RefererBlacklist/Referer')
 
     return result
 
@@ -868,6 +870,15 @@ def to_put_bucket_referer(bucket_referer):
 
     for r in bucket_referer.referers:
         _add_text_child(list_node, 'Referer', r)
+
+    if bucket_referer.allow_truncate_query_string is not None:
+        _add_text_child(root, 'AllowTruncateQueryString', str(bucket_referer.allow_truncate_query_string).lower())
+
+    if bucket_referer.black_referers:
+        black_referer_node = ElementTree.SubElement(root, 'RefererBlacklist')
+
+        for r in bucket_referer.black_referers:
+            _add_text_child(black_referer_node, 'Referer', r)
 
     return _node_to_string(root)
 

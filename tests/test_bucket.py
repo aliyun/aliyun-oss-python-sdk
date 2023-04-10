@@ -667,6 +667,57 @@ class TestBucket(OssTestCase):
         self.assertTrue(result.allow_empty_referer)
         self.assertEqual(sorted(to_string(r) for r in referers), sorted(to_string(r) for r in result.referers))
 
+    def test_black_referer(self):
+        referers = ['http://hello.com', 'mibrowser:home', '中文+referer', u'中文+referer']
+        black_referers = ['http://hello2.com', 'mibrowser2:home', '中文2+referer', u'中文2+referer']
+        allow_empty_referer = True
+        allow_truncate_query_string = True
+
+        # black referer 1
+        config = oss2.models.BucketReferer(allow_empty_referer, referers, allow_truncate_query_string)
+        self.bucket.put_bucket_referer(config)
+        wait_meta_sync()
+
+        result = self.bucket.get_bucket_referer()
+        self.assertTrue(result.allow_empty_referer)
+        self.assertTrue(result.allow_truncate_query_string)
+        self.assertEqual(sorted(to_string(r) for r in referers), sorted(to_string(r) for r in result.referers))
+
+        # black referer 2
+        allow_empty_referer = False
+        allow_truncate_query_string = False
+        config = oss2.models.BucketReferer(allow_empty_referer, referers, allow_truncate_query_string, black_referers)
+        self.bucket.put_bucket_referer(config)
+        wait_meta_sync()
+
+        result = self.bucket.get_bucket_referer()
+        self.assertFalse(result.allow_empty_referer)
+        self.assertFalse(result.allow_truncate_query_string)
+        self.assertEqual(sorted(to_string(r) for r in referers), sorted(to_string(r) for r in result.referers))
+        self.assertEqual(sorted(to_string(r) for r in black_referers), sorted(to_string(r) for r in result.black_referers))
+
+        # black referer 3
+        config = oss2.models.BucketReferer(allow_empty_referer, referers, black_referers=None)
+        self.bucket.put_bucket_referer(config)
+        wait_meta_sync()
+
+        result = self.bucket.get_bucket_referer()
+        self.assertFalse(result.allow_empty_referer)
+        self.assertEqual(True, result.allow_truncate_query_string)
+        self.assertEqual(sorted(to_string(r) for r in referers), sorted(to_string(r) for r in result.referers))
+        self.assertEqual([], result.black_referers)
+
+        # black referer 4
+        config = oss2.models.BucketReferer(allow_empty_referer, referers, black_referers=[])
+        self.bucket.put_bucket_referer(config)
+        wait_meta_sync()
+
+        result = self.bucket.get_bucket_referer()
+        self.assertFalse(result.allow_empty_referer)
+        self.assertEqual(True, result.allow_truncate_query_string)
+        self.assertEqual(sorted(to_string(r) for r in referers), sorted(to_string(r) for r in result.referers))
+        self.assertEqual([], result.black_referers)
+
     def test_location(self):
         result = self.bucket.get_bucket_location()
         self.assertTrue(result.location)
