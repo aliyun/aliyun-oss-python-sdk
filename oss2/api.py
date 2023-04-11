@@ -2099,14 +2099,18 @@ class Bucket(_Base):
         logger.debug("Get bucket tagging done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_get_tagging, GetTaggingResult)
 
-    def delete_bucket_tagging(self):
+    def delete_bucket_tagging(self, params=None):
         """
         :return: :class:`RequestResult <oss2.models.RequestResult>` 
         """
         logger.debug("Start to delete bucket tagging, bucket: {0}".format(
                     self.bucket_name))
 
-        resp = self.__do_bucket('DELETE', params={Bucket.TAGGING: ''})
+        if params is None:
+            params = dict()
+            params[Bucket.TAGGING] = ""
+
+        resp = self.__do_bucket('DELETE', params=params)
 
         logger.debug("Delete bucket tagging done, req_id: {0}, status_code: {1}".format(
                     resp.request_id, resp.status))
