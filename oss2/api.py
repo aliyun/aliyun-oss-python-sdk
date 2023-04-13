@@ -203,12 +203,13 @@ logger = logging.getLogger(__name__)
 
 class _Base(object):
     def __init__(self, auth, endpoint, is_cname, session, connect_timeout,
-                 app_name='', enable_crc=True, proxies=None, region=None, cloudbox_id= None):
+                 app_name='', enable_crc=True, proxies=None, region=None, 
+                 cloudbox_id= None, pool_size=None):
         self.auth = auth
         self.endpoint = _normalize_endpoint(endpoint.strip())
         if utils.is_valid_endpoint(self.endpoint) is not True:
             raise ClientError('The endpoint you has specified is not valid, endpoint: {0}'.format(endpoint))
-        self.session = session or http.Session()
+        self.session = session or http.Session(pool_size)
         self.timeout = defaults.get(connect_timeout, defaults.connect_timeout)
         self.app_name = app_name
         self.enable_crc = enable_crc
@@ -303,12 +304,13 @@ class Service(_Base):
                  app_name='',
                  proxies=None,
                  region=None,
-                 cloudbox_id=None):
+                 cloudbox_id=None,
+                 pool_size=None):
         logger.debug("Init oss service, endpoint: {0}, connect_timeout: {1}, app_name: {2}, proxies: {3}".format(
             endpoint, connect_timeout, app_name, proxies))
         super(Service, self).__init__(auth, endpoint, False, session, connect_timeout,
                                       app_name=app_name, proxies=proxies,
-                                      region=region, cloudbox_id=cloudbox_id)
+                                      region=region, cloudbox_id=cloudbox_id, pool_size=pool_size)
 
     def list_buckets(self, prefix='', marker='', max_keys=100, params=None):
         """根据前缀罗列用户的Bucket。
@@ -428,12 +430,13 @@ class Bucket(_Base):
                  enable_crc=True,
                  proxies=None,
                  region=None,
-                 cloudbox_id=None):
+                 cloudbox_id=None,
+                 pool_size=None):
         logger.debug("Init Bucket: {0}, endpoint: {1}, isCname: {2}, connect_timeout: {3}, app_name: {4}, enabled_crc: {5}, region: {6}"
                      ", proxies: {6}".format(bucket_name, endpoint, is_cname, connect_timeout, app_name, enable_crc, proxies, region))
         super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout, 
                                      app_name=app_name, enable_crc=enable_crc, proxies=proxies,
-                                     region=region, cloudbox_id=cloudbox_id)
+                                     region=region, cloudbox_id=cloudbox_id, pool_size=pool_size)
 
         self.bucket_name = bucket_name.strip()
         if utils.is_valid_bucket_name(self.bucket_name) is not True:
