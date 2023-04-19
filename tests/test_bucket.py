@@ -998,5 +998,45 @@ class TestBucket(OssTestCase):
         self.assertEqual(result.rules[0].filter.filter_not[0].tag.key, key)
         self.assertEqual(result.rules[0].filter.filter_not[0].tag.value, value)
 
+    def test_bucket_lifecycle_not_prefix(self):
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition, LifecycleFilter, FilterNot, FilterNotTag
+
+        not_prefix = '中文前缀/not-prefix'
+        key = 'key-arg'
+        value = 'value-arg'
+        not_prefix2 = '中文前缀/not-prefix2'
+        not_tag = FilterNotTag(key, value)
+        filter_not = FilterNot(not_prefix)
+        filter_not2 = FilterNot(not_prefix2, not_tag)
+        filter = LifecycleFilter([filter_not])
+
+        # Open it after multiple not nodes are supported
+        # filter = LifecycleFilter([filter_not, filter_not2])
+
+        rule = LifecycleRule(random_string(10), '中文前缀/',
+                             status=LifecycleRule.ENABLED,
+                             expiration=LifecycleExpiration(days=356),
+                             filter=filter)
+        rule.storage_transitions = [StorageTransition(days=355,
+                                                      storage_class=oss2.BUCKET_STORAGE_CLASS_ARCHIVE),
+                                    StorageTransition(days=352,
+                                                      storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
+
+        lifecycle = BucketLifecycle([rule])
+
+        put_result = self.bucket.put_bucket_lifecycle(lifecycle)
+        self.assertEqual(put_result.status, 200)
+
+        result = self.bucket.get_bucket_lifecycle()
+        self.assertEqual(1, len(result.rules))
+        self.assertEqual(2, len(result.rules[0].storage_transitions))
+        self.assertEqual(355, result.rules[0].storage_transitions[0].days)
+        self.assertEqual(352, result.rules[0].storage_transitions[1].days)
+        self.assertEqual(result.rules[0].filter.filter_not[0].prefix, not_prefix)
+        # Open it after multiple not nodes are supported
+        # self.assertEqual(result.rules[0].filter.filter_not[1].prefix, not_prefix2)
+        # self.assertEqual(result.rules[0].filter.filter_not[1].tag.key, key)
+        # self.assertEqual(result.rules[0].filter.filter_not[1].tag.value, value)
+
 if __name__ == '__main__':
     unittest.main()
