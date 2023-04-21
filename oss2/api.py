@@ -2108,7 +2108,10 @@ class Bucket(_Base):
 
         if params is None:
             params = dict()
-            params[Bucket.TAGGING] = ""
+
+        if Bucket.TAGGING not in params:
+            params[Bucket.TAGGING] = ''
+
 
         resp = self.__do_bucket('DELETE', params=params)
 

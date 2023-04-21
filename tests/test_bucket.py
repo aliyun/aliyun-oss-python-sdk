@@ -1005,6 +1005,7 @@ class TestBucket(OssTestCase):
         tagging = Tagging()
         tagging.tag_set.tagging_rule['%@abc'] = 'abc'
         tagging.tag_set.tagging_rule['123++'] = '++123%'
+        tagging.tag_set.tagging_rule['test'] = 'abc'
 
         try:
             result = self.bucket.put_bucket_tagging(tagging)
@@ -1014,7 +1015,7 @@ class TestBucket(OssTestCase):
 
         result = self.bucket.get_bucket_tagging()
         tag_rule = result.tag_set.tagging_rule
-        self.assertEqual(2, len(tag_rule))
+        self.assertEqual(3, len(tag_rule))
         self.assertEqual('abc', tag_rule['%@abc'])
         self.assertEqual('++123%', tag_rule['123++'])
 
@@ -1023,10 +1024,16 @@ class TestBucket(OssTestCase):
         result = self.bucket.delete_bucket_tagging(params=params)
         self.assertEqual(int(result.status), 204)
 
+
+        params2 = dict()
+        params2['aa'] = "%@abc"
+        params2['tagging'] = "test"
+        result = self.bucket.delete_bucket_tagging(params=params2)
+        self.assertEqual(int(result.status), 204)
+
         result2 = self.bucket.get_bucket_tagging()
         tag_rule = result2.tag_set.tagging_rule
         self.assertEqual(1, len(tag_rule))
-
 
 if __name__ == '__main__':
     unittest.main()
