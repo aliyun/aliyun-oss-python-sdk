@@ -1038,5 +1038,43 @@ class TestBucket(OssTestCase):
         # self.assertEqual(result.rules[0].filter.filter_not[1].tag.key, key)
         # self.assertEqual(result.rules[0].filter.filter_not[1].tag.value, value)
 
+
+    def test_bucket_tagging_with_specify_label(self):
+
+        from oss2.models import Tagging
+
+        tagging = Tagging()
+        tagging.tag_set.tagging_rule['%@abc'] = 'abc'
+        tagging.tag_set.tagging_rule['123++'] = '++123%'
+        tagging.tag_set.tagging_rule['test'] = 'abc'
+
+        try:
+            result = self.bucket.put_bucket_tagging(tagging)
+        except oss2.exceptions.OssError:
+            self.assertFalse(True, 'should not get exception')
+            pass
+
+        result = self.bucket.get_bucket_tagging()
+        tag_rule = result.tag_set.tagging_rule
+        self.assertEqual(3, len(tag_rule))
+        self.assertEqual('abc', tag_rule['%@abc'])
+        self.assertEqual('++123%', tag_rule['123++'])
+
+        params = dict()
+        params['tagging'] = "%@abc"
+        result = self.bucket.delete_bucket_tagging(params=params)
+        self.assertEqual(int(result.status), 204)
+
+
+        params2 = dict()
+        params2['aa'] = "%@abc"
+        params2['tagging'] = "test"
+        result = self.bucket.delete_bucket_tagging(params=params2)
+        self.assertEqual(int(result.status), 204)
+
+        result2 = self.bucket.get_bucket_tagging()
+        tag_rule = result2.tag_set.tagging_rule
+        self.assertEqual(1, len(tag_rule))
+
 if __name__ == '__main__':
     unittest.main()
