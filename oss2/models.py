@@ -2653,3 +2653,18 @@ class ListBucketStyleResult(RequestResult):
     def __init__(self, resp):
         super(ListBucketStyleResult, self).__init__(resp)
         self.styles = []
+
+
+class AsyncProcessObject(RequestResult):
+    """异步多媒体处理返回信息。
+
+    :param str event_id: 事件id。
+    :param str async_request_id: 请求id。
+     :param str task_id: 任务id。
+    """
+
+    def __init__(self, resp):
+        super(AsyncProcessObject, self).__init__(resp)
+        self.event_id = None
+        self.async_request_id = None
+        self.task_id = None

@@ -1461,6 +1461,61 @@ class TestObject(OssTestCase):
         result = bucket.list_objects()
         self.assertTrue(result.object_list[0].restore_info.__contains__('ongoing-request="true"'))
         self.assertTrue(result.object_list[1].restore_info.__contains__('ongoing-request="true"'))
+
+    def test_async_process_object(self):
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket_name = self.OSS_BUCKET + "-async-process-object"
+        bucket = oss2.Bucket(auth, 'oss-cn-hangzhou.aliyuncs.com', bucket_name)
+
+        try:
+            # 创建bucket
+            bucket.create_bucket()
+
+            key = self.random_key(".mp4")
+            result = bucket.put_object_from_file(key, "tests/test-video.mp4")
+            self.assertEqual(result.status, 200)
+            # 设置文件处理后的名称
+            dest_key = "out-python-"+self.random_key()
+            # 设置process
+            process = "video/convert,f_mp4,vcodec_h265,s_1920x1080,vb_2000000,fps_30,acodec_aac,ab_100000,sn_1|sys/saveas,o_{0},b_{1}".format(
+                oss2.compat.to_string(base64.urlsafe_b64encode(oss2.compat.to_bytes(dest_key))).replace('=', ''),
+                oss2.compat.to_string(base64.urlsafe_b64encode(oss2.compat.to_bytes(bucket.bucket_name))).replace('=', ''))
+
+            # 调用async_process_object
+            result = bucket.async_process_object(key, process)
+
+            # 如果开启了imm，并且创建了一个imm的project，然后绑定了project和bucket，既开始进入如下正常测试流程
+            self.assertEqual(result.status, 200)
+            self.assertIsNotNone(result.event_id)
+            print(result.event_id)
+            self.assertIsNotNone(result.async_request_id)
+            print(result.async_request_id)
+            self.assertIsNotNone(result.task_id)
+            print(result.task_id)
+            # 获取文件大小
+            file_size = os.path.getsize("tests/test-video.mp4")
+            # 睡眠一段时间，等待异步视频处理完成。先根据视频大小/1m，然后再加5秒
+            time.sleep((file_size / (1000 * 1000)) + 60)
+
+            # 测试处理后的视频是否存在
+            result = bucket.object_exists(dest_key+".mp4")
+            self.assertEqual(result, True)
+
+            # 删除视频文件和处理后的文件
+            del_key = bucket.delete_object(key)
+            self.assertEqual(del_key.status, 204)
+            del_dest_key = bucket.delete_object(dest_key+".mp4")
+            self.assertEqual(del_dest_key.status, 204)
+        except oss2.exceptions.OssError as e:
+            # 如果没有开启imm，异步流程，暂时报如下错误
+            self.assertEqual(e.message, 'operation not support post: video/convert')
+        finally:
+            # 先删除文件，再删除bucket
+            del_key = bucket.delete_object(key)
+            self.assertEqual(del_key.status, 204)
+            # del_bucket = bucket.delete_bucket()
+            # self.assertEqual(del_bucket.status, 204)
+
     
 class TestSign(TestObject):
     """

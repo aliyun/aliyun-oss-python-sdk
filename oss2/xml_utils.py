@@ -1996,3 +1996,14 @@ def parse_list_bucket_style(result, body):
         tmp.last_modify_time = _find_tag_with_default(style, 'LastModifyTime', None)
 
         result.styles.append(tmp)
+
+
+def parse_async_process_object(result, body):
+
+    if body:
+        body_dict = eval(body.decode('utf-8'))
+        result.event_id = body_dict['EventId']
+        result.async_request_id = body_dict['RequestId']
+        result.task_id = body_dict['TaskId']
+    return result
+

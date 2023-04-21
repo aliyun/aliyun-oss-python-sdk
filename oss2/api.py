@@ -418,6 +418,7 @@ class Bucket(_Base):
     RESOURCE_GROUP = 'resourceGroup'
     STYLE = 'style'
     STYLE_NAME = 'styleName'
+    ASYNC_PROCESS = 'x-oss-async-process'
 
 
     def __init__(self, auth, endpoint, bucket_name,
@@ -2749,6 +2750,25 @@ class Bucket(_Base):
         resp = self.__do_bucket('DELETE', params={Bucket.STYLE: '', Bucket.STYLE_NAME: styleName})
         logger.debug("delete bucket style done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
+
+    def async_process_object(self, key, process, headers=None):
+        """异步处理多媒体接口。
+
+        :param str key: 处理的多媒体的对象名称
+        :param str process: 处理的字符串，例如"video/convert,f_mp4,vcodec_h265,s_1920x1080,vb_2000000,fps_30,acodec_aac,ab_100000,sn_1|sys/saveas,o_dGVzdC5qcGc,b_dGVzdA"
+
+        :param headers: HTTP头部
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+        """
+
+        headers = http.CaseInsensitiveDict(headers)
+
+        logger.debug("Start to async process object, bucket: {0}, key: {1}, process: {2}".format(
+            self.bucket_name, to_string(key), process))
+        process_data = "%s=%s" % (Bucket.ASYNC_PROCESS, process)
+        resp = self.__do_object('POST', key, params={Bucket.ASYNC_PROCESS: ''}, headers=headers, data=process_data)
+        logger.debug("Async process object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_async_process_object, AsyncProcessObject)
 
     def __do_object(self, method, key, **kwargs):
         return self._do(method, self.bucket_name, key, **kwargs)

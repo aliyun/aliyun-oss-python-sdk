@@ -2199,5 +2199,36 @@ x-oss-request-id: 566B6BDD68248CE14F729DC0
 
         self.assertRequest(req_info, request_text)
 
+
+    @patch('oss2.Session.do_request')
+    def test_async_process_object(self, do_request):
+        request_text = '''POST /test-video.mp4?x-oss-async-process HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+x-oss-async-process=video/convert,f_mp4,vcodec_h265,s_1920x1080,vb_2000000,fps_30,acodec_aac,ab_100000,sn_1|sys/saveas
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****
+'''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:42 GMT
+Content-Type: application/xml
+Content-Length: 96
+Connection: keep-alive
+x-oss-request-id: 566B6BDD68248CE14F729DC0
+x-oss-async-process=video/convert,f_mp4,vcodec_h265,s_1920x1080,vb_2000000,fps_30,acodec_aac,ab_100000,sn_1|sys/saveas
+
+{"EventId":"3D7-1XxFtV2t3VtcOn2CXqI2ldsMN3i","RequestId":"8DF65942-D483-5E7E-BC1A-B25C617A9C32","TaskId":"MediaConvert-d2280366-cd33-48f7-90c6-a0dab65bed63"}
+'''
+        req_info = mock_response(do_request, response_text)
+        key = "test-video.mp4"
+        result = bucket().async_process_object(key, 'video/convert,f_mp4,vcodec_h265,s_1920x1080,vb_2000000,fps_30,acodec_aac,ab_100000,sn_1|sys/saveas')
+
+        self.assertEqual(result.request_id, '566B6BDD68248CE14F729DC0')
+        self.assertEqual(result.async_request_id, '8DF65942-D483-5E7E-BC1A-B25C617A9C32')
+        self.assertEqual(result.event_id, '3D7-1XxFtV2t3VtcOn2CXqI2ldsMN3i')
+        self.assertEqual(result.task_id, 'MediaConvert-d2280366-cd33-48f7-90c6-a0dab65bed63')
+
 if __name__ == '__main__':
     unittest.main()
