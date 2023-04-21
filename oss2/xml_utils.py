@@ -417,8 +417,11 @@ def parse_get_bucket_referer(result, body):
 
     result.allow_empty_referer = _find_bool(root, 'AllowEmptyReferer')
     result.referers = _find_all_tags(root, 'RefererList/Referer')
-    result.allow_truncate_query_string = _find_bool(root, 'AllowTruncateQueryString')
-    result.black_referers = _find_all_tags(root, 'RefererBlacklist/Referer')
+
+    if root.find("AllowTruncateQueryString") is not None:
+        result.allow_truncate_query_string = _find_bool(root, 'AllowTruncateQueryString')
+    if root.find("RefererBlacklist/Referer") is not None:
+        result.black_referers = _find_all_tags(root, 'RefererBlacklist/Referer')
 
     return result
 

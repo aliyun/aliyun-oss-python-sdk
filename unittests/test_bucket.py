@@ -2289,5 +2289,45 @@ x-oss-request-id: 566B6BE3BCD1D4FE65D449A2
         self.assertSortedListEqual(result.black_referers, ['http://www.aliyun.com', 'mibrowser:home.com'])
 
 
+    @patch('oss2.Session.do_request')
+    def test_get_black_referer2(self, do_request):
+        request_text = '''GET /?referer= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:47 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:nWqS3JExf/lsVxm+Sbxbg2cQyrc='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:47 GMT
+Content-Type: application/xml
+Content-Length: 319
+Connection: keep-alive
+x-oss-request-id: 566B6BE3BCD1D4FE65D449A2
+
+<?xml version="1.0" encoding="UTF-8"?>
+<RefererConfiguration>
+  <AllowEmptyReferer>true</AllowEmptyReferer>
+  <RefererList>
+    <Referer>http://hello.com</Referer>
+    <Referer>mibrowser:home</Referer>
+    <Referer>{0}</Referer>
+  </RefererList>
+
+</RefererConfiguration>'''.format('阿里巴巴')
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().get_bucket_referer()
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.allow_empty_referer, True)
+        self.assertSortedListEqual(result.referers, ['http://hello.com', 'mibrowser:home', '阿里巴巴'])
+
+
+
 if __name__ == '__main__':
     unittest.main()
