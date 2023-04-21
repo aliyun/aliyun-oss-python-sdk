@@ -1956,9 +1956,9 @@ def parse_lifecycle_filter_not(filter_not_node):
 
         lifecycle_filter = LifecycleFilter()
         for not_node in filter_not_node:
-            prefix = _find_tag(not_node, 'Prefix')
-            key = _find_tag(not_node, 'Tag/Key')
-            value = _find_tag(not_node, 'Tag/Value')
+            prefix = _find_tag_with_default(not_node, 'Prefix', None)
+            key = _find_tag_with_default(not_node, 'Tag/Key', None)
+            value = _find_tag_with_default(not_node, 'Tag/Value', None)
             tag = FilterNotTag(key, value)
             filter_not = FilterNot(prefix, tag)
             lifecycle_filter.filter_not.append(filter_not)
