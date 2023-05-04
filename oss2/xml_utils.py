@@ -73,7 +73,8 @@ from .models import (SimplifiedObjectInfo,
                      LifecycleFilter,
                      FilterNot,
                      FilterNotTag,
-                     BucketStyleInfo)
+                     BucketStyleInfo,
+                     CallbackPolicyInfo)
 
 from .select_params import (SelectJsonTypes, SelectParameters)
 
@@ -1996,3 +1997,30 @@ def parse_list_bucket_style(result, body):
         tmp.last_modify_time = _find_tag_with_default(style, 'LastModifyTime', None)
 
         result.styles.append(tmp)
+
+def to_do_bucket_callback_policy_request(callback_policy):
+    root = ElementTree.Element("BucketCallbackPolicy")
+    if callback_policy:
+        for policy in callback_policy:
+            if policy:
+                policy_node = ElementTree.SubElement(root, 'PolicyItem')
+                if policy.policy_name is not None:
+                    _add_text_child(policy_node, 'PolicyName', policy.policy_name)
+                if policy.callback is not None:
+                    _add_text_child(policy_node, 'Callback', policy.callback)
+                if policy.callback_var is None:
+                    _add_text_child(policy_node, 'CallbackVar', '')
+                else:
+                    _add_text_child(policy_node, 'CallbackVar', policy.callback_var)
+
+    return _node_to_string(root)
+
+def parse_callback_policy_result(result, body):
+    root = ElementTree.fromstring(body)
+    for policy in root.findall('PolicyItem'):
+        tmp = CallbackPolicyInfo()
+        tmp.policy_name = _find_tag_with_default(policy, 'PolicyName', None)
+        tmp.callback = _find_tag_with_default(policy, 'Callback', None)
+        tmp.callback_var = _find_tag_with_default(policy, 'CallbackVar', None)
+
+        result.callback_policies.append(tmp)

@@ -418,6 +418,7 @@ class Bucket(_Base):
     RESOURCE_GROUP = 'resourceGroup'
     STYLE = 'style'
     STYLE_NAME = 'styleName'
+    CALLBACK = 'callback'
 
 
     def __init__(self, auth, endpoint, bucket_name,
@@ -2749,6 +2750,38 @@ class Bucket(_Base):
         resp = self.__do_bucket('DELETE', params={Bucket.STYLE: '', Bucket.STYLE_NAME: styleName})
         logger.debug("delete bucket style done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
+
+    def put_bucket_callback_policy(self, callbackPolicy):
+        """设置bucket回调策略
+
+        :param str callbackPolicy: 回调策略
+        """
+        logger.debug("Start to put bucket callback policy, bucket: {0}, callback policy: {1}".format(self.bucket_name, callbackPolicy))
+        data = xml_utils.to_do_bucket_callback_policy_request(callbackPolicy)
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.POLICY: '', Bucket.COMP: Bucket.CALLBACK})
+        logger.debug("Put bucket callback policy done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return RequestResult(resp)
+
+    def get_bucket_callback_policy(self):
+        """获取bucket回调策略
+        :return: :class:`GetBucketPolicyResult <oss2.models.CallbackPolicyResult>`
+        """
+
+        logger.debug("Start to get bucket callback policy, bucket: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('GET', params={Bucket.POLICY: '', Bucket.COMP: Bucket.CALLBACK})
+        logger.debug("Get bucket callback policy done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_callback_policy_result, CallbackPolicyResult)
+
+    def delete_bucket_callback_policy(self):
+        """删除bucket回调策略
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to delete bucket callback policy, bucket: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('DELETE', params={Bucket.POLICY: '', Bucket.COMP: Bucket.CALLBACK})
+        logger.debug("Delete bucket callback policy done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
+
 
     def __do_object(self, method, key, **kwargs):
         return self._do(method, self.bucket_name, key, **kwargs)
