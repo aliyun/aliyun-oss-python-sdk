@@ -1577,7 +1577,7 @@ class Bucket(_Base):
         logger.debug("Get symlink done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return GetSymlinkResult(resp)
 
-    def create_bucket(self, permission=None, input=None):
+    def create_bucket(self, permission=None, input=None, headers=None):
         """创建新的Bucket。
 
         :param str permission: 指定Bucket的ACL。可以是oss2.BUCKET_ACL_PRIVATE（推荐、缺省）、oss2.BUCKET_ACL_PUBLIC_READ或是
@@ -1585,10 +1585,9 @@ class Bucket(_Base):
 
         :param input: :class:`BucketCreateConfig <oss2.models.BucketCreateConfig>` object
         """
+        headers = http.CaseInsensitiveDict(headers)
         if permission:
-            headers = {OSS_CANNED_ACL: permission}
-        else:
-            headers = None
+            headers[OSS_CANNED_ACL] = permission
 
         data = self.__convert_data(BucketCreateConfig, xml_utils.to_put_bucket_config, input)
         logger.debug("Start to create bucket, bucket: {0}, permission: {1}, config: {2}".format(self.bucket_name,
