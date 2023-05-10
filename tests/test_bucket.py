@@ -667,6 +667,57 @@ class TestBucket(OssTestCase):
         self.assertTrue(result.allow_empty_referer)
         self.assertEqual(sorted(to_string(r) for r in referers), sorted(to_string(r) for r in result.referers))
 
+    def test_black_referer(self):
+        referers = ['http://hello.com', 'mibrowser:home', '中文+referer', u'中文+referer']
+        black_referers = ['http://hello2.com', 'mibrowser2:home', '中文2+referer', u'中文2+referer']
+        allow_empty_referer = True
+        allow_truncate_query_string = True
+
+        # black referer 1
+        config = oss2.models.BucketReferer(allow_empty_referer, referers, allow_truncate_query_string)
+        self.bucket.put_bucket_referer(config)
+        wait_meta_sync()
+
+        result = self.bucket.get_bucket_referer()
+        self.assertTrue(result.allow_empty_referer)
+        self.assertTrue(result.allow_truncate_query_string)
+        self.assertEqual(sorted(to_string(r) for r in referers), sorted(to_string(r) for r in result.referers))
+
+        # black referer 2
+        allow_empty_referer = False
+        allow_truncate_query_string = False
+        config = oss2.models.BucketReferer(allow_empty_referer, referers, allow_truncate_query_string, black_referers)
+        self.bucket.put_bucket_referer(config)
+        wait_meta_sync()
+
+        result = self.bucket.get_bucket_referer()
+        self.assertFalse(result.allow_empty_referer)
+        self.assertFalse(result.allow_truncate_query_string)
+        self.assertEqual(sorted(to_string(r) for r in referers), sorted(to_string(r) for r in result.referers))
+        self.assertEqual(sorted(to_string(r) for r in black_referers), sorted(to_string(r) for r in result.black_referers))
+
+        # black referer 3
+        config = oss2.models.BucketReferer(allow_empty_referer, referers, black_referers=None)
+        self.bucket.put_bucket_referer(config)
+        wait_meta_sync()
+
+        result = self.bucket.get_bucket_referer()
+        self.assertFalse(result.allow_empty_referer)
+        self.assertEqual(True, result.allow_truncate_query_string)
+        self.assertEqual(sorted(to_string(r) for r in referers), sorted(to_string(r) for r in result.referers))
+        self.assertEqual([], result.black_referers)
+
+        # black referer 4
+        config = oss2.models.BucketReferer(allow_empty_referer, referers, black_referers=[])
+        self.bucket.put_bucket_referer(config)
+        wait_meta_sync()
+
+        result = self.bucket.get_bucket_referer()
+        self.assertFalse(result.allow_empty_referer)
+        self.assertEqual(True, result.allow_truncate_query_string)
+        self.assertEqual(sorted(to_string(r) for r in referers), sorted(to_string(r) for r in result.referers))
+        self.assertEqual([], result.black_referers)
+
     def test_location(self):
         result = self.bucket.get_bucket_location()
         self.assertTrue(result.location)
@@ -997,6 +1048,84 @@ class TestBucket(OssTestCase):
         self.assertEqual(result.rules[0].filter.filter_not[0].prefix, not_prefix)
         self.assertEqual(result.rules[0].filter.filter_not[0].tag.key, key)
         self.assertEqual(result.rules[0].filter.filter_not[0].tag.value, value)
+
+    def test_bucket_lifecycle_not_prefix(self):
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition, LifecycleFilter, FilterNot, FilterNotTag
+
+        not_prefix = '中文前缀/not-prefix'
+        key = 'key-arg'
+        value = 'value-arg'
+        not_prefix2 = '中文前缀/not-prefix2'
+        not_tag = FilterNotTag(key, value)
+        filter_not = FilterNot(not_prefix)
+        filter_not2 = FilterNot(not_prefix2, not_tag)
+        filter = LifecycleFilter([filter_not])
+
+        # Open it after multiple not nodes are supported
+        # filter = LifecycleFilter([filter_not, filter_not2])
+
+        rule = LifecycleRule(random_string(10), '中文前缀/',
+                             status=LifecycleRule.ENABLED,
+                             expiration=LifecycleExpiration(days=356),
+                             filter=filter)
+        rule.storage_transitions = [StorageTransition(days=355,
+                                                      storage_class=oss2.BUCKET_STORAGE_CLASS_ARCHIVE),
+                                    StorageTransition(days=352,
+                                                      storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
+
+        lifecycle = BucketLifecycle([rule])
+
+        put_result = self.bucket.put_bucket_lifecycle(lifecycle)
+        self.assertEqual(put_result.status, 200)
+
+        result = self.bucket.get_bucket_lifecycle()
+        self.assertEqual(1, len(result.rules))
+        self.assertEqual(2, len(result.rules[0].storage_transitions))
+        self.assertEqual(355, result.rules[0].storage_transitions[0].days)
+        self.assertEqual(352, result.rules[0].storage_transitions[1].days)
+        self.assertEqual(result.rules[0].filter.filter_not[0].prefix, not_prefix)
+        # Open it after multiple not nodes are supported
+        # self.assertEqual(result.rules[0].filter.filter_not[1].prefix, not_prefix2)
+        # self.assertEqual(result.rules[0].filter.filter_not[1].tag.key, key)
+        # self.assertEqual(result.rules[0].filter.filter_not[1].tag.value, value)
+
+
+    def test_bucket_tagging_with_specify_label(self):
+
+        from oss2.models import Tagging
+
+        tagging = Tagging()
+        tagging.tag_set.tagging_rule['%@abc'] = 'abc'
+        tagging.tag_set.tagging_rule['123++'] = '++123%'
+        tagging.tag_set.tagging_rule['test'] = 'abc'
+
+        try:
+            result = self.bucket.put_bucket_tagging(tagging)
+        except oss2.exceptions.OssError:
+            self.assertFalse(True, 'should not get exception')
+            pass
+
+        result = self.bucket.get_bucket_tagging()
+        tag_rule = result.tag_set.tagging_rule
+        self.assertEqual(3, len(tag_rule))
+        self.assertEqual('abc', tag_rule['%@abc'])
+        self.assertEqual('++123%', tag_rule['123++'])
+
+        params = dict()
+        params['tagging'] = "%@abc"
+        result = self.bucket.delete_bucket_tagging(params=params)
+        self.assertEqual(int(result.status), 204)
+
+
+        params2 = dict()
+        params2['aa'] = "%@abc"
+        params2['tagging'] = "test"
+        result = self.bucket.delete_bucket_tagging(params=params2)
+        self.assertEqual(int(result.status), 204)
+
+        result2 = self.bucket.get_bucket_tagging()
+        tag_rule = result2.tag_set.tagging_rule
+        self.assertEqual(1, len(tag_rule))
 
 if __name__ == '__main__':
     unittest.main()

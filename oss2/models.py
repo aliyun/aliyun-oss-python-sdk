@@ -733,16 +733,19 @@ class BucketReferer(object):
 
     :param bool allow_empty_referer: 是否允许空的Referer。
     :param referers: Referer列表，每个元素是一个str。
+    :param black_referers: BlackReferer列表，每个元素是一个str。
     """
-    def __init__(self, allow_empty_referer, referers):
+    def __init__(self, allow_empty_referer, referers, allow_truncate_query_string=None, black_referers=None):
         self.allow_empty_referer = allow_empty_referer
         self.referers = referers
+        self.allow_truncate_query_string = allow_truncate_query_string
+        self.black_referers = black_referers
 
 
 class GetBucketRefererResult(RequestResult, BucketReferer):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
-        BucketReferer.__init__(self, False, [])
+        BucketReferer.__init__(self, False, [], None, [])
 
 class Condition(object):
     """ 匹配规则

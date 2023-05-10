@@ -419,6 +419,11 @@ def parse_get_bucket_referer(result, body):
     result.allow_empty_referer = _find_bool(root, 'AllowEmptyReferer')
     result.referers = _find_all_tags(root, 'RefererList/Referer')
 
+    if root.find("AllowTruncateQueryString") is not None:
+        result.allow_truncate_query_string = _find_bool(root, 'AllowTruncateQueryString')
+    if root.find("RefererBlacklist/Referer") is not None:
+        result.black_referers = _find_all_tags(root, 'RefererBlacklist/Referer')
+
     return result
 
 def parse_condition_include_header(include_header_node):
@@ -869,6 +874,15 @@ def to_put_bucket_referer(bucket_referer):
 
     for r in bucket_referer.referers:
         _add_text_child(list_node, 'Referer', r)
+
+    if bucket_referer.allow_truncate_query_string is not None:
+        _add_text_child(root, 'AllowTruncateQueryString', str(bucket_referer.allow_truncate_query_string).lower())
+
+    if bucket_referer.black_referers:
+        black_referer_node = ElementTree.SubElement(root, 'RefererBlacklist')
+
+        for r in bucket_referer.black_referers:
+            _add_text_child(black_referer_node, 'Referer', r)
 
     return _node_to_string(root)
 
@@ -1957,9 +1971,9 @@ def parse_lifecycle_filter_not(filter_not_node):
 
         lifecycle_filter = LifecycleFilter()
         for not_node in filter_not_node:
-            prefix = _find_tag(not_node, 'Prefix')
-            key = _find_tag(not_node, 'Tag/Key')
-            value = _find_tag(not_node, 'Tag/Value')
+            prefix = _find_tag_with_default(not_node, 'Prefix', None)
+            key = _find_tag_with_default(not_node, 'Tag/Key', None)
+            value = _find_tag_with_default(not_node, 'Tag/Value', None)
             tag = FilterNotTag(key, value)
             filter_not = FilterNot(prefix, tag)
             lifecycle_filter.filter_not.append(filter_not)
