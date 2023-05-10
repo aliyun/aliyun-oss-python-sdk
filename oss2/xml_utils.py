@@ -2022,3 +2022,11 @@ def parse_describe_regions(result, body):
         tmp.accelerate_endpoint = _find_tag_with_default(region, 'AccelerateEndpoint', None)
 
         result.regions.append(tmp)
+
+def parse_async_process_object(result, body):
+    if body:
+        body_dict = eval(body.decode('utf-8'))
+        result.event_id = body_dict['EventId']
+        result.async_request_id = body_dict['RequestId']
+        result.task_id = body_dict['TaskId']
+    return result
