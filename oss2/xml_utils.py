@@ -73,7 +73,8 @@ from .models import (SimplifiedObjectInfo,
                      LifecycleFilter,
                      FilterNot,
                      FilterNotTag,
-                     BucketStyleInfo)
+                     BucketStyleInfo,
+                     RegionInfo)
 
 from .select_params import (SelectJsonTypes, SelectParameters)
 
@@ -2010,3 +2011,14 @@ def parse_list_bucket_style(result, body):
         tmp.last_modify_time = _find_tag_with_default(style, 'LastModifyTime', None)
 
         result.styles.append(tmp)
+
+def parse_describe_regions(result, body):
+    root = ElementTree.fromstring(body)
+    for region in root.findall('RegionInfo'):
+        tmp = RegionInfo()
+        tmp.region = _find_tag_with_default(region, 'Region', None)
+        tmp.internet_endpoint = _find_tag_with_default(region, 'InternetEndpoint', None)
+        tmp.internal_endpoint = _find_tag_with_default(region, 'InternalEndpoint', None)
+        tmp.accelerate_endpoint = _find_tag_with_default(region, 'AccelerateEndpoint', None)
+
+        result.regions.append(tmp)

@@ -2650,9 +2650,35 @@ class BucketStyleInfo(RequestResult):
 class ListBucketStyleResult(RequestResult):
     """查询图片样式信息列表的容器。
 
-    :param str styles: 图片样式内容的容器。元素类型为:class:`ListBucketStyleResult <oss2.models.ListBucketStyleResult>`。
+    :param str styles: 图片样式内容的容器。元素类型为:class:`BucketStyleInfo <oss2.models.BucketStyleInfo>`。
     """
 
     def __init__(self, resp):
         super(ListBucketStyleResult, self).__init__(resp)
         self.styles = []
+
+
+class RegionInfo(RequestResult):
+    """地域信息。
+
+    :param region: 地域ID。
+    :param internet_endpoint: 地域对应的外网Endpoint。
+    :param internal_endpoint: 地域对应的内网Endpoint。
+    :param accelerate_endpoint: 地域对应的传输加速Endpoint。取值固定为oss-accelerate.aliyuncs.com。
+    """
+    def __init__(self, region=None, internet_endpoint=None, internal_endpoint=None, accelerate_endpoint=None):
+        self.region = region
+        self.internet_endpoint = internet_endpoint
+        self.internal_endpoint = internal_endpoint
+        self.accelerate_endpoint = accelerate_endpoint
+
+
+class DescribeRegionsResult(RequestResult):
+    """地域信息列表。
+
+    :param list regions: 地域信息列表。元素类型为:class:`RegionInfo <oss2.models.RegionInfo>`。
+    """
+
+    def __init__(self, resp):
+        super(DescribeRegionsResult, self).__init__(resp)
+        self.regions = []
