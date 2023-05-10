@@ -1056,7 +1056,7 @@ class Bucket(_Base):
         if Bucket.OBJECTMETA not in params:
             params[Bucket.OBJECTMETA] = ''
 
-        resp = self.__do_object('GET', key, params=params, headers=headers)
+        resp = self.__do_object('HEAD', key, params=params, headers=headers)
         logger.debug("Get object metadata done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return GetObjectMetaResult(resp)
 
@@ -1074,11 +1074,16 @@ class Bucket(_Base):
         # 304 (NotModified)；不存在，则会返回NoSuchKey。get_object会受回源的影响，如果配置会404回源，get_object会判断错误。
         #
         # 目前的实现是通过get_object_meta判断文件是否存在。
+        # get_object_meta 为200时，不会返回响应体，所以该接口把GET方法修改为HEAD 方式
+        # 同时, 对于head 请求，服务端会通过x-oss-err 返回 错误响应信息,
+        # 考虑到兼容之前的行为，增加exceptions.NotFound 异常 当作NoSuchKey
 
         logger.debug("Start to check if object exists, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
         try:
             self.get_object_meta(key, headers=headers)
         except exceptions.NoSuchKey:
+            return False
+        except exceptions.NotFound:
             return False
         except:
             raise

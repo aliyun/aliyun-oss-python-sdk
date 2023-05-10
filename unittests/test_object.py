@@ -129,7 +129,7 @@ x-oss-object-type: Normal'''
 
     @patch('oss2.Session.do_request')
     def test_object_exists_true(self, do_request):
-        request_text = '''GET /sbowspxjhmccpmesjqcwagfw?objectMeta HTTP/1.1
+        request_text = '''HEAD /sbowspxjhmccpmesjqcwagfw?objectMeta HTTP/1.1
 Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
 Accept-Encoding: identity
 Connection: keep-alive
@@ -154,7 +154,7 @@ Server: AliyunOSS'''
 
     @patch('oss2.Session.do_request')
     def test_object_exists_false(self, do_request):
-        request_text = '''GET /sbowspxjhmccpmesjqcwagfw?objectMeta HTTP/1.1
+        request_text = '''HEAD /sbowspxjhmccpmesjqcwagfw?objectMeta HTTP/1.1
 Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
 Accept-Encoding: identity
 Connection: keep-alive
@@ -170,15 +170,57 @@ Content-Type: application/xml
 Content-Length: 287
 Connection: keep-alive
 x-oss-request-id: 566B6C3D6086505A0CFF0F68
+'''
 
-<?xml version="1.0" encoding="UTF-8"?>
-<Error>
-  <Code>NoSuchKey</Code>
-  <Message>The specified key does not exist.</Message>
-  <RequestId>566B6C3D6086505A0CFF0F68</RequestId>
-  <HostId>ming-oss-share.oss-cn-hangzhou.aliyuncs.com</HostId>
-  <Key>sbowspxjhmccpmesjqcwagfw</Key>
-</Error>'''
+        req_info = mock_response(do_request, response_text)
+        self.assertTrue(not bucket().object_exists('sbowspxjhmccpmesjqcwagfw'))
+        self.assertRequest(req_info, request_text)
+
+    @patch('oss2.Session.do_request')
+    def test_object_exists_false_with_err_header(self, do_request):
+        request_text = '''HEAD /sbowspxjhmccpmesjqcwagfw?objectMeta HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:37:17 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:wopWcmMd/70eNKYOc9M6ZA21yY8='''     
+
+        response_text = '''HTTP/1.1 404 Not Found
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:37:17 GMT
+Content-Type: application/xml
+Content-Length: 287
+Connection: keep-alive
+x-oss-request-id: 566B6C3D6086505A0CFF0F68
+x-oss-err: PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4NCjxFcnJvcj4NCiAgPENvZGU+Tm9TdWNoS2V5PC9Db2RlPg0KICA8TWVzc2FnZT5UaGUgc3BlY2lmaWVkIGtleSBkb2VzIG5vdCBleGlzdC48L01lc3NhZ2U+DQogIDxSZXF1ZXN0SWQ+NTY2QjZDM0Q2MDg2NTA1QTBDRkYwRjY4PC9SZXF1ZXN0SWQ+DQogIDxIb3N0SWQ+bWluZy1vc3Mtc2hhcmUub3NzLWNuLWhhbmd6aG91LmFsaXl1bmNzLmNvbTwvSG9zdElkPg0KICA8S2V5PnNib3dzcHhqaG1jY3BtZXNqcWN3YWdmdzwvS2V5Pg0KPC9FcnJvcj4=
+'''
+
+        req_info = mock_response(do_request, response_text)
+        self.assertTrue(not bucket().object_exists('sbowspxjhmccpmesjqcwagfw'))
+        self.assertRequest(req_info, request_text)
+
+    @patch('oss2.Session.do_request')
+    def test_object_exists_false_with_invalid_err_header(self, do_request):
+        request_text = '''HEAD /sbowspxjhmccpmesjqcwagfw?objectMeta HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:37:17 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:wopWcmMd/70eNKYOc9M6ZA21yY8='''     
+
+        response_text = '''HTTP/1.1 404 Not Found
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:37:17 GMT
+Content-Type: application/xml
+Content-Length: 287
+Connection: keep-alive
+x-oss-request-id: 566B6C3D6086505A0CFF0F68
+x-oss-err: PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4NCjxFcnJvcj4NCiAgPENvZGU+Tm9TdWNoS2V5PC9Db2RlPg0KICA8TWVzc2FnZT5UaGUgc3BlY2lmaWVkIGtleSBkb2VzIG5vdCBleGlzdC48L01lc3NhZ2U+DQogIDxSZXF1ZXN0SWQ+NTY2QjZDM0Q2MDg2NTA1QTBDRkYwRjY4PC9SZXF1ZXN0SWQ+DQogIDxIb3N0SWQ+bWluZy1vc3Mtc2hhcmUub3NzLWNuLWhhbmd6aG91LmFsaXl1bmNzLmNvbTwvSG9zdElkPg0KICA8S2V5PnNib3dzcHhqaG1jY3BtZXNqcWN3YWdmdzwvS2V5Pg0KPC9FcnJvcj4
+'''
 
         req_info = mock_response(do_request, response_text)
         self.assertTrue(not bucket().object_exists('sbowspxjhmccpmesjqcwagfw'))
