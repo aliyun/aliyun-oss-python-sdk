@@ -2670,12 +2670,12 @@ class RegionInfo(RequestResult):
         self.accelerate_endpoint = accelerate_endpoint
 
 
-class GetDescribeRegionsResult(RequestResult):
+class DescribeRegionsResult(RequestResult):
     """地域信息列表。
 
     :param list regions: 地域信息列表。元素类型为:class:`RegionInfo <oss2.models.RegionInfo>`。
     """
 
     def __init__(self, resp):
-        super(GetDescribeRegionsResult, self).__init__(resp)
+        super(DescribeRegionsResult, self).__init__(resp)
         self.regions = []

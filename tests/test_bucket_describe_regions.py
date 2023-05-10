@@ -1,10 +1,10 @@
 from .common import *
 
 class TestDescribeRegions(OssTestCase):
-    def test_bucket_style_normal(self):
+    def test_describe_regions_normal(self):
 
         service = oss2.Service(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT)
-        result = service.get_describe_regions()
+        result = service.describe_regions()
         self.assertEqual(200, result.status)
 
         exist_region = False
@@ -14,7 +14,7 @@ class TestDescribeRegions(OssTestCase):
         self.assertTrue(exist_region)
 
         exist_region = False
-        result = service.get_describe_regions('oss-cn-chengdu')
+        result = service.describe_regions('oss-cn-chengdu')
         self.assertEqual(200, result.status)
         for r in result.regions:
             if 'oss-cn-chengdu' == r.region:
@@ -22,10 +22,10 @@ class TestDescribeRegions(OssTestCase):
 
         self.assertTrue(exist_region)
 
-    def test_bucket_style_exception(self):
+    def test_describe_regions_exception(self):
         try:
             service = oss2.Service(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT)
-            service.get_describe_regions('aaa')
+            service.describe_regions('aaa')
         except oss2.exceptions.ServerError as e:
             self.assertEqual(e.code, 'NoSuchRegion')
 

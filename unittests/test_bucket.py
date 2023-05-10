@@ -2201,11 +2201,11 @@ x-oss-request-id: 566B6BDD68248CE14F729DC0
 
 
     @patch('oss2.Session.do_request')
-    def test_get_describe_regions(self, do_request):
+    def test_describe_regions(self, do_request):
         request_text = '''GET /?regions HTTP/1.1
 Date: Fri , 30 Apr 2021 13:08:38 GMT
 Content-Length：443
-Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Host: oss-cn-hangzhou.aliyuncs.com
 Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
 
         response_text = '''HTTP/1.1 200 OK
@@ -2231,7 +2231,7 @@ Date: Fri , 30 Apr 2021 13:08:38 GMT
 
         req_info = mock_response(do_request, response_text)
 
-        result = bucket().get_describe_regions()
+        result = service().describe_regions()
 
         self.assertRequest(req_info, request_text)
         self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
