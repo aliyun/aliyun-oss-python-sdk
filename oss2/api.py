@@ -310,13 +310,14 @@ class Service(_Base):
                                       app_name=app_name, proxies=proxies,
                                       region=region, cloudbox_id=cloudbox_id)
 
-    def list_buckets(self, prefix='', marker='', max_keys=100, params=None):
+    def list_buckets(self, prefix='', marker='', max_keys=100, params=None, headers=None):
         """根据前缀罗列用户的Bucket。
 
         :param str prefix: 只罗列Bucket名为该前缀的Bucket，空串表示罗列所有的Bucket
         :param str marker: 分页标志。首次调用传空串，后续使用返回值中的next_marker
         :param int max_keys: 每次调用最多返回的Bucket数目
         :param dict params: list操作参数，传入'tag-key','tag-value'对结果进行过滤
+        :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-meta-开头的头部等。可以是dict，建议是oss2.CaseInsensitiveDict
 
         :return: 罗列的结果
         :rtype: oss2.models.ListBucketsResult
@@ -328,13 +329,12 @@ class Service(_Base):
         listParam['marker'] = marker
         listParam['max-keys'] = str(max_keys)
 
-        if params is not None:
-            if 'tag-key' in params:
-                listParam['tag-key'] = params['tag-key']
-            if 'tag-value' in params:
-                listParam['tag-value'] = params['tag-value']
+        headers = http.CaseInsensitiveDict(headers)
 
-        resp = self._do('GET', '', '', params=listParam)
+        if params is not None:
+            listParam.update(params)
+
+        resp = self._do('GET', '', '', params=listParam, headers=headers)
         logger.debug("List buckets done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_buckets, ListBucketsResult)
 
