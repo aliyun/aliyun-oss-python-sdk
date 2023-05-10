@@ -296,6 +296,7 @@ class Service(_Base):
     """
 
     QOS_INFO = 'qosInfo'
+    REGIONS = 'regions'
 
     def __init__(self, auth, endpoint,
                  session=None,
@@ -346,6 +347,19 @@ class Service(_Base):
         resp = self._do('GET', '', '', params={Service.QOS_INFO: ''})
         logger.debug("get use qos, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_get_qos_info, GetUserQosInfoResult)
+
+    def describe_regions(self, regions=''):
+        """查询所有支持地域或者指定地域对应的Endpoint信息，包括外网Endpoint、内网Endpoint和传输加速Endpoint。
+
+        :param str regions : 地域。
+        :return: :class:`DescribeRegionsResult <oss2.models.DescribeRegionsResult>`
+        """
+        logger.debug("Start to describe regions")
+
+        resp = self._do('GET', '', '', params={Service.REGIONS: regions})
+        logger.debug("Describe regions done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_describe_regions, DescribeRegionsResult)
 
 class Bucket(_Base):
     """用于Bucket和Object操作的类，诸如创建、删除Bucket，上传、下载Object等。
@@ -1043,7 +1057,7 @@ class Bucket(_Base):
         if Bucket.OBJECTMETA not in params:
             params[Bucket.OBJECTMETA] = ''
 
-        resp = self.__do_object('GET', key, params=params, headers=headers)
+        resp = self.__do_object('HEAD', key, params=params, headers=headers)
         logger.debug("Get object metadata done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return GetObjectMetaResult(resp)
 
@@ -1061,11 +1075,16 @@ class Bucket(_Base):
         # 304 (NotModified)；不存在，则会返回NoSuchKey。get_object会受回源的影响，如果配置会404回源，get_object会判断错误。
         #
         # 目前的实现是通过get_object_meta判断文件是否存在。
+        # get_object_meta 为200时，不会返回响应体，所以该接口把GET方法修改为HEAD 方式
+        # 同时, 对于head 请求，服务端会通过x-oss-err 返回 错误响应信息,
+        # 考虑到兼容之前的行为，增加exceptions.NotFound 异常 当作NoSuchKey
 
         logger.debug("Start to check if object exists, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
         try:
             self.get_object_meta(key, headers=headers)
         except exceptions.NoSuchKey:
+            return False
+        except exceptions.NotFound:
             return False
         except:
             raise
@@ -2100,14 +2119,21 @@ class Bucket(_Base):
         logger.debug("Get bucket tagging done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_get_tagging, GetTaggingResult)
 
-    def delete_bucket_tagging(self):
+    def delete_bucket_tagging(self, params=None):
         """
         :return: :class:`RequestResult <oss2.models.RequestResult>` 
         """
         logger.debug("Start to delete bucket tagging, bucket: {0}".format(
                     self.bucket_name))
 
-        resp = self.__do_bucket('DELETE', params={Bucket.TAGGING: ''})
+        if params is None:
+            params = dict()
+
+        if Bucket.TAGGING not in params:
+            params[Bucket.TAGGING] = ''
+
+
+        resp = self.__do_bucket('DELETE', params=params)
 
         logger.debug("Delete bucket tagging done, req_id: {0}, status_code: {1}".format(
                     resp.request_id, resp.status))
