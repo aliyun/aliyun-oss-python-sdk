@@ -2697,3 +2697,38 @@ class AsyncProcessObject(RequestResult):
         self.event_id = None
         self.async_request_id = None
         self.task_id = None
+
+
+class CallbackPolicyInfo(RequestResult):
+    """回调policy信息。
+
+    :param policy_name: policy名称。
+    :param callback: 回调参数。
+    :param callback_var: 自定义回调参数。
+    """
+    def __init__(self, policy_name=None, callback=None, callback_var=None):
+        self.policy_name = policy_name
+        self.callback = callback
+        self.callback_var = callback_var
+
+
+class CallbackPolicy(object):
+    """设置回调policy请求。
+
+    :param list callback_policies: 回调策略集合。 元素类型为:class:`<oss2.models.CallbackPolicyInfo>`。
+    """
+
+    def __init__(self, callback_policies=None):
+        self.callback_policies = callback_policies or []
+
+
+
+class CallbackPolicyResult(RequestResult):
+    """返回回调policy。
+
+    :param list callback_policies: 回调策略集合。元素类型为:class:`<oss2.models.CallbackPolicyInfo>`。
+    """
+
+    def __init__(self, resp):
+        super(CallbackPolicyResult, self).__init__(resp)
+        self.callback_policies = []
