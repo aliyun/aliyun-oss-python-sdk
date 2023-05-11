@@ -708,7 +708,7 @@ class BucketInfo(object):
     def __init__(self, name=None, owner=None, location=None, storage_class=None, intranet_endpoint=None,
                  extranet_endpoint=None, creation_date=None, acl=None, data_redundancy_type=None, comment=None,
                  bucket_encryption_rule=None, versioning_status=None, access_monitor=None,
-                 transfer_acceleration=None, cross_region_replication=None, resource_group_id=None, bucket_policy=None):
+                 transfer_acceleration=None, cross_region_replication=None, resource_group_id=None):
         self.name = name
         self.owner = owner
         self.location = location
@@ -726,7 +726,6 @@ class BucketInfo(object):
         self.transfer_acceleration = transfer_acceleration
         self.cross_region_replication = cross_region_replication
         self.resource_group_id = resource_group_id
-        self.bucket_policy = bucket_policy
 
 
 class GetBucketStatResult(RequestResult, BucketStat):
@@ -2747,14 +2746,3 @@ class CallbackPolicyResult(RequestResult):
         super(CallbackPolicyResult, self).__init__(resp)
         self.callback_policies = []
 
-
-
-class BucketPolicy(object):
-    """存放日志信息的容器。
-
-    :param str log_bucket: 存储日志记录的Bucket名称
-    :param str log_prefix: 存储日志文件的目录。
-    """
-    def __init__(self, log_bucket, log_prefix):
-        self.log_bucket = log_bucket
-        self.log_prefix = log_prefix

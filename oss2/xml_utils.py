@@ -75,8 +75,7 @@ from .models import (SimplifiedObjectInfo,
                      FilterNotTag,
                      BucketStyleInfo,
                      RegionInfo,
-                     CallbackPolicyInfo,
-                     BucketPolicy)
+                     CallbackPolicyInfo)
 
 from .select_params import (SelectJsonTypes, SelectParameters)
 
@@ -389,7 +388,6 @@ def parse_get_bucket_info(result, body):
     result.transfer_acceleration = _find_tag_with_default(root, 'Bucket/TransferAcceleration', None)
     result.cross_region_replication = _find_tag_with_default(root, 'Bucket/CrossRegionReplication', None)
     result.resource_group_id = _find_tag_with_default(root, 'Bucket/ResourceGroupId', None)
-    result.bucket_policy = BucketPolicy(_find_tag_with_default(root, 'Bucket/BucketPolicy/LogBucket', None), _find_tag_with_default(root, 'Bucket/BucketPolicy/LogPrefix', None))
 
     server_side_encryption = root.find("Bucket/ServerSideEncryptionRule")
     if server_side_encryption is None:

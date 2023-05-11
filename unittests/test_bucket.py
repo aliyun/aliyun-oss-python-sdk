@@ -2745,10 +2745,6 @@ Date: Fri , 30 Apr 2021 13:08:38 GMT
       <Grant>private</Grant>
     </AccessControlList>  
     <Comment>test</Comment>
-    <BucketPolicy>
-      <LogBucket>examplebucket</LogBucket>
-      <LogPrefix>log/</LogPrefix>
-    </BucketPolicy>
   </Bucket>
 </BucketInfo>'''
 
@@ -2773,8 +2769,7 @@ Date: Fri , 30 Apr 2021 13:08:38 GMT
         self.assertEqual(result.resource_group_id, 'rg-aek27tc********')
         self.assertEqual(result.acl.grant, 'private')
         self.assertEqual(result.comment, 'test')
-        self.assertEqual(result.bucket_policy.log_bucket, 'examplebucket')
-        self.assertEqual(result.bucket_policy.log_prefix, 'log/')
+
 
 if __name__ == '__main__':
     unittest.main()
