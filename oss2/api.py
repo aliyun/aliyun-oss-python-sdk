@@ -296,6 +296,7 @@ class Service(_Base):
     """
 
     QOS_INFO = 'qosInfo'
+    REGIONS = 'regions'
 
     def __init__(self, auth, endpoint,
                  session=None,
@@ -346,6 +347,19 @@ class Service(_Base):
         resp = self._do('GET', '', '', params={Service.QOS_INFO: ''})
         logger.debug("get use qos, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_get_qos_info, GetUserQosInfoResult)
+
+    def describe_regions(self, regions=''):
+        """查询所有支持地域或者指定地域对应的Endpoint信息，包括外网Endpoint、内网Endpoint和传输加速Endpoint。
+
+        :param str regions : 地域。
+        :return: :class:`DescribeRegionsResult <oss2.models.DescribeRegionsResult>`
+        """
+        logger.debug("Start to describe regions")
+
+        resp = self._do('GET', '', '', params={Service.REGIONS: regions})
+        logger.debug("Describe regions done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_describe_regions, DescribeRegionsResult)
 
 class Bucket(_Base):
     """用于Bucket和Object操作的类，诸如创建、删除Bucket，上传、下载Object等。
@@ -418,6 +432,8 @@ class Bucket(_Base):
     RESOURCE_GROUP = 'resourceGroup'
     STYLE = 'style'
     STYLE_NAME = 'styleName'
+    ASYNC_PROCESS = 'x-oss-async-process'
+    CALLBACK = 'callback'
 
 
     def __init__(self, auth, endpoint, bucket_name,
@@ -1042,7 +1058,7 @@ class Bucket(_Base):
         if Bucket.OBJECTMETA not in params:
             params[Bucket.OBJECTMETA] = ''
 
-        resp = self.__do_object('GET', key, params=params, headers=headers)
+        resp = self.__do_object('HEAD', key, params=params, headers=headers)
         logger.debug("Get object metadata done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return GetObjectMetaResult(resp)
 
@@ -1060,11 +1076,16 @@ class Bucket(_Base):
         # 304 (NotModified)；不存在，则会返回NoSuchKey。get_object会受回源的影响，如果配置会404回源，get_object会判断错误。
         #
         # 目前的实现是通过get_object_meta判断文件是否存在。
+        # get_object_meta 为200时，不会返回响应体，所以该接口把GET方法修改为HEAD 方式
+        # 同时, 对于head 请求，服务端会通过x-oss-err 返回 错误响应信息,
+        # 考虑到兼容之前的行为，增加exceptions.NotFound 异常 当作NoSuchKey
 
         logger.debug("Start to check if object exists, bucket: {0}, key: {1}".format(self.bucket_name, to_string(key)))
         try:
             self.get_object_meta(key, headers=headers)
         except exceptions.NoSuchKey:
+            return False
+        except exceptions.NotFound:
             return False
         except:
             raise
@@ -1577,7 +1598,7 @@ class Bucket(_Base):
         logger.debug("Get symlink done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return GetSymlinkResult(resp)
 
-    def create_bucket(self, permission=None, input=None):
+    def create_bucket(self, permission=None, input=None, headers=None):
         """创建新的Bucket。
 
         :param str permission: 指定Bucket的ACL。可以是oss2.BUCKET_ACL_PRIVATE（推荐、缺省）、oss2.BUCKET_ACL_PUBLIC_READ或是
@@ -1585,10 +1606,9 @@ class Bucket(_Base):
 
         :param input: :class:`BucketCreateConfig <oss2.models.BucketCreateConfig>` object
         """
+        headers = http.CaseInsensitiveDict(headers)
         if permission:
-            headers = {OSS_CANNED_ACL: permission}
-        else:
-            headers = None
+            headers[OSS_CANNED_ACL] = permission
 
         data = self.__convert_data(BucketCreateConfig, xml_utils.to_put_bucket_config, input)
         logger.debug("Start to create bucket, bucket: {0}, permission: {1}, config: {2}".format(self.bucket_name,
@@ -2099,14 +2119,21 @@ class Bucket(_Base):
         logger.debug("Get bucket tagging done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_get_tagging, GetTaggingResult)
 
-    def delete_bucket_tagging(self):
+    def delete_bucket_tagging(self, params=None):
         """
         :return: :class:`RequestResult <oss2.models.RequestResult>` 
         """
         logger.debug("Start to delete bucket tagging, bucket: {0}".format(
                     self.bucket_name))
 
-        resp = self.__do_bucket('DELETE', params={Bucket.TAGGING: ''})
+        if params is None:
+            params = dict()
+
+        if Bucket.TAGGING not in params:
+            params[Bucket.TAGGING] = ''
+
+
+        resp = self.__do_bucket('DELETE', params=params)
 
         logger.debug("Delete bucket tagging done, req_id: {0}, status_code: {1}".format(
                     resp.request_id, resp.status))
@@ -2749,6 +2776,57 @@ class Bucket(_Base):
         resp = self.__do_bucket('DELETE', params={Bucket.STYLE: '', Bucket.STYLE_NAME: styleName})
         logger.debug("delete bucket style done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
+
+    def async_process_object(self, key, process, headers=None):
+        """异步处理多媒体接口。
+
+        :param str key: 处理的多媒体的对象名称
+        :param str process: 处理的字符串，例如"video/convert,f_mp4,vcodec_h265,s_1920x1080,vb_2000000,fps_30,acodec_aac,ab_100000,sn_1|sys/saveas,o_dGVzdC5qcGc,b_dGVzdA"
+
+        :param headers: HTTP头部
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+        """
+
+        headers = http.CaseInsensitiveDict(headers)
+
+        logger.debug("Start to async process object, bucket: {0}, key: {1}, process: {2}".format(
+            self.bucket_name, to_string(key), process))
+        process_data = "%s=%s" % (Bucket.ASYNC_PROCESS, process)
+        resp = self.__do_object('POST', key, params={Bucket.ASYNC_PROCESS: ''}, headers=headers, data=process_data)
+        logger.debug("Async process object done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_async_process_object, AsyncProcessObject)
+
+    def put_bucket_callback_policy(self, callbackPolicy):
+        """设置bucket回调策略
+
+        :param str callbackPolicy: 回调策略
+        """
+        logger.debug("Start to put bucket callback policy, bucket: {0}, callback policy: {1}".format(self.bucket_name, callbackPolicy))
+        data = xml_utils.to_do_bucket_callback_policy_request(callbackPolicy)
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.POLICY: '', Bucket.COMP: Bucket.CALLBACK})
+        logger.debug("Put bucket callback policy done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return RequestResult(resp)
+
+    def get_bucket_callback_policy(self):
+        """获取bucket回调策略
+        :return: :class:`GetBucketPolicyResult <oss2.models.CallbackPolicyResult>`
+        """
+
+        logger.debug("Start to get bucket callback policy, bucket: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('GET', params={Bucket.POLICY: '', Bucket.COMP: Bucket.CALLBACK})
+        logger.debug("Get bucket callback policy done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_callback_policy_result, CallbackPolicyResult)
+
+    def delete_bucket_callback_policy(self):
+        """删除bucket回调策略
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to delete bucket callback policy, bucket: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('DELETE', params={Bucket.POLICY: '', Bucket.COMP: Bucket.CALLBACK})
+        logger.debug("Delete bucket callback policy done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
+
 
     def __do_object(self, method, key, **kwargs):
         return self._do(method, self.bucket_name, key, **kwargs)

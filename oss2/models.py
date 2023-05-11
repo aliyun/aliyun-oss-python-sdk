@@ -747,16 +747,19 @@ class BucketReferer(object):
 
     :param bool allow_empty_referer: 是否允许空的Referer。
     :param referers: Referer列表，每个元素是一个str。
+    :param black_referers: BlackReferer列表，每个元素是一个str。
     """
-    def __init__(self, allow_empty_referer, referers):
+    def __init__(self, allow_empty_referer, referers, allow_truncate_query_string=None, black_referers=None):
         self.allow_empty_referer = allow_empty_referer
         self.referers = referers
+        self.allow_truncate_query_string = allow_truncate_query_string
+        self.black_referers = black_referers
 
 
 class GetBucketRefererResult(RequestResult, BucketReferer):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
-        BucketReferer.__init__(self, False, [])
+        BucketReferer.__init__(self, False, [], None, [])
 
 class Condition(object):
     """ 匹配规则
@@ -2661,12 +2664,89 @@ class BucketStyleInfo(RequestResult):
 class ListBucketStyleResult(RequestResult):
     """查询图片样式信息列表的容器。
 
-    :param str styles: 图片样式内容的容器。元素类型为:class:`ListBucketStyleResult <oss2.models.ListBucketStyleResult>`。
+    :param str styles: 图片样式内容的容器。元素类型为:class:`BucketStyleInfo <oss2.models.BucketStyleInfo>`。
     """
 
     def __init__(self, resp):
         super(ListBucketStyleResult, self).__init__(resp)
         self.styles = []
+
+
+class RegionInfo(RequestResult):
+    """地域信息。
+
+    :param region: 地域ID。
+    :param internet_endpoint: 地域对应的外网Endpoint。
+    :param internal_endpoint: 地域对应的内网Endpoint。
+    :param accelerate_endpoint: 地域对应的传输加速Endpoint。取值固定为oss-accelerate.aliyuncs.com。
+    """
+    def __init__(self, region=None, internet_endpoint=None, internal_endpoint=None, accelerate_endpoint=None):
+        self.region = region
+        self.internet_endpoint = internet_endpoint
+        self.internal_endpoint = internal_endpoint
+        self.accelerate_endpoint = accelerate_endpoint
+
+
+class DescribeRegionsResult(RequestResult):
+    """地域信息列表。
+
+    :param list regions: 地域信息列表。元素类型为:class:`RegionInfo <oss2.models.RegionInfo>`。
+    """
+
+    def __init__(self, resp):
+        super(DescribeRegionsResult, self).__init__(resp)
+        self.regions = []
+
+
+class AsyncProcessObject(RequestResult):
+    """异步多媒体处理返回信息。
+
+    :param str event_id: 事件id。
+    :param str async_request_id: 请求id。
+     :param str task_id: 任务id。
+    """
+
+    def __init__(self, resp):
+        super(AsyncProcessObject, self).__init__(resp)
+        self.event_id = None
+        self.async_request_id = None
+        self.task_id = None
+
+
+class CallbackPolicyInfo(RequestResult):
+    """回调policy信息。
+
+    :param policy_name: policy名称。
+    :param callback: 回调参数。
+    :param callback_var: 自定义回调参数。
+    """
+    def __init__(self, policy_name=None, callback=None, callback_var=None):
+        self.policy_name = policy_name
+        self.callback = callback
+        self.callback_var = callback_var
+
+
+class CallbackPolicy(object):
+    """设置回调policy请求。
+
+    :param list callback_policies: 回调策略集合。 元素类型为:class:`<oss2.models.CallbackPolicyInfo>`。
+    """
+
+    def __init__(self, callback_policies=None):
+        self.callback_policies = callback_policies or []
+
+
+
+class CallbackPolicyResult(RequestResult):
+    """返回回调policy。
+
+    :param list callback_policies: 回调策略集合。元素类型为:class:`<oss2.models.CallbackPolicyInfo>`。
+    """
+
+    def __init__(self, resp):
+        super(CallbackPolicyResult, self).__init__(resp)
+        self.callback_policies = []
+
 
 
 class BucketPolicy(object):
