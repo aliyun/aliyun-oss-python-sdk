@@ -1127,5 +1127,79 @@ class TestBucket(OssTestCase):
         tag_rule = result2.tag_set.tagging_rule
         self.assertEqual(1, len(tag_rule))
 
+    def test_bucket_header_KMS_SM4(self):
+        from oss2.headers import (OSS_SERVER_SIDE_ENCRYPTION, OSS_SERVER_SIDE_ENCRYPTION_KEY_ID,
+                                  OSS_SERVER_SIDE_DATA_ENCRYPTION, OSS_CANNED_ACL)
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+
+        bucket_name = self.OSS_BUCKET + "-test-1"
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
+        bucket.create_bucket(oss2.BUCKET_ACL_PUBLIC_READ)
+
+        bucket_info = bucket.get_bucket_info()
+        self.assertEqual(oss2.BUCKET_ACL_PUBLIC_READ, bucket_info.acl.grant)
+        self.assertEqual(oss2.BUCKET_ACL_PUBLIC_READ, bucket_info.acl.grant)
+        bucket.delete_bucket()
+
+        bucket_name = self.OSS_BUCKET + "-test-2"
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
+        bucket.create_bucket(oss2.BUCKET_ACL_PUBLIC_READ_WRITE, oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_IA))
+
+        bucket_info2 = bucket.get_bucket_info()
+        self.assertEqual(oss2.BUCKET_ACL_PUBLIC_READ_WRITE, bucket_info2.acl.grant)
+        self.assertEqual(oss2.BUCKET_STORAGE_CLASS_IA, bucket_info2.storage_class)
+        bucket.delete_bucket()
+
+        bucket_name = self.OSS_BUCKET + "-test-kms-sm4"
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
+        headers =dict()
+        headers[OSS_SERVER_SIDE_ENCRYPTION] = "KMS"
+        headers[OSS_SERVER_SIDE_DATA_ENCRYPTION] = "SM4"
+        headers[OSS_SERVER_SIDE_ENCRYPTION_KEY_ID] = "9468da86-3509-4f8d-a61e-6eab1eac"
+        headers[OSS_CANNED_ACL] = oss2.BUCKET_ACL_PRIVATE
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PUBLIC_READ, oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_IA), headers)
+        bucket_info3 = bucket.get_bucket_info()
+
+        self.assertEqual(oss2.BUCKET_ACL_PUBLIC_READ, bucket_info3.acl.grant)
+        self.assertEqual(oss2.BUCKET_STORAGE_CLASS_IA, bucket_info3.storage_class)
+        self.assertEqual("SM4", bucket_info3.bucket_encryption_rule.kms_data_encryption)
+        self.assertEqual("9468da86-3509-4f8d-a61e-6eab1eac", bucket_info3.bucket_encryption_rule.kms_master_keyid)
+        self.assertEqual("KMS", bucket_info3.bucket_encryption_rule.sse_algorithm)
+
+    def test_bucket_header_SSE_KMS(self):
+        from oss2.headers import (OSS_SERVER_SIDE_ENCRYPTION, OSS_SERVER_SIDE_ENCRYPTION_KEY_ID)
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket_name = self.OSS_BUCKET + "-test-kms"
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
+
+        headers =dict()
+        headers[OSS_SERVER_SIDE_ENCRYPTION] = "KMS"
+        headers[OSS_SERVER_SIDE_ENCRYPTION_KEY_ID] = "9468da86-3509-4f8d-a61e-6eab1eac"
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PUBLIC_READ, oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_IA), headers)
+        bucket_info3 = bucket.get_bucket_info()
+
+        self.assertEqual(oss2.BUCKET_ACL_PUBLIC_READ, bucket_info3.acl.grant)
+        self.assertEqual(oss2.BUCKET_STORAGE_CLASS_IA, bucket_info3.storage_class)
+        self.assertEqual("9468da86-3509-4f8d-a61e-6eab1eac", bucket_info3.bucket_encryption_rule.kms_master_keyid)
+        self.assertEqual("KMS", bucket_info3.bucket_encryption_rule.sse_algorithm)
+
+    def test_bucket_header_SM4(self):
+        from oss2.headers import (OSS_SERVER_SIDE_ENCRYPTION)
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket_name = self.OSS_BUCKET + "-test-sm4"
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
+
+        headers =dict()
+        headers[OSS_SERVER_SIDE_ENCRYPTION] = "SM4"
+
+        bucket.create_bucket(oss2.BUCKET_ACL_PUBLIC_READ, oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_IA), headers)
+        bucket_info3 = bucket.get_bucket_info()
+
+        self.assertEqual(oss2.BUCKET_ACL_PUBLIC_READ, bucket_info3.acl.grant)
+        self.assertEqual(oss2.BUCKET_STORAGE_CLASS_IA, bucket_info3.storage_class)
+        self.assertEqual("SM4", bucket_info3.bucket_encryption_rule.sse_algorithm)
+
 if __name__ == '__main__':
     unittest.main()
