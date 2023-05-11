@@ -223,6 +223,9 @@ def parse_list_buckets(result, body):
     if result.is_truncated:
         result.next_marker = _find_tag(root, 'NextMarker')
 
+    if root.find('Owner'):
+        result.owner = Owner(_find_tag_with_default(root, 'Owner/DisplayName', None), _find_tag_with_default(root, 'Owner/ID', None))
+
     for bucket_node in root.findall('Buckets/Bucket'):
         result.buckets.append(SimplifiedBucketInfo(
             _find_tag(bucket_node, 'Name'),
@@ -230,7 +233,9 @@ def parse_list_buckets(result, body):
             iso8601_to_unixtime(_find_tag(bucket_node, 'CreationDate')),
             _find_tag(bucket_node, 'ExtranetEndpoint'),
             _find_tag(bucket_node, 'IntranetEndpoint'),
-            _find_tag(bucket_node, 'StorageClass')
+            _find_tag(bucket_node, 'StorageClass'),
+            _find_tag_with_default(bucket_node, 'Region', None),
+            _find_tag_with_default(bucket_node, 'ResourceGroupId', None),
         ))
 
     return result
@@ -380,6 +385,9 @@ def parse_get_bucket_info(result, body):
     result.versioning_status = _find_tag_with_default(root, 'Bucket/Versioning', None)
     result.data_redundancy_type = _find_tag_with_default(root, 'Bucket/DataRedundancyType', None)
     result.access_monitor = _find_tag_with_default(root, 'Bucket/AccessMonitor', None)
+    result.transfer_acceleration = _find_tag_with_default(root, 'Bucket/TransferAcceleration', None)
+    result.cross_region_replication = _find_tag_with_default(root, 'Bucket/CrossRegionReplication', None)
+    result.resource_group_id = _find_tag_with_default(root, 'Bucket/ResourceGroupId', None)
 
     server_side_encryption = root.find("Bucket/ServerSideEncryptionRule")
     if server_side_encryption is None:

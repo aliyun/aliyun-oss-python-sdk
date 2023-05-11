@@ -5,7 +5,7 @@ import datetime
 from mock import patch
 from functools import partial
 
-from oss2 import to_string
+from oss2 import to_string, iso8601_to_unixtime
 from oss2.models import AggregationsRequest, MetaQuery, CallbackPolicyInfo
 from unittests.common import *
 
@@ -2443,7 +2443,7 @@ Date: Fri , 30 Apr 2021 13:08:38 GMT
         self.assertEqual(result.regions[1].internet_endpoint, 'oss-cn-shanghai.aliyuncs.com')
         self.assertEqual(result.regions[1].internal_endpoint, 'oss-cn-shanghai-internal.aliyuncs.com')
         self.assertEqual(result.regions[1].accelerate_endpoint, 'oss-accelerate.aliyuncs.com')
-        
+
     @patch('oss2.Session.do_request')
     def test_async_process_object(self, do_request):
         request_text = '''POST /test-video.mp4?x-oss-async-process HTTP/1.1
@@ -2474,7 +2474,7 @@ x-oss-async-process=video/convert,f_mp4,vcodec_h265,s_1920x1080,vb_2000000,fps_3
         self.assertEqual(result.event_id, '3D7-1XxFtV2t3VtcOn2CXqI2ldsMN3i')
         self.assertEqual(result.task_id, 'MediaConvert-d2280366-cd33-48f7-90c6-a0dab65bed63')
 
-        
+
     @patch('oss2.Session.do_request')
     def test_put_bucket_callback_policy(self, do_request):
         request_text = '''PUT /?policy&comp=callback HTTP/1.1
@@ -2581,6 +2581,195 @@ x-oss-request-id: 566B6BDD68248CE14F729DC0
         result = bucket().delete_bucket_callback_policy()
 
         self.assertRequest(req_info, request_text)
+
+
+    @patch('oss2.Session.do_request')
+    def test_list_buckets(self, do_request):
+        request_text = '''GET /?prefix=my&max-keys=10 HTTP/1.1
+Host: oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:38 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+x-oss-resource-group-id: rg-acfmxmt3***
+authorization: OSS ZCDmm7TPZKHtx77j:Pt0DtPQ/FODOGs5y0yTIVctRcok='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:38 GMT
+Content-Type: application/xml
+Content-Length: 277
+Connection: keep-alive
+x-oss-resource-group-id: rg-acfmxmt3***
+x-oss-request-id: 566B6BDA010B7A4314D1614A
+
+<?xml version="1.0" encoding="UTF-8"?>
+<ListAllMyBucketsResult>
+  <Owner>
+    <ID>512**</ID>
+    <DisplayName>51264</DisplayName>
+  </Owner>
+  <Buckets>
+    <Bucket>
+      <CreationDate>2014-02-07T18:12:43.000Z</CreationDate>
+      <ExtranetEndpoint>oss-cn-shanghai.aliyuncs.com</ExtranetEndpoint>
+      <IntranetEndpoint>oss-cn-shanghai-internal.aliyuncs.com</IntranetEndpoint>
+      <Location>oss-cn-shanghai</Location>
+      <Name>test-bucket-1</Name>
+      <Region>cn-shanghai</Region>
+      <StorageClass>IA</StorageClass>
+      <ResourceGroupId>rg-acfmxmt3***</ResourceGroupId>
+    </Bucket>
+    <Bucket>
+      <CreationDate>2014-02-05T11:21:04.000Z</CreationDate>
+      <ExtranetEndpoint>oss-cn-hangzhou.aliyuncs.com</ExtranetEndpoint>
+      <IntranetEndpoint>oss-cn-hangzhou-internal.aliyuncs.com</IntranetEndpoint>
+      <Location>oss-cn-hangzhou</Location>
+      <Name>test-bucket-2</Name>
+      <Region>cn-hangzhou</Region>
+      <StorageClass>Standard</StorageClass>
+      <ResourceGroupId>rg-***</ResourceGroupId>
+    </Bucket>
+  </Buckets>
+</ListAllMyBucketsResult>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        headers = dict()
+        headers['x-oss-resource-group-id'] = 'rg-acfmxmt3***'
+        result = service().list_buckets(prefix='my', max_keys=10, headers=headers)
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual("512**", result.owner.id)
+        self.assertEqual("51264", result.owner.display_name)
+        self.assertEqual("test-bucket-1", result.buckets[0].name)
+        self.assertEqual("cn-shanghai", result.buckets[0].region)
+        self.assertEqual("IA", result.buckets[0].storage_class)
+        self.assertEqual("rg-acfmxmt3***", result.buckets[0].resource_group_id)
+        self.assertEqual("oss-cn-shanghai", result.buckets[0].location)
+        self.assertEqual(iso8601_to_unixtime("2014-02-07T18:12:43.000Z"), result.buckets[0].creation_date)
+        self.assertEqual("oss-cn-shanghai.aliyuncs.com", result.buckets[0].extranet_endpoint)
+        self.assertEqual("oss-cn-shanghai-internal.aliyuncs.com", result.buckets[0].intranet_endpoint)
+        self.assertEqual("test-bucket-2", result.buckets[1].name)
+        self.assertEqual("cn-hangzhou", result.buckets[1].region)
+        self.assertEqual("Standard", result.buckets[1].storage_class)
+        self.assertEqual("rg-***", result.buckets[1].resource_group_id)
+        self.assertEqual("oss-cn-hangzhou", result.buckets[1].location)
+        self.assertEqual(iso8601_to_unixtime("2014-02-05T11:21:04.000Z"), result.buckets[1].creation_date)
+        self.assertEqual("oss-cn-hangzhou.aliyuncs.com", result.buckets[1].extranet_endpoint)
+        self.assertEqual("oss-cn-hangzhou-internal.aliyuncs.com", result.buckets[1].intranet_endpoint)
+
+
+    @patch('oss2.Session.do_request')
+    def test_list_buckets_2(self, do_request):
+        request_text = '''GET /?prefix=my&max-keys=10 HTTP/1.1
+Host: oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:38 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+x-oss-resource-group-id: rg-acfmxmt3***
+authorization: OSS ZCDmm7TPZKHtx77j:Pt0DtPQ/FODOGs5y0yTIVctRcok='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:38 GMT
+Content-Type: application/xml
+Content-Length: 277
+Connection: keep-alive
+x-oss-resource-group-id: rg-acfmxmt3***
+x-oss-request-id: 566B6BDA010B7A4314D1614A
+
+<?xml version="1.0" encoding="UTF-8"?>
+<ListAllMyBucketsResult>
+  <Buckets>
+    <Bucket>
+      <CreationDate>2014-02-07T18:12:43.000Z</CreationDate>
+      <ExtranetEndpoint>oss-cn-shanghai.aliyuncs.com</ExtranetEndpoint>
+      <IntranetEndpoint>oss-cn-shanghai-internal.aliyuncs.com</IntranetEndpoint>
+      <Location>oss-cn-shanghai</Location>
+      <Name>test-bucket-1</Name>
+      <StorageClass>Standard</StorageClass>
+    </Bucket>
+  </Buckets>
+</ListAllMyBucketsResult>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        headers = dict()
+        headers['x-oss-resource-group-id'] = 'rg-acfmxmt3***'
+        result = service().list_buckets(prefix='my', max_keys=10, headers=headers)
+
+        self.assertRequest(req_info, request_text)
+
+        self.assertEqual("test-bucket-1", result.buckets[0].name)
+        self.assertEqual("Standard", result.buckets[0].storage_class)
+        self.assertEqual("oss-cn-shanghai", result.buckets[0].location)
+        self.assertEqual(iso8601_to_unixtime("2014-02-07T18:12:43.000Z"), result.buckets[0].creation_date)
+        self.assertEqual("oss-cn-shanghai.aliyuncs.com", result.buckets[0].extranet_endpoint)
+        self.assertEqual("oss-cn-shanghai-internal.aliyuncs.com", result.buckets[0].intranet_endpoint)
+
+
+    @patch('oss2.Session.do_request')
+    def test_get_bucket_info(self, do_request):
+        request_text = '''GET /?bucketInfo  HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<BucketInfo>
+  <Bucket>
+    <AccessMonitor>Enabled</AccessMonitor>
+    <CreationDate>2013-07-31T10:56:21.000Z</CreationDate>
+    <ExtranetEndpoint>oss-cn-hangzhou.aliyuncs.com</ExtranetEndpoint>
+    <IntranetEndpoint>oss-cn-hangzhou-internal.aliyuncs.com</IntranetEndpoint>
+    <Location>oss-cn-hangzhou</Location>
+    <StorageClass>IA</StorageClass>
+    <TransferAcceleration>Disabled</TransferAcceleration>
+    <CrossRegionReplication>Disabled</CrossRegionReplication>
+    <Name>oss-example</Name>
+    <ResourceGroupId>rg-aek27tc********</ResourceGroupId>
+    <Owner>
+      <DisplayName>username</DisplayName>
+      <ID>27183473914****</ID>
+    </Owner>
+    <AccessControlList>
+      <Grant>private</Grant>
+    </AccessControlList>  
+    <Comment>test</Comment>
+  </Bucket>
+</BucketInfo>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().get_bucket_info()
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.name, 'oss-example')
+        self.assertEqual(result.owner.display_name, 'username')
+        self.assertEqual(result.owner.id, '27183473914****')
+        self.assertEqual(result.location, 'oss-cn-hangzhou')
+        self.assertEqual(result.storage_class, 'IA')
+        self.assertEqual(result.access_monitor, 'Enabled')
+        self.assertEqual(result.creation_date, '2013-07-31T10:56:21.000Z')
+        self.assertEqual(result.intranet_endpoint, 'oss-cn-hangzhou-internal.aliyuncs.com')
+        self.assertEqual(result.extranet_endpoint, 'oss-cn-hangzhou.aliyuncs.com')
+        self.assertEqual(result.transfer_acceleration, 'Disabled')
+        self.assertEqual(result.cross_region_replication, 'Disabled')
+        self.assertEqual(result.resource_group_id, 'rg-aek27tc********')
+        self.assertEqual(result.acl.grant, 'private')
+        self.assertEqual(result.comment, 'test')
+
 
 if __name__ == '__main__':
     unittest.main()

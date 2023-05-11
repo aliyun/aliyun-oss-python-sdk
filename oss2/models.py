@@ -505,7 +505,7 @@ class GetObjectAclResult(RequestResult):
 
 class SimplifiedBucketInfo(object):
     """:func:`list_buckets <oss2.Service.list_objects>` 结果中的单个元素类型。"""
-    def __init__(self, name, location, creation_date, extranet_endpoint, intranet_endpoint, storage_class):
+    def __init__(self, name, location, creation_date, extranet_endpoint, intranet_endpoint, storage_class, region=None, resource_group_id=None):
         #: Bucket名
         self.name = name
 
@@ -524,6 +524,12 @@ class SimplifiedBucketInfo(object):
         #: Bucket存储类型，支持“Standard”、“IA”、“Archive”、“ColdArchive”
         self.storage_class = storage_class
 
+        #: Bucket所在地域
+        self.region = region
+
+        #: Bucket所属资源组ID
+        self.resource_group_id = resource_group_id
+
 
 class ListBucketsResult(RequestResult):
     def __init__(self, resp):
@@ -537,6 +543,9 @@ class ListBucketsResult(RequestResult):
 
         #: 得到的Bucket列表，类型为 :class:`SimplifiedBucketInfo` 。
         self.buckets = []
+
+        #: owner信息, 类型为: class:`Owner <oss2.models.Owner>`
+        self.owner = Owner('', '')
 
 
 class MultipartUploadInfo(object):
@@ -698,7 +707,8 @@ class Owner(object):
 class BucketInfo(object):
     def __init__(self, name=None, owner=None, location=None, storage_class=None, intranet_endpoint=None,
                  extranet_endpoint=None, creation_date=None, acl=None, data_redundancy_type=None, comment=None,
-                 bucket_encryption_rule=None, versioning_status=None, access_monitor=None):
+                 bucket_encryption_rule=None, versioning_status=None, access_monitor=None,
+                 transfer_acceleration=None, cross_region_replication=None, resource_group_id=None):
         self.name = name
         self.owner = owner
         self.location = location
@@ -713,6 +723,9 @@ class BucketInfo(object):
         self.bucket_encryption_rule = bucket_encryption_rule
         self.versioning_status = versioning_status
         self.access_monitor = access_monitor
+        self.transfer_acceleration = transfer_acceleration
+        self.cross_region_replication = cross_region_replication
+        self.resource_group_id = resource_group_id
 
 
 class GetBucketStatResult(RequestResult, BucketStat):
@@ -2732,3 +2745,4 @@ class CallbackPolicyResult(RequestResult):
     def __init__(self, resp):
         super(CallbackPolicyResult, self).__init__(resp)
         self.callback_policies = []
+
