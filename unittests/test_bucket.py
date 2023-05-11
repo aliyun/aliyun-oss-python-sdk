@@ -6,7 +6,7 @@ from mock import patch
 from functools import partial
 
 from oss2 import to_string
-from oss2.models import AggregationsRequest, MetaQuery
+from oss2.models import AggregationsRequest, MetaQuery, CallbackPolicyInfo
 from unittests.common import *
 
 
@@ -2008,6 +2008,78 @@ x-oss-request-id: 566B6BDA010B7A4314D1614A
         self.assertEqual(rule.filter.filter_not[0].tag.key, key)
         self.assertEqual(rule.filter.filter_not[0].tag.value, value)
 
+
+    @patch('oss2.Session.do_request')
+    def test_get_lifecycle_not(self, do_request):
+        from oss2.models import LifecycleRule
+
+        request_text = '''GET /?lifecycle= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:38 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:mr0QeREuAcoeK0rSWBnobrzu6uU='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:38 GMT
+Content-Type: application/xml
+Content-Length: 277
+Connection: keep-alive
+x-oss-request-id: 566B6BDA010B7A4314D1614A
+
+<?xml version="1.0" encoding="UTF-8"?>
+<LifecycleConfiguration>
+  <Rule>
+    <ID>{0}</ID>
+    <Prefix>{1}</Prefix>
+    <Status>{2}</Status>
+    <Expiration>
+      <Date>{3}</Date>
+    </Expiration>
+    <Filter>
+        <Not>
+            <Prefix>{4}</Prefix>
+            <Tag>
+                <Key>{5}</Key>
+                <Value>{6}</Value>
+            </Tag>
+        </Not>
+        <Not>
+            <Prefix>{7}</Prefix>
+        </Not>
+    </Filter>
+  </Rule>
+</LifecycleConfiguration>'''
+
+        id = 'whatever'
+        prefix = 'lifecycle rule 1'
+        status = LifecycleRule.DISABLED
+        date = datetime.date(2015, 12, 25)
+        not_prefix = 'not'
+        key = 'key'
+        value = 'value'
+        not_prefix2 = 'not2'
+
+        req_info = mock_response(do_request, response_text.format(id, prefix, status, '2015-12-25T00:00:00.000Z', not_prefix, key, value, not_prefix2))
+        result = bucket().get_bucket_lifecycle()
+
+        self.assertRequest(req_info, request_text)
+
+        rule = result.rules[0]
+        self.assertEqual(rule.id, id)
+        self.assertEqual(rule.prefix, prefix)
+        self.assertEqual(rule.status, status)
+        self.assertEqual(rule.expiration.date, date)
+        self.assertEqual(rule.expiration.days, None)
+        self.assertEqual(rule.filter.filter_not[0].prefix, not_prefix)
+        self.assertEqual(rule.filter.filter_not[0].tag.key, key)
+        self.assertEqual(rule.filter.filter_not[0].tag.value, value)
+        self.assertEqual(rule.filter.filter_not[1].prefix, not_prefix2)
+
+
     @patch('oss2.Session.do_request')
     def test_put_bucket_resource_group(self, do_request):
         request_text = '''PUT /?resourceGroup HTTP/1.1
@@ -2196,6 +2268,317 @@ x-oss-request-id: 566B6BDD68248CE14F729DC0
         req_info = mock_response(do_request, response_text)
 
         result = bucket().delete_bucket_style('imagestyle')
+
+        self.assertRequest(req_info, request_text)
+
+
+    @patch('oss2.Session.do_request')
+    def test_put_black_referer(self, do_request):
+        from oss2.models import BucketReferer
+
+        request_text = '''PUT /?referer= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Content-Length: 249
+date: Sat, 12 Dec 2015 00:35:46 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:Kq2RS9nmT44C1opXGbcLzNdTt1A=
+
+<RefererConfiguration>
+<AllowEmptyReferer>true</AllowEmptyReferer>
+<RefererList>
+<Referer>http://hello.com</Referer>
+<Referer>mibrowser:home</Referer>
+<Referer>{0}</Referer>
+</RefererList>
+<AllowTruncateQueryString>true</AllowTruncateQueryString>
+<RefererBlacklist>
+<Referer>http://hello2.com</Referer>
+<Referer>mibrowser2:home</Referer>
+<Referer>{1}</Referer>
+</RefererBlacklist>
+</RefererConfiguration>'''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:46 GMT
+Content-Length: 0
+Connection: keep-alive
+x-oss-request-id: 566B6BE244ABFA2608E5A8AD'''
+
+        req_info = mock_response(do_request, response_text)
+
+        bucket().put_bucket_referer(BucketReferer(True, ['http://hello.com', 'mibrowser:home', '阿里巴巴'], True, ['http://hello2.com', 'mibrowser2:home', '阿里巴巴2']))
+
+        self.assertRequest(req_info, request_text.format('阿里巴巴', '阿里巴巴2'))
+
+
+    @patch('oss2.Session.do_request')
+    def test_get_black_referer(self, do_request):
+        request_text = '''GET /?referer= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:47 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:nWqS3JExf/lsVxm+Sbxbg2cQyrc='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:47 GMT
+Content-Type: application/xml
+Content-Length: 319
+Connection: keep-alive
+x-oss-request-id: 566B6BE3BCD1D4FE65D449A2
+
+<?xml version="1.0" encoding="UTF-8"?>
+<RefererConfiguration>
+  <AllowEmptyReferer>true</AllowEmptyReferer>
+  <AllowTruncateQueryString>false</AllowTruncateQueryString>
+  <RefererList>
+    <Referer>http://hello.com</Referer>
+    <Referer>mibrowser:home</Referer>
+    <Referer>{0}</Referer>
+  </RefererList>
+  <RefererBlacklist>
+    <Referer>http://www.aliyun.com</Referer>
+    <Referer>mibrowser:home.com</Referer>
+  </RefererBlacklist>
+</RefererConfiguration>'''.format('阿里巴巴')
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().get_bucket_referer()
+
+        self.assertRequest(req_info, request_text)
+
+        self.assertEqual(result.allow_empty_referer, True)
+        self.assertEqual(result.allow_truncate_query_string, False)
+        self.assertSortedListEqual(result.referers, ['http://hello.com', 'mibrowser:home', '阿里巴巴'])
+        self.assertSortedListEqual(result.black_referers, ['http://www.aliyun.com', 'mibrowser:home.com'])
+
+
+    @patch('oss2.Session.do_request')
+    def test_get_black_referer2(self, do_request):
+        request_text = '''GET /?referer= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:47 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:nWqS3JExf/lsVxm+Sbxbg2cQyrc='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:47 GMT
+Content-Type: application/xml
+Content-Length: 319
+Connection: keep-alive
+x-oss-request-id: 566B6BE3BCD1D4FE65D449A2
+
+<?xml version="1.0" encoding="UTF-8"?>
+<RefererConfiguration>
+  <AllowEmptyReferer>true</AllowEmptyReferer>
+  <RefererList>
+    <Referer>http://hello.com</Referer>
+    <Referer>mibrowser:home</Referer>
+    <Referer>{0}</Referer>
+  </RefererList>
+
+</RefererConfiguration>'''.format('阿里巴巴')
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().get_bucket_referer()
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.allow_empty_referer, True)
+        self.assertSortedListEqual(result.referers, ['http://hello.com', 'mibrowser:home', '阿里巴巴'])
+
+    @patch('oss2.Session.do_request')
+    def test_describe_regions(self, do_request):
+        request_text = '''GET /?regions HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<RegionInfoList>
+  <RegionInfo>
+     <Region>oss-cn-hangzhou</Region>
+     <InternetEndpoint>oss-cn-hangzhou.aliyuncs.com</InternetEndpoint>
+     <InternalEndpoint>oss-cn-hangzhou-internal.aliyuncs.com</InternalEndpoint>
+     <AccelerateEndpoint>oss-accelerate.aliyuncs.com</AccelerateEndpoint>  
+  </RegionInfo>
+  <RegionInfo>
+     <Region>oss-cn-shanghai</Region>
+     <InternetEndpoint>oss-cn-shanghai.aliyuncs.com</InternetEndpoint>
+     <InternalEndpoint>oss-cn-shanghai-internal.aliyuncs.com</InternalEndpoint>
+     <AccelerateEndpoint>oss-accelerate.aliyuncs.com</AccelerateEndpoint>  
+  </RegionInfo>
+</RegionInfoList>
+'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = service().describe_regions()
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.regions[0].region, 'oss-cn-hangzhou')
+        self.assertEqual(result.regions[0].internet_endpoint, 'oss-cn-hangzhou.aliyuncs.com')
+        self.assertEqual(result.regions[0].internal_endpoint, 'oss-cn-hangzhou-internal.aliyuncs.com')
+        self.assertEqual(result.regions[0].accelerate_endpoint, 'oss-accelerate.aliyuncs.com')
+        self.assertEqual(result.regions[1].region, 'oss-cn-shanghai')
+        self.assertEqual(result.regions[1].internet_endpoint, 'oss-cn-shanghai.aliyuncs.com')
+        self.assertEqual(result.regions[1].internal_endpoint, 'oss-cn-shanghai-internal.aliyuncs.com')
+        self.assertEqual(result.regions[1].accelerate_endpoint, 'oss-accelerate.aliyuncs.com')
+        
+    @patch('oss2.Session.do_request')
+    def test_async_process_object(self, do_request):
+        request_text = '''POST /test-video.mp4?x-oss-async-process HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+x-oss-async-process=video/convert,f_mp4,vcodec_h265,s_1920x1080,vb_2000000,fps_30,acodec_aac,ab_100000,sn_1|sys/saveas
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****
+'''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:42 GMT
+Content-Type: application/xml
+Content-Length: 96
+Connection: keep-alive
+x-oss-request-id: 566B6BDD68248CE14F729DC0
+x-oss-async-process=video/convert,f_mp4,vcodec_h265,s_1920x1080,vb_2000000,fps_30,acodec_aac,ab_100000,sn_1|sys/saveas
+
+{"EventId":"3D7-1XxFtV2t3VtcOn2CXqI2ldsMN3i","RequestId":"8DF65942-D483-5E7E-BC1A-B25C617A9C32","TaskId":"MediaConvert-d2280366-cd33-48f7-90c6-a0dab65bed63"}
+'''
+        req_info = mock_response(do_request, response_text)
+        key = "test-video.mp4"
+        result = bucket().async_process_object(key, 'video/convert,f_mp4,vcodec_h265,s_1920x1080,vb_2000000,fps_30,acodec_aac,ab_100000,sn_1|sys/saveas')
+
+        self.assertEqual(result.request_id, '566B6BDD68248CE14F729DC0')
+        self.assertEqual(result.async_request_id, '8DF65942-D483-5E7E-BC1A-B25C617A9C32')
+        self.assertEqual(result.event_id, '3D7-1XxFtV2t3VtcOn2CXqI2ldsMN3i')
+        self.assertEqual(result.task_id, 'MediaConvert-d2280366-cd33-48f7-90c6-a0dab65bed63')
+
+        
+    @patch('oss2.Session.do_request')
+    def test_put_bucket_callback_policy(self, do_request):
+        request_text = '''PUT /?policy&comp=callback HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****
+
+<BucketCallbackPolicy>
+<PolicyItem>
+<PolicyName>test_1</PolicyName>
+<Callback>eyJjYWxsYmFja1VybCI6Ind3dy5hYmMuY29tL2NhbGxiYWNrIiwiY2FsbGJhY2tCb2R5IjoiJHtldGFnfSJ9=</Callback>
+<CallbackVar/>
+</PolicyItem>
+<PolicyItem>
+<PolicyName>{0}</PolicyName>
+<Callback>{1}</Callback>
+<CallbackVar>{2}</CallbackVar>
+</PolicyItem>
+</BucketCallbackPolicy>'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 5C1B138A109F4E405B2D
+content-length: 0
+x-oss-console-auth: success
+server: AliyunOSS
+x-oss-server-time: 980
+connection: keep-alive
+date: Wed, 15 Sep 2021 03:33:37 GMT'''
+
+        req_info = mock_response(do_request, response_text)
+        policy_name = 'test_1'
+        callback = 'eyJjYWxsYmFja1VybCI6Ind3dy5hYmMuY29tL2NhbGxiYWNrIiwiY2FsbGJhY2tCb2R5IjoiJHtldGFnfSJ9='
+        policy_name2 = 'test_2'
+        callback2 = 'eyJjYWxsYmFja1VybCI6Imh0dHA6Ly93d3cuYmJjVwiOiR7c2l6ZX19In0='
+        callback_var2 = 'eyJ4OmEiOiJhIiwgIng6YiI6ImIifQ=='
+        callback_policy_1 = CallbackPolicyInfo(policy_name, callback)
+        callback_policy_2 = CallbackPolicyInfo(policy_name2, callback2, callback_var2)
+        bucket().put_bucket_callback_policy([callback_policy_1, callback_policy_2])
+        self.assertRequest(req_info, request_text.format(policy_name2, callback2, callback_var2))
+
+    @patch('oss2.Session.do_request')
+    def test_get_callback_policy(self, do_request):
+        request_text = '''GET /?policy&comp=callback HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<BucketCallbackPolicy>
+  <PolicyItem>
+    <PolicyName>test_1</PolicyName>
+    <Callback>eyJjYWxsYmFja1VybCI6Ind3dy5hYmMuY29tL2NhbGxiYWNrIiwiY2FsbGJhY2tCb2R5IjoiJHtldGFnfSJ9</Callback>
+    <CallbackVar>eyJ4OnZhcjEiOiJ2YWx1ZTEiLCJ4OnZhcjIiOiJ2YWx1ZTIifQ==</CallbackVar>
+  </PolicyItem>
+  <PolicyItem>
+    <PolicyName>test_2</PolicyName>
+    <Callback>eyJjYWxsYmFja1VybCI6Imh0dHe1wibWltZVR5cGVcIjoke21pbWVUeXBlfSxcInNpemVcIjoke3NpemV9fSJ9</Callback>
+    <CallbackVar>eyJ4OmEiOiJhIiwgIng6YiI6ImIifQ==</CallbackVar>
+  </PolicyItem>
+</BucketCallbackPolicy>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().get_bucket_callback_policy()
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.callback_policies[0].policy_name, 'test_1')
+        self.assertEqual(result.callback_policies[0].callback, 'eyJjYWxsYmFja1VybCI6Ind3dy5hYmMuY29tL2NhbGxiYWNrIiwiY2FsbGJhY2tCb2R5IjoiJHtldGFnfSJ9')
+        self.assertEqual(result.callback_policies[0].callback_var, 'eyJ4OnZhcjEiOiJ2YWx1ZTEiLCJ4OnZhcjIiOiJ2YWx1ZTIifQ==')
+        self.assertEqual(result.callback_policies[1].policy_name, 'test_2')
+        self.assertEqual(result.callback_policies[1].callback, 'eyJjYWxsYmFja1VybCI6Imh0dHe1wibWltZVR5cGVcIjoke21pbWVUeXBlfSxcInNpemVcIjoke3NpemV9fSJ9')
+        self.assertEqual(result.callback_policies[1].callback_var, 'eyJ4OmEiOiJhIiwgIng6YiI6ImIifQ==')
+
+
+    @patch('oss2.Session.do_request')
+    def test_delete_callback_policy(self, do_request):
+        request_text = '''DELETE /?policy&comp=callback HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:41 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:Pt0DtPQ/FODOGs5y0yTIVctRcok='''
+
+        response_text = '''HTTP/1.1 204 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:42 GMT
+Content-Type: application/xml
+Content-Length: 96
+Connection: keep-alive
+x-oss-request-id: 566B6BDD68248CE14F729DC0
+'''
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().delete_bucket_callback_policy()
 
         self.assertRequest(req_info, request_text)
 

@@ -8,14 +8,13 @@ oss2.exceptions
 """
 
 import re
-
+import base64
 import xml.etree.ElementTree as ElementTree
 from xml.parsers import expat
 
 
 from .compat import to_string
 from .headers import *
-
 
 _OSS_ERROR_TO_EXCEPTION = {}  # populated at end of module
 
@@ -46,6 +45,12 @@ class OssError(Exception):
 
         #: OSS错误信息
         self.message = self.details.get('Message', '')
+
+        #: OSS新的错误码
+        self.ec = self.details.get('EC', '')
+
+        #: header信息
+        self.headers = headers
 
     def __str__(self):
         error = {'status': self.status,
@@ -317,7 +322,14 @@ def make_exception(resp):
     status = resp.status
     headers = resp.headers
     body = resp.read(4096)
-    details = _parse_error_body(body)
+    if not body and headers.get('x-oss-err') is not None:
+        try:
+            value = base64.b64decode(to_string(headers.get('x-oss-err')))
+        except:
+            value = body
+        details = _parse_error_body(value)
+    else:
+        details = _parse_error_body(body)
     code = details.get('Code', '')
 
     try:
