@@ -1201,5 +1201,18 @@ class TestBucket(OssTestCase):
         self.assertEqual(oss2.BUCKET_STORAGE_CLASS_IA, bucket_info3.storage_class)
         self.assertEqual("SM4", bucket_info3.bucket_encryption_rule.sse_algorithm)
 
+
+    def test_bucket_with_group_id(self):
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        service = oss2.Service(auth, OSS_ENDPOINT)
+
+        # By getting_ bucket_ Information to obtain resource_ group_ id
+        bucket_info = self.bucket.get_bucket_info()
+
+        headers = dict()
+        headers['x-oss-resource-group-id'] = bucket_info.resource_group_id
+        result = service.list_buckets(prefix='oss-python-sdk-', max_keys=10, headers=headers)
+        self.assertEqual(bucket_info.resource_group_id, result.buckets[0].resource_group_id)
+
 if __name__ == '__main__':
     unittest.main()
