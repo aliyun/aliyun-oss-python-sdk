@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+import os
 import time
 import requests
 import json
@@ -130,3 +130,21 @@ class EcsRamRoleCredentialsFetcher(object):
                 if i == retry_times - 1:
                     logger.error("Exception: {0}".format(e))
                     raise ClientError("Failed to get credentials from ECS metadata service. {0}".format(e))
+
+
+class EnvironmentVariableCredentialsProvider(CredentialsProvider):
+    def __init__(self):
+        self.access_key_id = ""
+        self.access_key_secret = ""
+        self.security_token = ""
+
+    def get_credentials(self):
+        access_key_id = os.getenv('OSS_ACCESS_KEY_ID')
+        access_key_secret = os.getenv('OSS_ACCESS_KEY_SECRET')
+        security_token = os.getenv('OSS_SESSION_TOKEN')
+
+        if not access_key_id:
+            raise ClientError("Access key id should not be null or empty.")
+        if not access_key_secret:
+            raise ClientError("Secret access key should not be null or empty.")
+        return Credentials(access_key_id, access_key_secret, security_token)
