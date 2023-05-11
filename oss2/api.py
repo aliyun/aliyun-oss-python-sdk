@@ -530,7 +530,7 @@ class Bucket(_Base):
         logger.debug(
             "Start to List objects, bucket: {0}, prefix: {1}, delimiter: {2}, marker: {3}, max-keys: {4}".format(
                 self.bucket_name, to_string(prefix), delimiter, to_string(marker), max_keys))
-        resp = self.__do_object('GET', '',
+        resp = self.__do_bucket('GET',
                                 params={'prefix': prefix,
                                         'delimiter': delimiter,
                                         'marker': marker,
@@ -560,7 +560,7 @@ class Bucket(_Base):
             "Start to List objects, bucket: {0}, prefix: {1}, delimiter: {2}, continuation_token: {3}, "
             "start-after: {4}, fetch-owner: {5}, encoding_type: {6}, max-keys: {7}".format(
                 self.bucket_name, to_string(prefix), delimiter, continuation_token, start_after, fetch_owner, encoding_type, max_keys))
-        resp = self.__do_object('GET', '',
+        resp = self.__do_bucket('GET',
                                 params={'list-type': '2',
                                         'prefix': prefix,
                                         'delimiter': delimiter,
@@ -1278,7 +1278,7 @@ class Bucket(_Base):
         headers = http.CaseInsensitiveDict(headers)
         headers['Content-MD5'] = utils.content_md5(data)
 
-        resp = self.__do_object('POST', '',
+        resp = self.__do_bucket('POST',
                                 data=data,
                                 params={'delete': '', 'encoding-type': 'url'},
                                 headers=headers)
@@ -1305,7 +1305,7 @@ class Bucket(_Base):
         headers = http.CaseInsensitiveDict(headers)
         headers['Content-MD5'] = utils.content_md5(data)
 
-        resp = self.__do_object('POST', '',
+        resp = self.__do_bucket('POST',
                                 data=data,
                                 params={'delete': '', 'encoding-type': 'url'},
                                 headers=headers)
@@ -1463,7 +1463,7 @@ class Bucket(_Base):
 
         headers = http.CaseInsensitiveDict(headers)
 
-        resp = self.__do_object('GET', '',
+        resp = self.__do_bucket('GET',
                                 params={'uploads': '',
                                         'prefix': prefix,
                                         'delimiter': delimiter,
@@ -2829,6 +2829,10 @@ class Bucket(_Base):
 
 
     def __do_object(self, method, key, **kwargs):
+        if not self.bucket_name:
+            raise ClientError("Bucket name should not be null or empty.")
+        if not key:
+            raise ClientError("key should not be null or empty.")
         return self._do(method, self.bucket_name, key, **kwargs)
 
     def __do_bucket(self, method, **kwargs):
