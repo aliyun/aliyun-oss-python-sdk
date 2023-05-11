@@ -1461,6 +1461,29 @@ class TestObject(OssTestCase):
         result = bucket.list_objects()
         self.assertTrue(result.object_list[0].restore_info.__contains__('ongoing-request="true"'))
         self.assertTrue(result.object_list[1].restore_info.__contains__('ongoing-request="true"'))
+
+    def test_async_process_object(self):
+        try:
+            key = self.random_key(".jpg")
+            result = self.bucket.put_object_from_file(key, "tests/example.jpg")
+            self.assertEqual(result.status, 200)
+            dest_key = self.random_key(".jpg")
+
+            process = "image/resize,w_100|sys/saveas,o_{0},b_{1}".format(
+                oss2.compat.to_string(base64.urlsafe_b64encode(oss2.compat.to_bytes(dest_key))).replace('=', ''),
+                oss2.compat.to_string(base64.urlsafe_b64encode(oss2.compat.to_bytes(self.bucket.bucket_name))).replace('=', ''))
+
+            result = self.bucket.async_process_object(key, process)
+
+            # imm dont support process image in async mode
+            self.assertFalse(True, 'should not here')
+        except oss2.exceptions.OssError as e:
+            # expect Imm Client Error
+            self.assertEqual(e.code, 'Imm Client')
+            self.assertEqual(e.message, 'The specified resource Route is not found.')
+        except:
+            self.assertFalse(True, 'should not here')
+
     
 class TestSign(TestObject):
     """
