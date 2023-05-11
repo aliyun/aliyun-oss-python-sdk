@@ -74,7 +74,8 @@ from .models import (SimplifiedObjectInfo,
                      FilterNot,
                      FilterNotTag,
                      BucketStyleInfo,
-                     RegionInfo)
+                     RegionInfo,
+                     CallbackPolicyInfo)
 
 from .select_params import (SelectJsonTypes, SelectParameters)
 
@@ -2012,6 +2013,7 @@ def parse_list_bucket_style(result, body):
 
         result.styles.append(tmp)
 
+
 def parse_describe_regions(result, body):
     root = ElementTree.fromstring(body)
     for region in root.findall('RegionInfo'):
@@ -2030,3 +2032,30 @@ def parse_async_process_object(result, body):
         result.async_request_id = body_dict['RequestId']
         result.task_id = body_dict['TaskId']
     return result
+
+def to_do_bucket_callback_policy_request(callback_policy):
+    root = ElementTree.Element("BucketCallbackPolicy")
+    if callback_policy:
+        for policy in callback_policy:
+            if policy:
+                policy_node = ElementTree.SubElement(root, 'PolicyItem')
+                if policy.policy_name is not None:
+                    _add_text_child(policy_node, 'PolicyName', policy.policy_name)
+                if policy.callback is not None:
+                    _add_text_child(policy_node, 'Callback', policy.callback)
+                if policy.callback_var is None:
+                    _add_text_child(policy_node, 'CallbackVar', '')
+                else:
+                    _add_text_child(policy_node, 'CallbackVar', policy.callback_var)
+
+    return _node_to_string(root)
+
+def parse_callback_policy_result(result, body):
+    root = ElementTree.fromstring(body)
+    for policy in root.findall('PolicyItem'):
+        tmp = CallbackPolicyInfo()
+        tmp.policy_name = _find_tag_with_default(policy, 'PolicyName', None)
+        tmp.callback = _find_tag_with_default(policy, 'Callback', None)
+        tmp.callback_var = _find_tag_with_default(policy, 'CallbackVar', None)
+
+        result.callback_policies.append(tmp)
