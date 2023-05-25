@@ -223,7 +223,7 @@ def parse_list_buckets(result, body):
     if result.is_truncated:
         result.next_marker = _find_tag(root, 'NextMarker')
 
-    if root.find('Owner'):
+    if root.find('Owner') is not None:
         result.owner = Owner(_find_tag_with_default(root, 'Owner/DisplayName', None), _find_tag_with_default(root, 'Owner/ID', None))
 
     for bucket_node in root.findall('Buckets/Bucket'):
