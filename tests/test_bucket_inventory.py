@@ -193,7 +193,7 @@ class TestBucketInventory(OssTestCase):
 
     def test_bucket_inventory_filter(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
-        dest_bucket_name = OSS_BUCKET + "-test-inventory-dest-filter"
+        dest_bucket_name = self.OSS_BUCKET + "-test-inventory-dest-filter"
         dest_bucket = oss2.Bucket(auth, self.endpoint, dest_bucket_name)
         dest_bucket.create_bucket()
 
@@ -226,11 +226,11 @@ class TestBucketInventory(OssTestCase):
         self.assertEquals(INVENTORY_FREQUENCY_WEEKLY, result.inventory_schedule.frequency)
         self.assertEquals(INVENTORY_INCLUDED_OBJECT_VERSIONS_ALL, result.included_object_versions)
         self.assertEquals("obj-prefix", result.inventory_filter.prefix)
-        self.assertEquals(1637883649, result.inventory_filter.last_modify_begin_time_stamp)
-        self.assertEquals(1638347592, result.inventory_filter.last_modify_end_time_stamp)
-        self.assertEquals(1024, result.inventory_filter.lower_size_bound)
-        self.assertEquals(1048576, result.inventory_filter.upper_size_bound)
-        self.assertEquals("Standard,IA", result.inventory_filter.storage_class)
+        self.assertEquals("1637883649", result.inventory_filter.last_modify_begin_time_stamp)
+        self.assertEquals("1638347592", result.inventory_filter.last_modify_end_time_stamp)
+        self.assertEquals("1024", result.inventory_filter.lower_size_bound)
+        self.assertEquals("1048576", result.inventory_filter.upper_size_bound)
+        self.assertEquals("IA,Standard", result.inventory_filter.storage_class)
         self.assertEquals(len(optional_fields), len(result.optional_fields))
         ret_bucket_destin = result.inventory_destination.bucket_destination
         self.assertEquals(OSS_INVENTORY_BUCKET_DESTINATION_ACCOUNT, ret_bucket_destin.account_id)
@@ -243,11 +243,11 @@ class TestBucketInventory(OssTestCase):
 
         result = self.bucket1.list_bucket_inventory_configurations()
         self.assertEquals("obj-prefix", result.inventory_configurations[0].inventory_filter.prefix)
-        self.assertEquals(1637883649, result.inventory_configurations[0].inventory_filter.last_modify_begin_time_stamp)
-        self.assertEquals(1638347592, result.inventory_configurations[0].inventory_filter.last_modify_end_time_stamp)
-        self.assertEquals(1024, result.inventory_configurations[0].inventory_filter.lower_size_bound)
-        self.assertEquals(1048576, result.inventory_configurations[0].inventory_filter.upper_size_bound)
-        self.assertEquals("Standard,IA", result.inventory_configurations[0].inventory_filter.storage_class)
+        self.assertEquals("1637883649", result.inventory_configurations[0].inventory_filter.last_modify_begin_time_stamp)
+        self.assertEquals("1638347592", result.inventory_configurations[0].inventory_filter.last_modify_end_time_stamp)
+        self.assertEquals("1024", result.inventory_configurations[0].inventory_filter.lower_size_bound)
+        self.assertEquals("1048576", result.inventory_configurations[0].inventory_filter.upper_size_bound)
+        self.assertEquals("IA,Standard", result.inventory_configurations[0].inventory_filter.storage_class)
 
         self.bucket1.delete_bucket_inventory_configuration(inventory_id)
         dest_bucket.delete_bucket()
