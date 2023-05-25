@@ -1085,6 +1085,8 @@ class Bucket(_Base):
             self.get_object_meta(key, headers=headers)
         except exceptions.NoSuchKey:
             return False
+        except exceptions.NoSuchBucket:
+            raise
         except exceptions.NotFound:
             return False
         except:
