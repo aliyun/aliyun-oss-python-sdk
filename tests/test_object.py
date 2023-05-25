@@ -1484,7 +1484,40 @@ class TestObject(OssTestCase):
         except:
             self.assertFalse(True, 'should not here')
 
-    
+    def test_restore_object(self):
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket_name = self.OSS_BUCKET + "-test-do-object-check"
+        key = 'a.txt'
+
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
+        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE, oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_ARCHIVE))
+
+        wait_meta_sync()
+
+        put_result = bucket.put_object(key, 'content')
+        self.assertEqual(put_result.status, 200)
+        try:
+            bucket.delete_object('')
+        except oss2.exceptions.ClientError as e:
+            self.assertEqual(e.body, 'ClientError: key should not be null or empty.')
+
+        try:
+            bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
+
+            bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE, oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_ARCHIVE))
+
+            wait_meta_sync()
+
+            bucket.delete_object(None)
+
+        except oss2.exceptions.ClientError as e:
+            self.assertEqual(e.body, 'ClientError: key should not be null or empty.')
+
+
+        del_result = bucket.delete_object(key)
+        self.assertEqual(del_result.status, 204)
+        bucket.delete_bucket()
+
 class TestSign(TestObject):
     """
         这个类主要是用来增加测试覆盖率，当环境变量为oss2.AUTH_VERSION_2，则重新设置为oss2.AUTH_VERSION_1再运行TestObject，反之亦然
