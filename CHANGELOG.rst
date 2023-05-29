@@ -3,6 +3,21 @@ OSS SDK for Python 版本记录
 
 Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
+Version 2.18.0
+-------------
+- 更新：bucket tagging 接口支持删除指定tag 
+- 更新：bucket referer 接口支持黑名单参数 
+- 增加：支持describe regions接口
+- 增加：支持callback policy接口
+- 更新：create bucket 接口支持服务端加密参数
+- 更新：支持DeepCodeArcheive存储类型
+- 增加：EnvironmentVariableCredentialsProvider 实现
+- 优化：增加object名字的非空检查 
+- 增加：支持异步图片处理接口
+- 增加：支持EC错误码处理
+- 更新：get_object_meta接口请求方法从GET修改为HEAD
+
+
 Version 2.17.0
 -------------
 - 增加：支持 x-oss-ac-* 加入到签名子资源
