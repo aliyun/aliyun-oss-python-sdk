@@ -1214,5 +1214,14 @@ class TestBucket(OssTestCase):
         result = service.list_buckets(prefix='oss-python-sdk-', max_keys=10, headers=headers)
         self.assertEqual(bucket_info.resource_group_id, result.buckets[0].resource_group_id)
 
+    def test_list_buckets_with_region_list(self):
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        service = oss2.Service(auth, OSS_ENDPOINT)
+        params = {}
+        params['regionList']=''
+        result = service.list_buckets(params=params)
+        self.assertEqual(200, result.status)
+        self.assertTrue(result.buckets.__len__() > 0)
+
 if __name__ == '__main__':
     unittest.main()
