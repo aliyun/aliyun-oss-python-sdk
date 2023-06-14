@@ -28,6 +28,12 @@ for param in (access_key_id, access_key_secret, bucket_name, endpoint):
 service = oss2.Service(oss2.Auth(access_key_id, access_key_secret), endpoint)
 print('\n'.join(info.name for info in oss2.BucketIterator(service)))
 
+# 列举所有的Bucket,单region场景
+params = {}
+params['regionList'] = ''
+result = service.list_buckets(params=params)
+for bucket_info in result.buckets:
+    print('name: ' + bucket_info.name)
 
 # 创建Bucket对象，所有Object相关的接口都可以通过Bucket对象来进行
 bucket = oss2.Bucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name)
