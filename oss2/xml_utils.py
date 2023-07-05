@@ -353,19 +353,36 @@ def parse_get_bucket_stat(result, body):
     result.storage_size_in_bytes = _find_int(root, 'Storage')
     result.object_count = _find_int(root, 'ObjectCount')
     result.multi_part_upload_count = int(_find_tag_with_default(root, 'MultipartUploadCount', 0))
-    result.live_channel_count = int(_find_tag_with_default(root, 'LiveChannelCount', 0))
-    result.last_modified_time = int(_find_tag_with_default(root, 'LastModifiedTime', 0))
-    result.standard_storage = int(_find_tag_with_default(root, 'StandardStorage', 0))
-    result.standard_object_count = int(_find_tag_with_default(root, 'StandardObjectCount', 0))
-    result.infrequent_access_storage = int(_find_tag_with_default(root, 'InfrequentAccessStorage', 0))
-    result.infrequent_access_real_storage = int(_find_tag_with_default(root, 'InfrequentAccessRealStorage', 0))
-    result.infrequent_access_object_count = int(_find_tag_with_default(root, 'InfrequentAccessObjectCount', 0))
-    result.archive_storage = int(_find_tag_with_default(root, 'ArchiveStorage', 0))
-    result.archive_real_storage = int(_find_tag_with_default(root, 'ArchiveRealStorage', 0))
-    result.archive_object_count = int(_find_tag_with_default(root, 'ArchiveObjectCount', 0))
-    result.cold_archive_storage = int(_find_tag_with_default(root, 'ColdArchiveStorage', 0))
-    result.cold_archive_real_storage = int(_find_tag_with_default(root, 'ColdArchiveRealStorage', 0))
-    result.cold_archive_object_count = int(_find_tag_with_default(root, 'ColdArchiveObjectCount', 0))
+    if root.find('LiveChannelCount') is not None:
+        result.live_channel_count = int(_find_tag(root, 'LiveChannelCount'))
+    if root.find('LastModifiedTime') is not None:
+        result.last_modified_time = int(_find_tag(root, 'LastModifiedTime'))
+    if root.find('StandardStorage') is not None:
+        result.standard_storage = int(_find_tag(root, 'StandardStorage'))
+    if root.find('StandardObjectCount') is not None:
+        result.standard_object_count = int(_find_tag(root, 'StandardObjectCount'))
+    if root.find('InfrequentAccessStorage') is not None:
+        result.infrequent_access_storage = int(_find_tag(root, 'InfrequentAccessStorage'))
+    if root.find('InfrequentAccessRealStorage') is not None:
+        result.infrequent_access_real_storage = int(_find_tag(root, 'InfrequentAccessRealStorage'))
+    if root.find('InfrequentAccessObjectCount') is not None:
+        result.infrequent_access_object_count = int(_find_tag(root, 'InfrequentAccessObjectCount'))
+    if root.find('ArchiveStorage') is not None:
+        result.archive_storage = int(_find_tag(root, 'ArchiveStorage'))
+    if root.find('ArchiveRealStorage') is not None:
+        result.archive_real_storage = int(_find_tag(root, 'ArchiveRealStorage'))
+    if root.find('ArchiveObjectCount') is not None:
+        result.archive_object_count = int(_find_tag(root, 'ArchiveObjectCount'))
+    if root.find('ColdArchiveStorage') is not None:
+        result.cold_archive_storage = int(_find_tag(root, 'ColdArchiveStorage'))
+    if root.find('ColdArchiveRealStorage') is not None:
+        result.cold_archive_real_storage = int(_find_tag(root, 'ColdArchiveRealStorage'))
+    if root.find('ColdArchiveObjectCount') is not None:
+        result.cold_archive_object_count = int(_find_tag(root, 'ColdArchiveObjectCount'))
+    if root.find('MultipartPartCount') is not None:
+        result.multipart_part_count = int(_find_tag(root, 'MultipartPartCount'))
+    if root.find('DeleteMarkerCount') is not None:
+        result.delete_marker_count = int(_find_tag(root, 'DeleteMarkerCount'))
 
     return result
 
