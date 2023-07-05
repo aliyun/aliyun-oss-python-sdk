@@ -2037,6 +2037,72 @@ x-oss-request-id: 566B6BD9B295345D15740F1F'''
 
 
     @patch('oss2.Session.do_request')
+    def test_put_lifecycle_filter_object_size_than(self, do_request):
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, LifecycleFilter, FilterNot, FilterNotTag
+
+        request_text = '''PUT /?lifecycle= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Content-Length: 198
+date: Sat, 12 Dec 2015 00:35:37 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:45HTpSD5osRvtusf8VCkmchZZFs=
+
+<LifecycleConfiguration>
+<Rule>
+<ID>{0}</ID>
+<Prefix>{1}</Prefix>
+<Status>{2}</Status>
+<Expiration>
+<Date>{3}</Date>
+</Expiration>
+<Filter>
+<ObjectSizeGreaterThan>{4}</ObjectSizeGreaterThan>
+<ObjectSizeLessThan>{5}</ObjectSizeLessThan>
+<Not>
+<Prefix>{6}</Prefix>
+<Tag>
+<Key>{7}</Key>
+<Value>{8}</Value>
+</Tag>
+</Not>
+</Filter>
+</Rule>
+</LifecycleConfiguration>'''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:37 GMT
+Content-Length: 0
+Connection: keep-alive
+x-oss-request-id: 566B6BD9B295345D15740F1F'''
+
+        id = 'hello world'
+        prefix = '中文前缀'
+        status = 'Disabled'
+        date = '2015-12-25T00:00:00.000Z'
+        not_prefix = 'not'
+        key = 'key'
+        value = 'value'
+        object_size_greater_than = 500
+        object_size_less_than = 64000
+        not_tag = FilterNotTag(key, value)
+        filter_not = FilterNot(not_prefix, not_tag)
+        filter = LifecycleFilter([filter_not],object_size_greater_than,object_size_less_than)
+
+        req_info = mock_response(do_request, response_text)
+        rule = LifecycleRule(id, prefix,
+                             status=LifecycleRule.DISABLED,
+                             expiration=LifecycleExpiration(date=datetime.date(2015, 12, 25)),
+                             filter=filter)
+        bucket().put_bucket_lifecycle(BucketLifecycle([rule]))
+
+        self.assertRequest(req_info, request_text.format(id, prefix, status, date, object_size_greater_than, object_size_less_than, not_prefix, key, value))
+
+
+    @patch('oss2.Session.do_request')
     def test_get_lifecycle_not(self, do_request):
         from oss2.models import LifecycleRule
 
@@ -2103,7 +2169,7 @@ x-oss-request-id: 566B6BDA010B7A4314D1614A
 
 
     @patch('oss2.Session.do_request')
-    def test_get_lifecycle_not(self, do_request):
+    def test_get_lifecycle_nots(self, do_request):
         from oss2.models import LifecycleRule
 
         request_text = '''GET /?lifecycle= HTTP/1.1
@@ -2167,6 +2233,81 @@ x-oss-request-id: 566B6BDA010B7A4314D1614A
         self.assertEqual(rule.status, status)
         self.assertEqual(rule.expiration.date, date)
         self.assertEqual(rule.expiration.days, None)
+        self.assertEqual(rule.filter.filter_not[0].prefix, not_prefix)
+        self.assertEqual(rule.filter.filter_not[0].tag.key, key)
+        self.assertEqual(rule.filter.filter_not[0].tag.value, value)
+        self.assertEqual(rule.filter.filter_not[1].prefix, not_prefix2)
+
+
+    @patch('oss2.Session.do_request')
+    def test_get_lifecycle_object_size_than(self, do_request):
+        from oss2.models import LifecycleRule
+
+        request_text = '''GET /?lifecycle= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:38 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:mr0QeREuAcoeK0rSWBnobrzu6uU='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:38 GMT
+Content-Type: application/xml
+Content-Length: 277
+Connection: keep-alive
+x-oss-request-id: 566B6BDA010B7A4314D1614A
+
+<?xml version="1.0" encoding="UTF-8"?>
+<LifecycleConfiguration>
+  <Rule>
+    <ID>{0}</ID>
+    <Prefix>{1}</Prefix>
+    <Status>{2}</Status>
+    <Expiration>
+      <Date>{3}</Date>
+    </Expiration>
+    <Filter>
+        <ObjectSizeGreaterThan>500</ObjectSizeGreaterThan>
+        <ObjectSizeLessThan>64000</ObjectSizeLessThan>
+        <Not>
+            <Prefix>{4}</Prefix>
+            <Tag>
+                <Key>{5}</Key>
+                <Value>{6}</Value>
+            </Tag>
+        </Not>
+        <Not>
+            <Prefix>{7}</Prefix>
+        </Not>
+    </Filter>
+  </Rule>
+</LifecycleConfiguration>'''
+
+        id = 'whatever'
+        prefix = 'lifecycle rule 1'
+        status = LifecycleRule.DISABLED
+        date = datetime.date(2015, 12, 25)
+        not_prefix = 'not'
+        key = 'key'
+        value = 'value'
+        not_prefix2 = 'not2'
+
+        req_info = mock_response(do_request, response_text.format(id, prefix, status, '2015-12-25T00:00:00.000Z', not_prefix, key, value, not_prefix2))
+        result = bucket().get_bucket_lifecycle()
+
+        self.assertRequest(req_info, request_text)
+
+        rule = result.rules[0]
+        self.assertEqual(rule.id, id)
+        self.assertEqual(rule.prefix, prefix)
+        self.assertEqual(rule.status, status)
+        self.assertEqual(rule.expiration.date, date)
+        self.assertEqual(rule.expiration.days, None)
+        self.assertEqual(rule.filter.object_size_greater_than, 500)
+        self.assertEqual(rule.filter.object_size_less_than, 64000)
         self.assertEqual(rule.filter.filter_not[0].prefix, not_prefix)
         self.assertEqual(rule.filter.filter_not[0].tag.key, key)
         self.assertEqual(rule.filter.filter_not[0].tag.value, value)
