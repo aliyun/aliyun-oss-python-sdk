@@ -793,7 +793,7 @@ def parse_get_bucket_lifecycle(result, body):
         tagging = parse_lifecycle_object_taggings(rule_node.findall('Tag'))
         noncurrent_version_expiration = parse_lifecycle_version_expiration(rule_node.find('NoncurrentVersionExpiration'))
         noncurrent_version_sotrage_transitions = parse_lifecycle_verison_storage_transitions(rule_node.findall('NoncurrentVersionTransition'))
-        lifecycle_filter = parse_lifecycle_filter_not(rule_node.findall('Filter/Not'))
+        lifecycle_filter = parse_lifecycle_filter_not(rule_node.find('Filter'))
 
         rule = LifecycleRule(
             _find_tag(rule_node, 'ID'),
@@ -1076,16 +1076,21 @@ def to_put_bucket_lifecycle(bucket_lifecycle):
                 if noncurrent_version_sotrage_transition.allow_small_file is not None:
                     _add_text_child(version_transition_node, 'AllowSmallFile', str(noncurrent_version_sotrage_transition.allow_small_file).lower())
 
-        if rule.filter and rule.filter.filter_not:
+        if rule.filter:
             filter_node = ElementTree.SubElement(rule_node, "Filter")
-            for not_arg in rule.filter.filter_not:
-                not_node = ElementTree.SubElement(filter_node, 'Not')
+            if rule.filter.object_size_greater_than:
+                _add_text_child(filter_node, 'ObjectSizeGreaterThan', str(rule.filter.object_size_greater_than))
+            if rule.filter.object_size_less_than:
+                _add_text_child(filter_node, 'ObjectSizeLessThan', str(rule.filter.object_size_less_than))
+            if rule.filter.filter_not:
+                for not_arg in rule.filter.filter_not:
+                    not_node = ElementTree.SubElement(filter_node, 'Not')
 
-                _add_text_child(not_node, 'Prefix', not_arg.prefix)
-                if not_arg.tag:
-                    tag_node = ElementTree.SubElement(not_node, 'Tag')
-                    _add_text_child(tag_node, 'Key', not_arg.tag.key)
-                    _add_text_child(tag_node, 'Value', not_arg.tag.value)
+                    _add_text_child(not_node, 'Prefix', not_arg.prefix)
+                    if not_arg.tag:
+                        tag_node = ElementTree.SubElement(not_node, 'Tag')
+                        _add_text_child(tag_node, 'Key', not_arg.tag.key)
+                        _add_text_child(tag_node, 'Value', not_arg.tag.value)
 
     return _node_to_string(root)
 
@@ -1994,15 +1999,20 @@ def parse_get_bucket_access_monitor_result(result, body):
 
 def parse_lifecycle_filter_not(filter_not_node):
     if filter_not_node is not None:
-
         lifecycle_filter = LifecycleFilter()
-        for not_node in filter_not_node:
-            prefix = _find_tag_with_default(not_node, 'Prefix', None)
-            key = _find_tag_with_default(not_node, 'Tag/Key', None)
-            value = _find_tag_with_default(not_node, 'Tag/Value', None)
-            tag = FilterNotTag(key, value)
-            filter_not = FilterNot(prefix, tag)
-            lifecycle_filter.filter_not.append(filter_not)
+        if filter_not_node.find('ObjectSizeGreaterThan') is not None:
+            lifecycle_filter.object_size_greater_than = int(_find_tag_with_default(filter_not_node, 'ObjectSizeGreaterThan', 0))
+        if filter_not_node.find('ObjectSizeLessThan') is not None:
+            lifecycle_filter.object_size_less_than = int(_find_tag_with_default(filter_not_node, 'ObjectSizeLessThan', 0))
+        not_nodes = filter_not_node.findall('Not')
+        if not_nodes is not None:
+            for not_node in not_nodes:
+                prefix = _find_tag_with_default(not_node, 'Prefix', None)
+                key = _find_tag_with_default(not_node, 'Tag/Key', None)
+                value = _find_tag_with_default(not_node, 'Tag/Value', None)
+                tag = FilterNotTag(key, value)
+                filter_not = FilterNot(prefix, tag)
+                lifecycle_filter.filter_not.append(filter_not)
 
     return lifecycle_filter
 

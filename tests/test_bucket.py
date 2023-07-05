@@ -1049,6 +1049,32 @@ class TestBucket(OssTestCase):
         self.assertEqual(result.rules[0].filter.filter_not[0].tag.key, key)
         self.assertEqual(result.rules[0].filter.filter_not[0].tag.value, value)
 
+    def test_bucket_lifecycle_filter_object_size_than(self):
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition, LifecycleFilter
+        filter = LifecycleFilter(object_size_greater_than=203,object_size_less_than=311)
+
+        rule = LifecycleRule(random_string(10), '中文前缀/',
+                             status=LifecycleRule.ENABLED,
+                             expiration=LifecycleExpiration(days=356),
+                             filter=filter)
+        rule.storage_transitions = [StorageTransition(days=355,
+                                                      storage_class=oss2.BUCKET_STORAGE_CLASS_ARCHIVE),
+                                    StorageTransition(days=352,
+                                                      storage_class=oss2.BUCKET_STORAGE_CLASS_IA)]
+
+        lifecycle = BucketLifecycle([rule])
+
+        put_result = self.bucket.put_bucket_lifecycle(lifecycle)
+        self.assertEqual(put_result.status, 200)
+
+        result = self.bucket.get_bucket_lifecycle()
+        self.assertEqual(1, len(result.rules))
+        self.assertEqual(2, len(result.rules[0].storage_transitions))
+        self.assertEqual(355, result.rules[0].storage_transitions[0].days)
+        self.assertEqual(352, result.rules[0].storage_transitions[1].days)
+        self.assertEqual(result.rules[0].filter.object_size_greater_than, 203)
+        self.assertEqual(result.rules[0].filter.object_size_less_than, 311)
+
     def test_bucket_lifecycle_not_prefix(self):
         from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, StorageTransition, LifecycleFilter, FilterNot, FilterNotTag
 
