@@ -2593,10 +2593,14 @@ class LifecycleFilter(object):
     """规则的条件参数容器。
 
     :param list filter_not: 规则的匹配容器。 元素类型为:class:`FilterNot <oss2.models.FilterNot>`。
+    :param int object_size_greater_than: object大小大于.
+    :param int object_size_less_than: object大小小于.
     """
 
-    def __init__(self, filter_not=None):
+    def __init__(self, filter_not=None, object_size_greater_than=None, object_size_less_than=None):
         self.filter_not = filter_not or []
+        self.object_size_greater_than = object_size_greater_than
+        self.object_size_less_than = object_size_less_than
 
 class FilterNot(object):
     """规则的匹配容器。
