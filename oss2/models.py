@@ -659,10 +659,11 @@ class BucketCreateConfig(object):
 
 
 class BucketStat(object):
-    def __init__(self, storage_size_in_bytes, object_count, multi_part_upload_count, live_channel_count,
-                 last_modified_time, standard_storage, standard_object_count, infrequent_access_storage,
-                 infrequent_access_real_storage, infrequent_access_object_count, archive_storage, archive_real_storage,
-                 archive_object_count, cold_archive_storage, cold_archive_real_storage, cold_archive_object_count):
+    def __init__(self, storage_size_in_bytes, object_count, multi_part_upload_count, live_channel_count=None,
+                 last_modified_time=None, standard_storage=None, standard_object_count=None, infrequent_access_storage=None,
+                 infrequent_access_real_storage=None, infrequent_access_object_count=None, archive_storage=None, archive_real_storage=None,
+                 archive_object_count=None, cold_archive_storage=None, cold_archive_real_storage=None, cold_archive_object_count=None,
+                 multipart_part_count=None, delete_marker_count=None):
         self.storage_size_in_bytes = storage_size_in_bytes
         self.object_count = object_count
         self.multi_part_upload_count = multi_part_upload_count
@@ -692,6 +693,10 @@ class BucketStat(object):
         self.cold_archive_real_storage = cold_archive_real_storage
         #: 冷归档存储类型的object数量
         self.cold_archive_object_count = cold_archive_object_count
+        #: 分片数量
+        self.multipart_part_count = multipart_part_count
+        #: 删除标记数量
+        self.delete_marker_count = delete_marker_count
 
 
 class AccessControlList(object):
@@ -732,7 +737,7 @@ class BucketInfo(object):
 class GetBucketStatResult(RequestResult, BucketStat):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
-        BucketStat.__init__(self, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        BucketStat.__init__(self, 0, 0, 0, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None)
 
 
 
