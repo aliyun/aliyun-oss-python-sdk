@@ -154,6 +154,36 @@ class TestAsyncFetchTask(OssTestCase):
 
         bucket.delete_object(object_name)
 
+    def test_fetch_success_callback_failed(self):
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket_name = self.OSS_BUCKET + "-test-async-fetch-callback-failed"
+        bucket = oss2.Bucket(auth, self.endpoint, bucket_name)
+        bucket.create_bucket()
+
+        object_name = self.fetch_object_name+'-destination'
+        callback = '{"callbackUrl":"www.abc.com/callback","callbackBody":"${etag}"}'
+        base64_callback = oss2.utils.b64encode_as_string(to_bytes(callback))
+        task_config = AsyncFetchTaskConfiguration(self.fetch_url, object_name=object_name, callback=base64_callback, callback_when_failed=False)
+
+        result = bucket.put_async_fetch_task(task_config)
+        task_id = result.task_id
+        time.sleep(5)
+
+        result = bucket.get_async_fetch_task(task_id)
+
+        self.assertEqual(task_id, result.task_id)
+        self.assertEqual(ASYNC_FETCH_TASK_STATE_FETCH_SUCCESS_CALLBACK_FAILED, result.task_state)
+        self.assertNotEqual('', result.error_msg)
+        task_config = result.task_config
+        self.assertEqual(self.fetch_url, task_config.url)
+        self.assertEqual('', task_config.content_md5)
+        self.assertEqual(object_name, task_config.object_name)
+        self.assertTrue(task_config.ignore_same_key)
+        self.assertEqual('', task_config.host)
+        self.assertEqual(base64_callback, task_config.callback)
+
+        bucket.delete_object(object_name)
+        bucket.delete_bucket()
 
 if __name__ == '__main__':
     unittest.main()

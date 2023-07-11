@@ -3005,5 +3005,48 @@ Date: Fri , 30 Apr 2021 13:08:38 GMT
         self.assertEqual(result.comment, 'test')
 
 
+    @patch('oss2.Session.do_request')
+    def test_put_async_fetch_callback_failed(self, do_request):
+        from oss2.compat import to_bytes
+        from oss2.models import AsyncFetchTaskConfiguration
+        request_text = '''POST /?asyncFetch HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****
+
+<AsyncFetchTaskConfiguration>
+<Url>www.test.com/abc.txt</Url>
+<Object>abc.txt</Object>
+<Host>www.test.com</Host>
+<ContentMD5>v23MlMRM/EgJczOs2yHTcA==</ContentMD5>
+<Callback>eyJjYWxsYmFja1VybCI6Ind3dy5hYmMuY29tL2NhbGxiYWNrIiwiY2FsbGJhY2tCb2R5IjoiJHtldGFnfSJ9</Callback>
+<IgnoreSameKey>true</IgnoreSameKey>
+<CallbackWhenFailed>{0}</CallbackWhenFailed>
+</AsyncFetchTaskConfiguration>'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<AsyncFetchTaskResult>
+    <TaskId>26546</TaskId>
+</AsyncFetchTaskResult>'''
+
+
+        req_info = mock_response(do_request, response_text)
+        object_name ='abc.txt'
+        host = 'www.test.com'
+        content_md5 = 'v23MlMRM/EgJczOs2yHTcA=='
+        ignore_same_key = True
+        callback = '{"callbackUrl":"www.abc.com/callback","callbackBody":"${etag}"}'
+        base64_callback = oss2.utils.b64encode_as_string(to_bytes(callback))
+        callback_when_failed = True
+        task_config = AsyncFetchTaskConfiguration('www.test.com/abc.txt', object_name=object_name, host=host, content_md5=content_md5, callback=base64_callback, ignore_same_key=ignore_same_key, callback_when_failed=callback_when_failed)
+        bucket().put_async_fetch_task(task_config)
+        self.assertRequest(req_info, request_text.format(str(callback_when_failed).lower()))
+
+
 if __name__ == '__main__':
     unittest.main()
