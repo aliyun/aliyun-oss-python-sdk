@@ -1460,6 +1460,8 @@ def to_put_async_fetch_task(task_config):
         _add_text_child(root, 'Callback', task_config.callback)
     if task_config.ignore_same_key is not None:
         _add_text_child(root, 'IgnoreSameKey', str(task_config.ignore_same_key).lower())
+    if task_config.callback_when_failed is not None:
+        _add_text_child(root, 'CallbackWhenFailed', str(task_config.callback_when_failed).lower())
 
     return _node_to_string(root)
 

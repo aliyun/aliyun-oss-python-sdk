@@ -1820,6 +1820,9 @@ class AsyncFetchTaskConfiguration(object):
 
     :param ignore_same_key: 默认为True表示如果文件已存在则忽略本次任务，api调用将会报错。如果为False，则会覆盖已存在的object。
     :type ignore_same_key: bool
+
+    :param callback_when_failed: 失败时是否回调。
+    :type callback_when_failed: bool
     """
     def __init__(self, 
             url, 
@@ -1827,7 +1830,8 @@ class AsyncFetchTaskConfiguration(object):
             host = None,
             content_md5 = None,
             callback = None,
-            ignore_same_key = None):
+            ignore_same_key = None,
+            callback_when_failed = None):
 
         self.url = url
         self.object_name = object_name
@@ -1835,6 +1839,7 @@ class AsyncFetchTaskConfiguration(object):
         self.content_md5 = content_md5
         self.callback = callback
         self.ignore_same_key = ignore_same_key
+        self.callback_when_failed = callback_when_failed
 
 class PutAsyncFetchTaskResult(RequestResult):
     def __init__(self, resp, task_id=None):
