@@ -2000,8 +2000,8 @@ def parse_get_bucket_access_monitor_result(result, body):
     result.access_monitor = access_monitor
 
 def parse_lifecycle_filter_not(filter_not_node):
+    lifecycle_filter = LifecycleFilter()
     if filter_not_node is not None:
-        lifecycle_filter = LifecycleFilter()
         if filter_not_node.find('ObjectSizeGreaterThan') is not None:
             lifecycle_filter.object_size_greater_than = int(_find_tag_with_default(filter_not_node, 'ObjectSizeGreaterThan', 0))
         if filter_not_node.find('ObjectSizeLessThan') is not None:
