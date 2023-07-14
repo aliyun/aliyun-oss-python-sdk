@@ -353,19 +353,36 @@ def parse_get_bucket_stat(result, body):
     result.storage_size_in_bytes = _find_int(root, 'Storage')
     result.object_count = _find_int(root, 'ObjectCount')
     result.multi_part_upload_count = int(_find_tag_with_default(root, 'MultipartUploadCount', 0))
-    result.live_channel_count = int(_find_tag_with_default(root, 'LiveChannelCount', 0))
-    result.last_modified_time = int(_find_tag_with_default(root, 'LastModifiedTime', 0))
-    result.standard_storage = int(_find_tag_with_default(root, 'StandardStorage', 0))
-    result.standard_object_count = int(_find_tag_with_default(root, 'StandardObjectCount', 0))
-    result.infrequent_access_storage = int(_find_tag_with_default(root, 'InfrequentAccessStorage', 0))
-    result.infrequent_access_real_storage = int(_find_tag_with_default(root, 'InfrequentAccessRealStorage', 0))
-    result.infrequent_access_object_count = int(_find_tag_with_default(root, 'InfrequentAccessObjectCount', 0))
-    result.archive_storage = int(_find_tag_with_default(root, 'ArchiveStorage', 0))
-    result.archive_real_storage = int(_find_tag_with_default(root, 'ArchiveRealStorage', 0))
-    result.archive_object_count = int(_find_tag_with_default(root, 'ArchiveObjectCount', 0))
-    result.cold_archive_storage = int(_find_tag_with_default(root, 'ColdArchiveStorage', 0))
-    result.cold_archive_real_storage = int(_find_tag_with_default(root, 'ColdArchiveRealStorage', 0))
-    result.cold_archive_object_count = int(_find_tag_with_default(root, 'ColdArchiveObjectCount', 0))
+    if root.find('LiveChannelCount') is not None:
+        result.live_channel_count = int(_find_tag(root, 'LiveChannelCount'))
+    if root.find('LastModifiedTime') is not None:
+        result.last_modified_time = int(_find_tag(root, 'LastModifiedTime'))
+    if root.find('StandardStorage') is not None:
+        result.standard_storage = int(_find_tag(root, 'StandardStorage'))
+    if root.find('StandardObjectCount') is not None:
+        result.standard_object_count = int(_find_tag(root, 'StandardObjectCount'))
+    if root.find('InfrequentAccessStorage') is not None:
+        result.infrequent_access_storage = int(_find_tag(root, 'InfrequentAccessStorage'))
+    if root.find('InfrequentAccessRealStorage') is not None:
+        result.infrequent_access_real_storage = int(_find_tag(root, 'InfrequentAccessRealStorage'))
+    if root.find('InfrequentAccessObjectCount') is not None:
+        result.infrequent_access_object_count = int(_find_tag(root, 'InfrequentAccessObjectCount'))
+    if root.find('ArchiveStorage') is not None:
+        result.archive_storage = int(_find_tag(root, 'ArchiveStorage'))
+    if root.find('ArchiveRealStorage') is not None:
+        result.archive_real_storage = int(_find_tag(root, 'ArchiveRealStorage'))
+    if root.find('ArchiveObjectCount') is not None:
+        result.archive_object_count = int(_find_tag(root, 'ArchiveObjectCount'))
+    if root.find('ColdArchiveStorage') is not None:
+        result.cold_archive_storage = int(_find_tag(root, 'ColdArchiveStorage'))
+    if root.find('ColdArchiveRealStorage') is not None:
+        result.cold_archive_real_storage = int(_find_tag(root, 'ColdArchiveRealStorage'))
+    if root.find('ColdArchiveObjectCount') is not None:
+        result.cold_archive_object_count = int(_find_tag(root, 'ColdArchiveObjectCount'))
+    if root.find('MultipartPartCount') is not None:
+        result.multipart_part_count = int(_find_tag(root, 'MultipartPartCount'))
+    if root.find('DeleteMarkerCount') is not None:
+        result.delete_marker_count = int(_find_tag(root, 'DeleteMarkerCount'))
 
     return result
 
@@ -776,7 +793,7 @@ def parse_get_bucket_lifecycle(result, body):
         tagging = parse_lifecycle_object_taggings(rule_node.findall('Tag'))
         noncurrent_version_expiration = parse_lifecycle_version_expiration(rule_node.find('NoncurrentVersionExpiration'))
         noncurrent_version_sotrage_transitions = parse_lifecycle_verison_storage_transitions(rule_node.findall('NoncurrentVersionTransition'))
-        lifecycle_filter = parse_lifecycle_filter_not(rule_node.findall('Filter/Not'))
+        lifecycle_filter = parse_lifecycle_filter_not(rule_node.find('Filter'))
 
         rule = LifecycleRule(
             _find_tag(rule_node, 'ID'),
@@ -1059,16 +1076,21 @@ def to_put_bucket_lifecycle(bucket_lifecycle):
                 if noncurrent_version_sotrage_transition.allow_small_file is not None:
                     _add_text_child(version_transition_node, 'AllowSmallFile', str(noncurrent_version_sotrage_transition.allow_small_file).lower())
 
-        if rule.filter and rule.filter.filter_not:
+        if rule.filter:
             filter_node = ElementTree.SubElement(rule_node, "Filter")
-            for not_arg in rule.filter.filter_not:
-                not_node = ElementTree.SubElement(filter_node, 'Not')
+            if rule.filter.object_size_greater_than:
+                _add_text_child(filter_node, 'ObjectSizeGreaterThan', str(rule.filter.object_size_greater_than))
+            if rule.filter.object_size_less_than:
+                _add_text_child(filter_node, 'ObjectSizeLessThan', str(rule.filter.object_size_less_than))
+            if rule.filter.filter_not:
+                for not_arg in rule.filter.filter_not:
+                    not_node = ElementTree.SubElement(filter_node, 'Not')
 
-                _add_text_child(not_node, 'Prefix', not_arg.prefix)
-                if not_arg.tag:
-                    tag_node = ElementTree.SubElement(not_node, 'Tag')
-                    _add_text_child(tag_node, 'Key', not_arg.tag.key)
-                    _add_text_child(tag_node, 'Value', not_arg.tag.value)
+                    _add_text_child(not_node, 'Prefix', not_arg.prefix)
+                    if not_arg.tag:
+                        tag_node = ElementTree.SubElement(not_node, 'Tag')
+                        _add_text_child(tag_node, 'Key', not_arg.tag.key)
+                        _add_text_child(tag_node, 'Value', not_arg.tag.value)
 
     return _node_to_string(root)
 
@@ -1460,6 +1482,8 @@ def to_put_async_fetch_task(task_config):
         _add_text_child(root, 'Callback', task_config.callback)
     if task_config.ignore_same_key is not None:
         _add_text_child(root, 'IgnoreSameKey', str(task_config.ignore_same_key).lower())
+    if task_config.callback_when_failed is not None:
+        _add_text_child(root, 'CallbackWhenFailed', str(task_config.callback_when_failed).lower())
 
     return _node_to_string(root)
 
@@ -1977,15 +2001,20 @@ def parse_get_bucket_access_monitor_result(result, body):
 
 def parse_lifecycle_filter_not(filter_not_node):
     if filter_not_node is not None:
-
         lifecycle_filter = LifecycleFilter()
-        for not_node in filter_not_node:
-            prefix = _find_tag_with_default(not_node, 'Prefix', None)
-            key = _find_tag_with_default(not_node, 'Tag/Key', None)
-            value = _find_tag_with_default(not_node, 'Tag/Value', None)
-            tag = FilterNotTag(key, value)
-            filter_not = FilterNot(prefix, tag)
-            lifecycle_filter.filter_not.append(filter_not)
+        if filter_not_node.find('ObjectSizeGreaterThan') is not None:
+            lifecycle_filter.object_size_greater_than = int(_find_tag_with_default(filter_not_node, 'ObjectSizeGreaterThan', 0))
+        if filter_not_node.find('ObjectSizeLessThan') is not None:
+            lifecycle_filter.object_size_less_than = int(_find_tag_with_default(filter_not_node, 'ObjectSizeLessThan', 0))
+        not_nodes = filter_not_node.findall('Not')
+        if not_nodes is not None:
+            for not_node in not_nodes:
+                prefix = _find_tag_with_default(not_node, 'Prefix', None)
+                key = _find_tag_with_default(not_node, 'Tag/Key', None)
+                value = _find_tag_with_default(not_node, 'Tag/Value', None)
+                tag = FilterNotTag(key, value)
+                filter_not = FilterNot(prefix, tag)
+                lifecycle_filter.filter_not.append(filter_not)
 
     return lifecycle_filter
 

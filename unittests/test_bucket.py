@@ -800,6 +800,99 @@ x-oss-request-id: 566B6BDD68248CE14F729DC0
 
 
     @patch('oss2.Session.do_request')
+    def test_get_stat_part_param(self, do_request):
+        request_text = '''GET /?stat= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:41 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:Pt0DtPQ/FODOGs5y0yTIVctRcok='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:42 GMT
+Content-Type: application/xml
+Content-Length: 96
+Connection: keep-alive
+x-oss-request-id: 566B6BDD68248CE14F729DC0
+
+<?xml version="1.0" encoding="UTF-8"?>
+<BucketStat> 
+    <Storage>472594058</Storage> 
+    <ObjectCount>666</ObjectCount> 
+    <MultipartUploadCount>992</MultipartUploadCount>
+</BucketStat>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().get_bucket_stat()
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.storage_size_in_bytes, 472594058)
+        self.assertEqual(result.object_count, 666)
+        self.assertEqual(result.multi_part_upload_count, 992)
+        self.assertEqual(result.live_channel_count, None)
+        self.assertEqual(result.last_modified_time, None)
+        self.assertEqual(result.standard_storage, None)
+        self.assertEqual(result.standard_object_count, None)
+        self.assertEqual(result.infrequent_access_storage, None)
+        self.assertEqual(result.infrequent_access_real_storage, None)
+        self.assertEqual(result.infrequent_access_object_count, None)
+        self.assertEqual(result.archive_storage, None)
+        self.assertEqual(result.archive_real_storage, None)
+        self.assertEqual(result.archive_object_count, None)
+        self.assertEqual(result.cold_archive_storage, None)
+        self.assertEqual(result.cold_archive_real_storage, None)
+        self.assertEqual(result.cold_archive_object_count, None)
+        self.assertEqual(result.multipart_part_count, None)
+        self.assertEqual(result.delete_marker_count, None)
+
+
+    @patch('oss2.Session.do_request')
+    def test_get_stat_multipart_part_count(self, do_request):
+        request_text = '''GET /?stat= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:41 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:Pt0DtPQ/FODOGs5y0yTIVctRcok='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:42 GMT
+Content-Type: application/xml
+Content-Length: 96
+Connection: keep-alive
+x-oss-request-id: 566B6BDD68248CE14F729DC0
+
+<?xml version="1.0" encoding="UTF-8"?>
+<BucketStat> 
+    <Storage>472594058</Storage> 
+    <ObjectCount>666</ObjectCount> 
+    <MultipartUploadCount>992</MultipartUploadCount>
+    <ColdArchiveRealStorage>360</ColdArchiveRealStorage>
+    <ColdArchiveObjectCount>36</ColdArchiveObjectCount>
+    <MultipartPartCount>4</MultipartPartCount>
+    <DeleteMarkerCount>164</DeleteMarkerCount>
+</BucketStat>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().get_bucket_stat()
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.storage_size_in_bytes, 472594058)
+        self.assertEqual(result.object_count, 666)
+        self.assertEqual(result.multi_part_upload_count, 992)
+        self.assertEqual(result.multipart_part_count, 4)
+        self.assertEqual(result.delete_marker_count, 164)
+
+
+    @patch('oss2.Session.do_request')
     def test_get_bucket_policy(self, do_request):
         request_text = '''GET /?policy= HTTP/1.1
 Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
@@ -1944,6 +2037,72 @@ x-oss-request-id: 566B6BD9B295345D15740F1F'''
 
 
     @patch('oss2.Session.do_request')
+    def test_put_lifecycle_filter_object_size_than(self, do_request):
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle, LifecycleFilter, FilterNot, FilterNotTag
+
+        request_text = '''PUT /?lifecycle= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Content-Length: 198
+date: Sat, 12 Dec 2015 00:35:37 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:45HTpSD5osRvtusf8VCkmchZZFs=
+
+<LifecycleConfiguration>
+<Rule>
+<ID>{0}</ID>
+<Prefix>{1}</Prefix>
+<Status>{2}</Status>
+<Expiration>
+<Date>{3}</Date>
+</Expiration>
+<Filter>
+<ObjectSizeGreaterThan>{4}</ObjectSizeGreaterThan>
+<ObjectSizeLessThan>{5}</ObjectSizeLessThan>
+<Not>
+<Prefix>{6}</Prefix>
+<Tag>
+<Key>{7}</Key>
+<Value>{8}</Value>
+</Tag>
+</Not>
+</Filter>
+</Rule>
+</LifecycleConfiguration>'''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:37 GMT
+Content-Length: 0
+Connection: keep-alive
+x-oss-request-id: 566B6BD9B295345D15740F1F'''
+
+        id = 'hello world'
+        prefix = '中文前缀'
+        status = 'Disabled'
+        date = '2015-12-25T00:00:00.000Z'
+        not_prefix = 'not'
+        key = 'key'
+        value = 'value'
+        object_size_greater_than = 500
+        object_size_less_than = 64000
+        not_tag = FilterNotTag(key, value)
+        filter_not = FilterNot(not_prefix, not_tag)
+        filter = LifecycleFilter([filter_not],object_size_greater_than,object_size_less_than)
+
+        req_info = mock_response(do_request, response_text)
+        rule = LifecycleRule(id, prefix,
+                             status=LifecycleRule.DISABLED,
+                             expiration=LifecycleExpiration(date=datetime.date(2015, 12, 25)),
+                             filter=filter)
+        bucket().put_bucket_lifecycle(BucketLifecycle([rule]))
+
+        self.assertRequest(req_info, request_text.format(id, prefix, status, date, object_size_greater_than, object_size_less_than, not_prefix, key, value))
+
+
+    @patch('oss2.Session.do_request')
     def test_get_lifecycle_not(self, do_request):
         from oss2.models import LifecycleRule
 
@@ -2010,7 +2169,7 @@ x-oss-request-id: 566B6BDA010B7A4314D1614A
 
 
     @patch('oss2.Session.do_request')
-    def test_get_lifecycle_not(self, do_request):
+    def test_get_lifecycle_nots(self, do_request):
         from oss2.models import LifecycleRule
 
         request_text = '''GET /?lifecycle= HTTP/1.1
@@ -2074,6 +2233,81 @@ x-oss-request-id: 566B6BDA010B7A4314D1614A
         self.assertEqual(rule.status, status)
         self.assertEqual(rule.expiration.date, date)
         self.assertEqual(rule.expiration.days, None)
+        self.assertEqual(rule.filter.filter_not[0].prefix, not_prefix)
+        self.assertEqual(rule.filter.filter_not[0].tag.key, key)
+        self.assertEqual(rule.filter.filter_not[0].tag.value, value)
+        self.assertEqual(rule.filter.filter_not[1].prefix, not_prefix2)
+
+
+    @patch('oss2.Session.do_request')
+    def test_get_lifecycle_object_size_than(self, do_request):
+        from oss2.models import LifecycleRule
+
+        request_text = '''GET /?lifecycle= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:38 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:mr0QeREuAcoeK0rSWBnobrzu6uU='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:38 GMT
+Content-Type: application/xml
+Content-Length: 277
+Connection: keep-alive
+x-oss-request-id: 566B6BDA010B7A4314D1614A
+
+<?xml version="1.0" encoding="UTF-8"?>
+<LifecycleConfiguration>
+  <Rule>
+    <ID>{0}</ID>
+    <Prefix>{1}</Prefix>
+    <Status>{2}</Status>
+    <Expiration>
+      <Date>{3}</Date>
+    </Expiration>
+    <Filter>
+        <ObjectSizeGreaterThan>500</ObjectSizeGreaterThan>
+        <ObjectSizeLessThan>64000</ObjectSizeLessThan>
+        <Not>
+            <Prefix>{4}</Prefix>
+            <Tag>
+                <Key>{5}</Key>
+                <Value>{6}</Value>
+            </Tag>
+        </Not>
+        <Not>
+            <Prefix>{7}</Prefix>
+        </Not>
+    </Filter>
+  </Rule>
+</LifecycleConfiguration>'''
+
+        id = 'whatever'
+        prefix = 'lifecycle rule 1'
+        status = LifecycleRule.DISABLED
+        date = datetime.date(2015, 12, 25)
+        not_prefix = 'not'
+        key = 'key'
+        value = 'value'
+        not_prefix2 = 'not2'
+
+        req_info = mock_response(do_request, response_text.format(id, prefix, status, '2015-12-25T00:00:00.000Z', not_prefix, key, value, not_prefix2))
+        result = bucket().get_bucket_lifecycle()
+
+        self.assertRequest(req_info, request_text)
+
+        rule = result.rules[0]
+        self.assertEqual(rule.id, id)
+        self.assertEqual(rule.prefix, prefix)
+        self.assertEqual(rule.status, status)
+        self.assertEqual(rule.expiration.date, date)
+        self.assertEqual(rule.expiration.days, None)
+        self.assertEqual(rule.filter.object_size_greater_than, 500)
+        self.assertEqual(rule.filter.object_size_less_than, 64000)
         self.assertEqual(rule.filter.filter_not[0].prefix, not_prefix)
         self.assertEqual(rule.filter.filter_not[0].tag.key, key)
         self.assertEqual(rule.filter.filter_not[0].tag.value, value)
@@ -2769,6 +3003,49 @@ Date: Fri , 30 Apr 2021 13:08:38 GMT
         self.assertEqual(result.resource_group_id, 'rg-aek27tc********')
         self.assertEqual(result.acl.grant, 'private')
         self.assertEqual(result.comment, 'test')
+
+
+    @patch('oss2.Session.do_request')
+    def test_put_async_fetch_callback_failed(self, do_request):
+        from oss2.compat import to_bytes
+        from oss2.models import AsyncFetchTaskConfiguration
+        request_text = '''POST /?asyncFetch HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****
+
+<AsyncFetchTaskConfiguration>
+<Url>www.test.com/abc.txt</Url>
+<Object>abc.txt</Object>
+<Host>www.test.com</Host>
+<ContentMD5>v23MlMRM/EgJczOs2yHTcA==</ContentMD5>
+<Callback>eyJjYWxsYmFja1VybCI6Ind3dy5hYmMuY29tL2NhbGxiYWNrIiwiY2FsbGJhY2tCb2R5IjoiJHtldGFnfSJ9</Callback>
+<IgnoreSameKey>true</IgnoreSameKey>
+<CallbackWhenFailed>{0}</CallbackWhenFailed>
+</AsyncFetchTaskConfiguration>'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<AsyncFetchTaskResult>
+    <TaskId>26546</TaskId>
+</AsyncFetchTaskResult>'''
+
+
+        req_info = mock_response(do_request, response_text)
+        object_name ='abc.txt'
+        host = 'www.test.com'
+        content_md5 = 'v23MlMRM/EgJczOs2yHTcA=='
+        ignore_same_key = True
+        callback = '{"callbackUrl":"www.abc.com/callback","callbackBody":"${etag}"}'
+        base64_callback = oss2.utils.b64encode_as_string(to_bytes(callback))
+        callback_when_failed = True
+        task_config = AsyncFetchTaskConfiguration('www.test.com/abc.txt', object_name=object_name, host=host, content_md5=content_md5, callback=base64_callback, ignore_same_key=ignore_same_key, callback_when_failed=callback_when_failed)
+        bucket().put_async_fetch_task(task_config)
+        self.assertRequest(req_info, request_text.format(str(callback_when_failed).lower()))
 
 
 if __name__ == '__main__':
