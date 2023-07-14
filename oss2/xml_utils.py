@@ -793,7 +793,7 @@ def parse_get_bucket_lifecycle(result, body):
         tagging = parse_lifecycle_object_taggings(rule_node.findall('Tag'))
         noncurrent_version_expiration = parse_lifecycle_version_expiration(rule_node.find('NoncurrentVersionExpiration'))
         noncurrent_version_sotrage_transitions = parse_lifecycle_verison_storage_transitions(rule_node.findall('NoncurrentVersionTransition'))
-        lifecycle_filter = parse_lifecycle_filter_not(rule_node.find('Filter'))
+        lifecycle_filter = parse_lifecycle_filter(rule_node.find('Filter'))
 
         rule = LifecycleRule(
             _find_tag(rule_node, 'ID'),
@@ -1999,14 +1999,14 @@ def parse_get_bucket_access_monitor_result(result, body):
     access_monitor = AccessMonitorInfo(_find_tag(root, "Status"))
     result.access_monitor = access_monitor
 
-def parse_lifecycle_filter_not(filter_not_node):
-    if filter_not_node is not None:
-        lifecycle_filter = LifecycleFilter()
-        if filter_not_node.find('ObjectSizeGreaterThan') is not None:
-            lifecycle_filter.object_size_greater_than = int(_find_tag_with_default(filter_not_node, 'ObjectSizeGreaterThan', 0))
-        if filter_not_node.find('ObjectSizeLessThan') is not None:
-            lifecycle_filter.object_size_less_than = int(_find_tag_with_default(filter_not_node, 'ObjectSizeLessThan', 0))
-        not_nodes = filter_not_node.findall('Not')
+def parse_lifecycle_filter(filter_node):
+    lifecycle_filter = LifecycleFilter()
+    if filter_node is not None:
+        if filter_node.find('ObjectSizeGreaterThan') is not None:
+            lifecycle_filter.object_size_greater_than = int(_find_tag_with_default(filter_node, 'ObjectSizeGreaterThan', 0))
+        if filter_node.find('ObjectSizeLessThan') is not None:
+            lifecycle_filter.object_size_less_than = int(_find_tag_with_default(filter_node, 'ObjectSizeLessThan', 0))
+        not_nodes = filter_node.findall('Not')
         if not_nodes is not None:
             for not_node in not_nodes:
                 prefix = _find_tag_with_default(not_node, 'Prefix', None)
