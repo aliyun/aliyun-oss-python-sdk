@@ -3,7 +3,7 @@
 
 import datetime
 import json
-
+from oss2.headers import *
 from .common import *
 from oss2 import to_string
 
@@ -171,8 +171,8 @@ class TestBucket(OssTestCase):
 
         self.assertRaises(oss2.exceptions.NoSuchLifecycle, self.bucket.get_bucket_lifecycle)
 
-        def test_lifecycle_overlap(self):
-            from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle
+    def test_lifecycle_overlap(self):
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle
 
         rule = LifecycleRule(random_string(10), '中文前缀/',
                              status=LifecycleRule.ENABLED,
