@@ -66,6 +66,7 @@ OSS_SERVER_SIDE_ENCRYPTION_KEY_ID = "x-oss-server-side-encryption-key-id"
 OSS_SERVER_SIDE_DATA_ENCRYPTION = "x-oss-server-side-data-encryption"
 
 OSS_METADATA_DIRECTIVE = 'x-oss-metadata-directive'
+OSS_ALLOW_ACTION_OVERLAP = "x-oss-allow-same-action-overlap"
 
 class RequestHeader(dict):
     def __init__(self, *arg, **kw):
