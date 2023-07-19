@@ -6,6 +6,7 @@ from mock import patch
 from functools import partial
 
 from oss2 import to_string, iso8601_to_unixtime
+from oss2.headers import OSS_ALLOW_ACTION_OVERLAP
 from oss2.models import AggregationsRequest, MetaQuery, CallbackPolicyInfo
 from unittests.common import *
 
@@ -358,6 +359,54 @@ x-oss-request-id: 566B6BDB1BA604C27DD419B8'''
         bucket().put_bucket_lifecycle(BucketLifecycle([rule]))
 
         self.assertRequest(req_info, request_text.format(id, prefix, status, days))
+
+    @patch('oss2.Session.do_request')
+    def test_put_lifecycle_overlap(self, do_request):
+        from oss2.models import LifecycleExpiration, LifecycleRule, BucketLifecycle
+
+        request_text = '''PUT /?lifecycle= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Content-Length: 198
+x-oss-allow-same-action-overlap: true
+date: Sat, 12 Dec 2015 00:35:37 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:45HTpSD5osRvtusf8VCkmchZZFs=
+
+<LifecycleConfiguration><Rule><ID>{0}</ID><Prefix>{1}</Prefix><Status>{2}</Status><Expiration><Date>{3}</Date></Expiration></Rule><Rule><ID>{4}</ID><Prefix>{5}</Prefix><Status>{6}</Status><Expiration><Date>{7}</Date></Expiration></Rule></LifecycleConfiguration>'''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:37 GMT
+Content-Length: 0
+Connection: keep-alive
+x-oss-request-id: 566B6BD9B295345D15740F1F'''
+
+        id = 'hello world'
+        prefix = '中文前缀'
+        status = 'Disabled'
+        date = '2015-12-25T00:00:00.000Z'
+        id_global = 'hello global'
+        prefix_global = '中文-同样前缀'
+        status_global = 'Disabled'
+        date_global = '2015-12-25T00:00:00.000Z'
+
+        headers = dict()
+        headers[OSS_ALLOW_ACTION_OVERLAP] = 'true'
+        req_info = mock_response(do_request, response_text)
+        rule = LifecycleRule(id, prefix,
+                             status=LifecycleRule.DISABLED,
+                             expiration=LifecycleExpiration(date=datetime.date(2015, 12, 25)))
+        rule_global = LifecycleRule(id_global, prefix_global,
+                                    status=LifecycleRule.DISABLED,
+                                    expiration=LifecycleExpiration(date=datetime.date(2015, 12, 25)))
+        lifecycle = BucketLifecycle([rule])
+        lifecycle.rules.append(rule_global)
+        bucket().put_bucket_lifecycle(lifecycle, headers)
+
+        self.assertRequest(req_info, request_text.format(id, prefix, status, date, id_global, prefix_global, status_global, date_global))
 
     @patch('oss2.Session.do_request')
     def test_get_lifecycle_date(self, do_request):
