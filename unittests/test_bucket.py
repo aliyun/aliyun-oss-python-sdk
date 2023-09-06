@@ -3048,5 +3048,33 @@ Date: Fri , 30 Apr 2021 13:08:38 GMT
         self.assertRequest(req_info, request_text.format(str(callback_when_failed).lower()))
 
 
+    @patch('oss2.Session.do_request')
+    def test_path_style(self, do_request):
+        request_text = '''DELETE /ming-oss-share/?policy&comp=callback HTTP/1.1
+Host: oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:41 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:Pt0DtPQ/FODOGs5y0yTIVctRcok='''
+
+        response_text = '''HTTP/1.1 204 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:42 GMT
+Content-Type: application/xml
+Content-Length: 96
+Connection: keep-alive
+x-oss-request-id: 566B6BDD68248CE14F729DC0
+'''
+        req_info = mock_response(do_request, response_text)
+        bucket = oss2.Bucket(oss2.Auth('fake-access-key-id', 'fake-access-key-secret'),
+                             'http://oss-cn-hangzhou.aliyuncs.com', BUCKET_NAME, is_path_style=True)
+        result = bucket.delete_bucket_callback_policy()
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.status, 204)
+
+
 if __name__ == '__main__':
     unittest.main()
