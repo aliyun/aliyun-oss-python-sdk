@@ -1287,5 +1287,34 @@ class TestBucket(OssTestCase):
         self.assertEqual(200, result.status)
         self.assertTrue(result.buckets.__len__() > 0)
 
+    def test_bucket_path_style(self):
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, self.OSS_BUCKET)
+        bucket2 = oss2.Bucket(auth, OSS_ENDPOINT, self.OSS_BUCKET, is_path_style=True)
+
+        service = oss2.Service(auth, OSS_ENDPOINT)
+        service2 = oss2.Service(auth, OSS_ENDPOINT, is_path_style=True)
+
+        try:
+            result = bucket.get_bucket_acl()
+            self.assertEqual(200, result.status)
+            self.assertEqual('private', result.acl)
+
+            bucket2.get_bucket_acl()
+        except oss2.exceptions.OssError as e:
+            self.assertEqual(e.code, 'SecondLevelDomainForbidden')
+
+        try:
+            params = {}
+            params['regionList']=''
+            result = service.list_buckets(params=params)
+            self.assertEqual(200, result.status)
+            self.assertTrue(result.buckets.__len__() > 0)
+
+            service2.list_buckets(params=params)
+        except oss2.exceptions.OssError as e:
+            self.assertEqual(e.code, 'SecondLevelDomainForbidden')
+
+
 if __name__ == '__main__':
     unittest.main()

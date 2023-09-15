@@ -203,7 +203,7 @@ logger = logging.getLogger(__name__)
 
 class _Base(object):
     def __init__(self, auth, endpoint, is_cname, session, connect_timeout,
-                 app_name='', enable_crc=True, proxies=None, region=None, cloudbox_id= None):
+                 app_name='', enable_crc=True, proxies=None, region=None, cloudbox_id= None, is_path_style=False):
         self.auth = auth
         self.endpoint = _normalize_endpoint(endpoint.strip())
         if utils.is_valid_endpoint(self.endpoint) is not True:
@@ -218,7 +218,7 @@ class _Base(object):
         self.cloudbox_id = cloudbox_id
         if self.cloudbox_id is not None:
             self.product = 'oss-cloudbox'
-        self._make_url = _UrlMaker(self.endpoint, is_cname)
+        self._make_url = _UrlMaker(self.endpoint, is_cname, is_path_style)
 
 
     def _do(self, method, bucket_name, key, **kwargs):
@@ -304,12 +304,13 @@ class Service(_Base):
                  app_name='',
                  proxies=None,
                  region=None,
-                 cloudbox_id=None):
+                 cloudbox_id=None,
+                 is_path_style=False):
         logger.debug("Init oss service, endpoint: {0}, connect_timeout: {1}, app_name: {2}, proxies: {3}".format(
             endpoint, connect_timeout, app_name, proxies))
         super(Service, self).__init__(auth, endpoint, False, session, connect_timeout,
                                       app_name=app_name, proxies=proxies,
-                                      region=region, cloudbox_id=cloudbox_id)
+                                      region=region, cloudbox_id=cloudbox_id, is_path_style=is_path_style)
 
     def list_buckets(self, prefix='', marker='', max_keys=100, params=None, headers=None):
         """根据前缀罗列用户的Bucket。
@@ -444,12 +445,13 @@ class Bucket(_Base):
                  enable_crc=True,
                  proxies=None,
                  region=None,
-                 cloudbox_id=None):
+                 cloudbox_id=None,
+                 is_path_style=False):
         logger.debug("Init Bucket: {0}, endpoint: {1}, isCname: {2}, connect_timeout: {3}, app_name: {4}, enabled_crc: {5}, region: {6}"
                      ", proxies: {6}".format(bucket_name, endpoint, is_cname, connect_timeout, app_name, enable_crc, proxies, region))
         super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout, 
                                      app_name=app_name, enable_crc=enable_crc, proxies=proxies,
-                                     region=region, cloudbox_id=cloudbox_id)
+                                     region=region, cloudbox_id=cloudbox_id, is_path_style=is_path_style)
 
         self.bucket_name = bucket_name.strip()
         if utils.is_valid_bucket_name(self.bucket_name) is not True:
@@ -2864,6 +2866,7 @@ def _normalize_endpoint(endpoint):
 _ENDPOINT_TYPE_ALIYUN = 0
 _ENDPOINT_TYPE_CNAME = 1
 _ENDPOINT_TYPE_IP = 2
+_ENDPOINT_TYPE_PATH_STYLE = 3
 
 
 def _make_range_string(range):
@@ -2889,12 +2892,15 @@ def _range(start, last):
     return to_str(start) + '-' + to_str(last)
 
 
-def _determine_endpoint_type(netloc, is_cname, bucket_name):
+def _determine_endpoint_type(netloc, is_cname, bucket_name, is_path_style):
     if utils.is_ip_or_localhost(netloc):
         return _ENDPOINT_TYPE_IP
 
     if is_cname:
         return _ENDPOINT_TYPE_CNAME
+
+    if is_path_style:
+        return _ENDPOINT_TYPE_PATH_STYLE
 
     if utils.is_valid_bucket_name(bucket_name):
         return _ENDPOINT_TYPE_ALIYUN
@@ -2903,15 +2909,16 @@ def _determine_endpoint_type(netloc, is_cname, bucket_name):
 
 
 class _UrlMaker(object):
-    def __init__(self, endpoint, is_cname):
+    def __init__(self, endpoint, is_cname, is_path_style):
         p = urlparse(endpoint)
 
         self.scheme = p.scheme
         self.netloc = p.netloc
         self.is_cname = is_cname
+        self.is_path_style = is_path_style
 
     def __call__(self, bucket_name, key, slash_safe=False):
-        self.type = _determine_endpoint_type(self.netloc, self.is_cname, bucket_name)
+        self.type = _determine_endpoint_type(self.netloc, self.is_cname, bucket_name, self.is_path_style)
 
         safe = '/' if slash_safe is True else ''
         key = urlquote(key, safe=safe)
@@ -2919,7 +2926,7 @@ class _UrlMaker(object):
         if self.type == _ENDPOINT_TYPE_CNAME:
             return '{0}://{1}/{2}'.format(self.scheme, self.netloc, key)
 
-        if self.type == _ENDPOINT_TYPE_IP:
+        if self.type == _ENDPOINT_TYPE_IP or self.type == _ENDPOINT_TYPE_PATH_STYLE:
             if bucket_name:
                 return '{0}://{1}/{2}/{3}'.format(self.scheme, self.netloc, bucket_name, key)
             else:
