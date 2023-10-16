@@ -297,6 +297,7 @@ class Service(_Base):
 
     QOS_INFO = 'qosInfo'
     REGIONS = 'regions'
+    WRITE_GET_OBJECT_RESPONSE = 'x-oss-write-get-object-response'
 
     def __init__(self, auth, endpoint,
                  session=None,
@@ -360,6 +361,36 @@ class Service(_Base):
         logger.debug("Describe regions done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
         return self._parse_result(resp, xml_utils.parse_describe_regions, DescribeRegionsResult)
+
+    def write_get_object_response(self, route, token, fwd_status, data, headers=None):
+        """write get object response.
+        :param route: fc return route
+        :param token: fc return token
+        :param fwd_status: fwd_status
+
+        :param data: 待上传的内容。
+        :type data: bytes，str或file-like object
+
+        :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-meta-开头的头部等
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+
+        logger.debug("Start to write get object response, headers: {0}".format(headers))
+
+        headers = http.CaseInsensitiveDict(headers)
+
+        if route:
+            headers['x-oss-request-route'] = route
+        if token:
+            headers['x-oss-request-token'] = token
+        if fwd_status:
+            headers['x-oss-fwd-status'] = fwd_status
+
+        resp = self._do('POST', '', '', params={Service.WRITE_GET_OBJECT_RESPONSE: ''}, headers=headers, data=data)
+        logger.debug("write get object response done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
 
 class Bucket(_Base):
     """用于Bucket和Object操作的类，诸如创建、删除Bucket，上传、下载Object等。
@@ -2827,6 +2858,36 @@ class Bucket(_Base):
         logger.debug("Start to delete bucket callback policy, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('DELETE', params={Bucket.POLICY: '', Bucket.COMP: Bucket.CALLBACK})
         logger.debug("Delete bucket callback policy done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
+
+    def write_get_object_response(self, route, token, fwd_status, data, headers=None):
+        """write get object response.。
+        :param route: route
+        :param token: token
+        :param fwd_status: fwd_status
+
+        :param data: 待上传的内容。
+        :type data: bytes，str或file-like object
+
+        :param headers: 用户指定的HTTP头部。可以指定Content-Type、Content-MD5、x-oss-meta-开头的头部等
+        :type headers: 可以是dict，建议是oss2.CaseInsensitiveDict
+
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+
+        logger.debug("Start to write get object response, bucket: {0}, headers: {1}".format(self.bucket_name, headers))
+
+        headers = http.CaseInsensitiveDict(headers)
+
+        if route:
+            headers['x-oss-request-route'] = route
+        if token:
+            headers['x-oss-request-token'] = token
+        if fwd_status:
+            headers['x-oss-fwd-status'] = fwd_status
+
+        resp = self.__do_bucket('POST', params={Bucket.WRITE_GET_OBJECT_RESPONSE: ''}, headers=headers, data=data)
+        logger.debug("write get object response done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
 

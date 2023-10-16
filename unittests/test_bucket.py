@@ -2771,5 +2771,40 @@ Date: Fri , 30 Apr 2021 13:08:38 GMT
         self.assertEqual(result.comment, 'test')
 
 
+    @patch('oss2.Session.do_request')
+    def test_write_get_object_response(self, do_request):
+        request_text = '''POST /?x-oss-write-get-object-response HTTP/1.1
+Host: oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:41 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:Pt0DtPQ/FODOGs5y0yTIVctRcok=
+
+123'''
+
+        response_text = '''HTTP/1.1 204 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:42 GMT
+Content-Type: application/xml
+Connection: keep-alive
+x-oss-request-id: 566B6BDD68248CE14F729DC0
+'''
+        req_info = mock_response(do_request, response_text)
+
+        route = 'test-ap-process-name-1283******516515-opap.oss-cn-beijing-internal.oss-object-process.aliyuncs.com'
+        token = 'OSSV1#UMoA43+Bi9b6Q1Lu6UjhLXnmq4I/wIFac3uZfBkgJtg2xtHkZJ4bZglDWyOgWRlGTrA8y/i6D9eH8PmAiq2NL2R/MD/UX6zvRhT8WMHUewgc9QWPs9LPHiZytkUZnGa39mnv/73cyPWTuxgxyk4dNhlzEE6U7PdzmCCu8gIrjuYLPrA9psRn0ZC8J2/DCZGVx0BE7AmIJTcNtLKTSjxsJyTts/******'
+        fwd_status = '200'
+        content = '123'
+        headers = dict()
+        headers['x-oss-fwd-header-Content-Type'] = 'application/octet-stream'
+        headers['x-oss-fwd-header-ETag'] = 'testetag'
+
+        result = service().write_get_object_response(route, token, fwd_status, content, headers)
+
+        self.assertRequest(req_info, request_text)
+
+
 if __name__ == '__main__':
     unittest.main()
