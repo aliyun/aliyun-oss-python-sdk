@@ -17,8 +17,8 @@ import json
 # bucket_name = os.getenv('OSS_TEST_BUCKET', '<yourBucketName>')
 # endpoint = os.getenv('OSS_TEST_ENDPOINT', '<yourEndpoint>')
 
-access_key_id = 'LTAI5tBrpqa7A9gPtQZojaL1'
-access_key_secret = 'STKk3sEKHDMQKXHGyWRsocNcI6u6DK'
+access_key_id = os.getenv('OSS_TEST_ACCESS_KEY_ID', '<yourAccessKeyId>')
+access_key_secret = os.getenv('OSS_TEST_ACCESS_KEY_SECRET', '<yourAccessKeySecret>')
 endpoint = ''
 
 route = 'test-ap-zxl-process-name-43-1283641064516515-opap.oss-cn-beijing-internal.oss-object-process.aliyuncs.com'
