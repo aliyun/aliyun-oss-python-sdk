@@ -2793,8 +2793,8 @@ x-oss-request-id: 566B6BDD68248CE14F729DC0
 '''
         req_info = mock_response(do_request, response_text)
 
-        route = 'test-ap-process-name-1283641064516515-opap.oss-cn-beijing-internal.oss-object-process.aliyuncs.com'
-        token = 'OSSV1#UMoA43+Bi9b6Q1Lu6UjhLXnmq4I/wIFac3uZfBkgJtg2xtHkZJ4bZglDWyOgWRlGTrA8y/i6D9eH8PmAiq2NL2R/MD/UX6zvRhT8WMHUewgc9QWPs9LPHiZytkUZnGa39mnv/73cyPWTuxgxyk4dNhlzEE6U7PdzmCCu8gIrjuYLPrA9psRn0ZC8J2/DCZGVx0BE7AmIJTcNtLKTSjxsJyTts/wddfXzyDU87qIWa1k='
+        route = 'test-ap-process-name-1283******516515-opap.oss-cn-beijing-internal.oss-object-process.aliyuncs.com'
+        token = 'OSSV1#UMoA43+Bi9b6Q1Lu6UjhLXnmq4I/wIFac3uZfBkgJtg2xtHkZJ4bZglDWyOgWRlGTrA8y/i6D9eH8PmAiq2NL2R/MD/UX6zvRhT8WMHUewgc9QWPs9LPHiZytkUZnGa39mnv/73cyPWTuxgxyk4dNhlzEE6U7PdzmCCu8gIrjuYLPrA9psRn0ZC8J2/DCZGVx0BE7AmIJTcNtLKTSjxsJyTts/******'
         fwd_status = '200'
         content = '123'
         headers = dict()
