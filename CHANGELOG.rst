@@ -3,6 +3,10 @@ OSS SDK for Python 版本记录
 
 Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
+Version 2.18.3
+-------------
+- 增加：write_get_object_response 接口
+
 Version 2.18.2
 -------------
 - 增加：支持path-style 请求模式
