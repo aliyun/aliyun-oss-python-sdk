@@ -113,5 +113,57 @@ class TestSign(OssTestCase):
             bucket.sign_url('PUT', key, 1650801600, headers=headers)
         except oss2.exceptions.ClientError as e:
             self.assertEqual(e.body, 'ClientError: The key is invalid, please check it.')
+
+    def test_sign_key_is_key_strictly(self):
+        auth = oss2.Auth(OSS_ID, OSS_SECRET)
+        bucket_name = self.OSS_BUCKET + "-sign-v1-is-key-strictly-default"
+        bucket = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name)
+        bucket.create_bucket()
+        key = '123.txt'
+        headers = dict()
+        content = 'test example'
+        url = bucket.sign_url('PUT', key, 1650801600, headers=headers)
+        print(url)
+
+        put_result = bucket.put_object(key, content)
+        self.assertEqual(200, put_result.status)
+
+        get_result = bucket.get_object(key)
+        self.assertEqual(200, get_result.status)
+
+        del_result = bucket.delete_object(key)
+        self.assertEqual(204, del_result.status)
+
+        key = '?123.txt'
+        try:
+            bucket.sign_url('PUT', key, 1650801600, headers=headers)
+        except oss2.exceptions.ClientError as e:
+            self.assertEqual(e.body, 'ClientError: The key cannot start with `?`, please check it.')
+
+        key = '?'
+        try:
+            bucket.sign_url('PUT', key, 1650801600, headers=headers)
+        except oss2.exceptions.ClientError as e:
+            self.assertEqual(e.body, 'ClientError: The key cannot start with `?`, please check it.')
+
+        bucket.delete_bucket()
+
+        bucket_name = self.OSS_BUCKET + "-sign-v1-is-key-strictly"
+        bucket2 = oss2.Bucket(auth, OSS_ENDPOINT, bucket_name, is_verify_object_strict=False)
+        bucket2.create_bucket()
+        key = '?123.txt'
+        url2 = bucket2.sign_url('PUT', key, 1650801600, headers=headers)
+        print(url2)
+
+        put_result2 = bucket2.put_object(key, content)
+        self.assertEqual(200, put_result2.status)
+
+        get_result2 = bucket2.get_object(key)
+        self.assertEqual(200, get_result2.status)
+
+        del_result2 = bucket2.delete_object(key)
+        self.assertEqual(204, del_result2.status)
+        bucket2.delete_bucket()
+
 if __name__ == '__main__':
     unittest.main()
