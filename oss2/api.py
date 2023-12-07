@@ -518,9 +518,11 @@ class Bucket(_Base):
         """
         if key is None or len(key.strip()) <= 0:
             raise ClientError("The key is invalid, please check it.")
-        if self.is_verify_object_strict and key[:1] == '?':
-            raise ClientError("The key is invalid, please check it.")
         key = to_string(key)
+
+        if self.is_verify_object_strict and key.startswith('?'):
+            raise ClientError("The key cannot start with `?`, please check it.")
+
         logger.debug(
             "Start to sign_url, method: {0}, bucket: {1}, key: {2}, expires: {3}, headers: {4}, params: {5}, slash_safe: {6}".format(
                 method, self.bucket_name, to_string(key), expires, headers, params, slash_safe))

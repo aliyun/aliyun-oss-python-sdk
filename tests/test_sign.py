@@ -114,8 +114,6 @@ class TestSign(OssTestCase):
         except oss2.exceptions.ClientError as e:
             self.assertEqual(e.body, 'ClientError: The key is invalid, please check it.')
 
-
-
     def test_sign_key_is_key_strictly(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket_name = self.OSS_BUCKET + "-sign-v1-is-key-strictly-default"
@@ -140,13 +138,13 @@ class TestSign(OssTestCase):
         try:
             bucket.sign_url('PUT', key, 1650801600, headers=headers)
         except oss2.exceptions.ClientError as e:
-            self.assertEqual(e.body, 'ClientError: The key is invalid, please check it.')
+            self.assertEqual(e.body, 'ClientError: The key cannot start with `?`, please check it.')
 
         key = '?'
         try:
             bucket.sign_url('PUT', key, 1650801600, headers=headers)
         except oss2.exceptions.ClientError as e:
-            self.assertEqual(e.body, 'ClientError: The key is invalid, please check it.')
+            self.assertEqual(e.body, 'ClientError: The key cannot start with `?`, please check it.')
 
         bucket.delete_bucket()
 
