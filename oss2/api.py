@@ -420,7 +420,7 @@ class Bucket(_Base):
     :param str app_name: 应用名。该参数不为空，则在User Agent中加入其值。
         注意到，最终这个字符串是要作为HTTP Header的值传输的，所以必须要遵循HTTP标准。
 
-    :param bool is_verify_object_strict: 严格验证对象名称的标志。默认为Rrue。
+    :param bool is_verify_object_strict: 严格验证对象名称的标志。默认为True。
     """
 
     ACL = 'acl'
