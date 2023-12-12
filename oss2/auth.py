@@ -521,7 +521,7 @@ class ProviderAuthV4(AuthBase):
         now_datetime = datetime.utcnow()
         now_datetime_iso8601 = now_datetime.strftime("%Y%m%dT%H%M%SZ")
         now_date = now_datetime_iso8601[:8]
-        req.headers['x-oss-date'] = now_datetime_iso8601
+        req.headers['date'] = now_datetime_iso8601
         req.headers['x-oss-content-sha256'] = 'UNSIGNED-PAYLOAD'
 
         additional_signed_headers = self.__get_additional_signed_headers(in_additional_headers)
@@ -547,7 +547,28 @@ class ProviderAuthV4(AuthBase):
 
         :return: a signed URL
         """
-        raise ClientError("sign_url is not support in signature version 4.")
+        credentials = self.credentials_provider.get_credentials()
+        if credentials.get_security_token():
+            req.params['security-token'] = credentials.get_security_token()
+
+        if in_additional_headers is None:
+            in_additional_headers = set()
+
+        additional_headers = self.__get_additional_headers(req, in_additional_headers)
+
+        now_datetime = datetime.utcnow()
+        now_datetime_iso8601 = now_datetime.strftime("%Y%m%dT%H%M%SZ")
+        req.headers['date'] = now_datetime_iso8601
+        now_date = now_datetime_iso8601[:8]
+
+        req.params['x-oss-date'] = now_datetime_iso8601
+        req.params['x-oss-expires'] = str(expires)
+        req.params['x-oss-signature-version'] = 'OSS4-HMAC-SHA256'
+        req.params['x-oss-credential'] = credentials.get_access_key_id() + "/" + self.__get_scope(now_date, req)
+
+        signature = self.__make_signature(req, bucket_name, key, additional_headers, credentials)
+        req.params['x-oss-signature'] = signature
+        return req.url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in req.params.items())
 
     def __make_signature(self, req, bucket_name, key, additional_signed_headers, credentials):
         canonical_request = self.__get_canonical_request(req, bucket_name, key, additional_signed_headers)
@@ -559,6 +580,14 @@ class ProviderAuthV4(AuthBase):
         logger.debug('Make signature: canonical_request = {0}'.format(canonical_request))
         logger.debug('Make signature: string to be signed = {0}'.format(string_to_sign))
         return signature
+
+    def __get_additional_headers(self, req, in_additional_headers):
+        # we add a header into additional_headers only if it is already in req's headers.
+
+        additional_headers = set(h.lower() for h in in_additional_headers)
+        keys_in_header = set(k.lower() for k in req.headers.keys())
+
+        return additional_headers & keys_in_header
 
     def __get_additional_signed_headers(self, in_additional_headers):
         if in_additional_headers is None:
@@ -625,7 +654,7 @@ class ProviderAuthV4(AuthBase):
     def __get_canonical_hash_payload(self, req):
         if req.headers.__contains__('x-oss-content-sha256'):
             return req.headers.get('x-oss-content-sha256', '')
-        return 'UNSIGNED-PARYLOAD'
+        return 'UNSIGNED-PAYLOAD'
 
     def __get_region(self, req):
         return req.cloudbox_id or req.region
@@ -645,7 +674,7 @@ class ProviderAuthV4(AuthBase):
                self.__get_canonical_hash_payload(req)
 
     def __get_string_to_sign(self, req, canonical_request):
-        datetime = req.headers.get('x-oss-date', '')
+        datetime = req.headers.get('date', '')
         date = datetime[:8]
         return 'OSS4-HMAC-SHA256' + '\n' + \
                datetime + '\n' + \
@@ -653,7 +682,7 @@ class ProviderAuthV4(AuthBase):
                hashlib.sha256(to_bytes(canonical_request)).hexdigest()
     
     def __get_signing_key(self, req, credentials):
-        date = req.headers.get('x-oss-date', '')[:8]
+        date = req.headers.get('date', '')[:8]
         key_secret = 'aliyun_v4'+credentials.get_access_key_secret()
         signing_date = hmac.new(to_bytes(key_secret), to_bytes(date), hashlib.sha256)
         signing_region = hmac.new(signing_date.digest(), to_bytes(self.__get_region(req)), hashlib.sha256)
