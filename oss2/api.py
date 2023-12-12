@@ -203,7 +203,7 @@ logger = logging.getLogger(__name__)
 
 class _Base(object):
     def __init__(self, auth, endpoint, is_cname, session, connect_timeout,
-                 app_name='', enable_crc=True, proxies=None, region=None, cloudbox_id= None, is_path_style=False):
+                 app_name='', enable_crc=True, proxies=None, region=None, cloudbox_id= None, is_path_style=False, is_verify_object_strict=True):
         self.auth = auth
         self.endpoint = _normalize_endpoint(endpoint.strip())
         if utils.is_valid_endpoint(self.endpoint) is not True:
@@ -219,6 +219,7 @@ class _Base(object):
         if self.cloudbox_id is not None:
             self.product = 'oss-cloudbox'
         self._make_url = _UrlMaker(self.endpoint, is_cname, is_path_style)
+        self.is_verify_object_strict = is_verify_object_strict
 
 
     def _do(self, method, bucket_name, key, **kwargs):
@@ -418,6 +419,8 @@ class Bucket(_Base):
 
     :param str app_name: 应用名。该参数不为空，则在User Agent中加入其值。
         注意到，最终这个字符串是要作为HTTP Header的值传输的，所以必须要遵循HTTP标准。
+
+    :param bool is_verify_object_strict: 严格验证对象名称的标志。默认为True。
     """
 
     ACL = 'acl'
@@ -477,12 +480,13 @@ class Bucket(_Base):
                  proxies=None,
                  region=None,
                  cloudbox_id=None,
-                 is_path_style=False):
+                 is_path_style=False,
+                 is_verify_object_strict=True):
         logger.debug("Init Bucket: {0}, endpoint: {1}, isCname: {2}, connect_timeout: {3}, app_name: {4}, enabled_crc: {5}, region: {6}"
                      ", proxies: {6}".format(bucket_name, endpoint, is_cname, connect_timeout, app_name, enable_crc, proxies, region))
         super(Bucket, self).__init__(auth, endpoint, is_cname, session, connect_timeout, 
                                      app_name=app_name, enable_crc=enable_crc, proxies=proxies,
-                                     region=region, cloudbox_id=cloudbox_id, is_path_style=is_path_style)
+                                     region=region, cloudbox_id=cloudbox_id, is_path_style=is_path_style, is_verify_object_strict=is_verify_object_strict)
 
         self.bucket_name = bucket_name.strip()
         if utils.is_valid_bucket_name(self.bucket_name) is not True:
@@ -515,6 +519,10 @@ class Bucket(_Base):
         if key is None or len(key.strip()) <= 0:
             raise ClientError("The key is invalid, please check it.")
         key = to_string(key)
+
+        if self.is_verify_object_strict and key.startswith('?'):
+            raise ClientError("The key cannot start with `?`, please check it.")
+
         logger.debug(
             "Start to sign_url, method: {0}, bucket: {1}, key: {2}, expires: {3}, headers: {4}, params: {5}, slash_safe: {6}".format(
                 method, self.bucket_name, to_string(key), expires, headers, params, slash_safe))
