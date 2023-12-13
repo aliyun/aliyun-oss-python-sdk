@@ -138,6 +138,7 @@ class TestSign(OssTestCase):
         finally:
             dest_bucket.delete_object(key)
             dest_bucket.delete_bucket()
+            print("test_sign_v4_x_oss_date end")
 
 
     def test_sign_v4_x_oss_date_url(self):
@@ -188,7 +189,7 @@ class TestSign(OssTestCase):
         finally:
             dest_bucket.delete_object(key)
             dest_bucket.delete_bucket()
-
+            print("test_sign_v4_x_oss_date_url end")
 
 if __name__ == '__main__':
     unittest.main()

@@ -521,12 +521,12 @@ class ProviderAuthV4(AuthBase):
         now_datetime = datetime.utcnow()
         now_datetime_iso8601 = now_datetime.strftime("%Y%m%dT%H%M%SZ")
         now_date = now_datetime_iso8601[:8]
-        req.headers['date'] = now_datetime_iso8601
+        req.headers['x-oss-date'] = now_datetime_iso8601
         req.headers['x-oss-content-sha256'] = 'UNSIGNED-PAYLOAD'
 
         additional_signed_headers = self.__get_additional_signed_headers(in_additional_headers)
         credential = credentials.get_access_key_id() + "/" + self.__get_scope(now_date, req)
-        signature = self.__make_signature(req, bucket_name, key, additional_signed_headers, credentials)
+        signature = self.__make_signature(req, bucket_name, key, additional_signed_headers, credentials, now_datetime_iso8601)
 
         authorization = 'OSS4-HMAC-SHA256 Credential={0}, Signature={1}'.format(credential, signature)
         if additional_signed_headers:
@@ -549,7 +549,7 @@ class ProviderAuthV4(AuthBase):
         """
         credentials = self.credentials_provider.get_credentials()
         if credentials.get_security_token():
-            req.params['security-token'] = credentials.get_security_token()
+            req.params['x-oss-security-token'] = credentials.get_security_token()
 
         if in_additional_headers is None:
             in_additional_headers = set()
@@ -558,7 +558,6 @@ class ProviderAuthV4(AuthBase):
 
         now_datetime = datetime.utcnow()
         now_datetime_iso8601 = now_datetime.strftime("%Y%m%dT%H%M%SZ")
-        req.headers['date'] = now_datetime_iso8601
         now_date = now_datetime_iso8601[:8]
 
         req.params['x-oss-date'] = now_datetime_iso8601
@@ -566,14 +565,14 @@ class ProviderAuthV4(AuthBase):
         req.params['x-oss-signature-version'] = 'OSS4-HMAC-SHA256'
         req.params['x-oss-credential'] = credentials.get_access_key_id() + "/" + self.__get_scope(now_date, req)
 
-        signature = self.__make_signature(req, bucket_name, key, additional_headers, credentials)
+        signature = self.__make_signature(req, bucket_name, key, additional_headers, credentials, now_datetime_iso8601)
         req.params['x-oss-signature'] = signature
         return req.url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in req.params.items())
 
-    def __make_signature(self, req, bucket_name, key, additional_signed_headers, credentials):
+    def __make_signature(self, req, bucket_name, key, additional_signed_headers, credentials, date_time):
         canonical_request = self.__get_canonical_request(req, bucket_name, key, additional_signed_headers)
-        string_to_sign = self.__get_string_to_sign(req, canonical_request)
-        signing_key = self.__get_signing_key(req, credentials)
+        string_to_sign = self.__get_string_to_sign(req, canonical_request, date_time)
+        signing_key = self.__get_signing_key(req, credentials, date_time)
         signature = hmac.new(signing_key, to_bytes(string_to_sign), hashlib.sha256).hexdigest()
         #print("canonical_request:\n" + canonical_request)
         #print("string_to_sign:\n" + string_to_sign)
@@ -673,16 +672,15 @@ class ProviderAuthV4(AuthBase):
                self.__get_canonical_additional_signed_headers(additional_signed_headers) + '\n' + \
                self.__get_canonical_hash_payload(req)
 
-    def __get_string_to_sign(self, req, canonical_request):
-        datetime = req.headers.get('date', '')
-        date = datetime[:8]
+    def __get_string_to_sign(self, req, canonical_request, date_time):
+        date = date_time[:8]
         return 'OSS4-HMAC-SHA256' + '\n' + \
-               datetime + '\n' + \
+               date_time + '\n' + \
                self.__get_scope(date, req) + '\n' + \
                hashlib.sha256(to_bytes(canonical_request)).hexdigest()
     
-    def __get_signing_key(self, req, credentials):
-        date = req.headers.get('date', '')[:8]
+    def __get_signing_key(self, req, credentials, date_time):
+        date = date_time[:8]
         key_secret = 'aliyun_v4'+credentials.get_access_key_secret()
         signing_date = hmac.new(to_bytes(key_secret), to_bytes(date), hashlib.sha256)
         signing_region = hmac.new(signing_date.digest(), to_bytes(self.__get_region(req)), hashlib.sha256)
