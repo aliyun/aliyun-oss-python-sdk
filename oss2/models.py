@@ -2761,3 +2761,12 @@ class CallbackPolicyResult(RequestResult):
         super(CallbackPolicyResult, self).__init__(resp)
         self.callback_policies = []
 
+
+class GetBucketArchiveDirectReadResult(RequestResult):
+    """获取归档直读。
+
+    :param bool enabled: Bucket是否开启归档直读
+    """
+    def __init__(self, resp):
+        super(GetBucketArchiveDirectReadResult, self).__init__(resp)
+        self.enabled = None
