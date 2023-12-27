@@ -21,9 +21,6 @@ OSS_TEST_BUCKET = os.getenv("OSS_TEST_BUCKET")
 OSS_CNAME = os.getenv("OSS_TEST_CNAME")
 OSS_REGION = os.getenv("OSS_TEST_REGION", "cn-hangzhou")
 
-OSS_CMK = os.getenv("OSS_TEST_KMS_CMK_ID")
-OSS_CMK_REGION = os.getenv("OSS_TEST_KMS_REGION")
-
 OSS_STS_ID = os.getenv("OSS_TEST_STS_ID")
 OSS_STS_KEY = os.getenv("OSS_TEST_STS_KEY")
 OSS_STS_ARN = os.getenv("OSS_TEST_STS_ARN")
@@ -161,6 +158,7 @@ class OssTestCase(unittest.TestCase):
 
         self.default_multiget_threshold = 1024 * 1024
         self.default_multiget_part_size = 100 * 1024
+        self.KMS_CMK_ID = ''
 
     def setUp(self):
         oss2.defaults.connect_timeout = self.default_connect_timeout
@@ -175,19 +173,25 @@ class OssTestCase(unittest.TestCase):
         OSS_AUTH_VERSION = os.getenv('OSS_TEST_AUTH_VERSION')
 
         self.OSS_BUCKET = OSS_BUCKET_BASE + random_string(4)
-        self.bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, self.OSS_BUCKET)
+        self.bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, self.OSS_BUCKET, region=OSS_REGION)
 
         try:
             self.bucket.create_bucket()
+            headers = {'x-oss-server-side-encryption':'KMS'}
+            self.bucket.put_object('kms-id-object', b'', headers=headers)
+            objectmeta = self.bucket.head_object('kms-id-object')
+            self.KMS_CMK_ID = objectmeta.headers['x-oss-server-side-encryption-key-id']
+            self.bucket.delete_object('kms-id-object')
         except:
             pass
 
         self.rsa_crypto_bucket = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT,
-                                                   self.OSS_BUCKET, crypto_provider=oss2.RsaProvider(key_pair))
+                                                   self.OSS_BUCKET, crypto_provider=oss2.RsaProvider(key_pair), region=OSS_REGION)
 
         self.kms_crypto_bucket = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT,
                                                    self.OSS_BUCKET, crypto_provider=oss2.AliKMSProvider(OSS_ID, OSS_SECRET,
-                                                                                                   OSS_REGION, OSS_CMK))
+                                                                                                   OSS_REGION, self.KMS_CMK_ID),
+                                                                                                   region=OSS_REGION)
 
         self.key_list = []
         self.temp_files = []

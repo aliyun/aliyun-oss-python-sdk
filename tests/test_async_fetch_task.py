@@ -12,8 +12,10 @@ from oss2.models import (AsyncFetchTaskConfiguration, ASYNC_FETCH_TASK_STATE_SUC
 
 class TestAsyncFetchTask(OssTestCase):
     def setUp(self):
-        OssTestCase.setUp(self)
-        self.endpoint = OSS_ENDPOINT
+        self.endpoint = 'oss-cn-hangzhou.aliyuncs.com'
+        self.OSS_BUCKET = OSS_BUCKET_BASE + random_string(4)
+        self.bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET), self.endpoint, self.OSS_BUCKET)
+        self.bucket.create_bucket()
 
         self.fetch_object_name = 'test-async-fetch-task.txt'
         self.bucket.put_object(self.fetch_object_name, '123')
@@ -21,6 +23,9 @@ class TestAsyncFetchTask(OssTestCase):
         meta = self.bucket.head_object(self.fetch_object_name)
         self.fetch_content_md5 = meta.headers.get('Content-MD5')
         self.fetch_url = self.bucket.sign_url('GET', self.fetch_object_name, 60*60)
+
+        self.key_list = []
+        self.temp_files = []
 
     def test_async_fetch_task(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)

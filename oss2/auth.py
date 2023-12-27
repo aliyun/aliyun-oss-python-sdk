@@ -570,8 +570,12 @@ class ProviderAuthV4(AuthBase):
         return req.url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in req.params.items())
 
     def __make_signature(self, req, bucket_name, key, additional_signed_headers, credentials, date_time):
-        canonical_request = self.__get_canonical_request(req, bucket_name, key, additional_signed_headers)
-        string_to_sign = self.__get_string_to_sign(req, canonical_request, date_time)
+        if is_py2:
+            canonical_request = self.__get_canonical_request(req, bucket_name, key, additional_signed_headers)
+            string_to_sign = self.__get_string_to_sign(req, canonical_request, date_time)
+        else:        
+            canonical_request = self.__get_canonical_request_bytes(req, bucket_name, key, additional_signed_headers)
+            string_to_sign = self.__get_string_to_sign_bytes(req, canonical_request, date_time)
         signing_key = self.__get_signing_key(req, credentials, date_time)
         signature = hmac.new(signing_key, to_bytes(string_to_sign), hashlib.sha256).hexdigest()
         #print("canonical_request:\n" + canonical_request)
@@ -644,6 +648,15 @@ class ProviderAuthV4(AuthBase):
                 canon_headers.append((lower_key, v))
         canon_headers.sort(key=lambda x: x[0])
         return ''.join(v[0] + ':' + v[1] + '\n' for v in canon_headers)
+    
+    def __get_canonical_headers_bytes(self, req, additional_headers):
+        canon_headers = []
+        for k, v in req.headers.items():
+            lower_key = k.lower()
+            if self.__is_sign_header(lower_key, additional_headers):
+                canon_headers.append((lower_key, v))
+        canon_headers.sort(key=lambda x: x[0])
+        return b''.join(to_bytes(v[0]) + b':' + to_bytes(v[1]) + b'\n' for v in canon_headers)
 
     def __get_canonical_additional_signed_headers(self, additional_headers):
         if additional_headers is None:
@@ -678,7 +691,22 @@ class ProviderAuthV4(AuthBase):
                date_time + '\n' + \
                self.__get_scope(date, req) + '\n' + \
                hashlib.sha256(to_bytes(canonical_request)).hexdigest()
-    
+
+    def __get_canonical_request_bytes(self, req, bucket_name, key, additional_signed_headers):
+        return to_bytes(req.method) + b'\n' + \
+               to_bytes(self.__get_canonical_uri(bucket_name, key)) + b'\n' + \
+               to_bytes(self.__get_canonical_query(req)) + b'\n' + \
+               self.__get_canonical_headers_bytes(req, additional_signed_headers) + b'\n' + \
+               to_bytes(self.__get_canonical_additional_signed_headers(additional_signed_headers)) + b'\n' + \
+               to_bytes(self.__get_canonical_hash_payload(req))
+
+    def __get_string_to_sign_bytes(self, req, canonical_request_bytes, date_time):
+        date = date_time[:8]
+        return 'OSS4-HMAC-SHA256' + '\n' + \
+               date_time + '\n' + \
+               self.__get_scope(date, req) + '\n' + \
+               hashlib.sha256(canonical_request_bytes).hexdigest()
+
     def __get_signing_key(self, req, credentials, date_time):
         date = date_time[:8]
         key_secret = 'aliyun_v4'+credentials.get_access_key_secret()

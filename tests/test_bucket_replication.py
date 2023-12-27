@@ -36,7 +36,7 @@ class TestBucketReplication(OssTestCase):
                                          target_transfer_type=self.transfer_type,
                                          is_enable_historical_object_replication=False,
                                          sync_role_name=self.sync_role_name,
-                                         replica_kms_keyid=OSS_CMK,
+                                         replica_kms_keyid=self.KMS_CMK_ID,
                                          sse_kms_encrypted_objects_status=ReplicationRule.ENABLED)
         result = self.source_bucket.put_bucket_replication(replica_config)
         self.assertEqual(200, result.status)
@@ -56,7 +56,7 @@ class TestBucketReplication(OssTestCase):
         self.assertFalse(rule.is_enable_historical_object_replication)
         self.assertEqual(ReplicationRule.STARTING, rule.status)
         self.assertEqual(self.sync_role_name, rule.sync_role_name)
-        self.assertEqual(OSS_CMK, rule.replica_kms_keyid)
+        self.assertEqual(self.KMS_CMK_ID, rule.replica_kms_keyid)
         self.assertEqual(ReplicationRule.ENABLED, rule.sse_kms_encrypted_objects_status)
 
         result = self.source_bucket.get_bucket_replication_progress(rule_id)
@@ -102,7 +102,7 @@ class TestBucketReplication(OssTestCase):
                                          target_bucket_location=self.replica_endpoint,
                                          target_transfer_type=self.transfer_type,
                                          sync_role_name=self.sync_role_name,
-                                         replica_kms_keyid=OSS_CMK,
+                                         replica_kms_keyid=self.KMS_CMK_ID,
                                          sse_kms_encrypted_objects_status='Enabled')
         result = self.source_bucket.put_bucket_replication(replica_config)
         self.assertEqual(200, result.status)
@@ -122,7 +122,7 @@ class TestBucketReplication(OssTestCase):
         self.assertTrue(rule.is_enable_historical_object_replication)
         self.assertEqual(ReplicationRule.STARTING, rule.status)
         self.assertEqual(self.sync_role_name, rule.sync_role_name)
-        self.assertEqual(OSS_CMK, rule.replica_kms_keyid)
+        self.assertEqual(self.KMS_CMK_ID, rule.replica_kms_keyid)
         self.assertEqual('Enabled', rule.sse_kms_encrypted_objects_status)
         rule_id = rule.rule_id
 
@@ -136,7 +136,7 @@ class TestBucketReplication(OssTestCase):
                                          target_bucket_location=self.replica_endpoint,
                                          target_transfer_type=self.transfer_type,
                                          sync_role_name=self.sync_role_name,
-                                         replica_kms_keyid=OSS_CMK,
+                                         replica_kms_keyid=self.KMS_CMK_ID,
                                          sse_kms_encrypted_objects_status='Enabled')
         result = self.source_bucket.put_bucket_replication(replica_config)
         self.assertEqual(200, result.status)
@@ -162,7 +162,7 @@ class TestBucketReplication(OssTestCase):
                                          target_bucket_name=self.replica_bucket_name,
                                          target_bucket_location=self.replica_endpoint,
                                          target_transfer_type=self.transfer_type,
-                                         replica_kms_keyid=OSS_CMK,
+                                         replica_kms_keyid=self.KMS_CMK_ID,
                                          sse_kms_encrypted_objects_status='Enabled')
         result = self.source_bucket.put_bucket_replication(replica_config)
         self.assertEqual(200, result.status)
@@ -236,7 +236,7 @@ class TestBucketReplication(OssTestCase):
                                          target_bucket_location=self.replica_endpoint,
                                          target_transfer_type=self.transfer_type,
                                          sync_role_name=self.sync_role_name,
-                                         replica_kms_keyid=OSS_CMK,
+                                         replica_kms_keyid=self.KMS_CMK_ID,
                                          sse_kms_encrypted_objects_status=ReplicationRule.DISABLED)
         result = self.source_bucket.put_bucket_replication(replica_config)
         self.assertEqual(200, result.status)

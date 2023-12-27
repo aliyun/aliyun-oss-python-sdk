@@ -1037,7 +1037,7 @@ x-oss-server-time: 39'''
             meta = json.loads(f.read())
 
         key = random_string(10)
-        provider = oss2.AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK)
+        provider = oss2.AliKMSProvider(OSS_ID, OSS_SECRET, OSS_REGION, 'cmk-id')
 
         request_text, response_text = make_get_encrypted_object_compact_deprecated(key, encrypted_content, meta)
         plain_key = utils.b64decode_from_string(meta['base64-plain-key'])
@@ -1060,15 +1060,15 @@ x-oss-server-time: 39'''
         plain_key = provider.get_key()
         plain_iv = provider.get_iv()
 
-        with patch.object(oss2.utils, 'random_key', return_value=plain_key, autospect=True):
-            with patch.object(oss2.utils, 'random_iv', return_value=plain_iv, autospect=True):
+        with patch.object(oss2.utils, 'random_key', return_value=plain_key):
+            with patch.object(oss2.utils, 'random_iv', return_value=plain_iv):
                 content_crypto_material = provider.create_content_material()
 
         request_text, response_text = make_put_encrypted_object(key, content, content_crypto_material)
         req_info = unittests.common.mock_response(do_request, response_text)
 
-        with patch.object(oss2.utils, 'random_key', return_value=plain_key, autospect=True):
-            with patch.object(oss2.utils, 'random_iv', return_value=plain_iv, autospect=True):
+        with patch.object(oss2.utils, 'random_key', return_value=plain_key):
+            with patch.object(oss2.utils, 'random_iv', return_value=plain_iv):
                 result = unittests.common.bucket(provider).put_object(key, content, headers={
                     'content-md5': oss2.utils.md5_string(content), 'content-length': str(len(content))})
 

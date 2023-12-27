@@ -76,13 +76,14 @@ class TestBucket(OssTestCase):
         bucket.delete_bucket()
 
         # ZRS
-        bucketConfig = oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_IA, oss2.BUCKET_DATA_REDUNDANCY_TYPE_ZRS)
-        bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE, bucketConfig)
-        wait_meta_sync()
-        
-        result = bucket.get_bucket_info()
-        self.assertEqual(oss2.BUCKET_DATA_REDUNDANCY_TYPE_ZRS, result.data_redundancy_type)
-        bucket.delete_bucket()
+        if OSS_ENDPOINT.find("oss-cn") != -1:
+            bucketConfig = oss2.models.BucketCreateConfig(oss2.BUCKET_STORAGE_CLASS_IA, oss2.BUCKET_DATA_REDUNDANCY_TYPE_ZRS)
+            bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE, bucketConfig)
+            wait_meta_sync()
+            
+            result = bucket.get_bucket_info()
+            self.assertEqual(oss2.BUCKET_DATA_REDUNDANCY_TYPE_ZRS, result.data_redundancy_type)
+            bucket.delete_bucket()
 
     def test_acl(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)

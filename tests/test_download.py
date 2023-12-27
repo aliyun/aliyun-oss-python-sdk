@@ -401,10 +401,10 @@ class TestDownload(OssTestCase):
 
             raise RuntimeError('intentional')
 
-        with patch.object(os, 'rename', side_effect=partial(mock_rename, ctx=context1, store=store1), autospect=True):
+        with patch.object(os, 'rename', side_effect=partial(mock_rename, ctx=context1, store=store1)):
             self.assertRaises(RuntimeError, oss2.resumable_download, bucket, key, filename, store=store1)
 
-        with patch.object(os, 'rename', side_effect=partial(mock_rename, ctx=context2, store=store2), autospect=True):
+        with patch.object(os, 'rename', side_effect=partial(mock_rename, ctx=context2, store=store2)):
             self.assertRaises(RuntimeError, oss2.resumable_download, bucket, key, filename, store=store2)
 
         self.assertNotEqual(context1['tmp_suffix'], context2['tmp_suffix'])
