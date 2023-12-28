@@ -220,7 +220,8 @@ class _Base(object):
             self.product = 'oss-cloudbox'
         self._make_url = _UrlMaker(self.endpoint, is_cname, is_path_style)
         self.is_verify_object_strict = is_verify_object_strict
-
+        if hasattr(self.auth, 'auth_version') and self.auth.auth_version() != 'v1' :
+            self.is_verify_object_strict = False
 
     def _do(self, method, bucket_name, key, **kwargs):
         key = to_string(key)

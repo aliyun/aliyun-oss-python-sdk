@@ -71,6 +71,8 @@ class AuthBase(object):
 
         return url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in p.items())
     
+    def auth_version(self):
+        return ''
 
 class ProviderAuth(AuthBase):
     """签名版本1
@@ -213,6 +215,9 @@ class ProviderAuth(AuthBase):
             return b'\n'.join(to_bytes(k) + b':' + to_bytes(v) for k, v in canon_headers) + b'\n'
         else:
             return b''
+    
+    def auth_version(self):
+        return AUTH_VERSION_1        
 
 class Auth(ProviderAuth):
     """签名版本1
@@ -237,6 +242,9 @@ class AnonymousAuth(object):
     
     def _sign_rtmp_url(self, url, bucket_name, channel_name, expires, params):
         return url + '?' + '&'.join(_param_to_quoted_query(k, v) for k, v in params.items())
+    
+    def auth_version(self):
+        return ''
 
 
 class StsAuth(object):
@@ -269,6 +277,10 @@ class StsAuth(object):
 
     def _sign_rtmp_url(self, url, bucket_name, channel_name, expires, params):
         return self.__auth._sign_rtmp_url(url, bucket_name, channel_name, expires, params)
+
+    def auth_version(self):
+        return self.__auth.auth_version()
+
 
 
 def _param_to_quoted_query(k, v):
@@ -484,6 +496,8 @@ class ProviderAuthV2(AuthBase):
 
         return b''.join(to_bytes(v[0]) + b':' + to_bytes(v[1]) + b'\n' for v in canon_headers)
 
+    def auth_version(self):
+        return AUTH_VERSION_2
 
 class AuthV2(ProviderAuthV2):
     """签名版本2，与版本1的区别在：
@@ -735,6 +749,9 @@ class ProviderAuthV4(AuthBase):
                 res += "%{0:02X}".format(ord(c))
 
         return res
+
+    def auth_version(self):
+        return AUTH_VERSION_4
 
 class AuthV4(ProviderAuthV4):
     """签名版本4，与版本2的区别在：

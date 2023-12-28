@@ -199,7 +199,7 @@ class TestSign(OssTestCase):
         headers = dict()
         content = 'test example'
         url = bucket.sign_url('PUT', key, 1650801600, headers=headers)
-        print(url)
+        #print(url)
 
         put_result = bucket.put_object(key, content)
         self.assertEqual(200, put_result.status)
@@ -229,7 +229,7 @@ class TestSign(OssTestCase):
         bucket2.create_bucket()
         key = '?123.txt'
         url2 = bucket2.sign_url('PUT', key, 1650801600, headers=headers)
-        print(url2)
+        #print(url2)
 
         put_result2 = bucket2.put_object(key, content)
         self.assertEqual(200, put_result2.status)
