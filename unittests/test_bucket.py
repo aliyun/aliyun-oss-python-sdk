@@ -3159,6 +3159,43 @@ x-oss-request-id: 566B6BDD68248CE14F729DC0
 
         self.assertRequest(req_info, request_text)
 
+    def test_is_verify_object_strict_flag(self):
+        auth = oss2.Auth('fake-access-key-id', 'fake-access-key-secret')
+        bucket = oss2.Bucket(auth, 'http://oss-cn-hangzhou.aliyuncs.com', "bucket")
+        self.assertTrue(bucket.is_verify_object_strict)
+
+        key = '?123.txt'
+        try:
+            bucket.sign_url('PUT', key, 1650801600)
+        except oss2.exceptions.ClientError as e:
+            self.assertEqual(e.body, 'ClientError: The key cannot start with `?`, please check it.')
+
+        key = '?'
+        try:
+            bucket.sign_url('PUT', key, 1650801600)
+        except oss2.exceptions.ClientError as e:
+            self.assertEqual(e.body, 'ClientError: The key cannot start with `?`, please check it.')
+
+        auth = oss2.AuthV2('fake-access-key-id', 'fake-access-key-secret')
+        bucket = oss2.Bucket(auth, 'http://oss-cn-hangzhou.aliyuncs.com', "bucket")
+        self.assertFalse(bucket.is_verify_object_strict)
+        key = '?123.txt'
+        url = bucket.sign_url('PUT', key, 1650801600)
+        self.assertTrue(url.find('%3F123.txt') != -1)
+        key = '?'
+        self.assertTrue(url.find('%3F') != -1)
+
+        auth = oss2.AuthV4('fake-access-key-id', 'fake-access-key-secret')
+        bucket = oss2.Bucket(auth, 'http://oss-cn-hangzhou.aliyuncs.com', "bucket", region='cn-hangzhou')
+        self.assertFalse(bucket.is_verify_object_strict)
+        key = '?123.txt'
+        url = bucket.sign_url('PUT', key, 1650801600)
+        self.assertTrue(url.find('%3F123.txt') != -1)
+        key = '?'
+        self.assertTrue(url.find('%3F') != -1)
+
+        bucket = oss2.Bucket('', 'http://oss-cn-hangzhou.aliyuncs.com', "bucket")
+        self.assertTrue(bucket.is_verify_object_strict)
 
 if __name__ == '__main__':
     unittest.main()

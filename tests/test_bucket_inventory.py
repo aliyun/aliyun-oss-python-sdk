@@ -108,7 +108,7 @@ class TestBucketInventory(OssTestCase):
                     bucket=self.OSS_BUCKET,
                     inventory_format=INVENTORY_FORMAT_CSV,
                     prefix="destination-prefix",
-                    sse_kms_encryption=InventoryServerSideEncryptionKMS(OSS_CMK))
+                    sse_kms_encryption=InventoryServerSideEncryptionKMS(self.KMS_CMK_ID))
 
             inventory_configuration = InventoryConfiguration(
                     inventory_id=inventory_id,

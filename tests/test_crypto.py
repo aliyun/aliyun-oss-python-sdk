@@ -12,7 +12,7 @@ from oss2.utils import AESCipher, silently_remove
 from oss2.exceptions import OpenApiServerError, OpenApiFormatError, ClientError
 from mock import patch
 
-from .common import OSS_ID, OSS_SECRET, OSS_REGION, OSS_CMK_REGION, OSS_CMK, OSS_STS_ID, OSS_STS_ARN, OSS_STS_KEY, random_string, \
+from .common import OSS_ID, OSS_SECRET, OSS_ENDPOINT, OSS_REGION, OSS_STS_ID, OSS_STS_ARN, OSS_STS_KEY, random_string, \
     key_pair, key_pair_compact
 from aliyunsdksts.request.v20150401 import AssumeRoleRequest
 from Crypto.PublicKey import RSA
@@ -21,6 +21,11 @@ import random
 
 
 class TestCrypto(unittests.common.OssTestCase):
+    def __init__(self, *args, **kwargs):
+        super(TestCrypto, self).__init__(*args, **kwargs)
+        self.kms_cmk_id = ''
+        self.kms_cmk_region = ''
+
     # 测试初始化LocalRsaProvider时未初始化cipher，此时应该抛出异常
     def test_rsa_provider_init_cipher_is_none(self):
         self.assertRaises(ClientError, LocalRsaProvider, dir='./', key='rsa-test', cipher=None)
@@ -91,8 +96,8 @@ class TestCrypto(unittests.common.OssTestCase):
         self.assertEqual(len(plain_key), provider.cipher.key_len)
         plain_iv = provider.get_iv()
 
-        with patch.object(oss2.utils, 'random_key', return_value=plain_key, autospect=True):
-            with patch.object(oss2.utils, 'random_iv', return_value=plain_iv, autospect=True):
+        with patch.object(oss2.utils, 'random_key', return_value=plain_key):
+            with patch.object(oss2.utils, 'random_iv', return_value=plain_iv):
                 content_crypto_material = provider.create_content_material()
                 self.assertFalse(content_crypto_material.is_unencrypted())
                 decrypted_key = provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
@@ -110,8 +115,8 @@ class TestCrypto(unittests.common.OssTestCase):
         self.assertEqual(len(plain_key), provider.cipher.key_len)
         plain_iv = provider.get_iv()
 
-        with patch.object(oss2.utils, 'random_key', return_value=plain_key, autospect=True):
-            with patch.object(oss2.utils, 'random_iv', return_value=plain_iv, autospect=True):
+        with patch.object(oss2.utils, 'random_key', return_value=plain_key):
+            with patch.object(oss2.utils, 'random_iv', return_value=plain_iv):
                 content_crypto_material = provider.create_content_material()
                 self.assertFalse(content_crypto_material.is_unencrypted())
                 decrypted_key = provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
@@ -132,8 +137,8 @@ class TestCrypto(unittests.common.OssTestCase):
         plain_key = provider.get_key()
         plain_iv = provider.get_iv()
 
-        with patch.object(oss2.utils, 'random_key', return_value=plain_key, autospect=True):
-            with patch.object(oss2.utils, 'random_iv', return_value=plain_iv, autospect=True):
+        with patch.object(oss2.utils, 'random_key', return_value=plain_key):
+            with patch.object(oss2.utils, 'random_iv', return_value=plain_iv):
                 content_crypto_material = provider.create_content_material()
                 self.assertFalse(content_crypto_material.is_unencrypted())
                 self.assertRaises(ClientError, provider_diff.decrypt_encrypted_key,
@@ -152,8 +157,8 @@ class TestCrypto(unittests.common.OssTestCase):
         plain_key = provider.get_key()
         plain_iv = provider.get_iv()
 
-        with patch.object(oss2.utils, 'random_key', return_value=plain_key, autospect=True):
-            with patch.object(oss2.utils, 'random_iv', return_value=plain_iv, autospect=True):
+        with patch.object(oss2.utils, 'random_key', return_value=plain_key):
+            with patch.object(oss2.utils, 'random_iv', return_value=plain_iv):
                 content_crypto_material = provider.create_content_material()
                 self.assertFalse(content_crypto_material.is_unencrypted())
                 self.assertRaises(ClientError, provider_diff.decrypt_encrypted_key,
@@ -200,18 +205,19 @@ class TestCrypto(unittests.common.OssTestCase):
     def test_ali_kms_provider_init_cipher_is_none(self):
         id, key, token = self.get_sts()
         self.assertRaises(ClientError, AliKMSProvider, access_key_id=id, access_key_secret=key, region=OSS_REGION,
-                          cmk_id=OSS_CMK, cipher=None)
+                          cmk_id='cmk-id', cipher=None)
 
     # 测试基本key, start加/解密
     def test_ali_kms_provider_basic(self):
-        provider = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_CMK_REGION, OSS_CMK, passphrase=random_string(8))
+        kms_region, kms_cmd_id = self.get_cmk_id()
+        provider = AliKMSProvider(OSS_ID, OSS_SECRET, kms_region, kms_cmd_id, passphrase=random_string(8))
         self.assertEqual(provider.wrap_alg, "KMS/ALICLOUD")
         self.assertEqual(provider.cipher.alg, "AES/CTR/NoPadding")
         plain_key, encrypted_key = provider.get_key()
         plain_iv = provider.get_iv()
 
         with patch('oss2.AliKMSProvider.get_key', return_value=[plain_key, encrypted_key]):
-            with patch.object(oss2.utils, 'random_iv', return_value=plain_iv, autospect=True):
+            with patch.object(oss2.utils, 'random_iv', return_value=plain_iv):
                 content_crypto_material = provider.create_content_material()
                 self.assertFalse(content_crypto_material.is_unencrypted())
                 decrypted_key = provider.decrypt_encrypted_key(content_crypto_material.encrypted_key)
@@ -221,17 +227,21 @@ class TestCrypto(unittests.common.OssTestCase):
 
     # 测试使用不同的passphrase解析加密key和start抛出异常
     def test_ali_kms_provider_diff_passphrase(self):
-        provider = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_CMK_REGION, OSS_CMK, passphrase=random_string(6))
+        kms_region, kms_cmd_id = self.get_cmk_id()
+
+        provider = AliKMSProvider(OSS_ID, OSS_SECRET, kms_region, kms_cmd_id, passphrase=random_string(6))
         plain_key, encrypted_key = provider.get_key()
         encrypted_iv = provider.get_iv()
 
-        provider_diff = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_CMK_REGION, OSS_CMK, passphrase=random_string(8))
+        provider_diff = AliKMSProvider(OSS_ID, OSS_SECRET, kms_region, kms_cmd_id, passphrase=random_string(8))
         self.assertRaises(OpenApiServerError, provider_diff.decrypt_encrypted_key, encrypted_key)
         self.assertRaises(OpenApiServerError, provider_diff.decrypt_encrypted_iv, encrypted_iv)
 
     # 测试使用不同的region解析加密key和start时抛出异常
     def test_ali_kms_provider_invalid_region(self):
-        provider = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_CMK_REGION, OSS_CMK)
+        kms_region, kms_cmd_id = self.get_cmk_id()
+
+        provider = AliKMSProvider(OSS_ID, OSS_SECRET, kms_region, kms_cmd_id)
         plain_key, encrypted_key = provider.get_key()
         encrypted_iv = provider.get_iv()
 
@@ -246,23 +256,25 @@ class TestCrypto(unittests.common.OssTestCase):
         region_num = len(region_list)
         invalid_region = region_list[random.randint(0, region_num - 1)]
 
-        provider_invalid = AliKMSProvider(OSS_ID, OSS_SECRET, invalid_region, OSS_CMK)
+        provider_invalid = AliKMSProvider(OSS_ID, OSS_SECRET, invalid_region, kms_cmd_id)
         self.assertRaises(OpenApiServerError, provider_invalid.decrypt_encrypted_key, encrypted_key)
         self.assertRaises(OpenApiServerError, provider_invalid.decrypt_encrypted_key, encrypted_iv)
 
     # 测试使用不同的ak解析加密key和start的值时抛出异常
     def test_ali_kms_provider_invalid_ak(self):
-        provider = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_CMK_REGION, OSS_CMK)
+        kms_region, kms_cmd_id = self.get_cmk_id()
+
+        provider = AliKMSProvider(OSS_ID, OSS_SECRET, kms_region, kms_cmd_id)
         plain_key, encrypted_key = provider.get_key()
         encrypted_iv = provider.get_iv()
 
         invalid_secret = random_string(len(OSS_SECRET))
-        provider_invalid = AliKMSProvider(OSS_ID, invalid_secret, OSS_CMK_REGION, OSS_CMK)
+        provider_invalid = AliKMSProvider(OSS_ID, invalid_secret, kms_region, kms_cmd_id)
         self.assertRaises(OpenApiServerError, provider_invalid.decrypt_encrypted_key, encrypted_key)
         self.assertRaises(OpenApiServerError, provider_invalid.decrypt_encrypted_key, encrypted_iv)
 
         invald_id = random_string(len(OSS_ID))
-        provider_invalid = AliKMSProvider(invald_id, OSS_SECRET, OSS_CMK_REGION, OSS_CMK)
+        provider_invalid = AliKMSProvider(invald_id, OSS_SECRET, kms_region, kms_cmd_id)
         self.assertRaises(OpenApiServerError, provider_invalid.decrypt_encrypted_key, encrypted_key)
         self.assertRaises(OpenApiServerError, provider_invalid.decrypt_encrypted_key, encrypted_iv)
 
@@ -271,17 +283,19 @@ class TestCrypto(unittests.common.OssTestCase):
         if oss2.compat.is_py33:
             return
 
-        kms = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_CMK_REGION, OSS_CMK)
+        kms_region, kms_cmd_id = self.get_cmk_id()
+        kms = AliKMSProvider(OSS_ID, OSS_SECRET, kms_region, kms_cmd_id)
 
         # 模拟返回的数据格式不对，不是正确的json格式字符串
         plain_key = random_string(32)
         encrypted_key = random_string(32)
         return_value = "{'Plaintext': %s, 'CiphertextBlob': %s}" % (plain_key, encrypted_key)
-        with patch.object(client.AcsClient, 'do_action_with_exception', return_value=return_value, autospect=True):
+        with patch.object(client.AcsClient, 'do_action_with_exception', return_value=return_value):
             self.assertRaises(OpenApiFormatError, kms.get_key)
 
     def test_ali_kms_provider_adapter(self):
-        provider = AliKMSProvider(OSS_ID, OSS_SECRET, OSS_CMK_REGION, OSS_CMK)
+        kms_region, kms_cmd_id = self.get_cmk_id()
+        provider = AliKMSProvider(OSS_ID, OSS_SECRET, kms_region, kms_cmd_id)
         content = b'a' * random.randint(1, 100) * 1024
         content_crypto_material = provider.create_content_material()
 
@@ -324,3 +338,24 @@ class TestCrypto(unittests.common.OssTestCase):
 
         return j['Credentials']['AccessKeyId'], j['Credentials']['AccessKeySecret'], j['Credentials'][
             'SecurityToken']
+
+    def get_cmk_id(self):
+        if self.kms_cmk_id != '' :
+            return self.kms_cmk_region, self.kms_cmk_id
+        try:
+            bucketName = 'oss-python-sdk-' + random_string(4)
+            bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT, bucketName)
+            bucket.create_bucket()
+            headers = {'x-oss-server-side-encryption':'KMS'}
+            bucket.put_object('kms-id-object', b'', headers=headers)
+            objectmeta = bucket.head_object('kms-id-object')
+            self.kms_cmk_id = objectmeta.headers['x-oss-server-side-encryption-key-id']
+            bucket.delete_object('kms-id-object')
+            bucketinfo = bucket.get_bucket_location()
+            bucket.delete_bucket()
+            self.kms_cmk_region = bucketinfo.location.replace('oss-', '')
+        except:
+            pass        
+
+        return self.kms_cmk_region, self.kms_cmk_id
+    

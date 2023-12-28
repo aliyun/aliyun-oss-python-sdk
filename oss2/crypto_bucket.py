@@ -53,6 +53,10 @@ class CryptoBucket(Bucket):
                  connect_timeout=None,
                  app_name='',
                  enable_crc=True,
+                 proxies=None,
+                 region=None,
+                 cloudbox_id=None,
+                 is_path_style=False
                  ):
 
         if not isinstance(crypto_provider, BaseCryptoProvider):
@@ -60,7 +64,7 @@ class CryptoBucket(Bucket):
 
         logger.debug("Init CryptoBucket: {0}".format(bucket_name))
         super(CryptoBucket, self).__init__(auth, endpoint, bucket_name, is_cname, session, connect_timeout, app_name,
-                                           enable_crc)
+                                           enable_crc, proxies=proxies, region=region, cloudbox_id=cloudbox_id, is_path_style= is_path_style)
 
         self.crypto_provider = crypto_provider
         self.upload_contexts = {}
