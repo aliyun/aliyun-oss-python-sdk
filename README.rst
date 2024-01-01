@@ -45,7 +45,7 @@ You can also install the unzipped installer package directly:
 
 .. code-block:: bash
 
-    $ sudo python setup.py install
+    $ python setup.py install
 
 
 Getting started
