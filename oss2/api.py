@@ -242,7 +242,7 @@ class _Base(object):
 
         # Note that connections are only released back to the pool for reuse once all body data has been read;
         # be sure to either set stream to False or read the content property of the Response object.
-        # For more details, please refer to http://docs.python-requests.org/en/master/user/advanced/#keep-alive.
+        # For more details, please refer to https://2.python-requests.org/en/master/user/advanced/#keep-alive.
         content_length = models._hget(resp.headers, 'content-length', int)
         if content_length is not None and content_length == 0:
             resp.read()
@@ -259,7 +259,7 @@ class _Base(object):
 
         # Note that connections are only released back to the pool for reuse once all body data has been read;
         # be sure to either set stream to False or read the content property of the Response object.
-        # For more details, please refer to http://docs.python-requests.org/en/master/user/advanced/#keep-alive.
+        # For more details, please refer to https://2.python-requests.org/en/master/user/advanced/#keep-alive.
         content_length = models._hget(resp.headers, 'content-length', int)
         if content_length is not None and content_length == 0:
             resp.read()
