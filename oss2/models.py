@@ -1819,7 +1819,7 @@ class AsyncFetchTaskConfiguration(object):
     :param content_md5: 指定校验源文件的md5
     :type content_md5: str
 
-    :param callback: 指定fetch成功知乎回调给用户的引用服务器，如果不指定则不回调。
+    :param callback: 指定fetch成功之后回调给用户的引用服务器，如果不指定则不回调。
             callback格式与OSS上传回调的请求头callback一致，详情见官网。
     :type callback: str
 
