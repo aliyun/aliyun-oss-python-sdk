@@ -2096,3 +2096,14 @@ def parse_callback_policy_result(result, body):
         tmp.callback_var = _find_tag_with_default(policy, 'CallbackVar', None)
 
         result.callback_policies.append(tmp)
+
+
+def to_put_bucket_archive_direct_read(enabled):
+    root = ElementTree.Element('ArchiveDirectReadConfiguration')
+    _add_text_child(root, 'Enabled', str(enabled).lower())
+    return _node_to_string(root)
+
+def parse_get_bucket_archive_direct_read(result, body):
+    root = ElementTree.fromstring(body)
+    if root.find("Enabled") is not None:
+        result.enabled = _find_bool(root, "Enabled")
