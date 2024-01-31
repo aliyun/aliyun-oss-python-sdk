@@ -395,6 +395,20 @@ class Service(_Base):
         logger.debug("write get object response done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
+    def list_user_data_redundancy_transition(self, continuation_token='', max_keys=100):
+        """列举请求者所有的存储冗余转换任务。
+
+        :param str continuation_token: 分页标志,首次调用传空串
+        :param int max_keys: 最多返回数目
+
+        :return: :class:`ListUserDataRedundancyTransitionResult <oss2.models.ListUserDataRedundancyTransitionResult>`
+        """
+        logger.debug("Start to list user data redundancy transition, continuation token: {0}, max keys: {1}".format(continuation_token, max_keys))
+
+        resp = self._do('GET', '', '', params={Bucket.REDUNDANCY_TRANSITION: '', 'continuation-token': continuation_token, 'max-keys': str(max_keys)})
+        logger.debug("List user data redundancy transition done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_list_user_data_redundancy_transition, ListUserDataRedundancyTransitionResult)
+
 class Bucket(_Base):
     """用于Bucket和Object操作的类，诸如创建、删除Bucket，上传、下载Object等。
 
@@ -470,6 +484,10 @@ class Bucket(_Base):
     STYLE_NAME = 'styleName'
     ASYNC_PROCESS = 'x-oss-async-process'
     CALLBACK = 'callback'
+    REDUNDANCY_TRANSITION = "redundancyTransition"
+    TARGET_REDUNDANCY_TYPE = "x-oss-target-redundancy-type"
+    REDUNDANCY_TRANSITION_TASK_ID = "x-oss-redundancy-transition-taskid"
+
 
 
     def __init__(self, auth, endpoint, bucket_name,
@@ -2871,6 +2889,50 @@ class Bucket(_Base):
         resp = self.__do_bucket('DELETE', params={Bucket.POLICY: '', Bucket.COMP: Bucket.CALLBACK})
         logger.debug("Delete bucket callback policy done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
+
+    def create_bucket_data_redundancy_transition(self, targetType):
+        """为Bucket创建存储冗余转换任务。
+
+        :param str targetType: 目标存储冗余类型
+        """
+        logger.debug("Start to create bucket data redundancy transition, bucket: {0}, target type: {1}".format(self.bucket_name, targetType))
+
+        resp = self.__do_bucket('POST', params={Bucket.REDUNDANCY_TRANSITION: '', Bucket.TARGET_REDUNDANCY_TYPE: targetType})
+        logger.debug("Create bucket data redundancy transition done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_create_data_redundancy_transition_result, CreateDataRedundancyTransitionResult)
+
+    def get_bucket_data_redundancy_transition(self, taskId):
+        """获取存储冗余转换任务。
+        :return: :class:`DataRedundancyTransitionInfoResult <oss2.models.DataRedundancyTransitionInfoResult>`
+        """
+
+        logger.debug("Start to get bucket data redundancy transition, bucket: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('GET', params={Bucket.REDUNDANCY_TRANSITION: '', Bucket.REDUNDANCY_TRANSITION_TASK_ID: taskId})
+        logger.debug("Get bucket data redundancy transition done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_get_bucket_data_redundancy_transition, DataRedundancyTransitionInfoResult)
+
+    def delete_bucket_data_redundancy_transition(self, taskId):
+        """删除存储冗余转换任务。
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to delete bucket data redundancy transition, bucket: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('DELETE', params={Bucket.REDUNDANCY_TRANSITION: '', Bucket.REDUNDANCY_TRANSITION_TASK_ID: taskId})
+        logger.debug("Delete bucket data redundancy transition done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
+
+
+    def list_bucket_data_redundancy_transition(self):
+        """列举某个Bucket下所有的存储冗余转换任务。
+
+        :return: :class:`ListBucketDataRedundancyTransitionResult <oss2.models.ListBucketDataRedundancyTransitionResult>`
+        """
+        logger.debug("Start to do query list bucket data redundancy transition: {0}".format(self.bucket_name))
+
+        resp = self.__do_bucket('GET', params={Bucket.REDUNDANCY_TRANSITION: ''})
+        logger.debug("query list bucket data redundancy transition done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_list_bucket_data_redundancy_transition, ListBucketDataRedundancyTransitionResult)
+
 
     def __do_object(self, method, key, **kwargs):
         if not self.bucket_name:

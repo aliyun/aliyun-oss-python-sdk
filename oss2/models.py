@@ -2761,3 +2761,85 @@ class CallbackPolicyResult(RequestResult):
         super(CallbackPolicyResult, self).__init__(resp)
         self.callback_policies = []
 
+
+class DataRedundancyTransitionInfo(RequestResult):
+    """冗余转换任务信息。
+
+    :param str bucket: 存储桶名称。
+    :param str task_id: 存储冗余转换任务的ID。
+    :param str create_time: 存储冗余转换任务的创建时间。
+    :param str start_time: 存储冗余转换任务的开始时间。任务处于Processing、Finished状态时，有该字段。
+    :param str end_time: 存储冗余转换任务的结束时间。任务处于Finished状态时，有该字段。
+    :param str transition_status: 存储冗余转换任务的状态。
+    :param int estimated_remaining_time: 存储冗余转换任务的预计剩余耗时。单位为小时。任务处于Processing、Finished状态时，有该字段。
+    :param int process_percentage: 存储冗余转换任务的进度百分比。取值范围：0-100。任务处于Processing、Finished状态时，有该字段。
+    """
+    def __init__(self, bucket=None, task_id=None, create_time=None, start_time=None, end_time=None, transition_status=None, estimated_remaining_time=None, process_percentage=None):
+        self.bucket = bucket
+        self.task_id = task_id
+        self.create_time = create_time
+        self.start_time = start_time
+        self.end_time = end_time
+        self.transition_status = transition_status
+        self.estimated_remaining_time = estimated_remaining_time
+        self.process_percentage = process_percentage
+
+class DataRedundancyTransitionInfoResult(RequestResult):
+    """冗余转换任务信息。
+
+    :param str bucket: 存储桶名称。
+    :param str task_id: 存储冗余转换任务的ID。
+    :param str create_time: 存储冗余转换任务的创建时间。
+    :param str start_time: 存储冗余转换任务的开始时间。任务处于Processing、Finished状态时，有该字段。
+    :param str end_time: 存储冗余转换任务的结束时间。任务处于Finished状态时，有该字段。
+    :param str transition_status: 存储冗余转换任务的状态。
+    :param int estimated_remaining_time: 存储冗余转换任务的预计剩余耗时。单位为小时。任务处于Processing、Finished状态时，有该字段。
+    :param int process_percentage: 存储冗余转换任务的进度百分比。取值范围：0-100。任务处于Processing、Finished状态时，有该字段。
+    """
+    def __init__(self, resp):
+        super(DataRedundancyTransitionInfoResult, self).__init__(resp)
+        self.bucket = None
+        self.task_id = None
+        self.create_time = None
+        self.start_time = None
+        self.end_time = None
+        self.transition_status = None
+        self.estimated_remaining_time = None
+        self.process_percentage = None
+
+
+class CreateDataRedundancyTransitionResult(RequestResult):
+    """存储冗余转换任务的容器。
+
+    :param str task_id: 存储冗余转换任务的ID
+    """
+
+    def __init__(self, resp):
+        super(CreateDataRedundancyTransitionResult, self).__init__(resp)
+        self.task_id = None
+
+
+class ListUserDataRedundancyTransitionResult(RequestResult):
+    """某个Bucket下所有的存储冗余转换任务。
+
+    :param bool is_truncated: 罗列结果是否是截断的， true: 本地罗列结果并不完整, False: 所有清单配置项已经罗列完毕。
+    :param str next_continuation_token: 下一个罗列操作携带的token
+    :param list data_redundancy_transition: 冗余转换任务信息列表。元素类型为:class:`DataRedundancyTransitionInfo <oss2.models.DataRedundancyTransitionInfo>`。
+    """
+
+    def __init__(self, resp):
+        super(ListUserDataRedundancyTransitionResult, self).__init__(resp)
+        self.is_truncated = None
+        self.next_continuation_token = None
+        self.data_redundancy_transitions = []
+
+
+class ListBucketDataRedundancyTransitionResult(RequestResult):
+    """某个Bucket下所有的存储冗余转换任务。
+
+    :param list data_redundancy_transition: 冗余转换任务信息列表。元素类型为:class:`DataRedundancyTransitionInfo <oss2.models.DataRedundancyTransitionInfo>`。
+    """
+
+    def __init__(self, resp):
+        super(ListBucketDataRedundancyTransitionResult, self).__init__(resp)
+        self.data_redundancy_transitions = []
