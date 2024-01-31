@@ -75,7 +75,8 @@ from .models import (SimplifiedObjectInfo,
                      FilterNotTag,
                      BucketStyleInfo,
                      RegionInfo,
-                     CallbackPolicyInfo)
+                     CallbackPolicyInfo,
+                     DataRedundancyTransitionInfo)
 
 from .select_params import (SelectJsonTypes, SelectParameters)
 
@@ -2128,3 +2129,72 @@ def parse_get_bucket_https_config(result, body):
         result.tls_version = _find_all_tags(root, 'TLS/TLSVersion')
 
     return result
+
+
+def parse_create_data_redundancy_transition_result(result, body):
+    root = ElementTree.fromstring(body)
+    result.task_id = _find_tag_with_default(root, "TaskId", None)
+
+def parse_data_redundancy_transition(transition_node):
+    if transition_node is None:
+        return None
+
+    transition = DataRedundancyTransitionInfo()
+
+    if transition_node.find('Bucket') is not None:
+        transition.bucket = _find_tag_with_default(transition_node, 'Bucket', None)
+    if transition_node.find('TaskId') is not None:
+        transition.task_id = _find_tag_with_default(transition_node, 'TaskId', None)
+    if transition_node.find('Status') is not None:
+        transition.transition_status = _find_tag_with_default(transition_node, 'Status', None)
+    if transition_node.find('CreateTime') is not None:
+        transition.create_time = _find_tag_with_default(transition_node, 'CreateTime', None)
+    if transition_node.find('StartTime') is not None:
+        transition.start_time = _find_tag_with_default(transition_node, 'StartTime', None)
+    if transition_node.find('EndTime') is not None:
+        transition.end_time = _find_tag_with_default(transition_node, 'EndTime', None)
+    if transition_node.find('EstimatedRemainingTime') is not None:
+        transition.estimated_remaining_time = _find_int(transition_node, 'EstimatedRemainingTime')
+    if transition_node.find('ProcessPercentage') is not None:
+        transition.process_percentage = _find_int(transition_node, 'ProcessPercentage')
+
+    return transition
+
+
+def parse_get_bucket_data_redundancy_transition(result, body):
+    root = ElementTree.fromstring(body)
+    if root.find('Bucket') is not None:
+        result.bucket = _find_tag_with_default(root, 'Bucket', None)
+    if root.find('TaskId') is not None:
+        result.task_id = _find_tag_with_default(root, 'TaskId', None)
+    if root.find('Status') is not None:
+        result.transition_status = _find_tag_with_default(root, 'Status', None)
+    if root.find('CreateTime') is not None:
+        result.create_time = _find_tag_with_default(root, 'CreateTime', None)
+    if root.find('StartTime') is not None:
+        result.start_time = _find_tag_with_default(root, 'StartTime', None)
+    if root.find('EndTime') is not None:
+        result.end_time = _find_tag_with_default(root, 'EndTime', None)
+    if root.find('EstimatedRemainingTime') is not None:
+        result.estimated_remaining_time = _find_int(root, 'EstimatedRemainingTime')
+    if root.find('ProcessPercentage') is not None:
+        result.process_percentage = _find_int(root, 'ProcessPercentage')
+
+
+def parse_list_bucket_data_redundancy_transition(result, body):
+    root = ElementTree.fromstring(body)
+    for transition in root.findall('BucketDataRedundancyTransition'):
+        tmp = parse_data_redundancy_transition(transition)
+        result.data_redundancy_transitions.append(tmp)
+
+def parse_list_user_data_redundancy_transition(result, body):
+    root = ElementTree.fromstring(body)
+    if root.find("IsTruncated") is not None:
+        result.is_truncated = _find_bool(root, "IsTruncated")
+
+    if root.find("NextContinuationToken") is not None:
+        result.next_continuation_token = _find_tag(root, "NextContinuationToken")
+
+    for transition in root.findall('BucketDataRedundancyTransition'):
+        tmp = parse_data_redundancy_transition(transition)
+        result.data_redundancy_transitions.append(tmp)
