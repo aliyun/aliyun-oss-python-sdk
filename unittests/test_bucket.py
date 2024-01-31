@@ -3317,5 +3317,209 @@ x-oss-request-id: 566B6BE3BCD1D4FE65D449A2
         self.assertEqual(result.tls_enabled, True)
         self.assertSortedListEqual(result.tls_version, ['TLSv1.2', 'TLSv1.3'])
 
+
+    @patch('oss2.Session.do_request')
+    def test_create_bucket_data_redundancy_transition(self, do_request):
+        request_text = '''POST /?redundancyTransition&x-oss-target-redundancy-type=ZRS HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 5C1B138A109F4E405B2D
+date: Wed, 15 Sep 2021 03:33:37 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<BucketDataRedundancyTransition>
+  <TaskId>4be5beb0f74f490186311b268bf6****</TaskId>
+</BucketDataRedundancyTransition>'''
+
+        req_info = mock_response(do_request, response_text)
+        target_type = "ZRS"
+        result = bucket().create_bucket_data_redundancy_transition(target_type)
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '5C1B138A109F4E405B2D')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.task_id, '4be5beb0f74f490186311b268bf6****')
+
+    @patch('oss2.Session.do_request')
+    def test_get_bucket_data_redundancy_transition(self, do_request):
+        request_text = '''GET /?redundancyTransition&x-oss-redundancy-transition-taskid=8bf6**** HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<BucketDataRedundancyTransition>
+  <Bucket>examplebucket</Bucket>
+  <TaskId>909c6c818dd041d1a44e0fdc66aa****</TaskId>
+  <Status>Finished</Status>
+  <CreateTime>2023-11-17T09:14:39.000Z</CreateTime>
+  <StartTime>2023-11-17T09:14:39.000Z</StartTime>
+  <ProcessPercentage>100</ProcessPercentage>
+  <EstimatedRemainingTime>122</EstimatedRemainingTime>
+  <EndTime>2023-11-18T09:14:39.000Z</EndTime>
+</BucketDataRedundancyTransition>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        task_id = "8bf6****"
+        result = bucket().get_bucket_data_redundancy_transition(task_id)
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.bucket, 'examplebucket')
+        self.assertEqual(result.task_id, '909c6c818dd041d1a44e0fdc66aa****')
+        self.assertEqual(result.transition_status, 'Finished')
+        self.assertEqual(result.create_time, '2023-11-17T09:14:39.000Z')
+        self.assertEqual(result.start_time, '2023-11-17T09:14:39.000Z')
+        self.assertEqual(result.end_time, '2023-11-18T09:14:39.000Z')
+        self.assertEqual(result.process_percentage, 100)
+        self.assertEqual(result.estimated_remaining_time, 122)
+
+
+    @patch('oss2.Session.do_request')
+    def test_list_user_data_redundancy_transition(self, do_request):
+        request_text = '''GET /?redundancyTransition&continuation-token=123xxx&max-keys=10 HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<ListBucketDataRedundancyTransition>
+  <IsTruncated>false</IsTruncated>
+  <NextContinuationToken>6GHUGkjoXXX***l53245</NextContinuationToken>
+  <BucketDataRedundancyTransition>
+    <Bucket>examplebucket1</Bucket>
+    <TaskId>4be5beb0f74f490186311b268bf6****</TaskId>
+    <Status>Queueing</Status>
+    <CreateTime>2023-11-17T08:40:17.000Z</CreateTime>
+  </BucketDataRedundancyTransition>
+  <BucketDataRedundancyTransition>
+    <Bucket>examplebucket3</Bucket>
+    <TaskId>4be5beb0er4f490186311b268bf6j****</TaskId>
+    <Status>Finished</Status>
+    <CreateTime>2023-11-17T08:40:17.000Z</CreateTime>
+    <StartTime>2023-11-17T11:40:18.000Z</StartTime>
+    <ProcessPercentage>123453</ProcessPercentage>
+    <EstimatedRemainingTime>12345</EstimatedRemainingTime>
+    <EndTime>2023-11-18T09:40:17.000Z</EndTime>
+  </BucketDataRedundancyTransition>
+</ListBucketDataRedundancyTransition>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = service().list_user_data_redundancy_transition(continuation_token='123xxx', max_keys=10)
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.is_truncated, False)
+        self.assertEqual(result.next_continuation_token, '6GHUGkjoXXX***l53245')
+        self.assertEqual(result.data_redundancy_transitions[0].bucket, 'examplebucket1')
+        self.assertEqual(result.data_redundancy_transitions[0].transition_status, 'Queueing')
+        self.assertEqual(result.data_redundancy_transitions[0].create_time, '2023-11-17T08:40:17.000Z')
+
+        self.assertEqual(result.data_redundancy_transitions[1].task_id, '4be5beb0er4f490186311b268bf6j****')
+        self.assertEqual(result.data_redundancy_transitions[1].bucket, 'examplebucket3')
+        self.assertEqual(result.data_redundancy_transitions[1].transition_status, 'Finished')
+        self.assertEqual(result.data_redundancy_transitions[1].create_time, '2023-11-17T08:40:17.000Z')
+        self.assertEqual(result.data_redundancy_transitions[1].start_time, '2023-11-17T11:40:18.000Z')
+        self.assertEqual(result.data_redundancy_transitions[1].end_time, '2023-11-18T09:40:17.000Z')
+        self.assertEqual(result.data_redundancy_transitions[1].process_percentage, 123453)
+        self.assertEqual(result.data_redundancy_transitions[1].estimated_remaining_time, 12345)
+
+
+    @patch('oss2.Session.do_request')
+    def test_list_bucket_data_redundancy_transition(self, do_request):
+        request_text = '''GET /?redundancyTransition HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<ListBucketDataRedundancyTransition>
+  <BucketDataRedundancyTransition>
+    <Bucket>examplebucket1</Bucket>
+    <TaskId>4be5beb0f74f490186311b268bf6****</TaskId>
+    <Status>Queueing</Status>
+    <CreateTime>2023-11-17T08:40:17.000Z</CreateTime>
+  </BucketDataRedundancyTransition>
+  <BucketDataRedundancyTransition>
+    <Bucket>examplebucket3</Bucket>
+    <TaskId>4be5beb0er4f490186311b268bf6j****</TaskId>
+    <Status>Finished</Status>
+    <CreateTime>2023-11-17T08:40:17.000Z</CreateTime>
+    <StartTime>2023-11-17T11:40:18.000Z</StartTime>
+    <ProcessPercentage>123453</ProcessPercentage>
+    <EstimatedRemainingTime>12345</EstimatedRemainingTime>
+    <EndTime>2023-11-18T09:40:17.000Z</EndTime>
+  </BucketDataRedundancyTransition>
+</ListBucketDataRedundancyTransition>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().list_bucket_data_redundancy_transition()
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.data_redundancy_transitions[0].task_id, '4be5beb0f74f490186311b268bf6****')
+        self.assertEqual(result.data_redundancy_transitions[0].bucket, 'examplebucket1')
+        self.assertEqual(result.data_redundancy_transitions[0].transition_status, 'Queueing')
+        self.assertEqual(result.data_redundancy_transitions[0].create_time, '2023-11-17T08:40:17.000Z')
+
+        self.assertEqual(result.data_redundancy_transitions[1].task_id, '4be5beb0er4f490186311b268bf6j****')
+        self.assertEqual(result.data_redundancy_transitions[1].bucket, 'examplebucket3')
+        self.assertEqual(result.data_redundancy_transitions[1].transition_status, 'Finished')
+        self.assertEqual(result.data_redundancy_transitions[1].create_time, '2023-11-17T08:40:17.000Z')
+        self.assertEqual(result.data_redundancy_transitions[1].start_time, '2023-11-17T11:40:18.000Z')
+        self.assertEqual(result.data_redundancy_transitions[1].end_time, '2023-11-18T09:40:17.000Z')
+        self.assertEqual(result.data_redundancy_transitions[1].process_percentage, 123453)
+        self.assertEqual(result.data_redundancy_transitions[1].estimated_remaining_time, 12345)
+
+
+    @patch('oss2.Session.do_request')
+    def test_delete_bucket_data_redundancy_transition(self, do_request):
+        request_text = '''DELETE /?redundancyTransition&x-oss-redundancy-transition-taskid=1231xxx HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:41 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:Pt0DtPQ/FODOGs5y0yTIVctRcok='''
+
+        response_text = '''HTTP/1.1 204 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:42 GMT
+Content-Type: application/xml
+Content-Length: 96
+Connection: keep-alive
+x-oss-request-id: 566B6BDD68248CE14F729DC0
+'''
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().delete_bucket_data_redundancy_transition('1231xxx')
+
+        self.assertRequest(req_info, request_text)
+
+
 if __name__ == '__main__':
     unittest.main()
