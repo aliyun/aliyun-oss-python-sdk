@@ -92,7 +92,8 @@ class ProviderAuth(AuthBase):
          'callback-var', 'worm', 'wormId', 'wormExtend', 'replication', 'replicationLocation',
          'replicationProgress', 'transferAcceleration', 'cname', 'metaQuery',
          'x-oss-ac-source-ip', 'x-oss-ac-subnet-mask', 'x-oss-ac-vpc-id', 'x-oss-ac-forward-allow',
-         'resourceGroup', 'style', 'styleName', 'x-oss-async-process', 'regionList', 'x-oss-write-get-object-response']
+         'resourceGroup', 'style', 'styleName', 'x-oss-async-process', 'regionList', 'x-oss-write-get-object-response',
+         'redundancyTransition', 'x-oss-target-redundancy-type', 'x-oss-redundancy-transition-taskid']
     )
         
     def _sign_request(self, req, bucket_name, key):
