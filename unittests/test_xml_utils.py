@@ -239,6 +239,64 @@ class TestXmlUtils(unittest.TestCase):
         self.assertEqual(0.85, progress.historical_object_progress)
         self.assertEqual('2015-09-24T15:28:14.000Z', progress.new_object_progress)
 
+    def test_parse_get_bucket_replication_cloud(self):
+        body = '''<ReplicationConfiguration>
+  <Rule>
+    <ID>test_replication_1</ID>
+    <PrefixSet>
+      <Prefix>source_image</Prefix>
+      <Prefix>video</Prefix>
+    </PrefixSet>
+    <Action>PUT</Action>
+    <Destination>
+      <Bucket>target-bucket</Bucket>
+      <Cloud>cloud-1</Cloud>
+      <CloudLocation>oss-cloud-1</CloudLocation>
+    </Destination>
+    <Status>doing</Status>
+    <HistoricalObjectReplication>enabled</HistoricalObjectReplication>
+    <SyncRole>aliyunramrole</SyncRole>
+    <SourceSelectionCriteria>
+      <SseKmsEncryptedObjects>
+        <Status>Enabled</Status>
+      </SseKmsEncryptedObjects>
+    </SourceSelectionCriteria>
+    <EncryptionConfiguration>
+      <ReplicaKmsKeyID>c2ee80d6-1111-1111-1111-a3644797b566</ReplicaKmsKeyID>
+    </EncryptionConfiguration>
+  </Rule>
+</ReplicationConfiguration>
+        '''
+        headers = oss2.CaseInsensitiveDict({
+            'Server': 'AliyunOSS',
+            'Date': 'Fri, 11 Dec 2015 11:40:30 GMT',
+            'Content-Length': len(body),
+            'Connection': 'keep-alive',
+            'x-oss-request-id': '566AB62EB06147681C283D73',
+            'ETag': '7AE1A589ED6B161CAD94ACDB98206DA6'
+        })
+        resp = MockResponse(200, headers, body)
+
+        result = oss2.models.GetBucketReplicationResult(resp)
+        parse_get_bucket_replication_result(result, body)
+        self.assertEqual(1, len(result.rule_list))
+        rule = result.rule_list[0]
+
+        self.assertEqual('test_replication_1', rule.rule_id)
+        self.assertEqual('target-bucket', rule.target_bucket_name)
+        self.assertEqual('cloud-1', rule.target_cloud)
+        self.assertEqual('oss-cloud-1', rule.target_cloud_location)
+        self.assertEqual(2, len(rule.prefix_list))
+        self.assertTrue('source_image' in rule.prefix_list)
+        self.assertTrue('video' in rule.prefix_list)
+        self.assertEqual(1, len(rule.action_list))
+        self.assertEqual('PUT', rule.action_list[0])
+        self.assertTrue(rule.is_enable_historical_object_replication)
+        self.assertEqual(ReplicationRule.DOING, rule.status)
+        self.assertEqual('aliyunramrole', rule.sync_role_name)
+        self.assertEqual('c2ee80d6-1111-1111-1111-a3644797b566', rule.replica_kms_keyid)
+        self.assertEqual('Enabled', rule.sse_kms_encrypted_objects_status)
+
 
 if __name__ == '__main__':
     unittest.main()
