@@ -1776,9 +1776,11 @@ def parse_get_bucket_replication_result(result, body):
             rule.rule_id = _find_tag(rule_node, "ID")
 
         destination_node = rule_node.find("Destination")
-        rule.target_bucket_name = _find_tag(destination_node, "Bucket")
-        rule.target_bucket_location = _find_tag(destination_node, "Location")
+        rule.target_bucket_name = _find_tag_with_default(destination_node, "Bucket", None)
+        rule.target_bucket_location = _find_tag_with_default(destination_node, "Location", None)
         rule.target_transfer_type = _find_tag_with_default(destination_node, "TransferType", None)
+        rule.target_cloud = _find_tag_with_default(destination_node, "Cloud", None)
+        rule.target_cloud_location = _find_tag_with_default(destination_node, "CloudLocation", None)
 
         rule.status = _find_tag(rule_node, "Status")
         rule.sync_role_name = _find_tag_with_default(rule_node, 'SyncRole', None)
