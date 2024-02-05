@@ -2154,6 +2154,8 @@ class ReplicationRule(object):
     :param str sse_kms_encrypted_objects_status: 指定OSS是否复制通过SSE-KMS加密创建的对象。
             取值范围[ReplicationRule.ENABLED, ReplicationRule.DISABLED]。
     :param str status: 复制状态，由服务端赋值，可能为:starting, doing 或closing。
+    :param str target_cloud: 目标云名称
+    :param str target_cloud_location: 目标云内目标Bucket所处的Location
     """
 
     ENABLED = 'Enabled'
@@ -2178,7 +2180,9 @@ class ReplicationRule(object):
                  sync_role_name=None,
                  replica_kms_keyid=None,
                  sse_kms_encrypted_objects_status=None,
-                 status=None):
+                 status=None,
+                 target_cloud=None,
+                 target_cloud_location=None):
         self.rule_id = rule_id
         self.target_bucket_name = target_bucket_name
         self.target_bucket_location = target_bucket_location
@@ -2194,6 +2198,8 @@ class ReplicationRule(object):
             raise ClientError('sse_kms_encrypted_objects_status should be "Enabled" or "Disabled".')
         self.sse_kms_encrypted_objects_status = sse_kms_encrypted_objects_status
         self.status = status
+        self.target_cloud = target_cloud
+        self.target_cloud_location = target_cloud_location
 
 class BucketReplicationProgress(object):
     """Bucket跨区域复制进度
