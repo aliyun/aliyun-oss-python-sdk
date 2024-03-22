@@ -2096,3 +2096,25 @@ def parse_callback_policy_result(result, body):
         tmp.callback_var = _find_tag_with_default(policy, 'CallbackVar', None)
 
         result.callback_policies.append(tmp)
+
+def to_do_bucket_https_config_request(https_config):
+    root = ElementTree.Element('HttpsConfiguration')
+
+    list_node = ElementTree.SubElement(root, 'TLS')
+
+    _add_text_child(list_node, 'Enable', str(https_config.tls_enabled).lower())
+    if https_config.tls_version:
+        for r in https_config.tls_version:
+            _add_text_child(list_node, 'TLSVersion', r)
+
+    return _node_to_string(root)
+
+
+def parse_get_bucket_https_config(result, body):
+    root = ElementTree.fromstring(body)
+
+    result.tls_enabled = _find_bool(root, 'TLS/Enable')
+    if root.find("TLS/TLSVersion") is not None:
+        result.tls_version = _find_all_tags(root, 'TLS/TLSVersion')
+
+    return result
