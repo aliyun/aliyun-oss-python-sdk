@@ -2097,6 +2097,16 @@ def parse_callback_policy_result(result, body):
 
         result.callback_policies.append(tmp)
 
+def to_put_bucket_archive_direct_read(enabled):
+    root = ElementTree.Element('ArchiveDirectReadConfiguration')
+    _add_text_child(root, 'Enabled', str(enabled).lower())
+    return _node_to_string(root)
+
+def parse_get_bucket_archive_direct_read(result, body):
+    root = ElementTree.fromstring(body)
+    if root.find("Enabled") is not None:
+        result.enabled = _find_bool(root, "Enabled")
+        
 def to_do_bucket_https_config_request(https_config):
     root = ElementTree.Element('HttpsConfiguration')
 

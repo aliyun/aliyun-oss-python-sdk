@@ -1819,7 +1819,7 @@ class AsyncFetchTaskConfiguration(object):
     :param content_md5: 指定校验源文件的md5
     :type content_md5: str
 
-    :param callback: 指定fetch成功知乎回调给用户的引用服务器，如果不指定则不回调。
+    :param callback: 指定fetch成功之后回调给用户的引用服务器，如果不指定则不回调。
             callback格式与OSS上传回调的请求头callback一致，详情见官网。
     :type callback: str
 
@@ -2761,6 +2761,14 @@ class CallbackPolicyResult(RequestResult):
         super(CallbackPolicyResult, self).__init__(resp)
         self.callback_policies = []
 
+class GetBucketArchiveDirectReadResult(RequestResult):
+    """获取归档直读。
+
+    :param bool enabled: Bucket是否开启归档直读
+    """
+    def __init__(self, resp):
+        super(GetBucketArchiveDirectReadResult, self).__init__(resp)
+        self.enabled = None
 
 class BucketTlsVersion(object):
     """BucketTLS版本设置。
@@ -2771,7 +2779,6 @@ class BucketTlsVersion(object):
     def __init__(self, tls_enabled=False, tls_version=None):
         self.tls_enabled = tls_enabled
         self.tls_version = tls_version
-
 
 class HttpsConfigResult(RequestResult):
     """返回Bucket TLS版本信息。

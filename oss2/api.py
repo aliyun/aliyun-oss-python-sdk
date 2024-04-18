@@ -470,8 +470,8 @@ class Bucket(_Base):
     STYLE_NAME = 'styleName'
     ASYNC_PROCESS = 'x-oss-async-process'
     CALLBACK = 'callback'
+    ARCHIVE_DIRECT_READ = "bucketArchiveDirectRead"
     HTTPS_CONFIG = 'httpsConfig'
-
 
     def __init__(self, auth, endpoint, bucket_name,
                  is_cname=False,
@@ -2872,6 +2872,27 @@ class Bucket(_Base):
         resp = self.__do_bucket('DELETE', params={Bucket.POLICY: '', Bucket.COMP: Bucket.CALLBACK})
         logger.debug("Delete bucket callback policy done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
+
+    def put_bucket_archive_direct_read(self, enabled=False):
+        """设置归档直读
+
+        :param boolean enabled: Bucket是否开启归档直读
+        """
+        logger.debug("Start to put bucket archive direct read, bucket: {0}, enabled: {1}".format(self.bucket_name, enabled))
+        data = xml_utils.to_put_bucket_archive_direct_read(enabled)
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.ARCHIVE_DIRECT_READ: ''})
+        logger.debug("bucket archive direct read done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
+
+    def get_bucket_archive_direct_read(self):
+        """获取归档直读
+        :return: :class:`GetBucketArchiveDirectReadResult <oss2.models.GetBucketArchiveDirectReadResult>`
+        """
+
+        logger.debug("Start to get bucket archive direct read, bucket: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('GET', params={Bucket.ARCHIVE_DIRECT_READ: ''})
+        logger.debug("Get bucket archive direct read done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_get_bucket_archive_direct_read, GetBucketArchiveDirectReadResult)
 
     def put_bucket_https_config(self, httpsConfig):
         """Bucket开启或关闭TLS版本设置。
