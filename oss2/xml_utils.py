@@ -13,6 +13,7 @@ XML处理相关。
 """
 import logging
 import xml.etree.ElementTree as ElementTree
+import json
 
 from .models import (SimplifiedObjectInfo,
                      SimplifiedBucketInfo,
@@ -2065,7 +2066,7 @@ def parse_describe_regions(result, body):
 
 def parse_async_process_object(result, body):
     if body:
-        body_dict = eval(body.decode('utf-8'))
+        body_dict = json.loads(to_unicode(body))
         result.event_id = body_dict['EventId']
         result.async_request_id = body_dict['RequestId']
         result.task_id = body_dict['TaskId']
