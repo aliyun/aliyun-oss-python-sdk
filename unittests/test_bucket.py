@@ -7,7 +7,7 @@ from functools import partial
 
 from oss2 import to_string, iso8601_to_unixtime
 from oss2.headers import OSS_ALLOW_ACTION_OVERLAP
-from oss2.models import AggregationsRequest, MetaQuery, CallbackPolicyInfo
+from oss2.models import AggregationsRequest, MetaQuery, CallbackPolicyInfo, BucketTlsVersion
 from unittests.common import *
 
 
@@ -3251,6 +3251,71 @@ Date: Fri , 30 Apr 2021 13:08:38 GMT
         self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
         self.assertEqual(result.status, 200)
         self.assertEqual(result.enabled, False)
+
+    @patch('oss2.Session.do_request')
+    def test_put_bucket_https_config(self, do_request):
+
+        request_text = '''PUT /?httpsConfig= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Content-Length: 249
+date: Sat, 12 Dec 2015 00:35:46 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:Kq2RS9nmT44C1opXGbcLzNdTt1A=
+
+<HttpsConfiguration><TLS><Enable>true</Enable><TLSVersion>TLSv1.2</TLSVersion><TLSVersion>TLSv1.3</TLSVersion></TLS></HttpsConfiguration>'''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:46 GMT
+Content-Length: 0
+Connection: keep-alive
+x-oss-request-id: 566B6BE244ABFA2608E5A8AD'''
+
+        req_info = mock_response(do_request, response_text)
+
+        bucket().put_bucket_https_config(BucketTlsVersion(True, ['TLSv1.2', 'TLSv1.3']))
+
+        self.assertRequest(req_info, request_text)
+
+    @patch('oss2.Session.do_request')
+    def test_get_bucket_https_config(self, do_request):
+        request_text = '''GET /?httpsConfig= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:47 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:nWqS3JExf/lsVxm+Sbxbg2cQyrc='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:47 GMT
+Content-Type: application/xml
+Content-Length: 319
+Connection: keep-alive
+x-oss-request-id: 566B6BE3BCD1D4FE65D449A2
+
+<?xml version="1.0" encoding="UTF-8"?>
+<HttpsConfiguration>
+  <TLS>
+    <Enable>true</Enable>
+    <TLSVersion>TLSv1.2</TLSVersion>
+    <TLSVersion>TLSv1.3</TLSVersion>
+  </TLS>
+</HttpsConfiguration>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().get_bucket_https_config()
+
+        self.assertRequest(req_info, request_text)
+
+        self.assertEqual(result.tls_enabled, True)
+        self.assertSortedListEqual(result.tls_version, ['TLSv1.2', 'TLSv1.3'])
 
 if __name__ == '__main__':
     unittest.main()

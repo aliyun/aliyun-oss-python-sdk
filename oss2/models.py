@@ -2761,7 +2761,6 @@ class CallbackPolicyResult(RequestResult):
         super(CallbackPolicyResult, self).__init__(resp)
         self.callback_policies = []
 
-
 class GetBucketArchiveDirectReadResult(RequestResult):
     """获取归档直读。
 
@@ -2770,3 +2769,25 @@ class GetBucketArchiveDirectReadResult(RequestResult):
     def __init__(self, resp):
         super(GetBucketArchiveDirectReadResult, self).__init__(resp)
         self.enabled = None
+
+class BucketTlsVersion(object):
+    """BucketTLS版本设置。
+
+    :param bool tls_enabled: 是否为Bucket开启TLS版本设置。
+    :param tls_version: TLS版本。
+    """
+    def __init__(self, tls_enabled=False, tls_version=None):
+        self.tls_enabled = tls_enabled
+        self.tls_version = tls_version
+
+class HttpsConfigResult(RequestResult):
+    """返回Bucket TLS版本信息。
+
+    :param bool tls_enabled: bucket是否开启TLS版本设置。
+    :param tls_version: TLS版本。
+    """
+
+    def __init__(self, resp):
+        super(HttpsConfigResult, self).__init__(resp)
+        self.tls_enabled = None
+        self.tls_version = []
