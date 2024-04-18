@@ -2097,7 +2097,6 @@ def parse_callback_policy_result(result, body):
 
         result.callback_policies.append(tmp)
 
-
 def to_put_bucket_archive_direct_read(enabled):
     root = ElementTree.Element('ArchiveDirectReadConfiguration')
     _add_text_child(root, 'Enabled', str(enabled).lower())
@@ -2107,3 +2106,25 @@ def parse_get_bucket_archive_direct_read(result, body):
     root = ElementTree.fromstring(body)
     if root.find("Enabled") is not None:
         result.enabled = _find_bool(root, "Enabled")
+        
+def to_do_bucket_https_config_request(https_config):
+    root = ElementTree.Element('HttpsConfiguration')
+
+    list_node = ElementTree.SubElement(root, 'TLS')
+
+    _add_text_child(list_node, 'Enable', str(https_config.tls_enabled).lower())
+    if https_config.tls_version:
+        for r in https_config.tls_version:
+            _add_text_child(list_node, 'TLSVersion', r)
+
+    return _node_to_string(root)
+
+
+def parse_get_bucket_https_config(result, body):
+    root = ElementTree.fromstring(body)
+
+    result.tls_enabled = _find_bool(root, 'TLS/Enable')
+    if root.find("TLS/TLSVersion") is not None:
+        result.tls_version = _find_all_tags(root, 'TLS/TLSVersion')
+
+    return result
