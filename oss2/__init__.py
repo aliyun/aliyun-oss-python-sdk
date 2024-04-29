@@ -1,4 +1,4 @@
-__version__ = '2.18.4'
+__version__ = '2.18.5'
 
 from . import models, exceptions, defaults
 
