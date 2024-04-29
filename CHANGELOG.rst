@@ -3,6 +3,12 @@ OSS SDK for Python 版本记录
 
 Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
+Version 2.18.5
+-------------
+- 增加： archive direct Read 接口
+- 增加： bucket https config 接口
+- 增加： redundancy transition 接口
+
 Version 2.18.4
 -------------
 - 增加： 预签名支持 oss v4 签名规则
