@@ -512,7 +512,7 @@ class Bucket(_Base):
         if utils.is_valid_bucket_name(self.bucket_name) is not True:
             raise ClientError("The bucket_name is invalid, please check it.")
 
-    def sign_url(self, method, key, expires, headers=None, params=None, slash_safe=False):
+    def sign_url(self, method, key, expires, headers=None, params=None, slash_safe=False, additional_headers=None):
         """生成签名URL。
 
         常见的用法是生成加签的URL以供授信用户下载，如为log.jpg生成一个5分钟后过期的下载链接::
@@ -534,6 +534,8 @@ class Bucket(_Base):
         :param slash_safe: 是否开启key名称中的‘/’转义保护，如果不开启'/'将会转义成%2F
         :type slash_safe: bool
 
+        :param additional_headers: 额外的需要签名的HTTP头
+
         :return: 签名URL。
         """
         if key is None or len(key.strip()) <= 0:
@@ -552,7 +554,12 @@ class Bucket(_Base):
                            region=self.region,
                            product=self.product,
                            cloudbox_id=self.cloudbox_id)
-        return self.auth._sign_url(req, self.bucket_name, key, expires)
+        sign_url = ''
+        if additional_headers is None:
+            sign_url = self.auth._sign_url(req, self.bucket_name, key, expires)
+        else:
+            sign_url = self.auth._sign_url(req, self.bucket_name, key, expires, in_additional_headers=additional_headers)
+        return sign_url
 
     def sign_rtmp_url(self, channel_name, playlist_name, expires):
         """生成RTMP推流的签名URL。
