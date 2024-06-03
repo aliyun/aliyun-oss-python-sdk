@@ -378,6 +378,8 @@ class ProviderAuthV2(AuthBase):
         req.params['x-oss-signature-version'] = 'OSS2'
         req.params['x-oss-expires'] = str(expiration_time)
         req.params['x-oss-access-key-id'] = credentials.get_access_key_id()
+        if additional_headers:
+            req.params['x-oss-additional-headers'] = ';'.join(additional_headers)
 
         signature = self.__make_signature(req, bucket_name, key, additional_headers, credentials)
 
@@ -579,6 +581,8 @@ class ProviderAuthV4(AuthBase):
         req.params['x-oss-expires'] = str(expires)
         req.params['x-oss-signature-version'] = 'OSS4-HMAC-SHA256'
         req.params['x-oss-credential'] = credentials.get_access_key_id() + "/" + self.__get_scope(now_date, req)
+        if additional_headers:
+            req.params['x-oss-additional-headers'] = ';'.join(additional_headers)
 
         signature = self.__make_signature(req, bucket_name, key, additional_headers, credentials, now_datetime_iso8601)
         req.params['x-oss-signature'] = signature
@@ -684,7 +688,7 @@ class ProviderAuthV4(AuthBase):
         return 'UNSIGNED-PAYLOAD'
 
     def __get_region(self, req):
-        return req.cloudbox_id or req.region
+        return req.cloudbox_id or req.region or ''
 
     def __get_product(self, req):
         return req.product
