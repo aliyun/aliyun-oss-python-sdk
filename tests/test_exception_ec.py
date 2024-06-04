@@ -34,10 +34,10 @@ class TestExceptionEC(OssTestCase):
         try:
             bucket.head_object(key)
         except oss2.exceptions.OssError as e:
-            self.assertEqual(e.ec, '0002-00000061')
-            self.assertEqual(e.headers.get('x-oss-ec'), '0002-00000061')
+            self.assertEqual(e.ec, '0002-00000226')
+            self.assertEqual(e.headers.get('x-oss-ec'), '0002-00000226')
             self.assertEqual(e.code, 'InvalidArgument')
-            self.assertEqual(e.message, 'Authorization header is invalid.')
+            self.assertEqual(e.message, 'Invalid signing region in Authorization header.')
 
 if __name__ == '__main__':
     unittest.main()

@@ -26,7 +26,7 @@ class TestBucketInventory(OssTestCase):
         OssTestCase.setUp(self)
         self.endpoint = OSS_ENDPOINT
         bucket_name = self.OSS_BUCKET + "-test-inventory"
-        self.bucket1 = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), self.endpoint, bucket_name)
+        self.bucket1 = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), self.endpoint, bucket_name, region=OSS_REGION)
         self.bucket1.create_bucket()
 
 

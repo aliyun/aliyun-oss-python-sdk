@@ -32,7 +32,7 @@ OSS_PAYER_SECRET = os.getenv("OSS_TEST_PAYER_ACCESS_KEY_SECRET")
 OSS_INVENTORY_BUCKET_DESTINATION_ARN = os.getenv("OSS_TEST_RAM_ROLE_ARN")
 OSS_INVENTORY_BUCKET_DESTINATION_ACCOUNT = os.getenv("OSS_TEST_RAM_UID")
 
-OSS_AUTH_VERSION = None
+OSS_AUTH_VERSION = os.getenv('OSS_TEST_AUTH_VERSION')
 OSS_TEST_AUTH_SERVER_HOST = os.getenv("OSS_TEST_AUTH_SERVER_HOST")
 
 private_key = RSA.generate(1024)
@@ -120,7 +120,7 @@ def clean_and_delete_bucket_by_prefix(bucket_prefix):
     service = oss2.Service(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT)
     buckets = service.list_buckets(prefix=bucket_prefix).buckets
     for b in buckets:
-        bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), b.extranet_endpoint, b.name)
+        bucket = oss2.Bucket(oss2.Auth(OSS_ID, OSS_SECRET), b.extranet_endpoint, b.name, region=OSS_REGION)
         clean_and_delete_bucket(bucket)
         
 
@@ -168,9 +168,6 @@ class OssTestCase(unittest.TestCase):
         oss2.defaults.multiget_threshold = self.default_multiget_threshold
         oss2.defaults.multiget_part_size = self.default_multiget_part_size
         oss2.defaults.multiget_num_threads = random.randint(1, 5)
-
-        global OSS_AUTH_VERSION
-        OSS_AUTH_VERSION = os.getenv('OSS_TEST_AUTH_VERSION')
 
         self.OSS_BUCKET = OSS_BUCKET_BASE + random_string(4)
         self.bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, self.OSS_BUCKET, region=OSS_REGION)

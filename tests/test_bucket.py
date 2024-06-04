@@ -106,7 +106,7 @@ class TestBucket(OssTestCase):
 
     def test_logging(self):
         bucket_name = self.OSS_BUCKET + "-test-logging"
-        other_bucket = oss2.Bucket(self.bucket.auth, OSS_ENDPOINT, bucket_name)
+        other_bucket = oss2.Bucket(self.bucket.auth, OSS_ENDPOINT, bucket_name, region=OSS_REGION)
         other_bucket.create_bucket(oss2.BUCKET_ACL_PRIVATE)
 
         def same_logging(bucket_logging, target_bucket, target_prefix):

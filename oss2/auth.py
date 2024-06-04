@@ -572,6 +572,7 @@ class ProviderAuthV4(AuthBase):
             in_additional_headers = set()
 
         additional_headers = self.__get_additional_headers(req, in_additional_headers)
+        additional_headers = self.__get_additional_signed_headers(additional_headers)
 
         now_datetime = datetime.utcnow()
         now_datetime_iso8601 = now_datetime.strftime("%Y%m%dT%H%M%SZ")
@@ -582,7 +583,7 @@ class ProviderAuthV4(AuthBase):
         req.params['x-oss-signature-version'] = 'OSS4-HMAC-SHA256'
         req.params['x-oss-credential'] = credentials.get_access_key_id() + "/" + self.__get_scope(now_date, req)
         if additional_headers:
-            req.params['x-oss-additional-headers'] = ';'.join(additional_headers)
+            req.params['x-oss-additional-headers'] = self.__get_canonical_additional_signed_headers(additional_headers)
 
         signature = self.__make_signature(req, bucket_name, key, additional_headers, credentials, now_datetime_iso8601)
         req.params['x-oss-signature'] = signature

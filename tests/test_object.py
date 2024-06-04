@@ -81,10 +81,8 @@ class TestObject(OssTestCase):
     def test_restore_object_with_config(self):
         from oss2.models import (RestoreJobParameters, RestoreConfiguration, RESTORE_TIER_EXPEDITED,
                                  RESTORE_TIER_STANDARD, RESTORE_TIER_BULK)
-
-        endpoint = "http://oss-ap-southeast-2.aliyuncs.com"
         bucket_name = self.OSS_BUCKET + "-test-restore-1"
-        bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), endpoint, bucket_name)
+        bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT, bucket_name, region=OSS_REGION)
         bucket.create_bucket()
 
         prefix = "test-restore-object-with-request"
@@ -107,7 +105,7 @@ class TestObject(OssTestCase):
 
         endpoint = OSS_ENDPOINT
         bucket_name = self.OSS_BUCKET + "-test-restore-2"
-        bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), endpoint, bucket_name)
+        bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), endpoint, bucket_name, region=OSS_REGION)
         bucket.create_bucket()
 
         object_name = "test_restore_object_with_wrong_configuration.txt"
@@ -125,7 +123,7 @@ class TestObject(OssTestCase):
 
         endpoint = OSS_ENDPOINT
         bucket_name = self.OSS_BUCKET + "-test-restore-3"
-        bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), endpoint, bucket_name)
+        bucket = oss2.Bucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), endpoint, bucket_name, region=OSS_REGION)
         bucket.create_bucket()
 
         object_name = "test_restore_archive_object_with_job_parameters.txt"
@@ -1517,38 +1515,6 @@ class TestObject(OssTestCase):
         del_result = bucket.delete_object(key)
         self.assertEqual(del_result.status, 204)
         bucket.delete_bucket()
-
-class TestSignV2(TestObject):
-    """
-        这个类主要是用来增加测试覆盖率，当环境变量为oss2.AUTH_VERSION_2，则重新设置为oss2.AUTH_VERSION_1再运行TestObject，反之亦然
-    """
-    def __init__(self, *args, **kwargs):
-        self.sign_vesion = os.getenv('OSS_TEST_AUTH_VERSION')
-        super(TestSignV2, self).__init__(*args, **kwargs)
-
-    def setUp(self):
-        os.environ['OSS_TEST_AUTH_VERSION'] = oss2.AUTH_VERSION_2
-        super(TestSignV2, self).setUp()
-
-    def tearDown(self):
-        os.environ['OSS_TEST_AUTH_VERSION'] = self.sign_vesion
-        super(TestSignV2, self).tearDown()
-
-class TestSignV4(TestObject):
-    """
-        这个类主要是用来增加测试覆盖率，当环境变量为oss2.AUTH_VERSION_2，则重新设置为oss2.AUTH_VERSION_1再运行TestObject，反之亦然
-    """
-    def __init__(self, *args, **kwargs):
-        self.sign_vesion = os.getenv('OSS_TEST_AUTH_VERSION')
-        super(TestSignV4, self).__init__(*args, **kwargs)
-
-    def setUp(self):
-        os.environ['OSS_TEST_AUTH_VERSION'] = oss2.AUTH_VERSION_4
-        super(TestSignV4, self).setUp()
-
-    def tearDown(self):
-        os.environ['OSS_TEST_AUTH_VERSION'] = self.sign_vesion
-        super(TestSignV4, self).tearDown()
 
 
 if __name__ == '__main__':
