@@ -318,7 +318,7 @@ class TestCryptoObject(OssTestCase):
         provider_1 = RsaProvider(key_pair={'private_key': private_key_str_1, 'public_key': public_key_str_1},
                                  passphrase=passphrase_1, mat_desc=mat_desc_1)
         crypto_bucket_1 = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT,
-                                            self.OSS_BUCKET, crypto_provider=provider_1)
+                                            self.OSS_BUCKET, crypto_provider=provider_1, region=OSS_REGION)
         private_key_2 = RSA.generate(2048)
         public_key_2 = private_key_2.publickey()
         passphrase_2 = random_string(6)
@@ -328,7 +328,7 @@ class TestCryptoObject(OssTestCase):
         provider_2 = RsaProvider(key_pair={'private_key': private_key_str_2, 'public_key': public_key_str_2},
                                  passphrase=passphrase_2, mat_desc=mat_desc_2)
         crypto_bucket_2 = oss2.CryptoBucket(oss2.make_auth(OSS_ID, OSS_SECRET, OSS_AUTH_VERSION), OSS_ENDPOINT,
-                                            self.OSS_BUCKET, crypto_provider=provider_2)
+                                            self.OSS_BUCKET, crypto_provider=provider_2, region=OSS_REGION)
         key = self.random_key('.js')
         content = random_bytes(1024)
         crypto_bucket_1.put_object(key, content)
