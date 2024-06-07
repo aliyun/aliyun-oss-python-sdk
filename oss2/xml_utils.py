@@ -77,7 +77,11 @@ from .models import (SimplifiedObjectInfo,
                      BucketStyleInfo,
                      RegionInfo,
                      CallbackPolicyInfo,
-                     DataRedundancyTransitionInfo)
+                     DataRedundancyTransitionInfo,
+                     ListAccessPointResult,
+                     AccessPointVpcConfiguration,
+                     AccessPointEndpoints,
+                     AccessPointInfo)
 
 from .select_params import (SelectJsonTypes, SelectParameters)
 
@@ -2201,3 +2205,73 @@ def parse_list_user_data_redundancy_transition(result, body):
     for transition in root.findall('BucketDataRedundancyTransition'):
         tmp = parse_data_redundancy_transition(transition)
         result.data_redundancy_transitions.append(tmp)
+
+def to_do_create_access_point_request(accessPoint):
+    root = ElementTree.Element("CreateAccessPointConfiguration")
+    if accessPoint.access_point_name is not None:
+        _add_text_child(root, "AccessPointName", accessPoint.access_point_name)
+    if accessPoint.network_origin is not None:
+        _add_text_child(root, "NetworkOrigin", accessPoint.network_origin)
+    if accessPoint.vpc is not None:
+        vpc_node = ElementTree.SubElement(root, "VpcConfiguration")
+        _add_text_child(vpc_node, "VpcId", accessPoint.vpc.vpc_id)
+
+    return _node_to_string(root)
+
+
+def parse_create_access_point_result(result, body):
+    root = ElementTree.fromstring(body)
+    result.access_point_arn = _find_tag_with_default(root, "AccessPointArn", None)
+    result.alias = _find_tag_with_default(root, "Alias", None)
+
+
+def parse_get_access_point_result(result, body):
+    root = ElementTree.fromstring(body)
+    result.access_point_name = _find_tag_with_default(root, "AccessPointName", None)
+    result.bucket = _find_tag_with_default(root, "Bucket", None)
+    result.account_id = _find_tag_with_default(root, "AccountId", None)
+    result.network_origin = _find_tag_with_default(root, "NetworkOrigin", None)
+    vpc_node = root.find('VpcConfiguration')
+    if vpc_node is not None:
+        vpc = AccessPointVpcConfiguration()
+        vpc.vpc_id = _find_tag_with_default(vpc_node, "VpcId", None)
+        result.vpc = vpc
+
+    result.access_point_arn = _find_tag_with_default(root, "AccessPointArn", None)
+    result.creation_date = _find_tag_with_default(root, "CreationDate", None)
+    result.alias = _find_tag_with_default(root, "Alias", None)
+    result.access_point_status = _find_tag_with_default(root, "Status", None)
+    endpoint_node = root.find('Endpoints')
+    if endpoint_node is not None:
+        endpoint = AccessPointEndpoints()
+        endpoint.public_endpoint = _find_tag_with_default(endpoint_node, "PublicEndpoint", None)
+        endpoint.internal_endpoint = _find_tag_with_default(endpoint_node, "InternalEndpoint", None)
+        result.endpoints = endpoint
+
+
+def parse_list_access_point_result(result, body):
+    root = ElementTree.fromstring(body)
+
+    result.account_id = _find_tag_with_default(root, 'AccountId', None)
+    result.marker = _find_tag_with_default(root, 'Marker', None)
+    result.max_keys = _find_int(root, 'MaxKeys')
+    result.is_truncated = _find_bool(root, 'IsTruncated')
+
+    if result.is_truncated is not None:
+        result.next_continuation_token = _find_tag_with_default(root, 'NextContinuationToken', None)
+
+    access_points = root.findall('AccessPoints/AccessPoint')
+    for access_point in access_points:
+        tmp = AccessPointInfo()
+        tmp.bucket = _find_tag(access_point, 'Bucket')
+        tmp.access_point_name = _find_tag(access_point, 'AccessPointName')
+        tmp.alias = _find_tag(access_point, 'Alias')
+        tmp.status = _find_tag(access_point, 'Status')
+        tmp.network_origin = _find_tag(access_point, 'NetworkOrigin')
+        vpc_node = access_point.find('VpcConfiguration')
+        if vpc_node is not None:
+            vpc = AccessPointVpcConfiguration()
+            vpc.vpc_id = _find_tag_with_default(vpc_node, "VpcId", None)
+            tmp.vpc = vpc
+        result.access_points.append(tmp)
+    return result
