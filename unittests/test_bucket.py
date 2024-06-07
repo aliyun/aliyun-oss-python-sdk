@@ -7,7 +7,8 @@ from functools import partial
 
 from oss2 import to_string, iso8601_to_unixtime
 from oss2.headers import OSS_ALLOW_ACTION_OVERLAP
-from oss2.models import AggregationsRequest, MetaQuery, CallbackPolicyInfo, BucketTlsVersion
+from oss2.models import AggregationsRequest, MetaQuery, CallbackPolicyInfo, BucketTlsVersion, \
+    AccessPointVpcConfiguration, CreateAccessPointRequest
 from unittests.common import *
 
 
@@ -3517,6 +3518,346 @@ x-oss-request-id: 566B6BDD68248CE14F729DC0
         req_info = mock_response(do_request, response_text)
 
         result = bucket().delete_bucket_data_redundancy_transition('1231xxx')
+
+        self.assertRequest(req_info, request_text)
+
+
+    @patch('oss2.Session.do_request')
+    def test_create_access_point(self, do_request):
+        request_text = '''PUT /?accessPoint HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****
+
+<CreateAccessPointConfiguration>
+<AccessPointName>test-ap-jt-3</AccessPointName>
+<NetworkOrigin>internet</NetworkOrigin>
+<VpcConfiguration>
+<VpcId>vpc-id</VpcId>
+</VpcConfiguration>
+</CreateAccessPointConfiguration>'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<CreateAccessPointResult>
+<AccessPointArn>acs:oss:RegionId:OwnerId:accesspoint/ApName</AccessPointArn>
+<Alias>ApAliasName</Alias>
+</CreateAccessPointResult>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        vpc = AccessPointVpcConfiguration('vpc-id')
+        access_point = CreateAccessPointRequest('test-ap-jt-3', 'internet', vpc)
+        result = bucket().create_access_point(access_point)
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.access_point_arn, 'acs:oss:RegionId:OwnerId:accesspoint/ApName')
+        self.assertEqual(result.alias, 'ApAliasName')
+
+    @patch('oss2.Session.do_request')
+    def test_get_access_point(self, do_request):
+        request_text = '''GET /?accessPoint HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<GetAccessPointResult>
+  <AccessPointName>test-ap-jt-3</AccessPointName>
+  <Bucket>test-jt-ap-3</Bucket>
+  <AccountId>aaabbb</AccountId>
+  <NetworkOrigin>Internet</NetworkOrigin>
+  <VpcConfiguration>
+     <VpcId>vpc-id</VpcId>
+  </VpcConfiguration>
+  <AccessPointArn>arn:aws:s3:us-east-1:920305101104:accesspoint/test-ap-jt-3</AccessPointArn>
+  <CreationDate>2022-01-05T05:39:53+00:00</CreationDate>
+  <Alias>test-ap-jt-3-pi1kg766wz34gwij4oan1tkep38gwuse1a-s3alias</Alias>
+  <Status>enable</Status>
+  <Endpoints>
+    <PublicEndpoint>s3-accesspoint-fips.dualstack.us-east-1.amazonaws.com</PublicEndpoint>
+    <InternalEndpoint>s3-accesspoint.dualstack.us-east-1.amazonaws.com</InternalEndpoint>
+  </Endpoints>
+</GetAccessPointResult>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        accessPointName = 'test-ap-jt-3'
+        result = bucket().get_access_point(accessPointName)
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.access_point_name, "test-ap-jt-3")
+        self.assertEqual(result.bucket, "test-jt-ap-3")
+        self.assertEqual(result.account_id, "aaabbb")
+        self.assertEqual(result.network_origin, "Internet")
+        self.assertEqual(result.vpc.vpc_id, "vpc-id")
+        self.assertEqual(result.access_point_arn, "arn:aws:s3:us-east-1:920305101104:accesspoint/test-ap-jt-3")
+        self.assertEqual(result.creation_date, "2022-01-05T05:39:53+00:00")
+        self.assertEqual(result.alias, "test-ap-jt-3-pi1kg766wz34gwij4oan1tkep38gwuse1a-s3alias")
+        self.assertEqual(result.access_point_status, "enable")
+        self.assertEqual(result.endpoints.public_endpoint, "s3-accesspoint-fips.dualstack.us-east-1.amazonaws.com")
+        self.assertEqual(result.endpoints.internal_endpoint, "s3-accesspoint.dualstack.us-east-1.amazonaws.com")
+
+
+    @patch('oss2.Session.do_request')
+    def test_delete_access_point(self, do_request):
+        request_text = '''DELETE /?accessPoint HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:41 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:Pt0DtPQ/FODOGs5y0yTIVctRcok='''
+
+        response_text = '''HTTP/1.1 204 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:42 GMT
+Content-Type: application/xml
+Content-Length: 96
+Connection: keep-alive
+x-oss-request-id: 566B6BDD68248CE14F729DC0
+'''
+        req_info = mock_response(do_request, response_text)
+
+        accessPointName = 'test-ap-jt-3'
+        result = bucket().delete_access_point(accessPointName)
+
+        self.assertRequest(req_info, request_text)
+
+
+    @patch('oss2.Session.do_request')
+    def test_list_bucket_access_points(self, do_request):
+        request_text = '''GET /?accessPoint&max-keys=10&continuation-token=abcd HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:38 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:Pt0DtPQ/FODOGs5y0yTIVctRcok='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:38 GMT
+Content-Type: application/xml
+Content-Length: 277
+Connection: keep-alive
+x-oss-request-id: 566B6BDA010B7A4314D1614A
+
+<ListAccessPointsResult>
+    <IsTruncated>true</IsTruncated>
+    <NextContinuationToken>sdfasfsagqeqg</NextContinuationToken>
+    <AccountId>aaabbb</AccountId>
+    <MaxKeys>10</MaxKeys>
+    <Marker>marker</Marker>
+    <AccessPoints>
+        <AccessPoint>
+            <Bucket>Bucket</Bucket>
+            <AccessPointName>AccessPointName</AccessPointName>
+            <Alias>test-ap-jt-1-pi1kg766wz34gwij4oan1tkep38gwuse1a-s3alias</Alias>
+            <NetworkOrigin>Internet</NetworkOrigin>
+            <VpcConfiguration>
+                <VpcId>vpc-id</VpcId>
+            </VpcConfiguration>
+            <Status>false</Status>
+        </AccessPoint>
+        <AccessPoint>
+            <Bucket>Bucket2</Bucket>
+            <AccessPointName>AccessPointName2</AccessPointName>
+            <Alias>test-ap-jt-2-pi1kg766wz34gwij4oan1tkep38gwuse1a-s3alias</Alias>
+            <NetworkOrigin>Public</NetworkOrigin>
+            <VpcConfiguration>
+                <VpcId>vpc-id-2</VpcId>
+            </VpcConfiguration>
+            <Status>true</Status>
+        </AccessPoint>
+    </AccessPoints>
+</ListAccessPointsResult>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().list_bucket_access_points(max_keys=10, continuation_token='abcd')
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual("aaabbb", result.account_id)
+        self.assertEqual(10, result.max_keys)
+        self.assertEqual(True, result.is_truncated)
+        self.assertEqual("sdfasfsagqeqg", result.next_continuation_token)
+        self.assertEqual("marker", result.marker)
+        self.assertEqual("AccessPointName", result.access_points[0].access_point_name)
+        self.assertEqual("Bucket", result.access_points[0].bucket)
+        self.assertEqual("Internet", result.access_points[0].network_origin)
+        self.assertEqual("test-ap-jt-1-pi1kg766wz34gwij4oan1tkep38gwuse1a-s3alias", result.access_points[0].alias)
+        self.assertEqual("false", result.access_points[0].status)
+        self.assertEqual("vpc-id", result.access_points[0].vpc.vpc_id)
+        self.assertEqual("AccessPointName2", result.access_points[1].access_point_name)
+        self.assertEqual("Bucket2", result.access_points[1].bucket)
+        self.assertEqual("Public", result.access_points[1].network_origin)
+        self.assertEqual("test-ap-jt-2-pi1kg766wz34gwij4oan1tkep38gwuse1a-s3alias", result.access_points[1].alias)
+        self.assertEqual('true', result.access_points[1].status)
+        self.assertEqual("vpc-id-2", result.access_points[1].vpc.vpc_id)
+
+
+    @patch('oss2.Session.do_request')
+    def test_list_access_points(self, do_request):
+        request_text = '''GET /?accessPoint&max-keys=10&continuation-token=abcd HTTP/1.1
+Host: oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:38 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:Pt0DtPQ/FODOGs5y0yTIVctRcok='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:38 GMT
+Content-Type: application/xml
+Content-Length: 277
+Connection: keep-alive
+x-oss-request-id: 566B6BDA010B7A4314D1614A
+
+<ListAccessPointsResult>
+    <IsTruncated>true</IsTruncated>
+    <NextContinuationToken>sdfasfsagqeqg</NextContinuationToken>
+    <AccountId>aaabbb</AccountId>
+    <MaxKeys>10</MaxKeys>
+    <Marker>marker</Marker>
+    <AccessPoints>
+        <AccessPoint>
+            <Bucket>Bucket</Bucket>
+            <AccessPointName>AccessPointName</AccessPointName>
+            <Alias>test-ap-jt-1-pi1kg766wz34gwij4oan1tkep38gwuse1a-s3alias</Alias>
+            <NetworkOrigin>Internet</NetworkOrigin>
+            <VpcConfiguration>
+                <VpcId>vpc-id</VpcId>
+            </VpcConfiguration>
+            <Status>false</Status>
+        </AccessPoint>
+        <AccessPoint>
+            <Bucket>Bucket2</Bucket>
+            <AccessPointName>AccessPointName2</AccessPointName>
+            <Alias>test-ap-jt-2-pi1kg766wz34gwij4oan1tkep38gwuse1a-s3alias</Alias>
+            <NetworkOrigin>Public</NetworkOrigin>
+            <VpcConfiguration>
+                <VpcId>vpc-id-2</VpcId>
+            </VpcConfiguration>
+            <Status>true</Status>
+        </AccessPoint>
+    </AccessPoints>
+</ListAccessPointsResult>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = service().list_access_points(max_keys=10, continuation_token='abcd')
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual("aaabbb", result.account_id)
+        self.assertEqual(10, result.max_keys)
+        self.assertEqual(True, result.is_truncated)
+        self.assertEqual("sdfasfsagqeqg", result.next_continuation_token)
+        self.assertEqual("marker", result.marker)
+        self.assertEqual("AccessPointName", result.access_points[0].access_point_name)
+        self.assertEqual("Bucket", result.access_points[0].bucket)
+        self.assertEqual("Internet", result.access_points[0].network_origin)
+        self.assertEqual("test-ap-jt-1-pi1kg766wz34gwij4oan1tkep38gwuse1a-s3alias", result.access_points[0].alias)
+        self.assertEqual("false", result.access_points[0].status)
+        self.assertEqual("vpc-id", result.access_points[0].vpc.vpc_id)
+        self.assertEqual("AccessPointName2", result.access_points[1].access_point_name)
+        self.assertEqual("Bucket2", result.access_points[1].bucket)
+        self.assertEqual("Public", result.access_points[1].network_origin)
+        self.assertEqual("test-ap-jt-2-pi1kg766wz34gwij4oan1tkep38gwuse1a-s3alias", result.access_points[1].alias)
+        self.assertEqual('true', result.access_points[1].status)
+        self.assertEqual("vpc-id-2", result.access_points[1].vpc.vpc_id)
+
+
+    @patch('oss2.Session.do_request')
+    def test_put_access_point_policy(self, do_request):
+        request_text = '''PUT /?accessPointPolicy HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****
+
+{"Version":"1","Statement":[{"Action":["oss:PutObject","oss:GetObject"],"Effect":"Deny","Principal":["1234567890"],"Resource":["acs:oss:cn-hangzhou:1234567890:accesspoint/$apName","acs:oss:cn-hangzhou:1234567890:accesspoint/$apName/object/*",]}]}'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+'''
+
+        req_info = mock_response(do_request, response_text)
+        accessPointName = 'test-ap-jt-3'
+        policy = '{"Version":"1","Statement":[{"Action":["oss:PutObject","oss:GetObject"],"Effect":"Deny","Principal":["1234567890"],"Resource":["acs:oss:cn-hangzhou:1234567890:accesspoint/$apName","acs:oss:cn-hangzhou:1234567890:accesspoint/$apName/object/*",]}]}'
+
+        result = bucket().put_access_point_policy(accessPointName, policy)
+        self.assertRequest(req_info, request_text)
+
+
+    @patch('oss2.Session.do_request')
+    def test_get_access_point_policy(self, do_request):
+        request_text = '''GET /?accessPointPolicy HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:41 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:Pt0DtPQ/FODOGs5y0yTIVctRcok='''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+{"Version":"1","Statement":[{"Action":["oss:PutObject","oss:GetObject"],"Effect":"Deny","Principal":["1234567890"],"Resource":["acs:oss:cn-hangzhou:1234567890:accesspoint/$apName","acs:oss:cn-hangzhou:1234567890:accesspoint/$apName/object/*",]}]}'''
+
+        req_info = mock_response(do_request, response_text)
+        policy = '{"Version":"1","Statement":[{"Action":["oss:PutObject","oss:GetObject"],"Effect":"Deny","Principal":["1234567890"],"Resource":["acs:oss:cn-hangzhou:1234567890:accesspoint/$apName","acs:oss:cn-hangzhou:1234567890:accesspoint/$apName/object/*",]}]}'
+        aaaaaa = '{"Version":"1","Statement":[{"Action":["oss:PutObject","oss:GetObject"],"Effect":"Deny","Principal":["1234567890"],"Resource":["acs:oss:cn-hangzhou:1234567890:accesspoint/$apName","acs:oss:cn-hangzhou:1234567890:accesspoint/$apName/object/*",]}]}'
+        accessPointName = 'test-ap-jt-3'
+        result = bucket().get_access_point_policy(accessPointName)
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.policy, policy)
+
+
+    @patch('oss2.Session.do_request')
+    def test_delete_access_point_policy(self, do_request):
+        request_text = '''DELETE /?accessPointPolicy HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:41 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:Pt0DtPQ/FODOGs5y0yTIVctRcok='''
+
+        response_text = '''HTTP/1.1 204 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:42 GMT
+Content-Type: application/xml
+Content-Length: 96
+Connection: keep-alive
+x-oss-request-id: 566B6BDD68248CE14F729DC0
+'''
+        req_info = mock_response(do_request, response_text)
+
+        accessPointName = 'test-ap-jt-3'
+        result = bucket().delete_access_point_policy(accessPointName)
 
         self.assertRequest(req_info, request_text)
 

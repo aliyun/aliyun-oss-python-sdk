@@ -2879,3 +2879,135 @@ class ListBucketDataRedundancyTransitionResult(RequestResult):
     def __init__(self, resp):
         super(ListBucketDataRedundancyTransitionResult, self).__init__(resp)
         self.data_redundancy_transitions = []
+
+
+class CreateAccessPointRequest(RequestResult):
+    """创建接入点请求信息。
+
+    :param str access_point_name: 接入点名称。
+    :param str network_origin: 网络类型。
+    :param class vpc: vpc信息。元素类型为:class:`<oss2.models.AccessPointVpcConfiguration>`。
+    """
+    def __init__(self, access_point_name=None, network_origin=None, vpc=None):
+        self.access_point_name = access_point_name
+        self.network_origin = network_origin
+        self.vpc = vpc
+
+
+class CreateAccessPointResult(RequestResult):
+    """创建接入点返回信息。
+
+    :param str access_point_arn: 接入点arn。
+    :param str alias: 别名。
+    """
+
+    def __init__(self, resp):
+        super(CreateAccessPointResult, self).__init__(resp)
+        self.access_point_arn = None
+        self.alias = None
+
+
+class AccessPointVpcConfiguration(RequestResult):
+    """vpc信息。
+
+    :param str vpc_id: vpc网络id。
+    """
+    def __init__(self, vpc_id=None):
+        self.vpc_id = vpc_id
+
+
+class GetAccessPointResult(RequestResult):
+    """获取接入点返回信息。
+
+    :param str access_point_name: 接入点名称。
+    :param str bucket: bucket名称。
+    :param str account_id: 账户id。
+    :param str network_origin: 网络类型。
+    :param class vpc: vpc信息。元素类型为:class:`<oss2.models.AccessPointVpcConfiguration>`。
+    :param str access_point_arn: 接入点arn。
+    :param str creation_date: 创建日期。
+    :param str alias: 别名。
+    :param str access_point_status: 状态。
+    :param class endpoints: 接入点endpoint。元素类型为:class:`<oss2.models.AccessPointEndpoints>`。
+    """
+    def __init__(self, resp):
+        super(GetAccessPointResult, self).__init__(resp)
+        self.access_point_name = None
+        self.bucket = None
+        self.account_id = None
+        self.network_origin = None
+        self.vpc = None
+        self.access_point_arn = None
+        self.creation_date = None
+        self.alias = None
+        self.access_point_status = None
+        self.endpoints = None
+
+
+
+class AccessPointEndpoints(RequestResult):
+    """接入点endpoint信息。
+
+    :param str public_endpoint: 公共endpoint。
+    :param str internal_endpoint: 内部endpoint。
+    """
+    def __init__(self, public_endpoint=None, internal_endpoint=None):
+        self.public_endpoint = public_endpoint
+        self.internal_endpoint = internal_endpoint
+
+
+class GetAccessPointPolicyResult(RequestResult):
+    """获取接入点策略信息。
+
+    :param str access_point_policy: 接入点策略。
+    """
+
+    def __init__(self, resp):
+        super(GetAccessPointPolicyResult, self).__init__(resp)
+        self.access_point_policy = None
+
+
+class GetAccessPointPolicyResult(RequestResult):
+    def __init__(self, resp):
+        RequestResult.__init__(self, resp)
+        self.policy = to_string(resp.read())
+
+
+class AccessPointInfo(RequestResult):
+    """接入点信息。
+
+    :param str access_point_name: 接入点名称。
+    :param str bucket: bucket名称。
+    :param str network_origin: 网络类型。
+    :param class vpc: vpc信息。元素类型为:class:`<oss2.models.AccessPointVpcConfiguration>`。
+    :param str alias: 别名。
+    :param str status: 状态。
+    """
+    def __init__(self, access_point_name=None, bucket=None, network_origin=None, vpc=None, alias=None, status=None):
+        self.access_point_name = access_point_name
+        self.bucket = bucket
+        self.network_origin = network_origin
+        self.vpc = vpc
+        self.alias = alias
+        self.status = status
+
+
+class ListAccessPointResult(RequestResult):
+    """返回所有接入点信息。
+
+        :param str account_id: 账户id。
+        :param int max_keys: List时返回的最多的接入点的条数。
+        :param bool is_truncated: 是否列举完所有的接入点。
+        :param str next_continuation_token: 下一个罗列操作携带的token。
+        :param str marker: 标记位。
+        :param str access_points: 接入点集合。元素类型为:class:`<oss2.models.AccessPointInfo>`
+    """
+
+    def __init__(self, resp):
+        super(ListAccessPointResult, self).__init__(resp)
+        self.account_id = None
+        self.max_keys = None
+        self.is_truncated = None
+        self.next_continuation_token = None
+        self.marker = None
+        self.access_points = []
