@@ -409,6 +409,20 @@ class Service(_Base):
         logger.debug("List user data redundancy transition done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_user_data_redundancy_transition, ListUserDataRedundancyTransitionResult)
 
+    def list_access_points(self, max_keys=100, continuation_token=''):
+        """查询某个Bucket下所有接入点。
+        param: int max_keys: 本次list返回access point的最大个数
+        param: str continuation_token: list时指定的起始标记
+
+        :return: :class:`ListBucketStyleResult <oss2.models.ListBucketStyleResult>`
+        """
+
+        logger.debug("Start to list bucket access point")
+        resp = self._do('GET', '', '', params={Bucket.ACCESS_POINT: '', 'max-keys': str(max_keys), 'continuation-token': continuation_token})
+        logger.debug("query list access point done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_list_access_point_result, ListAccessPointResult)
+
+
 class Bucket(_Base):
     """用于Bucket和Object操作的类，诸如创建、删除Bucket，上传、下载Object等。
 
@@ -489,6 +503,9 @@ class Bucket(_Base):
     REDUNDANCY_TRANSITION = "redundancyTransition"
     TARGET_REDUNDANCY_TYPE = "x-oss-target-redundancy-type"
     REDUNDANCY_TRANSITION_TASK_ID = "x-oss-redundancy-transition-taskid"
+    ACCESS_POINT = 'accessPoint'
+    ACCESS_POINT_POLICY = 'accessPointPolicy'
+    OSS_ACCESS_POINT_NAME = 'x-oss-access-point-name'
 
 
     def __init__(self, auth, endpoint, bucket_name,
@@ -2981,6 +2998,94 @@ class Bucket(_Base):
         resp = self.__do_bucket('GET', params={Bucket.REDUNDANCY_TRANSITION: ''})
         logger.debug("query list bucket data redundancy transition done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_bucket_data_redundancy_transition, ListBucketDataRedundancyTransitionResult)
+
+    def create_access_point(self, accessPoint):
+        """创建接入点
+        :param accessPoint :class:`CreateAccessPointRequest <oss2.models.CreateAccessPointRequest>`
+        :return: :class:`CreateAccessPointResult <oss2.models.CreateAccessPointResult>`
+        """
+        logger.debug("Start to create access point, bucket: {0}".format(self.bucket_name))
+        data = xml_utils.to_do_create_access_point_request(accessPoint)
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.ACCESS_POINT: ''})
+        logger.debug("Create access point done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_create_access_point_result, CreateAccessPointResult)
+
+    def get_access_point(self, accessPointName):
+        """获取接入点信息
+        :param str accessPointName: 接入点名称
+        :return: :class:`GetAccessPointResult <oss2.models.GetAccessPointResult>`
+        """
+
+        logger.debug("Start to get access point, bucket: {0}".format(self.bucket_name))
+        headers = http.CaseInsensitiveDict()
+        headers['x-oss-access-point-name'] = accessPointName
+        resp = self.__do_bucket('GET', params={Bucket.ACCESS_POINT: ''}, headers=headers)
+        logger.debug("Get access point done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_get_access_point_result, GetAccessPointResult)
+
+    def delete_access_point(self, accessPointName):
+        """删除接入点
+         :param str accessPointName: 接入点名称
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to delete access point, bucket: {0}".format(self.bucket_name))
+        headers = http.CaseInsensitiveDict()
+        headers['x-oss-access-point-name'] = accessPointName
+        resp = self.__do_bucket('DELETE', params={Bucket.ACCESS_POINT: ''}, headers=headers)
+        logger.debug("Delete access point done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
+
+    def list_bucket_access_points(self, max_keys=100, continuation_token=''):
+        """查询某个Bucket下所有接入点。
+        param: int max_keys: 本次list返回access point的最大个数
+        param: str continuation_token: list时指定的起始标记
+        :return: :class:`ListAccessPointResult <oss2.models.ListAccessPointResult>`
+        """
+        logger.debug("Start to list bucket access point: {0}".format(self.bucket_name))
+
+        resp = self.__do_bucket('GET', params={Bucket.ACCESS_POINT: '', 'max-keys': str(max_keys), 'continuation-token': continuation_token})
+        logger.debug("query list bucket access point done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_list_access_point_result, ListAccessPointResult)
+
+
+    def put_access_point_policy(self, accessPointName, accessPointPolicy):
+        """设置接入点策略
+        :param str accessPointName: 接入点名称
+        :param str accessPointPolicy : 接入点策略
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to put access point policy, bucket: {0}, accessPointPolicy: {1}".format(self.bucket_name, accessPointPolicy))
+        headers = http.CaseInsensitiveDict()
+        headers['x-oss-access-point-name'] = accessPointName
+        resp = self.__do_bucket('PUT', data=accessPointPolicy, params={Bucket.ACCESS_POINT_POLICY: ''}, headers=headers)
+        logger.debug("Create access point policy done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
+
+    def get_access_point_policy(self, accessPointName):
+        """获取接入点策略
+        :param str accessPointName: 接入点名称
+        :return: :class:`GetAccessPointPolicyResult <oss2.models.GetAccessPointPolicyResult>`
+        """
+
+        logger.debug("Start to get access point policy, bucket: {0}".format(self.bucket_name))
+        headers = http.CaseInsensitiveDict()
+        headers['x-oss-access-point-name'] = accessPointName
+        resp = self.__do_bucket('GET', params={Bucket.ACCESS_POINT_POLICY: ''}, headers=headers)
+        logger.debug("Get access point policy done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return GetAccessPointPolicyResult(resp)
+
+    def delete_access_point_policy(self, accessPointName):
+        """删除接入点策略
+        :param str accessPointName: 接入点名称
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to delete access point policy, bucket: {0}".format(self.bucket_name))
+        headers = http.CaseInsensitiveDict()
+        headers['x-oss-access-point-name'] = accessPointName
+        resp = self.__do_bucket('DELETE', params={Bucket.ACCESS_POINT_POLICY: ''}, headers=headers)
+        logger.debug("Delete access point policy done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
+
 
 
     def __do_object(self, method, key, **kwargs):
