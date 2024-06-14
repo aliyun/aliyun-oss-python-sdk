@@ -634,6 +634,47 @@ class Bucket(_Base):
         logger.debug("List objects V2 done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_objects_v2, ListObjectsV2Result)
 
+    def walk(self, prefix, delimeter="/"):
+        """仿照python原生os.walk遍历文件。
+
+        :param str prefix: 只罗列文件名为该前缀的文件
+        :param str delimiter: 分隔符。可以用来模拟目录
+
+        :return: root, prefix_list, objects
+        
+        Example:
+
+        import oss2
+        # bucket = oss2.Bucket(...)
+        # prefix = some folder
+        for root, prefix_list, objects in bucket.walk(prefix):
+            print(root, "consumes ", end="")
+            print(sum([obj.size for obj in objects]), end="")
+            print(" bytes in", len(objects), " files")
+            if 'CVS' in prefix_list:
+                prefix_list.remove('CVS')  # don't visit CVS directories
+        """
+        root_list = [prefix]
+        while root_list:
+            root = root_list.pop()
+            prefix_list = []
+            objects = []
+            next_marker = ""
+            while True:
+                info = self.bucket.list_objects(root, delimeter,
+                                                marker=next_marker,
+                                                max_keys=1000)
+                objects.extend(info.object_list)
+                prefix_list.extend(info.prefix_list)
+                if not info.is_truncated:
+                    break
+                next_marker = info.next_marker
+
+            if objects or prefix_list:
+                yield root, prefix_list, objects
+
+            root_list.extend(prefix_list)
+
     def put_object(self, key, data,
                    headers=None,
                    progress_callback=None):
