@@ -385,6 +385,12 @@ def parse_get_bucket_stat(result, body):
         result.multipart_part_count = int(_find_tag(root, 'MultipartPartCount'))
     if root.find('DeleteMarkerCount') is not None:
         result.delete_marker_count = int(_find_tag(root, 'DeleteMarkerCount'))
+    if root.find('DeepColdArchiveStorage') is not None:
+        result.deep_cold_archive_storage = int(_find_tag(root, 'DeepColdArchiveStorage'))
+    if root.find('DeepColdArchiveRealStorage') is not None:
+        result.deep_cold_archive_real_storage = int(_find_tag(root, 'DeepColdArchiveRealStorage'))
+    if root.find('DeepColdArchiveObjectCount') is not None:
+        result.deep_cold_archive_object_count = int(_find_tag(root, 'DeepColdArchiveObjectCount'))
 
     return result
 

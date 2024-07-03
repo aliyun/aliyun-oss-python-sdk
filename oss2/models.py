@@ -663,7 +663,7 @@ class BucketStat(object):
                  last_modified_time=None, standard_storage=None, standard_object_count=None, infrequent_access_storage=None,
                  infrequent_access_real_storage=None, infrequent_access_object_count=None, archive_storage=None, archive_real_storage=None,
                  archive_object_count=None, cold_archive_storage=None, cold_archive_real_storage=None, cold_archive_object_count=None,
-                 multipart_part_count=None, delete_marker_count=None):
+                 multipart_part_count=None, delete_marker_count=None, deep_cold_archive_storage=None, deep_cold_archive_real_storage=None, deep_cold_archive_object_count=None):
         self.storage_size_in_bytes = storage_size_in_bytes
         self.object_count = object_count
         self.multi_part_upload_count = multi_part_upload_count
@@ -697,6 +697,12 @@ class BucketStat(object):
         self.multipart_part_count = multipart_part_count
         #: 删除标记数量
         self.delete_marker_count = delete_marker_count
+        #: 深度冷归档存储类型的计费存储量，单位字节。
+        self.deep_cold_archive_storage = deep_cold_archive_storage
+        #: 深度冷归档存储类型的实际存储量，单位字节。
+        self.deep_cold_archive_real_storage = deep_cold_archive_real_storage
+        #: 深度冷归档存储类型的Object数量。
+        self.deep_cold_archive_object_count = deep_cold_archive_object_count
 
 
 class AccessControlList(object):
@@ -737,7 +743,7 @@ class BucketInfo(object):
 class GetBucketStatResult(RequestResult, BucketStat):
     def __init__(self, resp):
         RequestResult.__init__(self, resp)
-        BucketStat.__init__(self, 0, 0, 0, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None)
+        BucketStat.__init__(self, 0, 0, 0, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None)
 
 
 
