@@ -3521,5 +3521,55 @@ x-oss-request-id: 566B6BDD68248CE14F729DC0
         self.assertRequest(req_info, request_text)
 
 
+    @patch('oss2.Session.do_request')
+    def test_get_stat_deep_cold_archive(self, do_request):
+        request_text = '''GET /?stat= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:41 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:Pt0DtPQ/FODOGs5y0yTIVctRcok='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:42 GMT
+Content-Type: application/xml
+Content-Length: 96
+Connection: keep-alive
+x-oss-request-id: 566B6BDD68248CE14F729DC0
+
+<?xml version="1.0" encoding="UTF-8"?>
+<BucketStat> 
+    <Storage>472594058</Storage> 
+    <ObjectCount>666</ObjectCount> 
+    <MultipartUploadCount>992</MultipartUploadCount>
+    <ColdArchiveRealStorage>360</ColdArchiveRealStorage>
+    <ColdArchiveObjectCount>36</ColdArchiveObjectCount>
+    <DeepColdArchiveStorage>2359296</DeepColdArchiveStorage>
+    <DeepColdArchiveRealStorage>370</DeepColdArchiveRealStorage>
+    <DeepColdArchiveObjectCount>37</DeepColdArchiveObjectCount>
+    <MultipartPartCount>4</MultipartPartCount>
+    <DeleteMarkerCount>164</DeleteMarkerCount>
+</BucketStat>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().get_bucket_stat()
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.storage_size_in_bytes, 472594058)
+        self.assertEqual(result.object_count, 666)
+        self.assertEqual(result.multi_part_upload_count, 992)
+        self.assertEqual(result.archive_real_storage, None)
+        self.assertEqual(result.archive_object_count, None)
+        self.assertEqual(result.cold_archive_real_storage, 360)
+        self.assertEqual(result.cold_archive_object_count, 36)
+        self.assertEqual(result.deep_cold_archive_storage, 2359296)
+        self.assertEqual(result.deep_cold_archive_real_storage, 370)
+        self.assertEqual(result.deep_cold_archive_object_count, 37)
+
+
 if __name__ == '__main__':
     unittest.main()
