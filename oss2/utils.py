@@ -153,7 +153,7 @@ def is_valid_endpoint(endpoint):
     if endpoint is None:
         return False
 
-    pattern = '^([a-zA-Z]+://)?[\w.-]+(:\d+)?$'
+    pattern = '^([a-zA-Z]+://)?[\\w.-]+(:\\d+)?$'
     if re.match(pattern, endpoint):
         return True
 
