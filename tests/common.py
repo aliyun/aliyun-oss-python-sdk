@@ -20,6 +20,7 @@ OSS_ENDPOINT = os.getenv("OSS_TEST_ENDPOINT")
 OSS_TEST_BUCKET = os.getenv("OSS_TEST_BUCKET")
 OSS_CNAME = os.getenv("OSS_TEST_CNAME")
 OSS_REGION = os.getenv("OSS_TEST_REGION", "cn-hangzhou")
+OSS_ACCESS_POINT_NAME = os.getenv("OSS_TEST_ACCESS_POINT_NAME")
 
 OSS_STS_ID = os.getenv("OSS_TEST_STS_ID")
 OSS_STS_KEY = os.getenv("OSS_TEST_STS_KEY")

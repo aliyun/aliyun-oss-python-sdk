@@ -2096,3 +2096,14 @@ def parse_callback_policy_result(result, body):
         tmp.callback_var = _find_tag_with_default(policy, 'CallbackVar', None)
 
         result.callback_policies.append(tmp)
+
+def to_put_public_access_block_request(block_public_access):
+    root = ElementTree.Element('PublicAccessBlockConfiguration')
+    _add_text_child(root, 'BlockPublicAccess', str(block_public_access))
+    return _node_to_string(root)
+
+
+def parse_get_public_access_block_result(result, body):
+    root = ElementTree.fromstring(body)
+    if root.find("BlockPublicAccess") is not None:
+        result.block_public_access = _find_bool(root, 'BlockPublicAccess')

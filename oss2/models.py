@@ -2761,3 +2761,32 @@ class CallbackPolicyResult(RequestResult):
         super(CallbackPolicyResult, self).__init__(resp)
         self.callback_policies = []
 
+
+class GetPublicAccessBlockResult(RequestResult):
+    """保存阻止公共访问信息的容器。
+
+    :param block_public_access: OSS全局阻止公共访问的配置信息。
+    """
+    def __init__(self, resp):
+        super(GetPublicAccessBlockResult, self).__init__(resp)
+        self.block_public_access = None
+
+
+class GetBucketPublicAccessBlockResult(RequestResult):
+    """保存bucket阻止公共访问信息的容器。
+
+    :param block_public_access: Bucket的阻止公共访问配置信息。
+    """
+    def __init__(self, resp):
+        super(GetBucketPublicAccessBlockResult, self).__init__(resp)
+        self.block_public_access = None
+
+
+class GetAccessPointPublicAccessBlockResult(RequestResult):
+    """保存access point阻止公共访问信息的容器。
+
+    :param block_public_access: 接入点的阻止公共访问配置信息。
+    """
+    def __init__(self, resp):
+        super(GetAccessPointPublicAccessBlockResult, self).__init__(resp)
+        self.block_public_access = None

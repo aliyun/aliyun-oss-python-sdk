@@ -299,6 +299,7 @@ class Service(_Base):
 
     QOS_INFO = 'qosInfo'
     REGIONS = 'regions'
+    PUBLIC_ACCESS_BLOCK = 'publicAccessBlock'
     WRITE_GET_OBJECT_RESPONSE = 'x-oss-write-get-object-response'
 
     def __init__(self, auth, endpoint,
@@ -395,6 +396,44 @@ class Service(_Base):
         logger.debug("write get object response done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
+    def put_public_access_block(self, block_public_access=False):
+        """为OSS全局开启阻止公共访问。
+
+        :param bool block_public_access : 是否开启阻止公共访问。
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to put public access block")
+
+        data = xml_utils.to_put_public_access_block_request(block_public_access)
+        resp = self._do('PUT', '', '', data=data, params={Service.PUBLIC_ACCESS_BLOCK: ''})
+        logger.debug("Put public access block done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
+
+    def get_public_access_block(self):
+        """获取OSS全局阻止公共访问的配置信息。
+
+        :return: :class:`GetPublicAccessBlockResult <oss2.models.GetPublicAccessBlockResult>`
+        """
+        logger.debug("Start to get public access block")
+
+        resp = self._do('GET', '', '', params={Service.PUBLIC_ACCESS_BLOCK: ''})
+        logger.debug("Get public access block done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_get_public_access_block_result, GetPublicAccessBlockResult)
+
+    def delete_public_access_block(self):
+        """删除OSS全局阻止公共访问配置信息。
+
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to delete public access block")
+
+        resp = self._do('DELETE', '', '', params={Service.PUBLIC_ACCESS_BLOCK: ''})
+        logger.debug("Delete public access block done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return RequestResult(resp)
+
+
 class Bucket(_Base):
     """用于Bucket和Object操作的类，诸如创建、删除Bucket，上传、下载Object等。
 
@@ -470,6 +509,8 @@ class Bucket(_Base):
     STYLE_NAME = 'styleName'
     ASYNC_PROCESS = 'x-oss-async-process'
     CALLBACK = 'callback'
+    PUBLIC_ACCESS_BLOCK = 'publicAccessBlock'
+    OSS_ACCESS_POINT_NAME = 'x-oss-access-point-name'
 
 
     def __init__(self, auth, endpoint, bucket_name,
@@ -2870,6 +2911,79 @@ class Bucket(_Base):
         logger.debug("Start to delete bucket callback policy, bucket: {0}".format(self.bucket_name))
         resp = self.__do_bucket('DELETE', params={Bucket.POLICY: '', Bucket.COMP: Bucket.CALLBACK})
         logger.debug("Delete bucket callback policy done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
+
+    def put_bucket_public_access_block(self, block_public_access=False):
+        """为Bucket开启阻止公共访问。
+
+        :param bool block_public_access : 是否开启阻止公共访问。
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to bucket put public access block, bucket: {0}, enabled: {1}."
+                     .format(self.bucket_name, block_public_access))
+        data = xml_utils.to_put_public_access_block_request(block_public_access)
+
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.PUBLIC_ACCESS_BLOCK: ''})
+        logger.debug("bucket public access block done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return RequestResult(resp)
+
+    def get_bucket_public_access_block(self):
+        """获取指定Bucket的阻止公共访问配置信息。
+
+        :return: :class:`GetBucketPublicAccessBlockResult <oss2.models.GetBucketPublicAccessBlockResult>`
+        """
+        logger.debug("Start to get bucket public access block: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('GET', params={Bucket.PUBLIC_ACCESS_BLOCK: ''})
+        logger.debug("Get bucket public access block done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_get_public_access_block_result, GetBucketPublicAccessBlockResult)
+
+
+    def delete_bucket_public_access_block(self):
+        """删除指定Bucket的阻止公共访问配置信息。
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to delete bucket public access block, bucket: {0}".format(self.bucket_name))
+        resp = self.__do_bucket('DELETE', params={Bucket.PUBLIC_ACCESS_BLOCK: ''})
+        logger.debug("Delete bucket public access block done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
+
+
+    def put_access_point_public_access_block(self, access_point_name, block_public_access=False):
+        """为接入点开启阻止公共访问。
+
+        :param bool block_public_access : 是否开启阻止公共访问。
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to put access point public access block, bucket: {0}, access point name: {1}, block public access: {2}."
+                     .format(self.bucket_name, access_point_name, block_public_access))
+        data = xml_utils.to_put_public_access_block_request(block_public_access)
+
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.PUBLIC_ACCESS_BLOCK: '', Bucket.OSS_ACCESS_POINT_NAME: access_point_name})
+        logger.debug("access point public access block done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return RequestResult(resp)
+
+    def get_access_point_public_access_block(self, access_point_name):
+        """获取指定接入点的阻止公共访问配置信息。
+
+        :return: :class:`GetBucketPublicAccessBlockResult <oss2.models.GetBucketPublicAccessBlockResult>`
+        """
+        logger.debug("Start to get access point public access block: {0}, access point name: {1}.".format(self.bucket_name, access_point_name))
+        resp = self.__do_bucket('GET', params={Bucket.PUBLIC_ACCESS_BLOCK: '', Bucket.OSS_ACCESS_POINT_NAME: access_point_name})
+        logger.debug("Get access point public access block done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_get_public_access_block_result, GetBucketPublicAccessBlockResult)
+
+
+    def delete_access_point_public_access_block(self, access_point_name):
+        """删除指定接入点的阻止公共访问配置信息。
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to delete access point public access block, bucket: {0}, access point name: {1}.".format(self.bucket_name, access_point_name))
+        resp = self.__do_bucket('DELETE', params={Bucket.PUBLIC_ACCESS_BLOCK: '', Bucket.OSS_ACCESS_POINT_NAME: access_point_name})
+        logger.debug("Delete access point public access block done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
 
     def __do_object(self, method, key, **kwargs):
