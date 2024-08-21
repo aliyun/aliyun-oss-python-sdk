@@ -7,7 +7,7 @@ from functools import partial
 
 from oss2 import to_string, iso8601_to_unixtime
 from oss2.headers import OSS_ALLOW_ACTION_OVERLAP
-from oss2.models import AggregationsRequest, MetaQuery, CallbackPolicyInfo, BucketTlsVersion
+from oss2.models import AggregationsRequest, MetaQuery, CallbackPolicyInfo, BucketTlsVersion, BucketQosInfo
 from unittests.common import *
 
 
@@ -3517,6 +3517,579 @@ x-oss-request-id: 566B6BDD68248CE14F729DC0
         req_info = mock_response(do_request, response_text)
 
         result = bucket().delete_bucket_data_redundancy_transition('1231xxx')
+
+        self.assertRequest(req_info, request_text)
+
+
+    @patch('oss2.Session.do_request')
+    def test_put_bucket_requester_qos_info(self, do_request):
+        request_text = '''PUT /?requesterQosInfo&qosRequester=uid-test HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****
+
+<QoSConfiguration>
+<TotalUploadBandwidth>10</TotalUploadBandwidth>
+<IntranetUploadBandwidth>-1</IntranetUploadBandwidth>
+<ExtranetUploadBandwidth>-2</ExtranetUploadBandwidth>
+<TotalDownloadBandwidth>11</TotalDownloadBandwidth>
+<IntranetDownloadBandwidth>-4</IntranetDownloadBandwidth>
+<ExtranetDownloadBandwidth>-5</ExtranetDownloadBandwidth>
+<TotalQps>1000</TotalQps>
+<IntranetQps>-6</IntranetQps>
+<ExtranetQps>-7</ExtranetQps>
+</QoSConfiguration>
+'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 5C1B138A109F4E405B2D
+content-length: 0
+x-oss-console-auth: success
+server: AliyunOSS
+x-oss-server-time: 980
+connection: keep-alive
+date: Wed, 15 Sep 2021 03:33:37 GMT'''
+
+        req_info = mock_response(do_request, response_text)
+        uid = 'uid-test'
+        qos_info = BucketQosInfo(
+            total_upload_bw = 10,
+            intranet_upload_bw = -1,
+            extranet_upload_bw = -2,
+            total_download_bw = 11,
+            intranet_download_bw = -4,
+            extranet_download_bw = -5,
+            total_qps = 1000,
+            intranet_qps = -6,
+            extranet_qps = -7)
+        bucket().put_bucket_requester_qos_info(uid, qos_info)
+        self.assertRequest(req_info, request_text.format(to_string(qos_info)))
+
+    @patch('oss2.Session.do_request')
+    def test_get_bucket_requester_qos_info(self, do_request):
+        request_text = '''GET /?requesterQosInfo&qosRequester=21234567890123 HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<RequesterQoSInfo>
+  <Requester>21234567890123</Requester>
+  <QoSConfiguration>
+    <TotalUploadBandwidth>10</TotalUploadBandwidth>
+    <IntranetUploadBandwidth>-1</IntranetUploadBandwidth>
+    <ExtranetUploadBandwidth>-2</ExtranetUploadBandwidth>
+    <TotalDownloadBandwidth>11</TotalDownloadBandwidth>
+    <IntranetDownloadBandwidth>-3</IntranetDownloadBandwidth>
+    <ExtranetDownloadBandwidth>-4</ExtranetDownloadBandwidth>
+    <TotalQps>1000</TotalQps>
+    <IntranetQps>-5</IntranetQps>
+    <ExtranetQps>-6</ExtranetQps>
+  </QoSConfiguration>
+</RequesterQoSInfo>
+'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().get_bucket_requester_qos_info('21234567890123')
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual('566B6BD927A4046E9C725578', result.request_id)
+        self.assertEqual(200, result.status, )
+        self.assertEqual('21234567890123', result.requester)
+        self.assertEqual(10, result.qos_configuration.total_upload_bw)
+        self.assertEqual(-1, result.qos_configuration.intranet_upload_bw)
+        self.assertEqual(-2, result.qos_configuration.extranet_upload_bw)
+        self.assertEqual(11, result.qos_configuration.total_download_bw)
+        self.assertEqual(-3, result.qos_configuration.intranet_download_bw)
+        self.assertEqual(-4, result.qos_configuration.extranet_download_bw)
+        self.assertEqual(1000, result.qos_configuration.total_qps)
+        self.assertEqual(-5, result.qos_configuration.intranet_qps)
+        self.assertEqual(-6, result.qos_configuration.extranet_qps)
+
+
+    @patch('oss2.Session.do_request')
+    def test_list_bucket_requester_qos_infos(self, do_request):
+        request_text = '''GET /?requesterQosInfo&max-keys=10&continuation-token=abcd HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<ListBucketRequesterQoSInfosResult>
+  <Bucket>BucketName</Bucket>
+  <ContinuationToken>123456789</ContinuationToken>
+  <NextContinuationToken>234567890</NextContinuationToken>
+  <IsTruncated>true</IsTruncated>
+  <RequesterQoSInfo>
+    <Requester>133456789</Requester>
+    <QoSConfiguration>
+      <TotalUploadBandwidth>10</TotalUploadBandwidth>
+      <IntranetUploadBandwidth>-1</IntranetUploadBandwidth>
+      <ExtranetUploadBandwidth>-12</ExtranetUploadBandwidth>
+      <TotalDownloadBandwidth>10</TotalDownloadBandwidth>
+      <IntranetDownloadBandwidth>-13</IntranetDownloadBandwidth>
+      <ExtranetDownloadBandwidth>-14</ExtranetDownloadBandwidth>
+      <TotalQps>1000</TotalQps>
+      <IntranetQps>-15</IntranetQps>
+      <ExtranetQps>-16</ExtranetQps>
+    </QoSConfiguration>
+  </RequesterQoSInfo>
+  <RequesterQoSInfo>
+    <Requester>1335567892</Requester>
+    <QoSConfiguration>
+      <TotalUploadBandwidth>10</TotalUploadBandwidth>
+      <IntranetUploadBandwidth>-1</IntranetUploadBandwidth>
+      <ExtranetUploadBandwidth>-1</ExtranetUploadBandwidth>
+      <TotalDownloadBandwidth>10</TotalDownloadBandwidth>
+      <IntranetDownloadBandwidth>-1</IntranetDownloadBandwidth>
+      <ExtranetDownloadBandwidth>-1</ExtranetDownloadBandwidth>
+      <TotalQps>1000</TotalQps>
+      <IntranetQps>-1</IntranetQps>
+      <ExtranetQps>-1</ExtranetQps>
+    </QoSConfiguration>
+  </RequesterQoSInfo>
+    <RequesterQoSInfo>
+    <Requester>1335567893</Requester>
+    <QoSConfiguration>
+    </QoSConfiguration>
+  </RequesterQoSInfo>
+</ListBucketRequesterQoSInfosResult>
+'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().list_bucket_requester_qos_infos(continuation_token='abcd', max_keys=10)
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+
+        self.assertEqual('BucketName', result.bucket)
+        self.assertEqual('123456789', result.continuation_token)
+        self.assertEqual('234567890', result.next_continuation_token)
+        self.assertEqual(True, result.is_truncated)
+        self.assertEqual('133456789', result.requester_qos_info[0].requester)
+        self.assertEqual(10, result.requester_qos_info[0].qos_configuration.total_upload_bw)
+        self.assertEqual(-1, result.requester_qos_info[0].qos_configuration.intranet_upload_bw)
+        self.assertEqual(-12, result.requester_qos_info[0].qos_configuration.extranet_upload_bw)
+        self.assertEqual(10, result.requester_qos_info[0].qos_configuration.total_download_bw)
+        self.assertEqual(-13, result.requester_qos_info[0].qos_configuration.intranet_download_bw)
+        self.assertEqual(-14, result.requester_qos_info[0].qos_configuration.extranet_download_bw)
+        self.assertEqual(1000, result.requester_qos_info[0].qos_configuration.total_qps)
+        self.assertEqual(-15, result.requester_qos_info[0].qos_configuration.intranet_qps)
+        self.assertEqual(-16, result.requester_qos_info[0].qos_configuration.extranet_qps)
+        self.assertEqual('1335567892', result.requester_qos_info[1].requester)
+        self.assertEqual(10, result.requester_qos_info[1].qos_configuration.total_upload_bw)
+        self.assertEqual(-1, result.requester_qos_info[1].qos_configuration.intranet_upload_bw)
+        self.assertEqual(-1, result.requester_qos_info[1].qos_configuration.extranet_upload_bw)
+        self.assertEqual(10, result.requester_qos_info[1].qos_configuration.total_download_bw)
+        self.assertEqual(-1, result.requester_qos_info[1].qos_configuration.intranet_download_bw)
+        self.assertEqual(-1, result.requester_qos_info[1].qos_configuration.extranet_download_bw)
+        self.assertEqual(1000, result.requester_qos_info[1].qos_configuration.total_qps)
+        self.assertEqual(-1, result.requester_qos_info[1].qos_configuration.intranet_qps)
+        self.assertEqual(-1, result.requester_qos_info[1].qos_configuration.extranet_qps)
+        self.assertEqual('1335567893', result.requester_qos_info[2].requester)
+
+
+    @patch('oss2.Session.do_request')
+    def test_delete_bucket_requester_qos_info(self, do_request):
+        request_text = '''DELETE /?requesterQosInfo&qosRequester=uid-test HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:41 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:Pt0DtPQ/FODOGs5y0yTIVctRcok='''
+
+        response_text = '''HTTP/1.1 204 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:42 GMT
+Content-Type: application/xml
+Content-Length: 96
+Connection: keep-alive
+x-oss-request-id: 566B6BDD68248CE14F729DC0
+'''
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().delete_bucket_requester_qos_info('uid-test')
+
+        self.assertRequest(req_info, request_text)
+
+
+    @patch('oss2.Session.do_request')
+    def test_list_resource_pools(self, do_request):
+        request_text = '''GET /?resourcePool&max-keys=10&continuation-token=abcd HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<ListResourcePoolsResult>
+  <Region>oss-cn-shanghai</Region>
+  <Owner>1032307xxxx72056</Owner>
+  <ContinuationToken>abcd</ContinuationToken>
+  <NextContinuationToken>xyz</NextContinuationToken>
+  <IsTruncated>true</IsTruncated>
+  <ResourcePool>
+    <Name>resource-pool-for-ai</Name>
+    <CreateTime>2024-07-24T08:42:32.000Z</CreateTime>
+  </ResourcePool>
+  <ResourcePool>
+    <Name>resource-pool-for-video</Name>
+    <CreateTime>2024-07-24T08:42:32.000Z</CreateTime>
+  </ResourcePool>
+  <ResourcePool>
+  </ResourcePool>
+</ListResourcePoolsResult>
+'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = service().list_resource_pools(continuation_token='abcd', max_keys=10)
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual('oss-cn-shanghai', result.region)
+        self.assertEqual('1032307xxxx72056', result.owner)
+        self.assertEqual('abcd', result.continuation_token)
+        self.assertEqual('xyz', result.next_continuation_token)
+        self.assertEqual(True, result.is_truncated)
+        self.assertEqual('resource-pool-for-ai', result.resource_pool[0].name)
+        self.assertEqual('2024-07-24T08:42:32.000Z', result.resource_pool[0].create_time)
+        self.assertEqual('resource-pool-for-video', result.resource_pool[1].name)
+        self.assertEqual('2024-07-24T08:42:32.000Z', result.resource_pool[1].create_time)
+
+
+    @patch('oss2.Session.do_request')
+    def test_get_resource_pool_info(self, do_request):
+        request_text = '''GET /?resourcePoolInfo&resourcePool=resource-pool-for-ai HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<GetResourcePoolInfoResponse>
+  <Region>oss-cn-shanghai</Region>
+  <Name>resource-pool-for-ai</Name>
+  <Owner>1032307xxxx72056</Owner>
+  <CreateTime>2024-07-24T08:42:32.000Z</CreateTime>
+  <QoSConfiguration>
+      <TotalUploadBandwidth>200</TotalUploadBandwidth>
+      <IntranetUploadBandwidth>16</IntranetUploadBandwidth>
+      <ExtranetUploadBandwidth>112</ExtranetUploadBandwidth>
+      <TotalDownloadBandwidth>210</TotalDownloadBandwidth>
+      <IntranetDownloadBandwidth>120</IntranetDownloadBandwidth>
+      <ExtranetDownloadBandwidth>150</ExtranetDownloadBandwidth>
+      <TotalQps>400</TotalQps>
+      <IntranetQps>260</IntranetQps>
+      <ExtranetQps>270</ExtranetQps>
+  </QoSConfiguration>
+</GetResourcePoolInfoResponse>
+'''
+
+        req_info = mock_response(do_request, response_text)
+        resource_pool_name = 'resource-pool-for-ai'
+        result = service().get_resource_pool_info(resource_pool_name)
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual('oss-cn-shanghai', result.region)
+        self.assertEqual('1032307xxxx72056', result.owner)
+        self.assertEqual('2024-07-24T08:42:32.000Z', result.create_time)
+        self.assertEqual(200, result.qos_configuration.total_upload_bw)
+        self.assertEqual(16, result.qos_configuration.intranet_upload_bw)
+        self.assertEqual(112, result.qos_configuration.extranet_upload_bw)
+        self.assertEqual(210, result.qos_configuration.total_download_bw)
+        self.assertEqual(120, result.qos_configuration.intranet_download_bw)
+        self.assertEqual(150, result.qos_configuration.extranet_download_bw)
+        self.assertEqual(400, result.qos_configuration.total_qps)
+        self.assertEqual(260, result.qos_configuration.intranet_qps)
+        self.assertEqual(270, result.qos_configuration.extranet_qps)
+
+
+
+    @patch('oss2.Session.do_request')
+    def test_list_resource_pool_buckets(self, do_request):
+        request_text = '''GET /?resourcePoolBuckets&resourcePool=resource-pool-for-ai&continuation-token=abcd&max-keys=2 HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<ListResourcePoolBucketsResult>
+  <ResourcePool>resource-pool-for-ai</ResourcePool>
+  <ContinuationToken>abcd</ContinuationToken>
+  <NextContinuationToken>defg</NextContinuationToken>
+  <IsTruncated>false</IsTruncated>
+  <ResourcePoolBucket>
+    <Name>bucket-1</Name>
+    <JoinTime>2024-07-24T08:42:32.000Z</JoinTime>
+  </ResourcePoolBucket>
+  <ResourcePoolBucket>
+    <JoinTime>2024-05-24T08:42:33.000Z</JoinTime>
+  </ResourcePoolBucket>
+  <ResourcePoolBucket>
+  </ResourcePoolBucket>
+</ListResourcePoolBucketsResult>
+
+'''
+
+        req_info = mock_response(do_request, response_text)
+        resource_pool_name = 'resource-pool-for-ai'
+        result = service().list_resource_pool_buckets(resource_pool_name, continuation_token='abcd', max_keys=2)
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(resource_pool_name, result.resource_pool)
+        self.assertEqual('abcd', result.continuation_token)
+        self.assertEqual('defg', result.next_continuation_token)
+        self.assertEqual(False, result.is_truncated)
+        self.assertEqual('bucket-1',result.resource_pool_buckets[0].name)
+        self.assertEqual('2024-07-24T08:42:32.000Z',result.resource_pool_buckets[0].join_time)
+        self.assertEqual('2024-05-24T08:42:33.000Z',result.resource_pool_buckets[1].join_time)
+
+
+    @patch('oss2.Session.do_request')
+    def test_put_resource_pool_requester_qos_info(self, do_request):
+        request_text = '''PUT /?requesterQosInfo&resourcePool=resource-pool-for-ai&qosRequester=uid-test  HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****
+
+<QoSConfiguration>
+<TotalUploadBandwidth>10</TotalUploadBandwidth>
+<IntranetUploadBandwidth>-1</IntranetUploadBandwidth>
+<ExtranetUploadBandwidth>-2</ExtranetUploadBandwidth>
+<TotalDownloadBandwidth>11</TotalDownloadBandwidth>
+<IntranetDownloadBandwidth>-4</IntranetDownloadBandwidth>
+<ExtranetDownloadBandwidth>-5</ExtranetDownloadBandwidth>
+<TotalQps>1000</TotalQps>
+<IntranetQps>-6</IntranetQps>
+<ExtranetQps>-7</ExtranetQps>
+</QoSConfiguration>
+'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 5C1B138A109F4E405B2D
+content-length: 0
+x-oss-console-auth: success
+server: AliyunOSS
+x-oss-server-time: 980
+connection: keep-alive
+date: Wed, 15 Sep 2021 03:33:37 GMT'''
+
+        req_info = mock_response(do_request, response_text)
+        uid = 'uid-test'
+        resource_pool_name = 'resource-pool-for-ai'
+        qos_info = BucketQosInfo(
+            total_upload_bw = 10,
+            intranet_upload_bw = -1,
+            extranet_upload_bw = -2,
+            total_download_bw = 11,
+            intranet_download_bw = -4,
+            extranet_download_bw = -5,
+            total_qps = 1000,
+            intranet_qps = -6,
+            extranet_qps = -7)
+        service().put_resource_pool_requester_qos_info(uid, resource_pool_name, qos_info)
+        self.assertRequest(req_info, request_text.format(to_string(qos_info)))
+
+
+    @patch('oss2.Session.do_request')
+    def test_get_resource_pool_requester_qos_info(self, do_request):
+        request_text = '''GET /?requesterQosInfo&resourcePool=resource-pool-for-ai&qosRequester=20123345678903 HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<RequesterQoSInfo>
+  <Requester>20123345678903</Requester>
+  <QoSConfiguration>
+      <TotalUploadBandwidth>200</TotalUploadBandwidth>
+      <IntranetUploadBandwidth>16</IntranetUploadBandwidth>
+      <ExtranetUploadBandwidth>112</ExtranetUploadBandwidth>
+      <TotalDownloadBandwidth>210</TotalDownloadBandwidth>
+      <IntranetDownloadBandwidth>120</IntranetDownloadBandwidth>
+      <ExtranetDownloadBandwidth>150</ExtranetDownloadBandwidth>
+      <TotalQps>400</TotalQps>
+      <IntranetQps>260</IntranetQps>
+      <ExtranetQps>270</ExtranetQps>
+  </QoSConfiguration>
+</RequesterQoSInfo>
+'''
+
+        req_info = mock_response(do_request, response_text)
+        uid = '20123345678903'
+        resource_pool_name = 'resource-pool-for-ai'
+        result = service().get_resource_pool_requester_qos_info(uid, resource_pool_name)
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(200, result.qos_configuration.total_upload_bw)
+        self.assertEqual(16, result.qos_configuration.intranet_upload_bw)
+        self.assertEqual(112, result.qos_configuration.extranet_upload_bw)
+        self.assertEqual(210, result.qos_configuration.total_download_bw)
+        self.assertEqual(120, result.qos_configuration.intranet_download_bw)
+        self.assertEqual(150, result.qos_configuration.extranet_download_bw)
+        self.assertEqual(400, result.qos_configuration.total_qps)
+        self.assertEqual(260, result.qos_configuration.intranet_qps)
+        self.assertEqual(270, result.qos_configuration.extranet_qps)
+
+
+    @patch('oss2.Session.do_request')
+    def test_list_resource_pool_requester_qos_infos(self, do_request):
+        request_text = '''GET /?requesterQosInfo&resourcePool=resource-pool-for-ai&continuation-token=1105678&max-keys=2 HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<ListResourcePoolRequesterQoSInfosResult>
+  <ResourcePool>resource-pool-for-ai</ResourcePool>
+  <ContinuationToken>1105678</ContinuationToken>
+  <NextContinuationToken>3105678</NextContinuationToken>
+  <IsTruncated>false</IsTruncated>
+  <RequesterQoSInfo>
+    <Requester>21234567890</Requester>
+    <QoSConfiguration>
+      <TotalUploadBandwidth>200</TotalUploadBandwidth>
+      <IntranetUploadBandwidth>16</IntranetUploadBandwidth>
+      <ExtranetUploadBandwidth>112</ExtranetUploadBandwidth>
+      <TotalDownloadBandwidth>210</TotalDownloadBandwidth>
+      <IntranetDownloadBandwidth>120</IntranetDownloadBandwidth>
+      <ExtranetDownloadBandwidth>150</ExtranetDownloadBandwidth>
+      <TotalQps>400</TotalQps>
+      <IntranetQps>260</IntranetQps>
+      <ExtranetQps>270</ExtranetQps>
+    </QoSConfiguration>
+  </RequesterQoSInfo>
+  <RequesterQoSInfo>
+    <Requester>21234667890</Requester>
+    <QoSConfiguration>
+      <TotalUploadBandwidth>10</TotalUploadBandwidth>
+      <IntranetUploadBandwidth>-1</IntranetUploadBandwidth>
+      <ExtranetUploadBandwidth>-1</ExtranetUploadBandwidth>
+      <TotalDownloadBandwidth>10</TotalDownloadBandwidth>
+      <IntranetDownloadBandwidth>-1</IntranetDownloadBandwidth>
+      <ExtranetDownloadBandwidth>-1</ExtranetDownloadBandwidth>
+      <TotalQps>1000</TotalQps>
+      <IntranetQps>-1</IntranetQps>
+      <ExtranetQps>-1</ExtranetQps>
+    </QoSConfiguration>
+  </RequesterQoSInfo>
+  <RequesterQoSInfo>
+    <Requester>21234667890</Requester>
+    <QoSConfiguration>
+    </QoSConfiguration>
+  </RequesterQoSInfo>
+</ListResourcePoolRequesterQoSInfosResult>
+
+'''
+
+        req_info = mock_response(do_request, response_text)
+
+        resource_pool_name = 'resource-pool-for-ai'
+
+        result = service().list_resource_pool_requester_qos_infos(resource_pool_name, continuation_token='1105678', max_keys=2)
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(resource_pool_name, result.resource_pool)
+        self.assertEqual('1105678', result.continuation_token)
+        self.assertEqual('3105678', result.next_continuation_token)
+        self.assertEqual(False, result.is_truncated)
+        self.assertEqual('21234567890', result.requester_qos_info[0].requester)
+        self.assertEqual(200, result.requester_qos_info[0].qos_configuration.total_upload_bw)
+        self.assertEqual(16, result.requester_qos_info[0].qos_configuration.intranet_upload_bw)
+        self.assertEqual(112, result.requester_qos_info[0].qos_configuration.extranet_upload_bw)
+        self.assertEqual(210, result.requester_qos_info[0].qos_configuration.total_download_bw)
+        self.assertEqual(120, result.requester_qos_info[0].qos_configuration.intranet_download_bw)
+        self.assertEqual(150, result.requester_qos_info[0].qos_configuration.extranet_download_bw)
+        self.assertEqual(400, result.requester_qos_info[0].qos_configuration.total_qps)
+        self.assertEqual(260, result.requester_qos_info[0].qos_configuration.intranet_qps)
+        self.assertEqual(270, result.requester_qos_info[0].qos_configuration.extranet_qps)
+        self.assertEqual('21234667890', result.requester_qos_info[1].requester)
+        self.assertEqual(10, result.requester_qos_info[1].qos_configuration.total_upload_bw)
+        self.assertEqual(-1, result.requester_qos_info[1].qos_configuration.intranet_upload_bw)
+        self.assertEqual(-1, result.requester_qos_info[1].qos_configuration.extranet_upload_bw)
+        self.assertEqual(10, result.requester_qos_info[1].qos_configuration.total_download_bw)
+        self.assertEqual(-1, result.requester_qos_info[1].qos_configuration.intranet_download_bw)
+        self.assertEqual(-1, result.requester_qos_info[1].qos_configuration.extranet_download_bw)
+        self.assertEqual(1000, result.requester_qos_info[1].qos_configuration.total_qps)
+        self.assertEqual(-1, result.requester_qos_info[1].qos_configuration.intranet_qps)
+        self.assertEqual(-1, result.requester_qos_info[1].qos_configuration.extranet_qps)
+        self.assertEqual('21234667890', result.requester_qos_info[2].requester)
+
+
+    @patch('oss2.Session.do_request')
+    def test_delete_resource_pool_requester_qos_info(self, do_request):
+        request_text = '''DELETE /?requesterQosInfo&resourcePool=resource-pool-for-ai&qosRequester=20123345678903 HTTP/1.1
+Host: oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:41 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:Pt0DtPQ/FODOGs5y0yTIVctRcok='''
+
+        response_text = '''HTTP/1.1 204 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:42 GMT
+Content-Type: application/xml
+Content-Length: 96
+Connection: keep-alive
+x-oss-request-id: 566B6BDD68248CE14F729DC0
+'''
+        req_info = mock_response(do_request, response_text)
+
+        uid = '20123345678903'
+        resource_pool_name = 'resource-pool-for-ai'
+        result = service().delete_resource_pool_requester_qos_info(uid, resource_pool_name)
 
         self.assertRequest(req_info, request_text)
 

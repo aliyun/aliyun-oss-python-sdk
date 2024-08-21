@@ -2879,3 +2879,149 @@ class ListBucketDataRedundancyTransitionResult(RequestResult):
     def __init__(self, resp):
         super(ListBucketDataRedundancyTransitionResult, self).__init__(resp)
         self.data_redundancy_transitions = []
+
+class RequesterQoSInfo(object):
+    """流控配置信息。
+
+    :param str requester: 请求者UID
+    :param list qos_configuration: 流控配置信息。元素类型为:class:`BucketQosInfo <oss2.models.BucketQosInfo>`。
+    """
+
+    def __init__(self, requester=None, qos_configuration=None):
+
+        self.requester = requester
+        self.qos_configuration = qos_configuration
+
+
+class RequesterQoSInfoResult(RequestResult):
+    """流控配置。
+
+    :param str requester: 请求者UID
+    :param list qos_configuration: 流控配置信息。元素类型为:class:`BucketQosInfo <oss2.models.BucketQosInfo>`。
+    """
+
+    def __init__(self, resp):
+        super(RequesterQoSInfoResult, self).__init__(resp)
+        self.requester = None
+        self.qos_configuration = None
+
+
+class ResourcePoolInfoResult(RequestResult):
+    """资源池的基本信息。
+
+    :param str region: 资源池所属的地域
+    :param str name: 资源池的名称
+    :param str owner: 资源池所属的用户
+    :param str create_time: 资源池创建的时间
+    :param list qos_configuration: 流控配置信息。元素类型为:class:`BucketQosInfo <oss2.models.BucketQosInfo>`。
+    """
+
+    def __init__(self, resp):
+        super(ResourcePoolInfoResult, self).__init__(resp)
+        self.region = None
+        self.name = None
+        self.owner = None
+        self.create_time = None
+        self.qos_configuration = None
+
+
+class ResourcePoolInfo(RequestResult):
+    """资源池的简单信息。
+
+    :param str name: 资源池的名称
+    :param str create_time: 资源池创建的时间
+    """
+
+    def __init__(self, name=None, create_time=None):
+        self.name = name
+        self.create_time = create_time
+
+
+class ListResourcePoolsResult(RequestResult):
+    """资源池集合。
+
+    :param str region: 资源池所属的地域
+    :param str owner: 资源池所属的用户
+    :param str continuation_token: 本次列举使用的ContinuationToken
+    :param str next_continuation_token: 下次列举请求的ContinuationToken
+    :param bool is_truncated: 本次返回结果是否截断
+    :param list resource_pool: 资源池信息。元素类型为:class:`ResourcePoolInfo <oss2.models.ResourcePoolInfo>`。
+    """
+
+    def __init__(self, resp):
+        super(ListResourcePoolsResult, self).__init__(resp)
+        self.region = None
+        self.owner = None
+        self.continuation_token = ''
+        self.next_continuation_token = ''
+        self.is_truncated = False
+        self.resource_pool = []
+
+
+class ResourcePoolBucketInfo(RequestResult):
+    """资源池的基本信息。
+
+    :param str name: Bucket的名称
+    :param str join_time: Bucket加入资源池的时间，ISO8601格式
+    """
+
+    def __init__(self, name=None, join_time=None):
+        self.name = name
+        self.join_time = join_time
+
+
+class ListResourcePoolBucketsResult(RequestResult):
+    """资源池中的Bucket列表。
+
+    :param str resource_pool: 目标资源池名称
+    :param str continuation_token: 本次列举使用的ContinuationToken
+    :param str next_continuation_token: 下次列举请求的ContinuationToken
+    :param bool is_truncated: 本次返回结果是否截断
+    :param list resource_pool_buckets: 资源池中Bucket的信息。元素类型为:class:`ResourcePoolBucketInfo <oss2.models.ResourcePoolBucketInfo>`。
+    """
+
+    def __init__(self, resp):
+        super(ListResourcePoolBucketsResult, self).__init__(resp)
+        self.resource_pool = None
+        self.continuation_token = ''
+        self.next_continuation_token = ''
+        self.is_truncated = False
+        self.resource_pool_buckets = []
+
+
+class ListResourcePoolRequesterQoSInfosResult(RequestResult):
+    """资源池的请求者流控配置信息。
+
+    :param str resource_pool: 目标资源池名称
+    :param str continuation_token: 本次列举使用的ContinuationToken
+    :param str next_continuation_token: 下次列举请求的ContinuationToken
+    :param bool is_truncated: 本次返回结果是否截断
+    :param list requester_qos_info: 请求者流控配置信息。元素类型为:class:`RequesterQoSInfo <oss2.models.RequesterQoSInfo>`。
+    """
+
+    def __init__(self, resp):
+        super(ListResourcePoolRequesterQoSInfosResult, self).__init__(resp)
+        self.resource_pool = None
+        self.continuation_token = ''
+        self.next_continuation_token = ''
+        self.is_truncated = False
+        self.requester_qos_info = []
+
+
+class ListBucketRequesterQoSInfosResult(RequestResult):
+    """bucket的请求者流控配置信息。
+
+    :param str bucket: 请求者流控对应的Bucket名称
+    :param str continuation_token: 本次列举使用的ContinuationTokenRequesterQoSInfo
+    :param str next_continuation_token: 下次列举请求的ContinuationToken
+    :param bool is_truncated: 本次返回结果是否截断
+    :param list requester_qos_info: 请求者流控配置信息。元素类型为:class:`RequesterQoSInfo <oss2.models.RequesterQoSInfo>`。
+    """
+
+    def __init__(self, resp):
+        super(ListBucketRequesterQoSInfosResult, self).__init__(resp)
+        self.bucket = None
+        self.continuation_token = ''
+        self.next_continuation_token = ''
+        self.is_truncated = False
+        self.requester_qos_info = []

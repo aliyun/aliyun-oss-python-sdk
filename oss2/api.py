@@ -300,6 +300,11 @@ class Service(_Base):
     QOS_INFO = 'qosInfo'
     REGIONS = 'regions'
     WRITE_GET_OBJECT_RESPONSE = 'x-oss-write-get-object-response'
+    REQUESTER_QOS_INFO = "requesterQosInfo"
+    QOS_REQUESTER = "qosRequester"
+    RESOURCE_POOL_INFO = "resourcePoolInfo"
+    RESOURCE_POOL = "resourcePool"
+    RESOURCE_POOL_BUCKETS = "resourcePoolBuckets"
 
     def __init__(self, auth, endpoint,
                  session=None,
@@ -409,6 +414,105 @@ class Service(_Base):
         logger.debug("List user data redundancy transition done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_user_data_redundancy_transition, ListUserDataRedundancyTransitionResult)
 
+
+    def list_resource_pools(self, continuation_token='', max_keys=100):
+        """列举当前主账号在当前地域下的资源池。
+
+        :param str continuation_token: 分页标志,首次调用传空串
+        :param int max_keys: 最多返回数目
+
+        :return: :class:`ListResourcePoolsResult <oss2.models.ListResourcePoolsResult>`
+        """
+        logger.debug("Start to list resource pools, continuation_token: {0}, max_keys: {1}".format(continuation_token, max_keys))
+
+        resp = self._do('GET', '', '', params={Service.RESOURCE_POOL: '', 'continuation-token': continuation_token, 'max-keys': str(max_keys)})
+        logger.debug("List resource pools done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_list_resource_pools, ListResourcePoolsResult)
+
+    def get_resource_pool_info(self, resource_pool_name):
+        """获取特定资源池的基本信息。
+
+        :param str resource_pool_name : 请求的资源池的名称。
+        :return: :class:`ResourcePoolInfoResult <oss2.models.ResourcePoolInfoResult>`
+        """
+        logger.debug("Start to get resource pool info, uid: {0}.".format(resource_pool_name))
+
+        resp = self._do('GET', '', '', params={Service.RESOURCE_POOL_INFO: '', Service.RESOURCE_POOL: resource_pool_name})
+        logger.debug("Get resource pool info done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_get_resource_pool_info, ResourcePoolInfoResult)
+
+    def list_resource_pool_buckets(self, resource_pool_name, continuation_token='', max_keys=100):
+        """获取特定资源池中的Bucket列表。
+
+        :param str resource_pool_name : 请求的资源池的名称。
+        :param str continuation_token: 分页标志,首次调用传空串
+        :param int max_keys: 最多返回数目
+
+        :return: :class:`ListResourcePoolBucketsResult <oss2.models.ListResourcePoolBucketsResult>`
+        """
+        logger.debug("Start to list resource pool buckets, resource_pool_name:{0} continuation_token: {1}, max_keys: {2}".format(resource_pool_name, continuation_token, max_keys))
+
+        resp = self._do('GET', '', '', params={Service.RESOURCE_POOL_BUCKETS: '', Service.RESOURCE_POOL: resource_pool_name, 'continuation-token': continuation_token, 'max-keys': str(max_keys)})
+        logger.debug("List resource pool buckets done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_list_resource_pool_buckets, ListResourcePoolBucketsResult)
+
+
+    def put_resource_pool_requester_qos_info(self, uid, resource_pool_name, bucket_qos_info):
+        """修改子账号在资源池的请求者流控配置。
+
+        :param str uid: 请求者UID
+        :param str resource_pool_name: 请求的资源池的名称
+        :param bucket_qos_info :class:`BucketQosInfo <oss2.models.BucketQosInfo>`
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to put resource pool requester qos info, uid: {0}, resource_pool_name: {1}, bucket_qos_info: {2}".format(uid, resource_pool_name, bucket_qos_info))
+
+        data = xml_utils.to_put_qos_info(bucket_qos_info)
+        resp = self._do('PUT', '', '', data=data, params={Service.REQUESTER_QOS_INFO: '', Service.QOS_REQUESTER: uid, Service.RESOURCE_POOL: resource_pool_name})
+        logger.debug("Put resource pool requester qos info done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
+
+    def get_resource_pool_requester_qos_info(self, uid, resource_pool_name):
+        """获取子账号在资源池的流控配置。
+
+        :return: :class:`RequesterQoSInfoResult <oss2.models.RequesterQoSInfoResult>`
+        """
+        logger.debug("Start to get resource pool requester qos info, uid: {0}, resource_pool_name: {1}.".format(uid, resource_pool_name))
+
+        resp = self._do('GET', '', '', params={Service.REQUESTER_QOS_INFO: '', Service.QOS_REQUESTER: uid, Service.RESOURCE_POOL: resource_pool_name})
+        logger.debug("Get resource pool requester qos info done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_get_requester_qos_info, RequesterQoSInfoResult)
+
+    def list_resource_pool_requester_qos_infos(self, resource_pool_name, continuation_token='', max_keys=100):
+        """列举子账号账号在资源池的流控配置。
+
+        :param str resource_pool_name : 请求的资源池的名称。
+        :param str continuation_token: 分页标志,首次调用传空串
+        :param int max_keys: 最多返回数目
+
+        :return: :class:`ListResourcePoolRequesterQoSInfosResult <oss2.models.ListResourcePoolRequesterQoSInfosResult>`
+        """
+        logger.debug("Start to list resource pool requester qos infos, resource_pool_name:{0} continuation_token: {1}, max_keys: {2}".format(resource_pool_name, continuation_token, max_keys))
+
+        resp = self._do('GET', '', '', params={Service.REQUESTER_QOS_INFO: '', Service.RESOURCE_POOL: resource_pool_name, 'continuation-token': continuation_token, 'max-keys': str(max_keys)})
+        logger.debug("List resource pool requester qos infos done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_list_resource_pool_requester_qos_infos, ListResourcePoolRequesterQoSInfosResult)
+
+    def delete_resource_pool_requester_qos_info(self, uid, resource_pool_name):
+        """删除子账号在资源池的请求者流控配置。
+
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to delete resource pool requester qos info, uid: {0}, resource_pool_name: {1}.".format(uid, resource_pool_name))
+
+        resp = self._do('DELETE', '', '', params={Service.REQUESTER_QOS_INFO: '', Service.QOS_REQUESTER: uid, Service.RESOURCE_POOL: resource_pool_name})
+        logger.debug("Delete resource pool requester qos info done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return RequestResult(resp)
+
+
 class Bucket(_Base):
     """用于Bucket和Object操作的类，诸如创建、删除Bucket，上传、下载Object等。
 
@@ -489,6 +593,10 @@ class Bucket(_Base):
     REDUNDANCY_TRANSITION = "redundancyTransition"
     TARGET_REDUNDANCY_TYPE = "x-oss-target-redundancy-type"
     REDUNDANCY_TRANSITION_TASK_ID = "x-oss-redundancy-transition-taskid"
+    REQUESTER_QOS_INFO = "requesterQosInfo"
+    QOS_REQUESTER = "qosRequester"
+    RESOURCE_POOL_INFO = "resourcePoolInfo"
+    RESOURCE_POOL = "resourcePool"
 
 
     def __init__(self, auth, endpoint, bucket_name,
@@ -2981,6 +3089,59 @@ class Bucket(_Base):
         resp = self.__do_bucket('GET', params={Bucket.REDUNDANCY_TRANSITION: ''})
         logger.debug("query list bucket data redundancy transition done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return self._parse_result(resp, xml_utils.parse_list_bucket_data_redundancy_transition, ListBucketDataRedundancyTransitionResult)
+
+
+    def put_bucket_requester_qos_info(self, uid, bucket_qos_info):
+        """修改请求者在Bucket上的流控配置。
+
+        :param str uid: 请求者UID
+        :param bucket_qos_info :class:`BucketQosInfo <oss2.models.BucketQosInfo>`
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to put bucket requester qos info, bucket: {0}, uid: {1}, bucket_qos_info: {2}."
+                     .format(self.bucket_name, uid, bucket_qos_info))
+
+        data = xml_utils.to_put_qos_info(bucket_qos_info)
+
+        resp = self.__do_bucket('PUT', data=data, params={Bucket.REQUESTER_QOS_INFO: '', Bucket.QOS_REQUESTER: uid})
+        logger.debug("put bucket requester qos info done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return RequestResult(resp)
+
+    def get_bucket_requester_qos_info(self, uid):
+        """获取请求者在Bucket上的流控配置。
+
+        :return: :class:`RequesterQoSInfoResult <oss2.models.RequesterQoSInfoResult>`
+        """
+        logger.debug("Start to get bucket requester qos info: {0}, uid: {1}.".format(self.bucket_name, uid))
+        resp = self.__do_bucket('GET', params={Bucket.REQUESTER_QOS_INFO: '', Bucket.QOS_REQUESTER: uid})
+        logger.debug("Get bucket requester qos info, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+
+        return self._parse_result(resp, xml_utils.parse_get_requester_qos_info, RequesterQoSInfoResult)
+
+
+    def list_bucket_requester_qos_infos(self, continuation_token='', max_keys=100):
+        """列举所有对该Bucket的请求者流控配置。
+
+        :param str continuation_token: 分页标志,首次调用传空串
+        :param int max_keys: 最多返回数目
+        :return: :class:`ListBucketRequesterQoSInfosResult <oss2.models.ListBucketRequesterQoSInfosResult>`
+        """
+        logger.debug("Start to do query list bucket requester qos infos: {0}".format(self.bucket_name))
+
+        resp = self.__do_bucket('GET', params={Bucket.REQUESTER_QOS_INFO: '', 'continuation-token': continuation_token, 'max-keys': str(max_keys)})
+        logger.debug("query list bucket requester qos infos done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return self._parse_result(resp, xml_utils.parse_list_bucket_requester_qos_infos, ListBucketRequesterQoSInfosResult)
+
+
+    def delete_bucket_requester_qos_info(self, uid):
+        """删除在Bucket上的请求者流控配置。
+        :return: :class:`RequestResult <oss2.models.RequestResult>`
+        """
+        logger.debug("Start to delete bucket requester qos info, bucket: {0}, uid: {1}.".format(self.bucket_name, uid))
+        resp = self.__do_bucket('DELETE', params={Bucket.REQUESTER_QOS_INFO: '', Bucket.QOS_REQUESTER: uid})
+        logger.debug("Delete bucket requester qos info done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
+        return RequestResult(resp)
 
 
     def __do_object(self, method, key, **kwargs):
