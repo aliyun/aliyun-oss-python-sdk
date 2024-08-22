@@ -2921,6 +2921,15 @@ class AccessPointVpcConfiguration(RequestResult):
     def __init__(self, vpc_id=None):
         self.vpc_id = vpc_id
 
+class PublicAccessBlockConfiguration(RequestResult):
+    """保存阻止公共访问信息。
+
+    :param bool block_public_access: 获取接入点的阻止公共访问配置信息。
+    """
+    def __init__(self, block_public_access=None):
+        self.block_public_access = block_public_access
+
+
 
 class GetAccessPointResult(RequestResult):
     """获取接入点返回信息。
@@ -2935,6 +2944,7 @@ class GetAccessPointResult(RequestResult):
     :param str alias: 别名。
     :param str access_point_status: 状态。
     :param class endpoints: 接入点endpoint。元素类型为:class:`<oss2.models.AccessPointEndpoints>`。
+    :param class public_access_block_configuration: 获取接入点的阻止公共访问配置。元素类型为:class:`<oss2.models.PublicAccessBlockConfiguration>`。
     """
     def __init__(self, resp):
         super(GetAccessPointResult, self).__init__(resp)
@@ -2948,6 +2958,7 @@ class GetAccessPointResult(RequestResult):
         self.alias = None
         self.access_point_status = None
         self.endpoints = None
+        self.public_access_block_configuration = None
 
 
 
@@ -3017,3 +3028,33 @@ class ListAccessPointResult(RequestResult):
         self.next_continuation_token = None
         self.marker = None
         self.access_points = []
+
+
+class GetPublicAccessBlockResult(RequestResult):
+    """保存阻止公共访问信息的容器。
+
+    :param block_public_access: OSS全局阻止公共访问的配置信息。
+    """
+    def __init__(self, resp):
+        super(GetPublicAccessBlockResult, self).__init__(resp)
+        self.block_public_access = None
+
+
+class GetBucketPublicAccessBlockResult(RequestResult):
+    """保存bucket阻止公共访问信息的容器。
+
+    :param block_public_access: Bucket的阻止公共访问配置信息。
+    """
+    def __init__(self, resp):
+        super(GetBucketPublicAccessBlockResult, self).__init__(resp)
+        self.block_public_access = None
+
+
+class GetAccessPointPublicAccessBlockResult(RequestResult):
+    """保存access point阻止公共访问信息的容器。
+
+    :param block_public_access: 接入点的阻止公共访问配置信息。
+    """
+    def __init__(self, resp):
+        super(GetAccessPointPublicAccessBlockResult, self).__init__(resp)
+        self.block_public_access = None
