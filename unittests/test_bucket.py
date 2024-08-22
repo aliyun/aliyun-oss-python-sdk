@@ -4303,5 +4303,78 @@ Date: Fri , 30 Apr 2021 13:08:38 GMT
         self.assertEqual(result.endpoints.public_endpoint, "s3-accesspoint-fips.dualstack.us-east-1.amazonaws.com")
         self.assertEqual(result.public_access_block_configuration.block_public_access, True)
 
+
+    @patch('oss2.Session.do_request')
+    def test_get_website(self, do_request):
+        request_text = '''GET /?website= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:48 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:gTNIEjVmU76CwrhC2HftAaHcwBw='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:49 GMT
+Content-Type: application/xml
+Content-Length: 218
+Connection: keep-alive
+x-oss-request-id: 566B6BE5FFDB697977D52407
+
+<?xml version="1.0" encoding="UTF-8"?>
+<WebsiteConfiguration>
+  <IndexDocument>
+  </IndexDocument>
+  <ErrorDocument>
+    <Key>{1}</Key>
+  </ErrorDocument>
+</WebsiteConfiguration>'''
+
+        for index, error in [('index+中文.html', 'error.中文') ,(u'中-+()文.index', u'@#$%中文.error')]:
+            req_info = mock_response(do_request, response_text.format(to_string(index), to_string(error)))
+
+            result = bucket().get_bucket_website()
+
+            self.assertRequest(req_info, request_text)
+            self.assertEqual(result.error_file, to_string(error))
+
+
+    @patch('oss2.Session.do_request')
+    def test_get_website(self, do_request):
+        request_text = '''GET /?website= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:48 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:gTNIEjVmU76CwrhC2HftAaHcwBw='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:49 GMT
+Content-Type: application/xml
+Content-Length: 218
+Connection: keep-alive
+x-oss-request-id: 566B6BE5FFDB697977D52407
+
+<?xml version="1.0" encoding="UTF-8"?>
+<WebsiteConfiguration>
+  <IndexDocument>
+    <Suffix>{0}</Suffix>
+  </IndexDocument>
+</WebsiteConfiguration>'''
+
+        for index, error in [('index+中文.html', 'error.中文') ,(u'中-+()文.index', u'@#$%中文.error')]:
+            req_info = mock_response(do_request, response_text.format(to_string(index), to_string(error)))
+
+            result = bucket().get_bucket_website()
+
+            self.assertRequest(req_info, request_text)
+            self.assertEqual(result.index_file, to_string(index))
+
+
 if __name__ == '__main__':
     unittest.main()
