@@ -581,8 +581,8 @@ def parse_routing_rule_redirect(redirect_node):
 
 def parse_get_bucket_website(result, body):
     root = ElementTree.fromstring(body)
-    result.index_file = _find_tag(root, 'IndexDocument/Suffix')
-    result.error_file = _find_tag(root, 'ErrorDocument/Key')
+    result.index_file = _find_tag_with_default(root, 'IndexDocument/Suffix', None)
+    result.error_file = _find_tag_with_default(root, 'ErrorDocument/Key', None)
 
     if root.find('RoutingRules') is None:
         return result
