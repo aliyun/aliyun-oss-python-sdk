@@ -3058,3 +3058,201 @@ class GetAccessPointPublicAccessBlockResult(RequestResult):
     def __init__(self, resp):
         super(GetAccessPointPublicAccessBlockResult, self).__init__(resp)
         self.block_public_access = None
+
+
+class QoSConfiguration(object):
+    """Qos信息
+
+    :param total_upload_bw: 总上传带宽, 单位Gbps
+    :type total_upload_bw: int
+
+    :param intranet_upload_bw: 内网上传带宽, 单位Gbps
+    :type intranet_upload_bw: int
+
+    :param extranet_upload_bw: 外网上传带宽, 单位Gbps
+    :type extranet_upload_bw: int
+
+    :param total_download_bw: 总下载带宽, 单位Gbps
+    :type total_download_bw: int
+
+    :param intranet_download_bw: 内外下载带宽, 单位Gbps
+    :type intranet_download_bw: int
+
+    :param extranet_download_bw: 外网下载带宽, 单位Gbps
+    :type extranet_download_bw: int
+
+    :param total_qps: 总qps, 单位请求数/s
+    :type total_qps: int
+
+    :param intranet_qps: 内网访问qps, 单位请求数/s
+    :type intranet_qps: int
+
+    :param extranet_qps: 外网访问qps, 单位请求数/s
+    :type extranet_qps: int
+    """
+    def __init__(self,
+                 total_upload_bw = None,
+                 intranet_upload_bw = None,
+                 extranet_upload_bw = None,
+                 total_download_bw = None,
+                 intranet_download_bw = None,
+                 extranet_download_bw = None,
+                 total_qps = None,
+                 intranet_qps = None,
+                 extranet_qps = None):
+
+        self.total_upload_bw = total_upload_bw
+        self.intranet_upload_bw = intranet_upload_bw
+        self.extranet_upload_bw = extranet_upload_bw
+        self.total_download_bw = total_download_bw
+        self.intranet_download_bw = intranet_download_bw
+        self.extranet_download_bw = extranet_download_bw
+        self.total_qps = total_qps
+        self.intranet_qps = intranet_qps
+        self.extranet_qps = extranet_qps
+
+class RequesterQoSInfo(object):
+    """流控配置信息。
+
+    :param str requester: 请求者UID
+    :param list qos_configuration: 流控配置信息。元素类型为:class:`BucketQosInfo <oss2.models.QoSConfiguration>`。
+    """
+
+    def __init__(self, requester=None, qos_configuration=None):
+
+        self.requester = requester
+        self.qos_configuration = qos_configuration
+
+
+class RequesterQoSInfoResult(RequestResult):
+    """流控配置。
+
+    :param str requester: 请求者UID
+    :param list qos_configuration: 流控配置信息。元素类型为:class:`BucketQosInfo <oss2.models.QoSConfiguration>`。
+    """
+
+    def __init__(self, resp):
+        super(RequesterQoSInfoResult, self).__init__(resp)
+        self.requester = None
+        self.qos_configuration = None
+
+
+class ResourcePoolInfoResult(RequestResult):
+    """资源池的基本信息。
+
+    :param str region: 资源池所属的地域
+    :param str name: 资源池的名称
+    :param str owner: 资源池所属的用户
+    :param str create_time: 资源池创建的时间
+    :param list qos_configuration: 流控配置信息。元素类型为:class:`BucketQosInfo <oss2.models.QoSConfiguration>`。
+    """
+
+    def __init__(self, resp):
+        super(ResourcePoolInfoResult, self).__init__(resp)
+        self.region = None
+        self.name = None
+        self.owner = None
+        self.create_time = None
+        self.qos_configuration = None
+
+
+class ResourcePoolInfo(RequestResult):
+    """资源池的简单信息。
+
+    :param str name: 资源池的名称
+    :param str create_time: 资源池创建的时间
+    """
+
+    def __init__(self, name=None, create_time=None):
+        self.name = name
+        self.create_time = create_time
+
+
+class ListResourcePoolsResult(RequestResult):
+    """资源池集合。
+
+    :param str region: 资源池所属的地域
+    :param str owner: 资源池所属的用户
+    :param str continuation_token: 本次列举使用的ContinuationToken
+    :param str next_continuation_token: 下次列举请求的ContinuationToken
+    :param bool is_truncated: 本次返回结果是否截断
+    :param list resource_pool: 资源池信息。元素类型为:class:`ResourcePoolInfo <oss2.models.ResourcePoolInfo>`。
+    """
+
+    def __init__(self, resp):
+        super(ListResourcePoolsResult, self).__init__(resp)
+        self.region = None
+        self.owner = None
+        self.continuation_token = ''
+        self.next_continuation_token = ''
+        self.is_truncated = False
+        self.resource_pool = []
+
+
+class ResourcePoolBucketInfo(RequestResult):
+    """资源池的基本信息。
+
+    :param str name: Bucket的名称
+    :param str join_time: Bucket加入资源池的时间，ISO8601格式
+    """
+
+    def __init__(self, name=None, join_time=None):
+        self.name = name
+        self.join_time = join_time
+
+
+class ListResourcePoolBucketsResult(RequestResult):
+    """资源池中的Bucket列表。
+
+    :param str resource_pool: 目标资源池名称
+    :param str continuation_token: 本次列举使用的ContinuationToken
+    :param str next_continuation_token: 下次列举请求的ContinuationToken
+    :param bool is_truncated: 本次返回结果是否截断
+    :param list resource_pool_buckets: 资源池中Bucket的信息。元素类型为:class:`ResourcePoolBucketInfo <oss2.models.ResourcePoolBucketInfo>`。
+    """
+
+    def __init__(self, resp):
+        super(ListResourcePoolBucketsResult, self).__init__(resp)
+        self.resource_pool = None
+        self.continuation_token = ''
+        self.next_continuation_token = ''
+        self.is_truncated = False
+        self.resource_pool_buckets = []
+
+
+class ListResourcePoolRequesterQoSInfosResult(RequestResult):
+    """资源池的请求者流控配置信息。
+
+    :param str resource_pool: 目标资源池名称
+    :param str continuation_token: 本次列举使用的ContinuationToken
+    :param str next_continuation_token: 下次列举请求的ContinuationToken
+    :param bool is_truncated: 本次返回结果是否截断
+    :param list requester_qos_info: 请求者流控配置信息。元素类型为:class:`RequesterQoSInfo <oss2.models.RequesterQoSInfo>`。
+    """
+
+    def __init__(self, resp):
+        super(ListResourcePoolRequesterQoSInfosResult, self).__init__(resp)
+        self.resource_pool = None
+        self.continuation_token = ''
+        self.next_continuation_token = ''
+        self.is_truncated = False
+        self.requester_qos_info = []
+
+
+class ListBucketRequesterQoSInfosResult(RequestResult):
+    """bucket的请求者流控配置信息。
+
+    :param str bucket: 请求者流控对应的Bucket名称
+    :param str continuation_token: 本次列举使用的ContinuationTokenRequesterQoSInfo
+    :param str next_continuation_token: 下次列举请求的ContinuationToken
+    :param bool is_truncated: 本次返回结果是否截断
+    :param list requester_qos_info: 请求者流控配置信息。元素类型为:class:`RequesterQoSInfo <oss2.models.RequesterQoSInfo>`。
+    """
+
+    def __init__(self, resp):
+        super(ListBucketRequesterQoSInfosResult, self).__init__(resp)
+        self.bucket = None
+        self.continuation_token = ''
+        self.next_continuation_token = ''
+        self.is_truncated = False
+        self.requester_qos_info = []

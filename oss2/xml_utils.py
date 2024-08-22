@@ -81,7 +81,12 @@ from .models import (SimplifiedObjectInfo,
                      ListAccessPointResult,
                      AccessPointVpcConfiguration,
                      AccessPointEndpoints,
-                     AccessPointInfo, PublicAccessBlockConfiguration)
+                     AccessPointInfo,
+                     PublicAccessBlockConfiguration,
+                     ResourcePoolInfo,
+                     ResourcePoolBucketInfo,
+                     RequesterQoSInfo,
+                     QoSConfiguration)
 
 from .select_params import (SelectJsonTypes, SelectParameters)
 
@@ -2300,3 +2305,127 @@ def parse_get_public_access_block_result(result, body):
     root = ElementTree.fromstring(body)
     if root.find("BlockPublicAccess") is not None:
         result.block_public_access = _find_bool(root, 'BlockPublicAccess')
+
+
+def parse_qos_configuration(qos_info_node):
+    if qos_info_node is None:
+        return None
+
+    qos = QoSConfiguration()
+    if qos_info_node.find('TotalUploadBandwidth') is not None:
+        qos.total_upload_bw = _find_int(qos_info_node, 'TotalUploadBandwidth')
+    if qos_info_node.find('IntranetUploadBandwidth') is not None:
+        qos.intranet_upload_bw = _find_int(qos_info_node, 'IntranetUploadBandwidth')
+    if qos_info_node.find('ExtranetUploadBandwidth') is not None:
+        qos.extranet_upload_bw = _find_int(qos_info_node, 'ExtranetUploadBandwidth')
+    if qos_info_node.find('TotalDownloadBandwidth') is not None:
+        qos.total_download_bw = _find_int(qos_info_node, 'TotalDownloadBandwidth')
+    if qos_info_node.find('IntranetDownloadBandwidth') is not None:
+        qos.intranet_download_bw = _find_int(qos_info_node, 'IntranetDownloadBandwidth')
+    if qos_info_node.find('ExtranetDownloadBandwidth') is not None:
+        qos.extranet_download_bw = _find_int(qos_info_node, 'ExtranetDownloadBandwidth')
+    if qos_info_node.find('TotalQps') is not None:
+        qos.total_qps = _find_int(qos_info_node, 'TotalQps')
+    if qos_info_node.find('IntranetQps') is not None:
+        qos.intranet_qps = _find_int(qos_info_node, 'IntranetQps')
+    if qos_info_node.find('ExtranetQps') is not None:
+        qos.extranet_qps = _find_int(qos_info_node, 'ExtranetQps')
+
+    return qos
+
+
+def to_put_bucket_requester_qos_info(enabled):
+    root = ElementTree.Element('QoSConfiguration')
+    _add_text_child(root, 'Enabled', str(enabled).lower())
+    return _node_to_string(root)
+
+
+def parse_get_requester_qos_info(result, body):
+    root = ElementTree.fromstring(body)
+
+    result.requester = _find_tag_with_default(root, 'Requester', None)
+    result.qos_configuration = parse_qos_configuration(root.find('QoSConfiguration'))
+
+    return result
+
+def parse_get_resource_pool_info(result, body):
+    root = ElementTree.fromstring(body)
+
+    result.region = _find_tag_with_default(root, 'Region', None)
+    result.name = _find_tag_with_default(root, 'Name', None)
+    result.owner = _find_tag_with_default(root, 'Owner', None)
+    result.create_time = _find_tag_with_default(root, 'CreateTime', None)
+    result.qos_configuration = parse_qos_configuration(root.find('QoSConfiguration'))
+
+    return result
+
+
+def parse_list_resource_pools(result, body):
+    root = ElementTree.fromstring(body)
+
+    result.region = _find_tag_with_default(root, 'Region', None)
+    result.owner = _find_tag_with_default(root, 'Owner', None)
+    result.continuation_token = _find_tag_with_default(root, 'ContinuationToken', None)
+    result.next_continuation_token = _find_tag_with_default(root, 'NextContinuationToken', None)
+    result.is_truncated = _find_bool(root, 'IsTruncated')
+
+    for resource in root.findall('ResourcePool'):
+        tmp = ResourcePoolInfo()
+        tmp.name = _find_tag_with_default(resource, 'Name', None)
+        tmp.create_time = _find_tag_with_default(resource, 'CreateTime', None)
+        result.resource_pool.append(tmp)
+
+    return result
+
+
+def parse_list_resource_pool_buckets(result, body):
+    root = ElementTree.fromstring(body)
+
+    result.resource_pool = _find_tag_with_default(root, 'ResourcePool', None)
+    result.continuation_token = _find_tag_with_default(root, 'ContinuationToken', None)
+    result.next_continuation_token = _find_tag_with_default(root, 'NextContinuationToken', None)
+    result.is_truncated = _find_bool(root, 'IsTruncated')
+
+    for bucket in root.findall('ResourcePoolBucket'):
+        tmp = ResourcePoolBucketInfo()
+        tmp.name = _find_tag_with_default(bucket, 'Name', None)
+        tmp.join_time = _find_tag_with_default(bucket, 'JoinTime', None)
+
+        result.resource_pool_buckets.append(tmp)
+
+    return result
+
+
+def parse_list_resource_pool_requester_qos_infos(result, body):
+    root = ElementTree.fromstring(body)
+
+    result.resource_pool = _find_tag_with_default(root, 'ResourcePool', None)
+    result.continuation_token = _find_tag_with_default(root, 'ContinuationToken', None)
+    result.next_continuation_token = _find_tag_with_default(root, 'NextContinuationToken', None)
+    result.is_truncated = _find_bool(root, 'IsTruncated')
+
+    for qos_info in root.findall('RequesterQoSInfo'):
+        tmp = RequesterQoSInfo()
+        tmp.requester = _find_tag_with_default(qos_info, 'Requester', None)
+        tmp.qos_configuration = parse_qos_configuration(qos_info.find('QoSConfiguration'))
+
+        result.requester_qos_info.append(tmp)
+
+    return result
+
+
+def parse_list_bucket_requester_qos_infos(result, body):
+    root = ElementTree.fromstring(body)
+
+    result.bucket = _find_tag_with_default(root, 'Bucket', None)
+    result.continuation_token = _find_tag_with_default(root, 'ContinuationToken', None)
+    result.next_continuation_token = _find_tag_with_default(root, 'NextContinuationToken', None)
+    result.is_truncated = _find_bool(root, 'IsTruncated')
+
+    for qos_info in root.findall('RequesterQoSInfo'):
+        tmp = RequesterQoSInfo()
+        tmp.requester = _find_tag_with_default(qos_info, 'Requester', None)
+        tmp.qos_configuration = parse_qos_configuration(qos_info.find('QoSConfiguration'))
+
+        result.requester_qos_info.append(tmp)
+    return result
