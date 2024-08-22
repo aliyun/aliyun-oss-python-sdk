@@ -1,5 +1,5 @@
 import os
-from oss2.models import BucketQosInfo
+from oss2.models import QoSConfiguration
 import oss2
 
 # Specify access information, such as AccessKeyId, AccessKeySecret, and Endpoint.
@@ -31,7 +31,7 @@ service = oss2.Service(oss2.Auth(access_key_id, access_key_secret), endpoint)
 
 
 # put bucket requester qos info
-qos_info = BucketQosInfo(
+qos_info = QoSConfiguration(
     total_upload_bw = 100,
     intranet_upload_bw = 6,
     extranet_upload_bw = 12,
@@ -122,7 +122,7 @@ print(result.resource_pool_buckets[0].join_time)
 
 
 # put resource pool requester qos info
-qos_info = BucketQosInfo(
+qos_info = QoSConfiguration(
     total_upload_bw = 200,
     intranet_upload_bw = 16,
     extranet_upload_bw = 112,
