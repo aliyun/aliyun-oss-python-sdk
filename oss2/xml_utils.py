@@ -81,7 +81,7 @@ from .models import (SimplifiedObjectInfo,
                      ListAccessPointResult,
                      AccessPointVpcConfiguration,
                      AccessPointEndpoints,
-                     AccessPointInfo)
+                     AccessPointInfo, PublicAccessBlockConfiguration)
 
 from .select_params import (SelectJsonTypes, SelectParameters)
 
@@ -2254,6 +2254,13 @@ def parse_get_access_point_result(result, body):
         endpoint.internal_endpoint = _find_tag_with_default(endpoint_node, "InternalEndpoint", None)
         result.endpoints = endpoint
 
+    block_node = root.find('PublicAccessBlockConfiguration')
+    if block_node is not None:
+        block = PublicAccessBlockConfiguration()
+        if block_node.find('BlockPublicAccess') is not None:
+            block.block_public_access = _find_bool(block_node, "BlockPublicAccess")
+            result.public_access_block_configuration = block
+
 
 def parse_list_access_point_result(result, body):
     root = ElementTree.fromstring(body)
@@ -2281,3 +2288,15 @@ def parse_list_access_point_result(result, body):
             tmp.vpc = vpc
         result.access_points.append(tmp)
     return result
+
+
+def to_put_public_access_block_request(block_public_access):
+    root = ElementTree.Element('PublicAccessBlockConfiguration')
+    _add_text_child(root, 'BlockPublicAccess', str(block_public_access))
+    return _node_to_string(root)
+
+
+def parse_get_public_access_block_result(result, body):
+    root = ElementTree.fromstring(body)
+    if root.find("BlockPublicAccess") is not None:
+        result.block_public_access = _find_bool(root, 'BlockPublicAccess')

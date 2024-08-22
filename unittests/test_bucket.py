@@ -3912,5 +3912,396 @@ x-oss-request-id: 566B6BDD68248CE14F729DC0
         self.assertRequest(req_info, request_text)
 
 
+    @patch('oss2.Session.do_request')
+    def test_put_public_access_block(self, do_request):
+        request_text = '''PUT /?publicAccessBlock HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****
+
+<PublicAccessBlockConfiguration>
+<BlockPublicAccess>True</BlockPublicAccess>
+</PublicAccessBlockConfiguration>
+'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 5C1B138A109F4E405B2D
+content-length: 0
+x-oss-console-auth: success
+server: AliyunOSS
+x-oss-server-time: 980
+connection: keep-alive
+date: Wed, 15 Sep 2021 03:33:37 GMT'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = service().put_public_access_block(True)
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '5C1B138A109F4E405B2D')
+        self.assertEqual(result.status, 200)
+
+
+    @patch('oss2.Session.do_request')
+    def test_get_public_access_block(self, do_request):
+        request_text = '''GET /?publicAccessBlock HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<PublicAccessBlockConfiguration>
+  <BlockPublicAccess>true</BlockPublicAccess>
+</PublicAccessBlockConfiguration>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = service().get_public_access_block()
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(True, result.block_public_access)
+
+    @patch('oss2.Session.do_request')
+    def test_get_public_access_block_invalid(self, do_request):
+        request_text = '''GET /?publicAccessBlock HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<PublicAccessBlockConfiguration>
+</PublicAccessBlockConfiguration>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = service().get_public_access_block()
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(None, result.block_public_access)
+
+
+    @patch('oss2.Session.do_request')
+    def test_delete_public_access_block(self, do_request):
+        request_text = '''DELETE /?publicAccessBlock HTTP/1.1
+Host: oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:41 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:Pt0DtPQ/FODOGs5y0yTIVctRcok='''
+
+        response_text = '''HTTP/1.1 204 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:42 GMT
+Content-Type: application/xml
+Content-Length: 96
+Connection: keep-alive
+x-oss-request-id: 566B6BDD68248CE14F729DC0
+'''
+        req_info = mock_response(do_request, response_text)
+
+        result = service().delete_public_access_block()
+
+        self.assertRequest(req_info, request_text)
+
+
+    @patch('oss2.Session.do_request')
+    def test_put_bucket_public_access_block(self, do_request):
+        request_text = '''PUT /?publicAccessBlock HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****
+
+<PublicAccessBlockConfiguration>
+<BlockPublicAccess>True</BlockPublicAccess>
+</PublicAccessBlockConfiguration>
+'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 5C1B138A109F4E405B2D
+content-length: 0
+x-oss-console-auth: success
+server: AliyunOSS
+x-oss-server-time: 980
+connection: keep-alive
+date: Wed, 15 Sep 2021 03:33:37 GMT'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().put_bucket_public_access_block(True)
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '5C1B138A109F4E405B2D')
+        self.assertEqual(result.status, 200)
+
+
+    @patch('oss2.Session.do_request')
+    def test_get_bucket_public_access_block(self, do_request):
+        request_text = '''GET /?publicAccessBlock HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<PublicAccessBlockConfiguration>
+  <BlockPublicAccess>true</BlockPublicAccess>
+</PublicAccessBlockConfiguration>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().get_bucket_public_access_block()
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(True, result.block_public_access)
+
+
+    @patch('oss2.Session.do_request')
+    def test_get_bucket_public_access_block_invalid(self, do_request):
+        request_text = '''GET /?publicAccessBlock HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<PublicAccessBlockConfiguration>
+
+</PublicAccessBlockConfiguration>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().get_bucket_public_access_block()
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(None, result.block_public_access)
+
+
+    @patch('oss2.Session.do_request')
+    def test_delete_bucket_public_access_block(self, do_request):
+        request_text = '''DELETE /?publicAccessBlock HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:41 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:Pt0DtPQ/FODOGs5y0yTIVctRcok='''
+
+        response_text = '''HTTP/1.1 204 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:42 GMT
+Content-Type: application/xml
+Content-Length: 96
+Connection: keep-alive
+x-oss-request-id: 566B6BDD68248CE14F729DC0
+'''
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().delete_bucket_public_access_block()
+
+        self.assertRequest(req_info, request_text)
+
+
+    @patch('oss2.Session.do_request')
+    def test_put_access_point_public_access_block(self, do_request):
+        request_text = '''PUT /?publicAccessBlock&x-oss-access-point-name=ap-01 HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****
+
+<PublicAccessBlockConfiguration>
+<BlockPublicAccess>True</BlockPublicAccess>
+</PublicAccessBlockConfiguration>
+'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 5C1B138A109F4E405B2D
+content-length: 0
+x-oss-console-auth: success
+server: AliyunOSS
+x-oss-server-time: 980
+connection: keep-alive
+date: Wed, 15 Sep 2021 03:33:37 GMT'''
+
+        req_info = mock_response(do_request, response_text)
+
+        access_point_name='ap-01'
+        result = bucket().put_access_point_public_access_block(access_point_name,True)
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '5C1B138A109F4E405B2D')
+        self.assertEqual(result.status, 200)
+
+
+    @patch('oss2.Session.do_request')
+    def test_get_access_point_public_access_block(self, do_request):
+        request_text = '''GET /?publicAccessBlock&x-oss-access-point-name=ap-01 HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<PublicAccessBlockConfiguration>
+  <BlockPublicAccess>true</BlockPublicAccess>
+</PublicAccessBlockConfiguration>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        access_point_name='ap-01'
+        result = bucket().get_access_point_public_access_block(access_point_name)
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(True, result.block_public_access)
+
+
+    @patch('oss2.Session.do_request')
+    def test_get_access_point_public_access_block_invalid(self, do_request):
+        request_text = '''GET /?publicAccessBlock&x-oss-access-point-name=ap-01 HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<PublicAccessBlockConfiguration>
+
+</PublicAccessBlockConfiguration>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        access_point_name='ap-01'
+        result = bucket().get_access_point_public_access_block(access_point_name)
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(None, result.block_public_access)
+
+
+    @patch('oss2.Session.do_request')
+    def test_delete_access_point_public_access_block(self, do_request):
+        request_text = '''DELETE /?publicAccessBlock&x-oss-access-point-name=ap-01 HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:41 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:Pt0DtPQ/FODOGs5y0yTIVctRcok='''
+
+        response_text = '''HTTP/1.1 204 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:42 GMT
+Content-Type: application/xml
+Content-Length: 96
+Connection: keep-alive
+x-oss-request-id: 566B6BDD68248CE14F729DC0
+'''
+        req_info = mock_response(do_request, response_text)
+
+        access_point_name='ap-01'
+        result = bucket().delete_access_point_public_access_block(access_point_name)
+
+        self.assertRequest(req_info, request_text)
+
+
+    @patch('oss2.Session.do_request')
+    def test_get_access_point_with_block(self, do_request):
+        request_text = '''GET /?accessPoint HTTP/1.1
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+Content-Length：443
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Authorization: OSS qn6qrrqxo2oawuk53otf****:PYbzsdWAIWAlMW8luk****'''
+
+        response_text = '''HTTP/1.1 200 OK
+x-oss-request-id: 566B6BD927A4046E9C725578
+Date: Fri , 30 Apr 2021 13:08:38 GMT
+
+<?xml version="1.0" encoding="UTF-8"?>
+<GetAccessPointResult>
+  <AccessPointName>test-ap-jt-3</AccessPointName>
+  <Bucket>test-jt-ap-3</Bucket>
+  <AccountId>aaabbb</AccountId>
+  <NetworkOrigin>Internet</NetworkOrigin>
+  <VpcConfiguration>
+     <VpcId>vpc-id</VpcId>
+  </VpcConfiguration>
+  <AccessPointArn>arn:aws:s3:us-east-1:920305101104:accesspoint/test-ap-jt-3</AccessPointArn>
+  <CreationDate>2022-01-05T05:39:53+00:00</CreationDate>
+  <Alias>test-ap-jt-3-pi1kg766wz34gwij4oan1tkep38gwuse1a-s3alias</Alias>
+  <Status>enable</Status>
+  <Endpoints>
+    <PublicEndpoint>s3-accesspoint-fips.dualstack.us-east-1.amazonaws.com</PublicEndpoint>
+    <InternalEndpoint>s3-accesspoint.dualstack.us-east-1.amazonaws.com</InternalEndpoint>
+  </Endpoints>
+  <PublicAccessBlockConfiguration>
+    <BlockPublicAccess>true</BlockPublicAccess>
+  </PublicAccessBlockConfiguration>
+</GetAccessPointResult>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        accessPointName = 'test-ap-jt-3'
+        result = bucket().get_access_point(accessPointName)
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.request_id, '566B6BD927A4046E9C725578')
+        self.assertEqual(result.status, 200)
+        self.assertEqual(result.access_point_name, "test-ap-jt-3")
+        self.assertEqual(result.bucket, "test-jt-ap-3")
+        self.assertEqual(result.account_id, "aaabbb")
+        self.assertEqual(result.network_origin, "Internet")
+        self.assertEqual(result.vpc.vpc_id, "vpc-id")
+        self.assertEqual(result.access_point_arn, "arn:aws:s3:us-east-1:920305101104:accesspoint/test-ap-jt-3")
+        self.assertEqual(result.creation_date, "2022-01-05T05:39:53+00:00")
+        self.assertEqual(result.alias, "test-ap-jt-3-pi1kg766wz34gwij4oan1tkep38gwuse1a-s3alias")
+        self.assertEqual(result.access_point_status, "enable")
+        self.assertEqual(result.endpoints.public_endpoint, "s3-accesspoint-fips.dualstack.us-east-1.amazonaws.com")
+        self.assertEqual(result.endpoints.internal_endpoint, "s3-accesspoint.dualstack.us-east-1.amazonaws.com")
+        self.assertEqual(result.endpoints.public_endpoint, "s3-accesspoint-fips.dualstack.us-east-1.amazonaws.com")
+        self.assertEqual(result.public_access_block_configuration.block_public_access, True)
+
 if __name__ == '__main__':
     unittest.main()
