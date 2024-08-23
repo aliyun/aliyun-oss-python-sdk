@@ -94,7 +94,8 @@ class ProviderAuth(AuthBase):
          'x-oss-ac-source-ip', 'x-oss-ac-subnet-mask', 'x-oss-ac-vpc-id', 'x-oss-ac-forward-allow',
          'resourceGroup', 'style', 'styleName', 'x-oss-async-process', 'regionList', 'x-oss-write-get-object-response',
          'bucketArchiveDirectRead', 'httpsConfig', 'redundancyTransition', 'x-oss-target-redundancy-type', 'x-oss-redundancy-transition-taskid',
-         'accessPoint', 'accessPointPolicy', 'publicAccessBlock', 'x-oss-access-point-name']
+         'accessPoint', 'accessPointPolicy', 'publicAccessBlock', 'x-oss-access-point-name',
+         'requesterQosInfo', 'qosRequester', 'resourcePoolInfo', 'resourcePool', 'resourcePoolBuckets']
     )
         
     def _sign_request(self, req, bucket_name, key):
