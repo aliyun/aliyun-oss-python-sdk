@@ -3115,7 +3115,7 @@ class RequesterQoSInfo(object):
     """流控配置信息。
 
     :param str requester: 请求者UID
-    :param list qos_configuration: 流控配置信息。元素类型为:class:`BucketQosInfo <oss2.models.QoSConfiguration>`。
+    :param list qos_configuration: 流控配置信息。元素类型为:class:`QoSConfiguration <oss2.models.QoSConfiguration>`。
     """
 
     def __init__(self, requester=None, qos_configuration=None):
@@ -3128,7 +3128,7 @@ class RequesterQoSInfoResult(RequestResult):
     """流控配置。
 
     :param str requester: 请求者UID
-    :param list qos_configuration: 流控配置信息。元素类型为:class:`BucketQosInfo <oss2.models.QoSConfiguration>`。
+    :param list qos_configuration: 流控配置信息。元素类型为:class:`QoSConfiguration <oss2.models.QoSConfiguration>`。
     """
 
     def __init__(self, resp):
@@ -3144,7 +3144,7 @@ class ResourcePoolInfoResult(RequestResult):
     :param str name: 资源池的名称
     :param str owner: 资源池所属的用户
     :param str create_time: 资源池创建的时间
-    :param list qos_configuration: 流控配置信息。元素类型为:class:`BucketQosInfo <oss2.models.QoSConfiguration>`。
+    :param list qos_configuration: 流控配置信息。元素类型为:class:`QoSConfiguration <oss2.models.QoSConfiguration>`。
     """
 
     def __init__(self, resp):

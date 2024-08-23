@@ -509,17 +509,17 @@ class Service(_Base):
         return self._parse_result(resp, xml_utils.parse_list_resource_pool_buckets, ListResourcePoolBucketsResult)
 
 
-    def put_resource_pool_requester_qos_info(self, uid, resource_pool_name, bucket_qos_info):
+    def put_resource_pool_requester_qos_info(self, uid, resource_pool_name, qos_configuration):
         """修改子账号在资源池的请求者流控配置。
 
         :param str uid: 请求者UID
         :param str resource_pool_name: 请求的资源池的名称
-        :param bucket_qos_info :class:`BucketQosInfo <oss2.models.BucketQosInfo>`
+        :param qos_configuration :class:`QoSConfiguration <oss2.models.QoSConfiguration>`
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
-        logger.debug("Start to put resource pool requester qos info, uid: {0}, resource_pool_name: {1}, bucket_qos_info: {2}".format(uid, resource_pool_name, bucket_qos_info))
+        logger.debug("Start to put resource pool requester qos info, uid: {0}, resource_pool_name: {1}, qos_configuration: {2}".format(uid, resource_pool_name, qos_configuration))
 
-        data = xml_utils.to_put_qos_info(bucket_qos_info)
+        data = xml_utils.to_put_qos_info(qos_configuration)
         resp = self._do('PUT', '', '', data=data, params={Service.REQUESTER_QOS_INFO: '', Service.QOS_REQUESTER: uid, Service.RESOURCE_POOL: resource_pool_name})
         logger.debug("Put resource pool requester qos info done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
@@ -3303,17 +3303,17 @@ class Bucket(_Base):
         return RequestResult(resp)
 
 
-    def put_bucket_requester_qos_info(self, uid, bucket_qos_info):
+    def put_bucket_requester_qos_info(self, uid, qos_configuration):
         """修改请求者在Bucket上的流控配置。
 
         :param str uid: 请求者UID
-        :param bucket_qos_info :class:`BucketQosInfo <oss2.models.BucketQosInfo>`
+        :param qos_configuration :class:`QoSConfiguration <oss2.models.QoSConfiguration>`
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
-        logger.debug("Start to put bucket requester qos info, bucket: {0}, uid: {1}, bucket_qos_info: {2}."
-                     .format(self.bucket_name, uid, bucket_qos_info))
+        logger.debug("Start to put bucket requester qos info, bucket: {0}, uid: {1}, qos_configuration: {2}."
+                     .format(self.bucket_name, uid, qos_configuration))
 
-        data = xml_utils.to_put_qos_info(bucket_qos_info)
+        data = xml_utils.to_put_qos_info(qos_configuration)
 
         resp = self.__do_bucket('PUT', data=data, params={Bucket.REQUESTER_QOS_INFO: '', Bucket.QOS_REQUESTER: uid})
         logger.debug("put bucket requester qos info done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
