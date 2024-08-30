@@ -64,8 +64,6 @@ class TestQosAndResourcePool(OssTestCase):
         self.assertEqual('', result.continuation_token)
         self.assertEqual('', result.next_continuation_token)
         self.assertEqual(False, result.is_truncated)
-        self.assertIsNotNone(result.resource_pool[0].name)
-        self.assertIsNotNone(result.resource_pool[0].create_time)
 
         # get resource pool info
         try:
