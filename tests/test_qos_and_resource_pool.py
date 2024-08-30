@@ -4,7 +4,7 @@ from .common import *
 class TestQosAndResourcePool(OssTestCase):
     def test_qos_and_resource_pool(self):
         uid = OSS_TEST_UID
-        resource_pool_name = ''
+        resource_pool_name = 'test'
 
         service = oss2.Service(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT)
 
@@ -64,23 +64,21 @@ class TestQosAndResourcePool(OssTestCase):
         self.assertEqual('', result.continuation_token)
         self.assertEqual('', result.next_continuation_token)
         self.assertEqual(False, result.is_truncated)
-        self.assertIsNotNone(result.resource_pool[0].name)
-        self.assertIsNotNone(result.resource_pool[0].create_time)
 
         # get resource pool info
         try:
             service.get_resource_pool_info(resource_pool_name)
         except oss2.exceptions.ServerError as e:
-            self.assertEqual(e.status, 400)
-            self.assertEqual(e.message, 'Resource pool name is empty')
+            self.assertEqual(e.status, 404)
+            self.assertEqual(e.message, 'The specified resource pool does not exist.')
 
 
         # list resource pool buckets
         try:
             service.list_resource_pool_buckets(resource_pool_name)
         except oss2.exceptions.ServerError as e:
-            self.assertEqual(e.status, 400)
-            self.assertEqual(e.message, 'Resource pool name is empty')
+            self.assertEqual(e.status, 404)
+            self.assertEqual(e.message, 'The specified resource pool does not exist.')
 
 
         # put resource pool requester qos info
@@ -97,32 +95,128 @@ class TestQosAndResourcePool(OssTestCase):
         try:
             service.put_resource_pool_requester_qos_info(uid, resource_pool_name, qos_info)
         except oss2.exceptions.ServerError as e:
-            self.assertEqual(e.status, 400)
-            self.assertEqual(e.message, 'Resource pool name is empty')
+            self.assertEqual(e.status, 404)
+            self.assertEqual(e.message, 'The specified resource pool does not exist.')
 
 
         # get resource pool requester qos info
         try:
             service.get_resource_pool_requester_qos_info(uid, resource_pool_name)
         except oss2.exceptions.ServerError as e:
-            self.assertEqual(e.status, 400)
-            self.assertEqual(e.message, 'Resource pool name is empty')
+            self.assertEqual(e.status, 404)
+            self.assertEqual(e.message, 'The specified resource pool does not exist.')
 
 
         # list resource pool requester qos infos
         try:
             service.list_resource_pool_requester_qos_infos(resource_pool_name)
         except oss2.exceptions.ServerError as e:
-            self.assertEqual(e.status, 400)
-            self.assertEqual(e.message, 'Resource pool name is empty')
+            self.assertEqual(e.status, 404)
+            self.assertEqual(e.message, 'The specified resource pool does not exist.')
 
 
         # delete resource pool requester qos infos
         try:
             service.delete_resource_pool_requester_qos_info(uid, resource_pool_name)
         except oss2.exceptions.ServerError as e:
-            self.assertEqual(e.status, 400)
-            self.assertEqual(e.message, 'Resource pool name is empty')
+            self.assertEqual(e.status, 404)
+            self.assertEqual(e.message, 'The specified resource pool does not exist.')
+
+
+    def test_qos_and_resource_pool_exception(self):
+        uid = None
+        resource_pool_name = ''
+
+        service = oss2.Service(oss2.Auth(OSS_ID, OSS_SECRET), OSS_ENDPOINT)
+
+        # put bucket requester qos info
+        qos_info = None
+
+        try:
+            self.bucket.put_bucket_requester_qos_info(uid, qos_info)
+        except oss2.exceptions.ClientError as e:
+            self.assertEqual(e.body, 'ClientError: uid should not be empty')
+
+
+        # get bucket requester qos info
+        try:
+            self.bucket.get_bucket_requester_qos_info(uid)
+        except oss2.exceptions.ClientError as e:
+            self.assertEqual(e.body, 'ClientError: uid should not be empty')
+
+
+        # delete bucket requester qos info
+        try:
+            result = self.bucket.delete_bucket_requester_qos_info(uid)
+            self.assertEqual(204, result.status)
+
+        except oss2.exceptions.ClientError as e:
+            self.assertEqual(e.body, 'ClientError: uid should not be empty')
+
+
+        # get resource pool info
+        try:
+            service.get_resource_pool_info(resource_pool_name)
+        except oss2.exceptions.ClientError as e:
+            self.assertEqual(e.body, 'ClientError: resource_pool_name should not be empty')
+
+        # list resource pool buckets
+        try:
+            service.list_resource_pool_buckets(resource_pool_name)
+        except oss2.exceptions.ClientError as e:
+            self.assertEqual(e.body, 'ClientError: resource_pool_name should not be empty')
+
+        # put resource pool requester qos info
+        qos_info = QoSConfiguration(
+            total_upload_bw = 200,
+            intranet_upload_bw = 16,
+            extranet_upload_bw = 112,
+            total_download_bw = 210,
+            intranet_download_bw = 120,
+            extranet_download_bw = 150,
+            total_qps = 400,
+            intranet_qps = 260,
+            extranet_qps = 270)
+        try:
+            service.put_resource_pool_requester_qos_info(uid, resource_pool_name, qos_info)
+        except oss2.exceptions.ClientError as e:
+            self.assertEqual(e.body, 'ClientError: uid should not be empty')
+
+        qos_info = None
+        try:
+            service.put_resource_pool_requester_qos_info('uid-test', resource_pool_name, qos_info)
+        except oss2.exceptions.ClientError as e:
+            self.assertEqual(e.body, 'ClientError: resource_pool_name should not be empty')
+
+        # get resource pool requester qos info
+        try:
+            service.get_resource_pool_requester_qos_info(uid, resource_pool_name)
+        except oss2.exceptions.ClientError as e:
+            self.assertEqual(e.body, 'ClientError: uid should not be empty')
+
+        try:
+            service.get_resource_pool_requester_qos_info('uid-test', resource_pool_name)
+        except oss2.exceptions.ClientError as e:
+            self.assertEqual(e.body, 'ClientError: resource_pool_name should not be empty')
+
+
+        # list resource pool requester qos infos
+        try:
+            service.list_resource_pool_requester_qos_infos(resource_pool_name)
+        except oss2.exceptions.ClientError as e:
+            self.assertEqual(e.body, 'ClientError: resource_pool_name should not be empty')
+
+
+        # delete resource pool requester qos infos
+        try:
+            service.delete_resource_pool_requester_qos_info(uid, resource_pool_name)
+        except oss2.exceptions.ClientError as e:
+            self.assertEqual(e.body, 'ClientError: uid should not be empty')
+
+        try:
+            service.delete_resource_pool_requester_qos_info('uid-test', resource_pool_name)
+        except oss2.exceptions.ClientError as e:
+            self.assertEqual(e.body, 'ClientError: resource_pool_name should not be empty')
 
 
 if __name__ == '__main__':
