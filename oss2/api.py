@@ -487,6 +487,8 @@ class Service(_Base):
         :return: :class:`ResourcePoolInfoResult <oss2.models.ResourcePoolInfoResult>`
         """
         logger.debug("Start to get resource pool info, uid: {0}.".format(resource_pool_name))
+        if not resource_pool_name:
+            raise ClientError('resource_pool_name should not be empty')
 
         resp = self._do('GET', '', '', params={Service.RESOURCE_POOL_INFO: '', Service.RESOURCE_POOL: resource_pool_name})
         logger.debug("Get resource pool info done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
@@ -503,6 +505,8 @@ class Service(_Base):
         :return: :class:`ListResourcePoolBucketsResult <oss2.models.ListResourcePoolBucketsResult>`
         """
         logger.debug("Start to list resource pool buckets, resource_pool_name:{0} continuation_token: {1}, max_keys: {2}".format(resource_pool_name, continuation_token, max_keys))
+        if not resource_pool_name:
+            raise ClientError('resource_pool_name should not be empty')
 
         resp = self._do('GET', '', '', params={Service.RESOURCE_POOL_BUCKETS: '', Service.RESOURCE_POOL: resource_pool_name, 'continuation-token': continuation_token, 'max-keys': str(max_keys)})
         logger.debug("List resource pool buckets done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
@@ -518,6 +522,10 @@ class Service(_Base):
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
         logger.debug("Start to put resource pool requester qos info, uid: {0}, resource_pool_name: {1}, qos_configuration: {2}".format(uid, resource_pool_name, qos_configuration))
+        if not uid:
+            raise ClientError('uid should not be empty')
+        if not resource_pool_name:
+            raise ClientError('resource_pool_name should not be empty')
 
         data = xml_utils.to_put_qos_info(qos_configuration)
         resp = self._do('PUT', '', '', data=data, params={Service.REQUESTER_QOS_INFO: '', Service.QOS_REQUESTER: uid, Service.RESOURCE_POOL: resource_pool_name})
@@ -530,6 +538,10 @@ class Service(_Base):
         :return: :class:`RequesterQoSInfoResult <oss2.models.RequesterQoSInfoResult>`
         """
         logger.debug("Start to get resource pool requester qos info, uid: {0}, resource_pool_name: {1}.".format(uid, resource_pool_name))
+        if not uid:
+            raise ClientError('uid should not be empty')
+        if not resource_pool_name:
+            raise ClientError('resource_pool_name should not be empty')
 
         resp = self._do('GET', '', '', params={Service.REQUESTER_QOS_INFO: '', Service.QOS_REQUESTER: uid, Service.RESOURCE_POOL: resource_pool_name})
         logger.debug("Get resource pool requester qos info done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
@@ -546,6 +558,8 @@ class Service(_Base):
         :return: :class:`ListResourcePoolRequesterQoSInfosResult <oss2.models.ListResourcePoolRequesterQoSInfosResult>`
         """
         logger.debug("Start to list resource pool requester qos infos, resource_pool_name:{0} continuation_token: {1}, max_keys: {2}".format(resource_pool_name, continuation_token, max_keys))
+        if not resource_pool_name:
+            raise ClientError('resource_pool_name should not be empty')
 
         resp = self._do('GET', '', '', params={Service.REQUESTER_QOS_INFO: '', Service.RESOURCE_POOL: resource_pool_name, 'continuation-token': continuation_token, 'max-keys': str(max_keys)})
         logger.debug("List resource pool requester qos infos done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
@@ -557,6 +571,11 @@ class Service(_Base):
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
         logger.debug("Start to delete resource pool requester qos info, uid: {0}, resource_pool_name: {1}.".format(uid, resource_pool_name))
+        if not uid:
+            raise ClientError('uid should not be empty')
+
+        if not resource_pool_name:
+            raise ClientError('resource_pool_name should not be empty')
 
         resp = self._do('DELETE', '', '', params={Service.REQUESTER_QOS_INFO: '', Service.QOS_REQUESTER: uid, Service.RESOURCE_POOL: resource_pool_name})
         logger.debug("Delete resource pool requester qos info done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
@@ -3313,6 +3332,9 @@ class Bucket(_Base):
         logger.debug("Start to put bucket requester qos info, bucket: {0}, uid: {1}, qos_configuration: {2}."
                      .format(self.bucket_name, uid, qos_configuration))
 
+        if not uid:
+            raise ClientError('uid should not be empty')
+
         data = xml_utils.to_put_qos_info(qos_configuration)
 
         resp = self.__do_bucket('PUT', data=data, params={Bucket.REQUESTER_QOS_INFO: '', Bucket.QOS_REQUESTER: uid})
@@ -3326,6 +3348,9 @@ class Bucket(_Base):
         :return: :class:`RequesterQoSInfoResult <oss2.models.RequesterQoSInfoResult>`
         """
         logger.debug("Start to get bucket requester qos info: {0}, uid: {1}.".format(self.bucket_name, uid))
+        if not uid:
+            raise ClientError('uid should not be empty')
+
         resp = self.__do_bucket('GET', params={Bucket.REQUESTER_QOS_INFO: '', Bucket.QOS_REQUESTER: uid})
         logger.debug("Get bucket requester qos info, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
 
@@ -3351,6 +3376,9 @@ class Bucket(_Base):
         :return: :class:`RequestResult <oss2.models.RequestResult>`
         """
         logger.debug("Start to delete bucket requester qos info, bucket: {0}, uid: {1}.".format(self.bucket_name, uid))
+        if not uid:
+            raise ClientError('uid should not be empty')
+
         resp = self.__do_bucket('DELETE', params={Bucket.REQUESTER_QOS_INFO: '', Bucket.QOS_REQUESTER: uid})
         logger.debug("Delete bucket requester qos info done, req_id: {0}, status_code: {1}".format(resp.request_id, resp.status))
         return RequestResult(resp)
