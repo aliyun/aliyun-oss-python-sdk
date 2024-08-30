@@ -3,6 +3,14 @@ OSS SDK for Python 版本记录
 
 Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
+Version 2.19.0
+-------------
+- 更新： getBucketStat 支持返回更多的信息
+- 增加： access point 接口
+- 增加： block access 接口
+- 增加： resource pools and qos 接口
+- 更新： 修复告警信息
+
 Version 2.18.6
 -------------
 - 更新： sign_url 支持 additional headers 参数
