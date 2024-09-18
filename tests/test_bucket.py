@@ -597,6 +597,55 @@ class TestBucket(OssTestCase):
         wait_meta_sync()
         self.assertRaises(oss2.exceptions.NoSuchCors, self.bucket.get_bucket_cors)
 
+    def test_cors_with_response_vary(self):
+        rule = oss2.models.CorsRule(allowed_origins=['*'],
+                                    allowed_methods=['HEAD', 'GET'],
+                                    allowed_headers=['*'],
+                                    max_age_seconds=1000)
+
+        # case 1
+        cors = oss2.models.BucketCors([rule], response_vary=True)
+        self.bucket.put_bucket_cors(cors)
+        wait_meta_sync()
+
+        cors_got = self.bucket.get_bucket_cors()
+        rule_got = cors_got.rules[0]
+        self.assertEqual(rule.allowed_origins, rule_got.allowed_origins)
+        self.assertEqual(rule.allowed_methods, rule_got.allowed_methods)
+        self.assertEqual(rule.allowed_headers, rule_got.allowed_headers)
+        self.assertEqual(rule.max_age_seconds, rule_got.max_age_seconds)
+        self.assertEqual(True, cors_got.response_vary)
+
+        self.bucket.delete_bucket_cors()
+
+        wait_meta_sync()
+
+        # case 2
+        cors = oss2.models.BucketCors([rule], response_vary=False)
+        self.bucket.put_bucket_cors(cors)
+        wait_meta_sync()
+
+        cors_got = self.bucket.get_bucket_cors()
+        self.assertEqual(False, cors_got.response_vary)
+
+        self.bucket.delete_bucket_cors()
+
+        wait_meta_sync()
+
+        # case 3
+        cors = oss2.models.BucketCors([rule])
+        self.bucket.put_bucket_cors(cors)
+        wait_meta_sync()
+
+        cors_got = self.bucket.get_bucket_cors()
+        self.assertEqual(False, cors_got.response_vary)
+
+        self.bucket.delete_bucket_cors()
+
+        wait_meta_sync()
+
+        self.assertRaises(oss2.exceptions.NoSuchCors, self.bucket.get_bucket_cors)
+
     def test_bucket_stat(self):
         auth = oss2.Auth(OSS_ID, OSS_SECRET)
         bucket_name = self.OSS_BUCKET + "-test-stat"
