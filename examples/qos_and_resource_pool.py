@@ -53,10 +53,10 @@ print(result.qos_configuration.intranet_upload_bw)
 print(result.qos_configuration.extranet_upload_bw)
 print(result.qos_configuration.total_download_bw)
 print(result.qos_configuration.intranet_download_bw)
-print(result.result.qos_configuration.extranet_download_bw)
-print(result.result.qos_configuration.total_qps)
-print(result.result.qos_configuration.intranet_qps)
-print(result.result.qos_configuration.extranet_qps)
+print(result.qos_configuration.extranet_download_bw)
+print(result.qos_configuration.total_qps)
+print(result.qos_configuration.intranet_qps)
+print(result.qos_configuration.extranet_qps)
 
 
 # list bucket requester qos infos
@@ -65,16 +65,17 @@ print(result.bucket)
 print(result.continuation_token)
 print(result.next_continuation_token)
 print(result.is_truncated)
-print(result.requester_qos_info[0].qos_configuration.total_upload_bw)
-print(result.requester_qos_info[0].qos_configuration.intranet_upload_bw)
-print(result.requester_qos_info[0].qos_configuration.extranet_upload_bw)
-print(result.requester_qos_info[0].qos_configuration.total_download_bw)
-print(result.requester_qos_info[0].qos_configuration.intranet_download_bw)
-print(result.requester_qos_info[0].qos_configuration.extranet_download_bw)
-print(result.requester_qos_info[0].qos_configuration.total_qps)
-print(result.requester_qos_info[0].qos_configuration.intranet_qps)
-print(result.requester_qos_info[0].qos_configuration.extranet_qps)
 
+for i, element in enumerate(result.requester_qos_info):
+    print(element.qos_configuration.total_upload_bw)
+    print(element.qos_configuration.intranet_upload_bw)
+    print(element.qos_configuration.extranet_upload_bw)
+    print(element.qos_configuration.total_download_bw)
+    print(element.qos_configuration.intranet_download_bw)
+    print(element.qos_configuration.extranet_download_bw)
+    print(element.qos_configuration.total_qps)
+    print(element.qos_configuration.intranet_qps)
+    print(element.qos_configuration.extranet_qps)
 
 # delete bucket requester qos info
 result = bucket.delete_bucket_requester_qos_info(uid)
@@ -89,8 +90,10 @@ print(result.owner)
 print(result.continuation_token)
 print(result.next_continuation_token)
 print(result.is_truncated)
-print(result.resource_pool[0].name)
-print(result.resource_pool[0].create_time)
+
+for i, element in enumerate(result.resource_pool):
+    print(element.name)
+    print(element.create_time)
 
 
 # get resource pool info
@@ -117,9 +120,10 @@ print(result.resource_pool)
 print(result.continuation_token)
 print(result.next_continuation_token)
 print(result.is_truncated)
-print(result.resource_pool_buckets[0].name)
-print(result.resource_pool_buckets[0].join_time)
 
+for i, element in enumerate(result.resource_pool_buckets):
+    print(element.name)
+    print(element.join_time)
 
 # put resource pool requester qos info
 qos_info = QoSConfiguration(
@@ -158,17 +162,17 @@ print(result.resource_pool)
 print(result.continuation_token)
 print(result.next_continuation_token)
 print(result.is_truncated)
-print(result.requester_qos_info[0].requester)
-print(result.requester_qos_info[0].requester)
-print(result.requester_qos_info[0].qos_configuration.total_upload_bw)
-print(result.requester_qos_info[0].qos_configuration.intranet_upload_bw)
-print(result.requester_qos_info[0].qos_configuration.extranet_upload_bw)
-print(result.requester_qos_info[0].qos_configuration.total_download_bw)
-print(result.requester_qos_info[0].qos_configuration.intranet_download_bw)
-print(result.requester_qos_info[0].qos_configuration.extranet_download_bw)
-print(result.requester_qos_info[0].qos_configuration.total_qps)
-print(result.requester_qos_info[0].qos_configuration.intranet_qps)
-print(result.requester_qos_info[0].qos_configuration.extranet_qps)
+
+for i, element in enumerate(result.requester_qos_info):
+    print(element.qos_configuration.total_upload_bw)
+    print(element.qos_configuration.intranet_upload_bw)
+    print(element.qos_configuration.extranet_upload_bw)
+    print(element.qos_configuration.total_download_bw)
+    print(element.qos_configuration.intranet_download_bw)
+    print(element.qos_configuration.extranet_download_bw)
+    print(element.qos_configuration.total_qps)
+    print(element.qos_configuration.intranet_qps)
+    print(element.qos_configuration.extranet_qps)
 
 
 # delete resource pool requester qos infos

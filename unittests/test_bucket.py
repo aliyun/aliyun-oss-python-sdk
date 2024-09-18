@@ -577,6 +577,50 @@ x-oss-request-id: 566B6BD7D9816D686F72A86A'''
 
         self.assertEqual(rule.max_age_seconds, int(rule_node.find('MaxAgeSeconds').text))
 
+
+    @patch('oss2.Session.do_request')
+    def test_put_cors_with_response_vary(self, do_request):
+        import xml.etree.ElementTree as ElementTree
+
+        request_text = '''PUT /?cors= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Content-Length: 228
+date: Sat, 12 Dec 2015 00:35:35 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:cmWZPrAca3p4IZaAc3iqJoQEzNw=
+
+<CORSConfiguration><CORSRule><AllowedOrigin>*</AllowedOrigin><AllowedMethod>HEAD</AllowedMethod><AllowedMethod>GET</AllowedMethod><AllowedHeader>*</AllowedHeader><MaxAgeSeconds>1000</MaxAgeSeconds></CORSRule><ResponseVary>true</ResponseVary></CORSConfiguration>'''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:35 GMT
+Content-Length: 0
+Connection: keep-alive
+x-oss-request-id: 566B6BD7D9816D686F72A86A'''
+
+        req_info = mock_response(do_request, response_text)
+
+        rule = oss2.models.CorsRule(allowed_origins=['*'],
+                                    allowed_methods=['HEAD', 'GET'],
+                                    allowed_headers=['*'],
+                                    max_age_seconds=1000)
+
+        bucket().put_bucket_cors(oss2.models.BucketCors([rule], response_vary=True))
+
+        self.assertRequest(req_info ,request_text)
+
+        root = ElementTree.fromstring(req_info.data)
+        rule_node = root.find('CORSRule')
+
+        self.assertSortedListEqual(rule.allowed_origins, all_tags(rule_node, 'AllowedOrigin'))
+        self.assertSortedListEqual(rule.allowed_methods, all_tags(rule_node, 'AllowedMethod'))
+        self.assertSortedListEqual(rule.allowed_headers, all_tags(rule_node, 'AllowedHeader'))
+
+        self.assertEqual(rule.max_age_seconds, int(rule_node.find('MaxAgeSeconds').text))
+
     @patch('oss2.Session.do_request')
     def test_get_cors(self, do_request):
         request_text = '''GET /?cors= HTTP/1.1
@@ -629,6 +673,95 @@ x-oss-request-id: 566B6BD927A4046E9C725566
         self.assertEqual(rules[1].allowed_methods, ['GET'])
         self.assertEqual(rules[1].expose_headers, ['x-oss-test', 'x-oss-test1'])
         self.assertEqual(rules[1].max_age_seconds, 100)
+
+    @patch('oss2.Session.do_request')
+    def test_get_cors_with_response_vary(self, do_request):
+        request_text = '''GET /?cors= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:37 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:wfV1/6+sVdNzsXbHEXZQeQRC7xk='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:37 GMT
+Content-Type: application/xml
+Content-Length: 300
+Connection: keep-alive
+x-oss-request-id: 566B6BD927A4046E9C725566
+
+<?xml version="1.0" encoding="UTF-8"?>
+<CORSConfiguration>
+    <CORSRule>
+        <AllowedOrigin>*</AllowedOrigin>
+        <AllowedMethod>PUT</AllowedMethod>
+        <AllowedMethod>GET</AllowedMethod>
+        <AllowedHeader>Authorization</AllowedHeader>
+    </CORSRule>
+    <CORSRule>
+        <AllowedOrigin>http://www.a.com</AllowedOrigin>
+        <AllowedOrigin>www.b.com</AllowedOrigin>
+        <AllowedMethod>GET</AllowedMethod>
+        <AllowedHeader>Authorization</AllowedHeader>
+        <ExposeHeader>x-oss-test</ExposeHeader>
+        <ExposeHeader>x-oss-test1</ExposeHeader>
+        <MaxAgeSeconds>100</MaxAgeSeconds>
+    </CORSRule>
+<ResponseVary>true</ResponseVary>
+</CORSConfiguration>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().get_bucket_cors()
+
+        self.assertRequest(req_info, request_text)
+
+        self.assertEqual(result.rules[0].allowed_origins, ['*'])
+        self.assertEqual(result.rules[0].allowed_methods, ['PUT', 'GET'])
+        self.assertEqual(result.rules[0].allowed_headers, ['Authorization'])
+
+        self.assertEqual(result.rules[1].allowed_origins, ['http://www.a.com', 'www.b.com'])
+        self.assertEqual(result.rules[1].allowed_methods, ['GET'])
+        self.assertEqual(result.rules[1].expose_headers, ['x-oss-test', 'x-oss-test1'])
+        self.assertEqual(result.rules[1].max_age_seconds, 100)
+        self.assertEqual(result.response_vary, True)
+
+
+    @patch('oss2.Session.do_request')
+    def test_get_cors_with_response_vary_2(self, do_request):
+        request_text = '''GET /?cors= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+date: Sat, 12 Dec 2015 00:35:37 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:wfV1/6+sVdNzsXbHEXZQeQRC7xk='''
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:37 GMT
+Content-Type: application/xml
+Content-Length: 300
+Connection: keep-alive
+x-oss-request-id: 566B6BD927A4046E9C725566
+
+<?xml version="1.0" encoding="UTF-8"?>
+<CORSConfiguration>
+    <CORSRule>
+    </CORSRule>
+</CORSConfiguration>'''
+
+        req_info = mock_response(do_request, response_text)
+
+        result = bucket().get_bucket_cors()
+
+        self.assertRequest(req_info, request_text)
+        self.assertEqual(result.response_vary, False)
+
 
     @patch('oss2.Session.do_request')
     def test_delete_cors(self, do_request):

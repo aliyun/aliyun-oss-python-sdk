@@ -846,6 +846,9 @@ def parse_get_bucket_cors(result, body):
 
         result.rules.append(rule)
 
+    if root.find('ResponseVary') is not None:
+        result.response_vary = _find_bool(root, 'ResponseVary')
+
     return result
 
 
@@ -1124,6 +1127,9 @@ def to_put_bucket_cors(bucket_cors):
 
         if rule.max_age_seconds is not None:
             _add_text_child(rule_node, 'MaxAgeSeconds', str(rule.max_age_seconds))
+
+        if bucket_cors.response_vary:
+            _add_text_child(root, 'ResponseVary', str(bucket_cors.response_vary).lower())
 
     return _node_to_string(root)
 
