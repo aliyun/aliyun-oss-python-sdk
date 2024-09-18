@@ -801,6 +801,133 @@ x-oss-request-id: 566B6BD7D9816D686F72A86A'''
         self.assertEqual(rule.max_age_seconds, int(rule_node.find('MaxAgeSeconds').text))
 
     @patch('oss2.Session.do_request')
+    def test_put_cors_with_response_vary(self, do_request):
+        import xml.etree.ElementTree as ElementTree
+
+        request_text_none = '''PUT /?cors= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Content-Length: 228
+date: Sat, 12 Dec 2015 00:35:35 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:cmWZPrAca3p4IZaAc3iqJoQEzNw=
+
+<CORSConfiguration><CORSRule><AllowedOrigin>*</AllowedOrigin><AllowedMethod>HEAD</AllowedMethod><AllowedMethod>GET</AllowedMethod><AllowedHeader>*</AllowedHeader><MaxAgeSeconds>1000</MaxAgeSeconds></CORSRule></CORSConfiguration>'''
+
+
+        request_text_false = '''PUT /?cors= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Content-Length: 228
+date: Sat, 12 Dec 2015 00:35:35 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:cmWZPrAca3p4IZaAc3iqJoQEzNw=
+
+<CORSConfiguration><CORSRule><AllowedOrigin>*</AllowedOrigin><AllowedMethod>HEAD</AllowedMethod><AllowedMethod>GET</AllowedMethod><AllowedHeader>*</AllowedHeader><MaxAgeSeconds>1000</MaxAgeSeconds></CORSRule><ResponseVary>false</ResponseVary></CORSConfiguration>'''
+
+        request_text_true = '''PUT /?cors= HTTP/1.1
+Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
+Accept-Encoding: identity
+Connection: keep-alive
+Content-Length: 228
+date: Sat, 12 Dec 2015 00:35:35 GMT
+User-Agent: aliyun-sdk-python/2.0.2(Windows/7/;3.3.3)
+Accept: */*
+authorization: OSS ZCDmm7TPZKHtx77j:cmWZPrAca3p4IZaAc3iqJoQEzNw=
+
+<CORSConfiguration><CORSRule><AllowedOrigin>*</AllowedOrigin><AllowedMethod>HEAD</AllowedMethod><AllowedMethod>GET</AllowedMethod><AllowedHeader>*</AllowedHeader><MaxAgeSeconds>1000</MaxAgeSeconds></CORSRule><ResponseVary>true</ResponseVary></CORSConfiguration>'''
+
+
+        response_text = '''HTTP/1.1 200 OK
+Server: AliyunOSS
+Date: Sat, 12 Dec 2015 00:35:35 GMT
+Content-Length: 0
+Connection: keep-alive
+x-oss-request-id: 566B6BD7D9816D686F72A86A'''
+
+        # response_vary is None
+        req_info = unittests.common.mock_response(do_request, response_text)
+
+        rule = oss2.models.CorsRule(allowed_origins=['*'],
+                                    allowed_methods=['HEAD', 'GET'],
+                                    allowed_headers=['*'],
+                                    max_age_seconds=1000)
+
+        unittests.common.bucket().put_bucket_cors(oss2.models.BucketCors([rule]))
+
+        self.assertRequest(req_info ,request_text_none)
+
+        root = ElementTree.fromstring(req_info.data)
+        rule_node = root.find('CORSRule')
+
+        self.assertSortedListEqual(rule.allowed_origins, all_tags(rule_node, 'AllowedOrigin'))
+        self.assertSortedListEqual(rule.allowed_methods, all_tags(rule_node, 'AllowedMethod'))
+        self.assertSortedListEqual(rule.allowed_headers, all_tags(rule_node, 'AllowedHeader'))
+
+        self.assertEqual(rule.max_age_seconds, int(rule_node.find('MaxAgeSeconds').text))
+
+        #CORSConfiguration.ResponseVary
+        response_vary_node = root.find('ResponseVary')
+        self.assertIsNone(response_vary_node)
+
+        # response_vary is False
+        req_info = unittests.common.mock_response(do_request, response_text)
+
+        rule = oss2.models.CorsRule(allowed_origins=['*'],
+                                    allowed_methods=['HEAD', 'GET'],
+                                    allowed_headers=['*'],
+                                    max_age_seconds=1000)
+
+        unittests.common.bucket().put_bucket_cors(oss2.models.BucketCors([rule], response_vary=False))
+
+        self.assertRequest(req_info ,request_text_false)
+
+        root = ElementTree.fromstring(req_info.data)
+        rule_node = root.find('CORSRule')
+
+        self.assertSortedListEqual(rule.allowed_origins, all_tags(rule_node, 'AllowedOrigin'))
+        self.assertSortedListEqual(rule.allowed_methods, all_tags(rule_node, 'AllowedMethod'))
+        self.assertSortedListEqual(rule.allowed_headers, all_tags(rule_node, 'AllowedHeader'))
+
+        self.assertEqual(rule.max_age_seconds, int(rule_node.find('MaxAgeSeconds').text))
+
+        #CORSConfiguration.ResponseVary
+        response_vary_node = root.find('ResponseVary')
+        self.assertIsNotNone(response_vary_node)
+        self.assertEqual('false', root.find('ResponseVary').text)
+
+        # response_vary is True
+        req_info = unittests.common.mock_response(do_request, response_text)
+
+        rule = oss2.models.CorsRule(allowed_origins=['*'],
+                                    allowed_methods=['HEAD', 'GET'],
+                                    allowed_headers=['*'],
+                                    max_age_seconds=1000)
+
+        unittests.common.bucket().put_bucket_cors(oss2.models.BucketCors([rule], response_vary=True))
+
+        self.assertRequest(req_info ,request_text_true)
+
+        root = ElementTree.fromstring(req_info.data)
+        rule_node = root.find('CORSRule')
+
+        self.assertSortedListEqual(rule.allowed_origins, all_tags(rule_node, 'AllowedOrigin'))
+        self.assertSortedListEqual(rule.allowed_methods, all_tags(rule_node, 'AllowedMethod'))
+        self.assertSortedListEqual(rule.allowed_headers, all_tags(rule_node, 'AllowedHeader'))
+
+        self.assertEqual(rule.max_age_seconds, int(rule_node.find('MaxAgeSeconds').text))
+
+        #CORSConfiguration.ResponseVary
+        response_vary_node = root.find('ResponseVary')
+        self.assertIsNotNone(response_vary_node)
+        self.assertEqual('true', root.find('ResponseVary').text)
+
+
+    @patch('oss2.Session.do_request')
     def test_get_cors(self, do_request):
         request_text = '''GET /?cors= HTTP/1.1
 Host: ming-oss-share.oss-cn-hangzhou.aliyuncs.com
