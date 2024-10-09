@@ -594,7 +594,7 @@ class Bucket(_Base):
         <oss2.models.PutObjectResult object at 0x029B9930>
 
     :param auth: 包含了用户认证信息的Auth对象
-    :type auth: oss2.Auth
+    :type auth: oss2.ProviderAuth or oss2.ProviderAuthV4
 
     :param str endpoint: 访问域名或者CNAME
     :param str bucket_name: Bucket名
