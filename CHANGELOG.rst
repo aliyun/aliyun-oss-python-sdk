@@ -3,6 +3,10 @@ OSS SDK for Python 版本记录
 
 Python SDK的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
+Version 2.19.1
+-------------
+- 更新： bucket cors 接口支持设置response vary参数
+
 Version 2.19.0
 -------------
 - 更新： getBucketStat 支持返回更多的信息
