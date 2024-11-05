@@ -422,6 +422,7 @@ class _ResumableDownloader(_ResumableOperation):
             headers[IF_UNMODIFIED_SINCE] = utils.http_date(self.objectInfo.mtime)
 
             result = self.bucket.get_object(self.key, byte_range=(part.start, part.end - 1), headers=headers, params=self.__params)
+            utils.verify_object_meta(self, part.start, result)
             utils.copyfileobj_and_verify(result, f, part.end - part.start, request_id=result.request_id)
 
         part.part_crc = result.client_crc
@@ -610,6 +611,7 @@ class _ResumableUploader(_ResumableOperation):
             self._report_progress(self.__finished_size)
 
             f.seek(part.start, os.SEEK_SET)
+            utils.assert_file_not_change(self)
             headers = _populate_valid_headers(self.__headers, [OSS_REQUEST_PAYER, OSS_TRAFFIC_LIMIT])
             if self.__encryption:
                 result = self.bucket.upload_part(self.key, self.__upload_id, part.part_number,
