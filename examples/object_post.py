@@ -78,7 +78,7 @@ def build_signature(access_key_secret, encode_policy):
     signature = base64.encodestring(h.digest()).strip()
     return signature
 
-def bulid_callback(cb_url, cb_body, cb_body_type=None, cb_host=None):
+def build_callback(cb_url, cb_body, cb_body_type=None, cb_host=None):
     """生成callback字符串
     :param str cb_url: 回调服务器地址，文件上传成功后OSS向此url发送回调请求
     :param str cb_body: 发起回调请求的Content-Type，默认application/x-www-form-urlencoded
@@ -170,7 +170,7 @@ field_dict['Content-Disposition'] = 'attachment;filename=download.txt'
 # 用户自定义meta
 field_dict['x-oss-meta-uuid'] = 'uuid-xxx'
 # callback，没有回调需求不填该域
-field_dict['callback'] = bulid_callback('http://oss-demo.aliyuncs.com:23450',
+field_dict['callback'] = build_callback('http://oss-demo.aliyuncs.com:23450',
                                         'filename=${object}&size=${size}&mimeType=${mimeType}',
                                         'application/x-www-form-urlencoded')
 # callback中的自定义变量，没有回调不填该域
