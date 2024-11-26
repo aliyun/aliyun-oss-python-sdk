@@ -5,6 +5,8 @@ import shutil
 
 import oss2
 
+import datetime
+
 
 # 以下代码展示了基本的文件上传、下载、罗列、删除用法。
 
@@ -35,10 +37,10 @@ bucket = oss2.Bucket(oss2.Auth(access_key_id, access_key_secret), endpoint, buck
 bucket.put_object('motto.txt', 'Never give up. - Jack Ma')
 
 # 获取Object的metadata
-object_meta = bucket.get_object_meta('你的对象名')
-print('last modified: ' + object_meta.last_modified)
+object_meta = bucket.get_object_meta('motto.txt')
+print('last modified: ' +datetime.datetime.fromtimestamp(object_meta.last_modified).strftime('%Y-%m-%d %H:%M:%S'))
 print('etag: ' + object_meta.etag)
-print('size: ' + object_meta.content_length)
+print('size: ' + str(object_meta.content_length))
 
 # 下载到本地文件
 bucket.get_object_to_file('motto.txt', '本地文件名.txt')
