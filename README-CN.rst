@@ -3,12 +3,15 @@ Aliyun OSS SDK for Python
 
 .. image:: https://badge.fury.io/py/oss2.svg
     :target: https://badge.fury.io/py/oss2
-.. image:: https://travis-ci.org/aliyun/aliyun-oss-python-sdk.svg?branch=master
-    :target: https://travis-ci.org/aliyun/aliyun-oss-python-sdk
-.. image:: https://coveralls.io/repos/github/aliyun/aliyun-oss-python-sdk/badge.svg?branch=master
-    :target: https://coveralls.io/github/aliyun/aliyun-oss-python-sdk?branch=master
 
-`README of English <https://github.com/aliyun/aliyun-oss-python-sdk/blob/master/README.rst>`
+`README of English <https://github.com/aliyun/aliyun-oss-python-sdk/blob/master/README.rst>`_
+
+关于 OSS SDK for Python V2
+----
+OSS SDK for Python V2 `alibabacloud-oss-python-sdk-v2 <https://github.com/aliyun/alibabacloud-oss-python-sdk-v2>`_ 测试版本已发布, 是对V1（aliyun-oss-python-sdk）代码库的重大改写。
+
+V2是一个全新的版本，简化了底层操作例如身份验证、自动请求重试及错误处理等；提供了灵活友好的参数配置以及丰富的高级接口，例如分页器、传输管理器 、File-like接口等，全面提升了开发效率和体验。
+
 
 概述
 ----

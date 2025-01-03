@@ -3,12 +3,15 @@ Alibaba Cloud OSS SDK for Python
 
 .. image:: https://badge.fury.io/py/oss2.svg
     :target: https://badge.fury.io/py/oss2
-.. image:: https://travis-ci.org/aliyun/aliyun-oss-python-sdk.svg?branch=master
-    :target: https://travis-ci.org/aliyun/aliyun-oss-python-sdk
-.. image:: https://coveralls.io/repos/github/aliyun/aliyun-oss-python-sdk/badge.svg?branch=master
-    :target: https://coveralls.io/github/aliyun/aliyun-oss-python-sdk?branch=master
 
-`README of Chinese <https://github.com/aliyun/aliyun-oss-python-sdk/blob/master/README-CN.rst>`
+`README of Chinese <https://github.com/aliyun/aliyun-oss-python-sdk/blob/master/README-CN.rst>`_
+
+About OSS SDK for Python V2
+--------
+OSS SDK for Python V2 `alibabacloud-oss-python-sdk-v2 <https://github.com/aliyun/alibabacloud-oss-python-sdk-v2>`_ beta version has been released, it is a major rewrite of OSS SDK for Python V1 (aliyun-oss-python-sdk).
+
+V2 simplifies underlying operations such as identification authentication, automatic retry of failed requests, and error handling. It provides flexible parameter configuration methods and rich advanced operations, such as paginator, transmission managers, and File-like operations. This comprehensively improves development efficiency and experience.
+
 
 Overview
 --------
