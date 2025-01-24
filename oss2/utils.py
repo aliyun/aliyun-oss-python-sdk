@@ -894,3 +894,19 @@ def _range_internal(start, last):
             return str(pos)
 
     return to_str(start) + '-' + to_str(last)
+
+def verify_object_meta(self, start, result):
+    if hasattr(result, 'status') and not hasattr(self.bucket, 'crypto_provider') and result.status == 206:
+        range_start = result.content_range[result.content_range.find('bytes')+6:result.content_range.find('-')]
+        if range_start and str(start) != range_start:
+            raise ValueError("Range get fail, expect offset:{0}, return offset:{1}".format(start, result.content_range))
+    if hasattr(result, 'etag') and self.objectInfo.etag != result.etag:
+        raise ValueError("Range get fail, expect object etag:{0}, return etag:{1}".format(self.objectInfo.etag, result.etag))
+
+
+def assert_file_not_change(self):
+    if hasattr(self, 'mtime'):
+        if self.mtime != os.path.getmtime(self.filename):
+            raise ValueError("The last modification time of the file has changed, Last file modification time:{0}, The file modification time:{1}".format(self.__mtime, os.path.getmtime(self.filename)))
+    else:
+        self.mtime = os.path.getmtime(self.filename)
