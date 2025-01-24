@@ -48,7 +48,7 @@ Python 2.6(不推荐)，2.7，3.3（不推荐），3.4，3.5，3.6
 
 .. code-block:: bash
 
-    $ sudo python setup.py install
+    $ python setup.py install
 
 
 快速使用
