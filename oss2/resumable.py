@@ -698,12 +698,12 @@ class _ResumableUploader(_ResumableOperation):
                                                                             content_crypto_material)
 
             else:
-                err_msg = 'If record_upload_context flag is true, content_crypto_material must in the the record'
+                err_msg = 'If record_upload_context flag is true, content_crypto_material must in the record'
                 raise exceptions.InconsistentError(err_msg, self)
 
         else:
             if 'content_crypto_material' in self.__record:
-                err_msg = 'content_crypto_material must in the the record, but record_upload_context flat is false'
+                err_msg = 'content_crypto_material must in the record, but record_upload_context flat is false'
                 raise exceptions.InvalidEncryptionRequest(err_msg, self)
 
         self.__finished_parts = self.__get_finished_parts()
