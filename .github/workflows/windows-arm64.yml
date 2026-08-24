@@ -1,0 +1,56 @@
+name: Windows ARM64
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: windows-11-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: arm64
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Build wheel
+        shell: pwsh
+        run: |
+          uv venv --python $env:pythonLocation .venv
+          uv build --wheel --out-dir dist
+
+      - name: Install wheel
+        shell: pwsh
+        run: |
+          $wheel = (Get-ChildItem dist\*.whl).FullName
+          # Latest cryptography release currently providing a Windows ARM64 wheel.
+          uv pip install --python .venv\Scripts\python.exe cryptography==46.0.3 $wheel mock
+
+      - name: Stage unit tests outside the source tree
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path "${{ runner.temp }}\oss2-tests" -Force
+          Copy-Item unittests "${{ runner.temp }}\oss2-tests\unittests" -Recurse
+
+      - name: Test installed wheel
+        working-directory: ${{ runner.temp }}\oss2-tests
+        shell: pwsh
+        run: |
+          $python = "${{ github.workspace }}\.venv\Scripts\python.exe"
+          & $python -c "import oss2, platform; assert platform.machine() == 'ARM64'; assert 'site-packages' in oss2.__file__; print(oss2.__file__)"
+          & $python -m unittest discover -s unittests -t .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: oss2-wheel-py${{ matrix.python-version }}-windows-arm64
+          path: dist/*.whl
