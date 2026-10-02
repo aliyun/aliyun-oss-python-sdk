@@ -1,11 +1,40 @@
 # -*- coding: utf-8 -*-
 
 import unittest
+import io
 import oss2
 from oss2.utils import *
 
 
 class TestUtils(unittest.TestCase):
+    def test_progress_adapter_short_reads(self):
+        class ShortReader(io.BytesIO):
+            def read(self, size=-1):
+                return super(ShortReader, self).read(min(size, 3))
+
+        progress = []
+        data = b'0123456789'
+        adapter = make_progress_adapter(
+            ShortReader(data), lambda consumed, total: progress.append((consumed, total)),
+            size=len(data))
+        chunks = []
+        while True:
+            chunk = adapter.read(4)
+            if not chunk:
+                break
+            chunks.append(chunk)
+        self.assertEqual(b''.join(chunks), data)
+        self.assertEqual(progress, [(3, 10), (6, 10), (9, 10), (10, 10)])
+
+    def test_progress_adapter_premature_eof(self):
+        progress = []
+        adapter = make_progress_adapter(
+            io.BytesIO(b'abc'), lambda consumed, total: progress.append((consumed, total)),
+            size=10)
+        self.assertEqual(adapter.read(10), b'abc')
+        self.assertEqual(adapter.read(10), b'')
+        self.assertEqual(progress, [(3, 10), (3, 10)])
+
     def test_aes_ctr_is_block_aligned(self):
         cipher = AESCTRCipher()
         start = 1024

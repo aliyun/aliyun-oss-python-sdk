@@ -504,7 +504,7 @@ class _BytesAndFileAdapter(object):
         else:
             content = self.data.read(bytes_to_read)
 
-        self.offset += bytes_to_read
+        self.offset += len(content)
             
         _invoke_progress_callback(self.progress_callback, min(self.offset, self.size), self.size)
 
